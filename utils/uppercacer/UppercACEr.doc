@@ -1,0 +1,135 @@
+                   ********************      15.10.1994
+                  *     UppercACEr     *
+                   ********************
+
+What is it? ---------------------------------------------
+
+When  I  moved from AmosPro to ACE (because of the amount
+of  BUGS  in  AmosPro) I noticed how ACE listings usually
+have  the  reserved words in UPPERCASE.  While this makes
+the  sources  more  readable,  I  for one can't type like
+that.
+
+So I made this program to do it for me.
+
+There  are  editors (like "Edge") who can uppercase words
+automatically  as  you  type  them, but I found that this
+option  does  not work flawlessly.  So, IMO, It's best to
+convert(/"autocase") the source separately.
+
+UppercACEr  does  NOT  uppercase  reserved words that are
+after  a  REM,  on  a  '-comment line, inside strings, or
+inside  {block  comments}.  It also handles multiple line
+block  comments.   UppercACEr does not change the case of
+any  non-reserved  words.   You  can  have variables like
+"MaxStrLength".
+
+So:		print "print":print{print}: rem pRiNt
+becomes		PRINT "print":PRINT{print}: REM pRiNt
+
+UppercACEr  also  removes unnecessary spaces and tabs etc
+from  the  END  of  lines  - even from the end of comment
+lines.  This behaviour can NOT be turned off (yet).  And,
+if  UppercACEr  confronts  a  line  consisting  solely of
+spaces  and/or  tabs,  it  outputs just a linefeed to the
+destination file.  So don't be surprised if the converted
+source is smaller than the original.
+
+I  made  UppercACEr  work  this  way  because I sometimes
+forget unnecessary tabs in my sources.
+
+
+Installation --------------------------------------------
+
+Copy  the files "UppercACEr" and "UppercACEr.Reserved" to
+some   directory.    That's   it.   You  can  rename  the
+executable    to    whatever    u    like,    BUT:    the
+UppercACEr.Reserved-file may NOT be renamed, or shit will
+happen (the program won't work too well).
+
+
+Usage ---------------------------------------------------
+
+This  template  is printed if you run the program without
+parameters:
+
+UppercACEr <source>[.b] <destination>[.b] [QUIET]
+
+Where  source  and destination must NOT be the same file.
+If  the  .b  extension  is  omitted, ACE adds it for you.
+Note:   source  file  MUST have the extension of .b!  The
+destination  file  WILL  have  the  .b extension added no
+matter  what.   UppercACEr  is  for  use with ACE sources
+only.   Maybe  I  will  make it more flexible when I have
+time.
+
+
+UppercACEr.Reserved-file --------------------------------
+
+This  file  contains  the  reserved  words  you  wish  to
+uppercase.    The  words  can  be  in  either  upper-  or
+lowercase.  The list _MUST_ be in alphabetical order.
+
+The file can contain comment lines beginning with "'".
+
+UppercACEr expects the reserved word file to be in the s:
+directory.
+
+UppercACEr  thinks that the $-sign does not belong to any
+reserved  word.   It  is  unwise  to  have  both INPUT and
+INPUT$,  for  example, in the .Reserved-file.  It will do
+no harm, but will slow things down a bit and use memory.
+
+All  the  words in .Reserved only have ONE part.  So END,
+SUB,  END SUB, IF, END IF are all handled by END, SUB and
+IF in the .Reserved file.
+
+New  versions  of  ACE are able to output a list of their
+reserved    words    to   stdout.    Use   the   included
+MakeReserved-program  to  modify  the file and remove all
+unnecessary stuff.
+
+MakeReserved  needs  the  "sort" and "ACE"-commands to be
+somewhere   within   command   path.   MakeReserved  will
+overwrite 2 files in t:  if they already exist.
+
+Easiest  way  to  create  the  .Reserved-file:  cd to the
+directory where UppercACEr is located, and type
+
+MakeReserved UppercACEr.Reserved
+
+MakeReserved will do roughly the following:
+ACE words >t:ReservedTemp1
+sort t:ReservedTemp1 t:ReservedTemp
+delete t:ReservedTemp1
+(Convert to <outputfile>)
+delete t:ReservedTemp
+
+Check MakeReserved.b for info.
+
+
+Misc stuff ----------------------------------------------
+
+If this program seriously screws up your sources, don't
+hunt me down :-) I have tested it, and it seemed to work.
+The converted sources compiled fine and looked cleaner.
+
+It's  neat  to  add  a few lines in the beginning of your
+ACE:bin/bas  script  to  automatically  make sources more
+readable when you compile them.  Like this:
+
+	UppercACEr <arg2> t:HobbitsRule.b QUIET
+	copy t:HobbitsRule.b <arg2>.b
+	delete t:HobbitsRule.b
+
+Note that the program is slow right now.  I will speed it
+up in the (near?) future.  Typical conversion speed on my
+1+2MB  A500Plus  with  Supraturbo28  was  20-30  lines  a
+second.
+
+UppercACEr  will  warn  you  if the .Reserved-file is not
+found, if the source file is not found, or if the program
+can't reserve enough memory.
+
+                      K.Veijalainen
+                    veijalai@cc.lut.fi

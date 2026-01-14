@@ -1,0 +1,21 @@
+
+I recently received these files in the mail (snail-mail) from Petr Kucera in the 
+Czech Republic and thought others might wish to see them. The programs center
+around the use of an include file he wrote (I've renamed it from Includes.h to 
+Petr.h).
+
+Petr's code was written with ACE v1.02 (I have sent him ACE v2.3!). Even though some
+of his efforts have been superceded by more recent versions of ACE, his code is still
+of interest.
+
+In particular, some may benefit from Petr's Using$ function which approximates the
+PRINT USING statement which I have yet to implement in ACE (it's on the list!). I 
+have written a short example program (test.b) which uses this function. Petr wrote 
+a program, aptly named example.b, which demonstrates other features of Petr.h. See 
+Petr.h for details of each subprogram.
+
+Enjoy.
+
+Regards,
+
+David Benn, 31 Jan 1995

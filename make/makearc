@@ -1,0 +1,26 @@
+.key arg
+
+if <arg> EQ "ace_src"
+  ; archive the preprocessor's, compiler's and IDE's source files.
+  lha -a a <arg> ace:src/ace/c/#?
+  lha -a a <arg> ace:src/app/#?.c
+else
+ if <arg> EQ "lib_src"
+   ; archive the run-time library source files.
+   lha -a a <arg> ace:src/lib/asm/#?
+   lha -a a <arg> ace:src/lib/c/#?
+ else
+  if <arg> EQ "docs"
+   ; archive the ACE-specific docs
+   lha -a a <arg> ace:docs/history
+   lha -a a <arg> ace:docs/ref.doc
+   lha -a a <arg> ace:docs/ref.guide
+   lha -a a <arg> ace:docs/ace.fmt
+   lha -a a <arg> ace:docs/ace.guide
+   lha -a a <arg> ace:docs/example.guide	
+  else
+   ; recursively archive the current directory.
+   lha -r -a a <arg>.lha #?
+  endif
+ endif
+endif

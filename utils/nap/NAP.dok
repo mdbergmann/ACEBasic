@@ -1,0 +1,405 @@
+
+ |\   |       |¯¯¯¯|       |¯¯¯¯|                        Version 2.00
+ | \  |       |____|       |____|                         17.08.1996
+ |  \ |       |    |       |                                Beta-3
+ |   \| e w   |    | C E   |     r e p r o c e s s o r
+
+
+
+ E i n l e i t u n g
+
+ Wie der Name schon sagt, ist NAP ein neuer Präprozessor für die Pro-
+ grammiersprache ACE.
+
+ Bis jetzt wurde als  Präprozessor immer APP oder ein C-Präprozessor,
+ hauptsächlich CPP, eingesetzt. Beide Programme hatten Vor- und Nach-
+ teile.  Während APP keine Defines erkannte, dafür aber Kommentare im
+ ACE-Format entfernte, konnte CPP zwar Defines verarbeiten, aber lei-
+ der keine ACE-Kommentare entfernen, sondern nur welche im C-Format.
+
+ NAP wurde konstruiert,  um sowohl die Fähigkeiten von APP,  als auch
+ die von CPP zu vereinen.  Natürlich fehlen noch viele Eigenschaften,
+ aber mit den bereits eingebauten sollten die meisten Wünsche zufrie-
+ dengestellt sein.
+
+
+ V o r g e s c h i c h t e
+
+ Im Februar 1996 beschäftigte ich mich erstmals mit Includefiles. Ich
+ weiß nicht mehr,  was ich damals machen wollte,  jedenfalls brauchte
+ ich ein paar bestimmte Strukturen  und benutzte demzufolge eine #in-
+ clude-Anweisung, um diese Strukturen eingebunden zu bekommen.
+ Zu meiner großen Überraschung stellte ich dann aber fest,  daß  auch
+ viele  Strukturen  eingebunden worden waren,  die ich eigentlich gar
+ nicht brauchte.   Also dachte ich mir,  warum schreibe ich nicht ein
+ Programm,  was unbenutzte Strukturen und ACE-Kommentare entfernt und
+ gleichzeitig auch noch die gemeingefährlichen Kommentare,  die  ACPP
+ hinterließ. Gedacht war, daß dieses Programm,  genannt  RemoveStuff,
+ nach dem  Präprozessor  gestartet werden sollte und  dessen  Ausgabe
+ nochmals bearbeitete.  Desweiteren dachte ich mir,  daß man das Pro-
+ gramm ja später noch zu einem richtigen Präprozessor aufrüsten  kön-
+ ne.
+ Diese Idee ließ ich dann aber erstmal fallen, weil mir einige Sachen
+ nicht so ganz klar waren.  Herbert Breuer  sprach mich dann aber auf
+ RemoveStuff an und fragte,  ob man daraus nicht einen  vollständigen
+ Präprozessor machen könnte und einige Mails später fing ich dann mit
+ der Arbeit an. Die 1.x Versionen liefen dann auch einigermaßen,  wa-
+ ren aber nicht so besonders schnell.  Desweiteren wurde auch nur das
+ Präprozessorkommando #include erkannt.
+
+ Aber in der Zwischenzeit sind wir schon bei Version 2.00.  Dies hier
+ ist die dritte offizielle Betaversion.
+
+
+ G e s c h w i n d i g k e i t
+
+ Während die erste  Betaversion bei ihrer  Veröffentlichung schon  um
+ 100% schneller war als bei der  ersten funktionierenden Version  von
+ 2.0, die nicht veröffentlicht wurde, so ist 2.00b2 sogar noch einmal
+ um 200% schneller geworden.
+
+ Zu Testzwecken wird immer ein bestimmtes Programm  (NAPtest.b)  ver-
+ wendet. ACPP braucht für dieses Programm 15 Sekunden. Zum Zeitpunkt,
+ wo ich dies hier schreibe, braucht NAP dafür 26 Sekunden.
+ Im folgenden folgt eine Liste über die Geschwindigkeitssteigerungen,
+ die ich bei NAP erzielt habe.  Diese Zahlen sind mit Vorsicht zu ge-
+ nießen. Erstens können Sie um ±1 Sekunde schwanken, desweiteren sind
+ sie auf einem  Amiga 500 mit KS1.3 und 1 Megabyte RAM ermittelt wor-
+ den.  Und zweitens mußten alle  Includedateien  von Diskette geladen
+ werden, was nochmals eine Verzögerung darstellt.
+ Rein theoretisch  könnte  NAP  auf einem modernen Amiga also der Ge-
+ schwindigkeit von CPP viel näher sein,  weil sich Ladezeiten verkür-
+ zen. Schneller ist es da sowieso,  ob um soviel schneller,  daß sich
+ der Unterschied zu CPP vernachlässigen läßt, muß sich zeigen.
+
+ +---------+-----------+-------+-------------------+----------------+
+ | Version |   Datum   | Zeit  | Start ohne Option | Start mit -sqe |
+ +---------+-----------+-------+-------------------+----------------+
+ |         | 26.06.'96 | 14:20 |    194 Sekunden   |    unbekannt   |
+ |         | 27.06.'96 | 13:20 |    162 Sekunden   |    unbekannt   |
+ |         | 28.06.'96 | 14:30 |    151 Sekunden   |    unbekannt   |
+ |         | 29.06.'96 | 12:35 |    130 Sekunden   |    unbekannt   |
+ |         |           | 19:55 |    115 Sekunden   |    unbekannt   |
+ |         | 01.07.'96 | 15:30 |    100 Sekunden   |    unbekannt   |
+ |         |           | 20:40 |     87 Sekunden   |   92 Sekunden  |
+ |  2.00b  | 12.07.'96 | 12:30 |     88 Sekunden   |   88 Sekunden  |
+ +---------+-----------+-------+-------------------+----------------+
+ |         | 17.07.'96 | 23:45 |     33 Sekunden   |   31 Sekunden  |
+ |         | 19.07.'96 | 11:30 |     31 Sekunden   |   28 Sekunden  |
+ |  2.00b2 | 23.07.'96 | 20:00 |     26 Sekunden   |   22 Sekunden  |
+ +---------+-----------+-------+-------------------+----------------+
+
+ Diese  Geschwindigkeitssteigerungen  konnten zum einen erreicht wer-
+ den, indem bestimmte ACE-Befehle durch schnellere  Assemblerroutinen
+ ersetzt wurden, zum anderen,  indem der  Sourcecode  stark optimiert
+ wurde.  Mitunter wurden sogar ganze  Abschnitte  vollkommen  neu ge-
+ schrieben.
+ Das große Ziel von mir ist es, daß NAP all das kann,  was  CPP kann,
+ aber dennoch nicht drastisch langsamer ist.  Damit stellt diese Ver-
+ sion ein Zwischending dar.
+
+
+ E I N S C H R Ä N K U N G E N
+
+ Da seit  Version 1.1  drastische Änderungen in NAP eingetreten sind,
+ funktionieren natürlich auch einige Sachen noch nicht so, wie sie es
+ eigentlich sollen.  Das heißt nicht,  daß da Fehler in NAP sind,  es
+ sind nur einige unschöne  Nebeneffekte.  Wobei natürlich  Bugs  auch
+ nicht auszuschließen sind.  Aber deshalb ist  dies hier ja auch eine
+ Betaversion.
+
+ - #include
+
+   * Sobald NAP auf eine #include-Anweisung trifft, wird die spezifi-
+     zierte Datei eingebunden (vorausgesetzt, sie wurde nicht bereits
+     eingebunden). In dieser Datei kann natürlich wieder ein Include-
+     befehl auftauchen und so fort.
+     ACE stellt nun für Dateioperationen 9 Plätze zur Verfügung.  NAP
+     kann demzufolge nicht mehr als 9 Dateien gleichzeitig  offenhal-
+     ten. Eine Datei ist immer geöffnet, daß ist die Ausgabedatei.
+     Bis zum jetzigen Zeitpunkt waren bei mir nie mehr als 7  Dateien
+     gleichzeitig offen. Falls sich aber herausstellen sollte, daß es
+     Fälle gibt,  wo  mehr als 9 Dateien gleichzeitig geöffnet werden
+     müssen, dann wird sich das auch realisieren lassen.
+
+ - #define
+
+   * Defines sind grundsätzlich case-sensitiv (soll heißen, daß ein A
+     was anderes als ein a ist).  Da das aber bei  CPP  auch der Fall
+     ist, nehme ich mal an, daß das so Standard ist.
+
+ - Kommentare
+
+   * Blockkommentare dürfen nicht verschachtelt sein.  Das  wird zwar
+     sowieso keiner machen, aber es kann ja vorkommen, daß ein {} in-
+     nerhalb eines Blockkommentares benutzt wird,  um irgendetwas  zu
+     demonstrieren. (So passiert bei NAP v1.1, wo ich innerhalb eines
+     Blockkommentares sagen wollte,  daß in dem  folgenden  Unterpro-
+     gramm "alle C-Kommentare durch { } ersetzt" werden.)
+
+ - Allgemein
+
+   * Tabulatoren sind verboten!!! Sie kennzeichnen,  wie alle ASCII-
+     Zeichen, die kleiner (oder gleich) 10 sind,  daß Ende der Zeile.
+     Und ein Tab hat ASCII-Code 9.  In zukünftigen Versionen wird die
+     Beschränkung wahrscheinlich entfallen.
+
+
+ B E D I E N U N G
+
+ NAP kann nur vom CLI aufgerufen werden.  Es verlangt ein Minimum von
+ 2 Optionen : Ein- und Ausgabedatei. Optional können noch weitere Pa-
+ rameter übergeben werden, die mit einem Bindestrich eingeleitet wer-
+ den müssen und gewisse Aktionen erzwingen, bzw. unterdrücken (Optio-
+ nen).
+
+ Aufruf: NAP [-option [-option [-...]]] <Eingabedatei> <Ausgabedatei>
+
+ Optionen bestehen aus einem Buchstaben.  Falls mehrere Optionen  be-
+ nutzt werden, können Sie auch zusammengeschrieben werden.  Ausnahmen
+ bilden die Optionen,  die noch einen zusätzlichen Parameter verlang-
+ en.  Dieser  Parameter muß an den Optionsbuchstaben angehängt werden
+ (kein Leerzeichen dazwischen)  und muß von einem Leerzeichen gefolgt
+ sein. Falls dann noch weitere Optionen benutzt werden wollen, müssen
+ sie erneut mit einem Bindestrich eingeleitet werden.
+
+ Im folgenden werden alle Optionen erklärt. Ein Großteil der Optionen
+ sind sogenannte Schalter.  Sie aktivieren oder deaktivieren eine Ei-
+ genschaft von NAP.
+
+
+ - Option S
+   Schaltet das Entfernen von Strukturen aus.
+
+ - Option C
+   Kommentare werden nicht mehr entfernt.
+
+ - Option Q
+   Defines werden nicht mehr innerhalb des Quelltextes ersetzt,  son-
+   dern durch CONST-Anweisungen ersetzt (Ausnahme: Strukturen).
+
+ - Option I
+   Defines werden grundsätzlich ignoriert.
+
+ - Option E
+   Fehlermeldungen und Warnungen werden nicht mehr ausgegeben.
+
+ - Option B<buffersize>
+   Setzt den Lesebuffer auf <buffersize>*1000 Bytes.
+
+ - Option H
+   Übersicht über alle Optionen.
+
+ - Option D<token>[=<replacement>]
+   Definiert <token>, als ob innerhalb des Programmcodes die Zeile
+     #define <token> <replacement>
+   stehen  würde.  Falls <replacement> nicht mit angegeben wird, wird
+   eine 1 genommen.
+
+ - Option U<token>
+   Entfernt  <token>,  als wenn  "#undef <token>"  geschrieben worden
+   wäre.
+
+ - Option P<directory>
+   Fügt ein neues  Verzeichnis der  Liste von  Verzeichnissen zu, die
+   nach Includedateien durchsucht werden.  Es können 7 neue Verzeich.
+   nisse definiert werden.  Das aktuelle Verzeichnis und das logische
+   Verzeichnis ACEINCLUDE: sind immer definiert. Achten Sie darauf,
+   daß <directory> mit einem : oder einem / enden muß!
+
+
+ E I G E N S C H A F T E N
+
+ NAP tut viele Sache. Einige sind mit Hilfe der Optionen an-, bezieh-
+ ungsweise abgeschaltet. Im folgenden wird die Arbeit NAPs beschrieb-
+ en, wenn die Grundeinstellung (keine Optionen) aktiv ist.
+ Zuerst checkt NAP,  ob sowohl die Eingabe- als auch die Ausgabedatei
+ geöffnet werden können.  Die Ausgabedatei wird, falls vorhanden, da-
+ bei gelöscht, was sich aber in späteren Versionen ändern könnte.  Im
+ folgenden geht NAP durch den Sourcecode aus der Eingabedatei und ko-
+ piert den Inhalt zeilenweise in die Ausgabedatei.  Dabei werden Kom-
+ mentare im C-Format grundsätzlich in ACE-Kommentare umgewandelt. Au-
+ ßerdem werden sämtliche Kommentare entfernt.  Das gilt ebenfalls für
+ Strukturen, die im Programm nicht benötigt werden.
+ Während der Bearbeitung der  Eingabedatei  werden auch  Ansammlungen
+ von Leerzeilen gekürzt.  Es müssen aber wirkliche  Leerzeilen  sein:
+ ein Leerzeichen in der Zeile macht die Arbeit schon zunichte. Außer-
+ dem wird in jeder Zeile gecheckt, ob ein Define vorhanden ist. Falls
+ dem so ist,  wird es ersetzt.  Eventuell übergebene Parameter werden
+ eingesetzt.
+
+
+ H I N W E I S E  . . .
+
+ ... zu Defines:
+
+  Defines werden ja bekanntlich folgendermaßen deklariert:
+
+          #define <token> <replacement>
+
+  NAP geht davon aus,  daß <token> keine Leerzeichen enthält.  Inner-
+  halb von  <replacement> dürfen aber Leerzeichen vorhanden sein.  Es
+  ist sogar möglich, <replacement> auf mehrere Zeilen aufzuteilen.
+  NAP hängt nämlich (momentan nur innerhalb von Defines) die nachfol-
+  gende Zeile an an <replacement> an, wenn das letzte Zeichen der ak-
+  tuellen Zeile ein Backslash (\) oder eine Tilde (~) ist.
+
+ ... zu #IF-Anweisungen (wie auch für #ELIF)
+
+  Obwohl es, glaube ich,  gegen den ANSI-C Standard ist, habe ich für
+  <expression> auch ein = mit eingefügt. Falls das Ergebnis der link-
+  en Seite identisch mit dem Ergebnis der rechten Seite ist, wird ei-
+  ne 1 zurückgeliefert, ansonsten eine 0. Vor und nach dem = muß imm-
+  er ein Leerzeichen stehen.
+  Ansonsten wird gecheckt, ob  <expression>  wahr ( <>0 ) oder unwahr
+  (=0) ist.  Momentan zulässige Rechenoperationen sind momentan +, -,
+  \, / und *.  Klammern dürfen benutzt werden,  allerdings dürfen sie
+  nicht verschachtelt sein.  Grundsätzlich werden Zahlen als Dezimal-
+  zahlen angegeben, wer Hex oder Octavzahlen verwenden will,  muß die
+  ACE-spezifischen Vorzeichen daranhängen! Da als Ergebnistype SINGLE
+  verwendet wird, kann es zu Ungenauigkeiten beim Ergebnis kommen.
+
+
+ B E K A N N T E   F E H L E R
+
+ * NAP scheint einige Sonderzeichen,  wie das ©,  als Zeichen für das
+   Ende der Zeile zu interpretieren. Ich habe keinen  blassen  Dunst,
+   woran das liegen könnte.
+ * Da sich das Erkennen unbenutzter Strukturen danach richtet, welche
+   Strukturen deklariert wurden  und welche Strukturen  in Strukturen
+   eingebunden werden, die deklariert wurden, ..., kann es passieren,
+   und es wird auch passieren, daß Strukturen gelöscht werden, obwohl
+   Sie eigentlich gebraucht werden.  Und zwar dann, wenn diese Struk-
+   tur weder direkt noch indirekt deklariert wurde, sondern als Para-
+   meter der SIZEOF-Funktion eingesetzt wurde.  Dann löscht NAP diese
+   Struktur, aber ACE verlangt die dann natürlich noch.
+   Dieser Fehler sollte aber nur in den seltensten Fällen eintreten.
+
+ Falls Sie mehr Fehler finden,  teilen  Sie mir das bitte mit  (siehe
+ Kapitel "Copyright").
+
+
+
+ Z U K U N F T S A U S S I C H T E N
+
+ NAP ist noch lange nicht vollständig.  Folgende Sachen schweben  mir
+ vor, die eventuell in den nächsten Versionen realisiert werden könn-
+ ten:
+
+  - Geschwindigkeitssteigerung
+  - Aneinanderreihung von Zeilen, wenn \ oder ~ am Zeilenende stehen,
+    auch außerhalb von DEFINE-Anweisungen
+  - Einbau von weiteren Präprozessorkommandos (#ASSERT, #PRAGMA, ...)
+  - Benutzung von Tabulatoren
+  - weitere Optionen (wenn man sich die Anleitung von CPP durchliest,
+    fallen mir gleich mehrere Sachen ins Auge,  die NAP ebenfalls gut
+    stehen würden)
+  - (Ihre Ideen ...)
+
+
+ C O P Y R I G H T
+
+ NAP ist Cardware.  Das heißt schlicht und einfach,  daß ich für  NAP
+ kein Geld verlange (heißt aber nicht, daß ich Geld ablehnen würde!),
+ sondern mich mit einer  Postkarte oder einem  Brief begnüge,  wo man
+ mitteilt, daß man NAP benutzt und wie es einem so gefällt.
+ Dieses Prinzip hat einen Sinn.  Erstens erfahre ich so, wie verbrei-
+ tet NAP ist  und was man darüber so denkt.  Zweitens komme ich so zu
+ ein paar schönen Briefmarken.  Also wenn sich wirklich jemand an das
+ Prinzip hält, kann er vielleicht eine schöne Briefmarke benutzen.
+ Wer nicht die Post beanspruchen will, kann auch eine EMail schicken.
+ Das bietet sich für Leute an, die viel zu sagen haben,  oder wo sich
+ dann ein längerer Briefaustausch ergibt. Desweiteren ziehe ich EMail
+ vor von Leuten aus Deutschland und osteuropäischen Ländern (weil ich
+ da schon genug Briefmarken habe ;).  Falls kein EMailzugang besteht,
+ können Sie aber trotzdem eine schöne Postkarte schicken.
+ Ich mache NAP zur Cardware, weil einerseits keiner Geld geben würde,
+ wenn es  Shareware  wäre,  ich aber dennoch etwas von meiner  Arbeit
+ haben will  (und eine Postkarte abzuschicken ist wohl in keinem Land
+ der Welt so teuer, daß man es sich nicht leisten kann. Also nur zu!)
+
+ Ansonsten ist  NAP  das volle  Eigentum vom Autor und Programmierer.
+ Jegliche Änderung ist  strikt untersagt  und verstößt gegen geltende
+ internationale Copyrightabkommen.  Teile von NAPs Sourcecode, spezi-
+ ell Routinen wie Search2 aus NAP_Mods.b dürfen in eigenen Programmen
+ benutzt werden,  wenn Änderungen kenntlich gemacht werden und darauf
+ hingewiesen wird,  daß das  Copyright  an diesen Routinen immer noch
+ beim Autor von NAP liegt.  Falls an Programmen, die Routinen von NAP
+ enthalten, Geld verdient wird,  ist die schriftliche Einverständnis-
+ erklärung vom  Programmierer erforderlich.  Wenn nicht,  reicht eine
+ kurze Mitteilung  (nur so zum Spaß quasi).  Auch  an NAP selbst darf
+ kein Geld verdient werden.  Soll heißen, daß der Verkauf von NAP un-
+ tersagt bleibt, sollte der Preis die 3-DM-Grenze überschreiten.  An-
+ sonsten darf NAP natürlich ungehemmt kopiert  und verbreitet werden,
+ solange alle Dateien im Originalzustand vorhanden sind.
+
+ Für NAP selbst wird vom Autor keine Garantie,  demzufolge auch keine
+ Haftung, übernommen. Das erstmalige Benutzen von NAP ist als Einver-
+ ständniserklärung zu sehen,  daß der Benutzer sich einverstanden er-
+ klärt, NAP vollkommen auf eigene Gefahr zu benutzen.
+
+
+ D A N K S A G U N G E N
+
+ Ein großes Dankeschön geht zuerst an meinen  Amiga 500, der mir seit
+ etlichen Jahren treu zur Seite steht und es wahrscheinlich auch noch
+ einige Zeit zu machen haben wird.
+ Ebenfalls großer Dank geht an Herbert Breuer,  der mich seit den An-
+ fängen von NAP unterstützt hat  (sagen wir es mal so: ohne ihn hätte
+ ich wahrscheinlich nie mit der Arbeit angefangen)   und mir mit  Rat
+ und Tat zur Seite stand.
+ Desweiteren ein Danke an  David Benn,  Autor der  Programmiersprache
+ ACE, der mir schon bei vielen Problemen weitergeholfen hat.
+ Zuletzt an all die Leute, die NAP benutzen oder noch benutzen werden
+ und Verständnis für eventuelle Mängel zeigen.
+
+
+ D E R  A U T O R  /  K O N T A K T M Ö G L I C H K E I T E N
+
+ Nun, der Autor von NAP bin ich ;-)  Mein Name ist Daniel Seifert und
+ ich wohne in  Berlin-Hellersdorf  (Hellersdorf  ist  der  östlichste
+ Stadtteil von Berlin).  Dort gehe ich auch zur Schule,  und zwar mo-
+ mentan in die 12. Klasse des 1. Gymnasiums Hellersdorf.
+ Falls jemand mit mir reden will, sei es wegen NAP (lese auch Kapitel
+ "Copyright"),  wegen  eines  meiner  anderen Programme oder weswegen
+ auch immer, so bin ich gern bereit, mir dafür Zeit zu nehmen.  Nicht
+ bereit bin ich aber, dafür Geld zu opfern. Falls also jemand längere
+ Unterhaltungen führen will, soll er bitte EMail benutzen. Meinen An-
+ schluß habe ich in meiner Schule,  weswegen es mitunter zu Verzöger-
+ ungen kommen  kann  (wichtige Klausuren oder Ferien).  Falls  jemand
+ keinen EMail-Zugang hat,  schreibe ich auch gern mit der  "normalen"
+ Post. Das Porto sollte mir aber vorher überwiesen werden, da ich nur
+ in den seltensten Fällen Post so wichtig ersehe, daß ich gewillt bin
+ dafür Geld auszugeben.  Wenn Sie mir also das Porto nicht  vorauser-
+ statten, werden Sie wahrscheinlich auch keine Antwort erhalten.
+ Ansonsten unterhalte ich mich aber gern mit Ihnen.
+
+ (Postgebühren in  Deutschland  für einen 20g Brief:  1 DM für Länder
+ der Europäischen Gemeinschaft,  2 DM für die restlichen Länder und 3
+ DM für Luftpost. Falls mehr als nur ein Brief erwartet wird (länger-
+ er Briefaustausch),  sollte demzufolge auch mehr Geld geschickt wer-
+ den (logisch!). Falls das Geld nicht ausreicht, werde ich die Briefe
+ als  "Empfänger bezahlt"  abschicken. Ob das funktioniert,  weiß ich
+ aber nicht!!!)
+
+ +---------------------------------------------------------------------+
+ | Daniel Seifert            //tm   Tel: (+49) 030 / 9984711           |
+ | Weißenfelser Str 40      //    EMail: dseifert@hell1og.be.schule.de |
+ | 12627 Berlin         \\ //                           +--------------+
+ | GERMANY               \X/ The Amiga lives ...        |/\_    _/\_   |
+ +------------------------------------------------------+\/\~~~~/\/\~~~|
+ | PGP finger print : A8B0282C985102066C8769391CF146AB  |/\/\~~/\/\/\~~|
+ | Public key (6D99EA5D) available on request/keyserver |\/\/\/\/\/\/\/|
+ +------------------------------------------------------+--------------+
+
+ From October '96 :
+
+ +-------------------------------------------------------------------+
+ | Daniel Seifert          //tm   Tel: (+49) 030 /  ? ? ?            |
+ | Elsenborner Weg 25     //    EMail: dseifert@hell1og.be.schule.de |
+ | 12621 Berlin       \\ //                             +------------+
+ | GERMANY             \X/ The Amiga lives ...          |   |¯\      |
+ +------------------------------------------------------+   |  ) _   |
+ | PGP finger print : A8B0282C985102066C8769391CF146AB  |   | / (_   |
+ | Public key (6D99EA5D) available on request/keyserver |   ¯¯  __)  |
+ +------------------------------------------------------+------------+

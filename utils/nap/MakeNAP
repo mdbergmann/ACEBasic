@@ -1,0 +1,3 @@
+stack 40000
+
+blink ram:NAP.o LIB ram:NAP_Mods.o+ACElib:startup.lib+ACElib:db.lib+ACElib:ami.lib SMALLCODE SMALLDATA

@@ -1,0 +1,7 @@
+.key prog,xlib
+
+; Assemble a single assembly source file and link with ACE libraries.
+stack 40000
+a68k  <prog>.s 
+blink <prog>.o LIB <xlib>+ACElib:startup.lib+ACElib:db.lib+
+		   ACElib:ami.lib SMALLCODE SMALLDATA

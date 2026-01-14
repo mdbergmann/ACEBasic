@@ -1,0 +1,11 @@
+
+FontReq Subprogram Library Module - Changes
+-------------------------------------------
+
+13/2/95		-	Fixed a silent bug in which the TAG_DONE entry was
+			missing from the TagItems array passed to AllocAslRequest().
+
+5/3/95		-	ACE now allows _EXIT_PROG to be externally referenced by
+			SUBmods obviating the need for the kludgy workaround
+			(EXTERNAL _EXIT_PROG and inline assembly "xdef _EXIT_PROG"
+			used in the first two versions of FontReq.o).

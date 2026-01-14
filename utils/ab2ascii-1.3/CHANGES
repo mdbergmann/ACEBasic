@@ -1,0 +1,17 @@
+AmigaBASIC->ASCII revision history
+(current version: 1.3)
+
+--- Jan 1994
+Complete revision of the original ab2ascii by Stefan Reisner.
+Several bug fixes in the code symbol handling.
+Now using lookup tables to expand the tokens.
+Conversion will now be performed in one single pass.  (This
+makes it possible to convert through the pipe.)
+Recognition of code line numbering implemented.
+
+Now spread under terms of the GNU Public General License!
+
+--- before Jan 1994
+Stefan Reisner
+sr@ph-cip.uni-koeln.de
+Public Domain

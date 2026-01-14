@@ -1,0 +1,1485 @@
+#ifndef LIBRARIES_TRITON_MACROS
+#define LIBRARIES_TRITON_MACROS
+
+#define ProjectStart(tname,num) tname = AllocateTagItems(num)
+
+#define EndProject              tag->ti_Tag = TAG_DONE
+
+#define SetupApp(tname)         tname = AllocateTagItems(7)
+#define SetAppName(appname)     tag->ti_Tag = TRCA_Name \
+: tag->ti_Data = SADD(appname) \
+: tag = tag + SIZEOF(TagItem)
+
+#define SetAppLongName(appname) tag->ti_tag = TRCA_LongName \
+: tag->ti_Data = SADD(appname) \
+: tag = tag + SIZEOF(TagItem)
+
+#define SetAppInfo(info)        tag->ti_Tag = TRCA_Info \
+: tag->ti_Data = SADD(info) \
+: tag = tag + SIZEOF(TagItem)
+
+#define SetAppVersion(vers)     tag->ti_Tag = TRCA_Version \
+: tag->ti_Data = SADD(vers) \
+: tag = tag + SIZEOF(TagItem)
+
+#define SetAppRelease(rel)      tag->ti_Tag = TRCA_Release \
+: tag->ti_Data = SADD(rel) \
+: tag = tag + SIZEOF(TagItem)
+
+#define SetAppDate(date)        tag->ti_Tag = TRCA_Date \
+: tag->ti_Data = SADD(date) \
+: tag = tag + SIZEOF(TagItem)
+
+#define SetAppEnd               tag->ti_Tag = TAG_DONE
+
+#define WindowTitle(t)          tag->ti_Tag = TRWI_Title \
+: tag->ti_Data = SADD(t)\
+: tag = tag + SIZEOF(TagItem)
+
+#define ScreenTitle(t)          tag->ti_Tag = TRWI_ScreenTitle \
+: tag->ti_Data = SADD(t) \
+: tag = tag + SIZEOF(TagItem)
+
+#define WindowID(id)            tag->ti_Tag = TRWI_ID \
+: tag->ti_Data = (id) \
+: tag = tag + SIZEOF(TagItem)
+
+#define WindowFlags(f)          tag->ti_Tag = TRWI_Flags \
+: tag->ti_Data = (f) \
+: tag = tag + SIZEOF(TagItem)
+
+#define WindowPosition(pos)     tag->ti_Tag = TRWI_Position \
+: tag->ti_Data = (pos) \
+: tag = tag + SIZEOF(TagItem)
+
+#define WindowUnderscore(und)   tag->ti_Tag = TRWI_Underscore \
+: tag->ti_Data = (und) \
+: tag = tag + SIZEOF(TagItem)
+
+#define WindowDimensions(dim)   tag->ti_Tag = TRWI_Dimensions \
+: tag->ti_Data = (dim) \
+: tag = tag + SIZEOF(TagItem)
+
+#define WindowBackfillWin       tag->ti_Tag = TRWI_Backfill \
+: tag->ti_Data = TRBF_WINDOWBACK \
+: tag = tag + SIZEOF(TagItem)
+
+#define WindowBackfillReq       tag->ti_Tag = TRWI_Backfill \
+: tag->ti_Data = TRBF_REQUESTERBACK \
+: tag = tag + SIZEOF(TagItem)
+
+#define WindowBackfillNone      tag->ti_Tag = TRWI_Backfill \
+: tag->ti_Data = TRBF_NONE \
+: tag = tag + SIZEOF(TagItem)
+
+#define WindowBackfillS         tag->ti_Tag = TRWI_Backfill \
+: tag->ti_Data = TRBF_SHINE \
+: tag = tag + SIZEOF(TagItem)
+
+#define WindowBackfillSA        tag->ti_Tag = TRWI_Backfill \
+: tag->ti_Data = TRBF_SHINE_SHADOW \
+: tag = tag + SIZEOF(TagItem)
+
+#define WindowBackfillSF        tag->ti_Tag = TRWI_Backfill \
+: tag->ti_Data = TRBF_SHINE_FILL \
+: tag = tag + SIZEOF(TagItem)
+
+#define WindowBackfillSB        tag->ti_Tag = TRWI_Backfill \
+: tag->ti_Data = TRBF_SHINE_BACKGROUND \
+: tag = tag + SIZEOF(TagItem)
+
+#define WindowBackfillA         tag->ti_Tag = TRWI_Backfill \
+: tag->ti_Data = TRBF_SHADOW \
+: tag = tag + SIZEOF(TagItem)
+
+#define WindowBackfillAF        tag->ti_Tag = TRWI_Backfill \
+: tag->ti_Data = TRBF_SHADOW_FILL \
+: tag = tag + SIZEOF(TagItem)
+
+#define WindowBackfillAB        tag->ti_Tag = TRWI_Backfill \
+: tag->ti_Data = TRBF_SHADOW_BACKGROUND \
+: tag = tag + SIZEOF(TagItem)
+
+#define WindowBackfillF         tag->ti_Tag = TRWI_Backfill \
+: tag->ti_Data = TRBF_FILL \
+: tag = tag + SIZEOF(TagItem)
+
+#define WindowBackfillFB        tag->ti_Tag = TRWI_Backfill \
+: tag->ti_Data = TRBF_FILL_BACKGROUND \
+: tag = tag + SIZEOF(TagItem)
+
+#define CustomScreen(scr)       tag->ti_Tag = TRWI_CustomScreen \
+: tag->ti_Data = (scr) \
+: tag = tag + SIZEOF(TagItem)
+
+#define PubScreen(scr)          tag->ti_Tag = TRWI_PubScreen \
+: tag->ti_Data = (scr) \
+: tag = tag + SIZEOF(TagItem)
+
+#define PubScreenName(name)     tag->ti_Tag = TRWI_PubScreenName \
+: tag->ti_Data = SADD(name) \
+: tag = tag + SIZEOF(TagItem)
+
+#define QuickHelpOn(on)         tag->ti_Tag = TRWI_QuickHelp \
+: tag->ti_Data = (on) \
+: tag = tag + SIZEOF(TagItem)
+
+/* Menus */
+#define BeginMenu(t)            tag->ti_Tag = TRMN_Title \
+: tag->ti_Data = SADD(t) \
+: tag = tag + SIZEOF(TagItem)
+
+#define MenuFlags(f)            tag->ti_Tag = TRMN_Flags \
+: tag->ti_Data = (f) \
+: tag = tag + SIZEOF(TagItem)
+
+#define MenuItem(t,id)          tag->ti_Tag = TRMN_Item \
+: tag->ti_Data = SADD(t) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem)
+
+#define MenuItemC(t,id)         tag->ti_Tag = TRMN_Item \
+: tag->ti_Data = SADD(t) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRMN_Flags \
+: tag->ti_Data = TRMF_CHECKIT \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem)
+
+#define MenuItemCC(t,id)        tag->ti_Tag = TRMN_Item \
+: tag->ti_Data = SADD(t) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRMN_Flags \
+: tag->ti_Data = TRMF_CHECKED \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem)
+
+#define BeginSub(t)             tag->ti_Tag = TRMN_Item \
+: tag->ti_Data = SADD(t) \
+: tag = tag + SIZEOF(TagItem)
+
+#define MenuItemD(t,id)         tag->ti_Tag = TRMN_Item \
+: tag->ti_Data = SADD(t) \
+: tag = tag + SIZEOF(TagItem) \
+: MenuFlags(TRMF_DISABLED) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem)
+
+#define SubItem(t,id)           tag->ti_Tag = TRMN_Sub \
+: tag->ti_Data = SADD(t) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem)
+
+#define SubItemD(t,id)          tag->ti_Tag = TRMN_Sub \
+: tag->ti_Data = SADD(t) \
+: tag = tag + SIZEOF(TagItem) \
+: MenuFlags(TRMF_DISABLED) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem)
+
+#define ItemBarlabel            tag->ti_Tag = TRMN_Item \
+: tag->ti_Data = TRMN_BARLABEL \
+: tag = tag + SIZEOF(TagItem)
+
+#define SubBarlabel             tag->ti_Tag = TRMN_Sub \
+: tag->ti_Data = TRMN_BARLABEL \
+: tag = tag + SIZEOF(TagItem)
+
+/* Groups */
+#define HorizGroup              tag->ti_Tag = TRGR_Horiz \
+: tag->ti_Data = 0& \
+: tag = tag + SIZEOF(TagItem)
+
+#define HorizGroupE             tag->ti_Tag = TRGR_Horiz \
+: tag->ti_Data = TRGR_EQUALSHARE \
+: tag = tag + SIZEOF(TagItem)
+
+#define HorizGroupS             tag->ti_Tag = TRGR_Horiz \
+: tag->ti_Data = TRGR_PROPSPACES \
+: tag = tag + SIZEOF(TagItem)
+
+#define HorizGroupA             tag->ti_Tag = TRGR_Horiz \
+: tag->ti_Data = TRGR_ALIGN \
+: tag = tag + SIZEOF(TagItem)
+
+#define HorizGroupEA            tag->ti_Tag = TRGR_Horiz \
+: tag->ti_Data = (TRGR_EQUALSHARE OR TRGR_ALIGN) \
+: tag = tag + SIZEOF(TagItem)
+
+#define HorizGroupSA            tag->ti_Tag = TRGR_Horiz \
+: tag->ti_Data = (TRGR_PROPSPACES OR TRGR_ALIGN) \
+: tag = tag + SIZEOF(TagItem)
+
+#define HorizGroupC             tag->ti_Tag = TRGR_Horiz \
+: tag->ti_Data = TRGR_CENTER \
+: tag = tag + SIZEOF(TagItem)
+
+#define HorizGroupEC            tag->ti_Tag = TRGR_Horiz \
+: tag->ti_Data = (TRGR_EQUALSHARE OR TRGR_CENTER) \
+: tag = tag + SIZEOF(TagItem)
+
+#define HorizGroupSC            tag->ti_Tag = TRGR_Horiz \
+: tag->ti_Data = (TRGR_PROPSPACES OR TRGR_CENTER) \
+: tag = tag + SIZEOF(TagItem)
+
+#define HorizGroupAC            tag->ti_Tag = TRGR_Horiz \
+: tag->ti_Data = (TRGR_ALIGN OR TRGR_CENTER) \
+: tag = tag + SIZEOF(TagItem)
+
+#define HorizGroupEAC           tag->ti_Tag = TRGR_Horiz \
+: tag->ti_Data = (TRGR_EQUALSHARE OR TRGR_ALIGN OR TRGR_CENTER) \
+: tag = tag + SIZEOF(TagItem)
+
+#define HorizGroupSAC           tag->ti_Tag = TRGR_Horiz \
+: tag->ti_Data = (TRGR_PROPSPACES OR TRGR_ALIGN OR TRGR_CENTER) \
+: tag = tag + SIZEOF(TagItem)
+
+#define VertGroup               tag->ti_Tag = TRGR_Vert \
+: tag->ti_Data = 0& \
+: tag = tag + SIZEOF(TagItem)
+
+#define VertGroupE              tag->ti_Tag = TRGR_Vert \
+: tag->ti_Data = TRGR_EQUALSHARE \
+: tag = tag + SIZEOF(TagItem)
+
+#define VertGroupS              tag->ti_Tag = TRGR_Vert \
+: tag->ti_Data = TRGR_PROPSPACES \
+: tag = tag + SIZEOF(TagItem)
+
+#define VertGroupA              tag->ti_Tag = TRGR_Vert \
+: tag->ti_Data = TRGR_ALIGN \
+: tag = tag + SIZEOF(TagItem)
+
+#define VertGroupEA             tag->ti_Tag = TRGR_Vert \
+: tag->ti_Data = (TRGR_EQUALSHARE OR TRGR_ALIGN) \
+: tag = tag + SIZEOF(TagItem)
+
+#define VertGroupSA             tag->ti_Tag = TRGR_Vert \
+: tag->ti_Data = (TRGR_PROPSPACES OR TRGR_ALIGN) \
+: tag = tag + SIZEOF(TagItem)
+
+#define VertGroupC              tag->ti_Tag = TRGR_Vert \
+: tag->ti_Data = TRGR_CENTER \
+: tag = tag + SIZEOF(TagItem)
+
+#define VertGroupEC             tag->ti_Tag = TRGR_Vert \
+: tag->ti_Data = (TRGR_EQUALSHARE OR TRGR_CENTER) \
+: tag = tag + SIZEOF(TagItem)
+
+#define VertGroupSC             tag->ti_Tag = TRGR_Vert \
+: tag->ti_Data = (TRGR_PROPSPACES OR TRGR_CENTER) \
+: tag = tag + SIZEOF(TagItem)
+
+#define VertGroupAC             tag->ti_Tag = TRGR_Vert \
+: tag->ti_Data = (TRGR_ALIGN OR TRGR_CENTER) \
+: tag = tag + SIZEOF(TagItem)
+
+#define VertGroupEAC            tag->ti_Tag = TRGR_Vert \
+: tag->ti_Data = (TRGR_EQUALSHARE OR TRGR_ALIGN OR TRGR_CENTER) \
+: tag = tag + SIZEOF(TagItem)
+
+#define VertGroupSAC            tag->ti_Tag = TRGR_Vert \
+: tag->ti_Data = (TRGR_PROPSPACES OR TRGR_ALIGN OR TRGR_CENTER) \
+: tag = tag + SIZEOF(TagItem)
+
+#define EndGroup                tag->ti_Tag = TRGR_End \
+: tag->ti_Data = 0& \
+: tag = tag + SIZEOF(TagItem)
+
+#define ColumnArray             tag->ti_Tag = TRGR_Horiz \
+: tag->ti_Data = (TRGR_ARRAY OR TRGR_ALIGN OR TRGR_CENTER) \
+: tag = tag + SIZEOF(TagItem)
+
+#define LineArray               tag->ti_Tag = TRGR_Vert \
+: tag->ti_Data = (TRGR_ARRAY OR TRGR_ALIGN OR TRGR_CENTER) \
+: tag = tag + SIZEOF(TagItem)
+
+#define BeginColumn             tag->ti_Tag = TRGR_Vert \
+: tag->ti_Data = (TRGR_PROPSHARE OR TRGR_ALIGN OR TRGR_CENTER) \
+: tag = tag + SIZEOF(TagItem)
+
+#define BeginLine               tag->ti_Tag = TRGR_Horiz \
+: tag->ti_Data = (TRGR_PROPSHARE OR TRGR_ALIGN OR TRGR_CENTER) \
+: tag = tag + SIZEOF(TagItem)
+
+#define BeginColumnI            tag->ti_Tag = TRGR_Vert \
+: tag->ti_Data = (TRGR_PROPSHARE OR TRGR_ALIGN OR TRGR_CENTER OR TRGR_INDEP) \
+: tag = tag + SIZEOF(TagItem)
+
+#define BeginLineI              tag->ti_Tag = TRGR_Horiz \
+: tag->ti_Data = (TRGR_PROPSHARE OR TRGR_ALIGN OR TRGR_CENTER OR TRGR_INDEP) \
+: tag = tag + SIZEOF(TagItem)
+
+#define EndColumn               EndGroup
+
+#define EndLine                 EndGroup
+
+#define EndArray                EndGroup
+
+/* DisplayObject */
+#define QuickHelp(str)          tag->ti_Tag = TRDO_QuickHelpString \
+: tag->ti_Data = SADD(str) \
+: tag = tag + SIZEOF(TagItem)
+
+/* Space */
+#define SpaceB                  tag->ti_Tag = TROB_Space \
+: tag->ti_Data = TRST_BIG \
+: tag = tag + SIZEOF(TagItem)
+
+#define Space                   tag->ti_Tag = TROB_Space \
+: tag->ti_Data = TRST_NORMAL \
+: tag = tag + SIZEOF(TagItem)
+
+#define SpaceS                  tag->ti_Tag = TROB_Space \
+: tag->ti_Data = TRST_SMALL \
+: tag = tag + SIZEOF(TagItem)
+
+#define SpaceN                  tag->ti_Tag = TROB_Space \
+: tag->ti_Data = TRST_NONE \
+: tag = tag + SIZEOF(TagItem)
+
+/* Text */
+#define TextN(text)             tag->ti_Tag = TROB_Text \
+: tag->ti_Data = 0& \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Text \
+: tag->ti_Data = SADD(text) \
+: tag = tag + SIZEOF(TagItem)
+
+#define TextH(text)             tag->ti_Tag = TROB_Text \
+: tag->ti_Data = 0& \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Text \
+: tag->ti_Data = SADD(text) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = TRTX_HIGHLIGHT \
+: tag = tag + SIZEOF(TagItem)
+
+#define Text3(text)             tag->ti_Tag = TROB_Text \
+: tag->ti_Data = 0& \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Text \
+: tag->ti_Data = SADD(text) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = TRTX_3D \
+: tag = tag + SIZEOF(TagItem)
+
+#define TextB(text)             tag->ti_Tag = TROB_Text \
+: tag->ti_Data = 0& \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Text \
+: tag->ti_Data = SADD(text) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = TRTX_BOLD \
+: tag = tag + SIZEOF(TagItem)
+
+#define TextT(text)             tag->ti_Tag = TROB_Text \
+: tag->ti_Data = 0& \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Text \
+: tag->ti_Data = SADD(text) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = TRTX_TITLE \
+: tag = tag + SIZEOF(TagItem)
+
+#define TextID(text,id)         tag->ti_Tag = TROB_Text \
+: tag->ti_Data = 0& \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Text \
+: tag->ti_Data = SADD(text) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem)
+
+#define TextNR(t)               TextN(t) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = TROF_RIGHTALIGN \
+: tag = tag + SIZEOF(TagItem)
+
+#define ClippedText(t)          TextN(t) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRTX_CLIPPED OR TRTX_NOUNDERSCORE) \
+: tag = tag + SIZEOF(TagItem)
+
+#define ClippedTextID(t,id)     TextN(t) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRTX_CLIPPED OR TRTX_NOUNDERSCORE) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem)
+
+#define CenteredText(text)      HorizGroupSC \
+: Space \
+: TextN(text) \
+: Space \
+: EndGroup
+
+#define CenteredTextH(text)     HorizGroupSC \
+: Space \
+: TextH(text) \
+: Space \
+: EndGroup
+
+#define CenteredText3(text)     HorizGroupSC \
+: Space \
+: Text3(text) \
+: Space \
+: EndGroup
+
+#define CenteredTextB(text)     HorizGroupSC \
+: Space \
+: TextB(text) \
+: Space \
+: EndGroup
+
+#define CenteredTextID(text,id) HorizGroupSC \
+: Space \
+: TextID(text,id) \
+: Space \
+: EndGroup
+
+#define CenteredText_BS(text)   HorizGroupSC \
+: SpaceB \
+: TextN(text) \
+: SpaceB \
+: EndGroup
+
+#define TextBox(text,id,mwid)   _TextBox \
+: ObjectBackfillB \
+: VertGroup \
+: SpaceS \
+: HorizGroupSC \
+: Space \
+: TextN(text) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_MinWidth \
+: tag->ti_Data = mwid \
+: tag = tag + SIZEOF(TagItem) \
+: Space \
+: EndGroup \
+: SpaceS \
+: EndGroup
+
+#define ClippedTextBox(text,id) _TextBox \
+: ObjectBackfillB \
+: VertGroupAC \
+: SpaceS \
+: HorizGroupAC \
+: Space \
+: ClippedTextID(text,id) \
+: Space \
+: EndGroup \
+: SpaceS \
+: EndGroup
+
+#define ClippedTextBoxMW(text,id,mwid) _TextBox \
+: ObjectBackfillB \
+: VertGroupAC \
+: SpaceS \
+: HorizGroupAC \
+: Space \
+: ClippedTextID(text,id) \
+: tag->ti_Tag = TRAT_MinWidth \
+: tag->ti_Data = mwid \
+: tag = tag + SIZEOF(TagItem) \
+: Space \
+: EndGroup \
+: SpaceS \
+: EndGroup
+
+#define TextRIGHT(t,id)         HorizGroupS \
+: Space \
+: TextN(t) \
+: ID(id) \
+: EndGroup
+
+#define Integer(i)              tag->ti_Tag = TROB_Text \
+: tag->ti_Data = 0& \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = (i) \
+: tag = tag + SIZEOF(TagItem)
+
+#define IntegerH(i)             tag->ti_Tag = TROB_Text \
+: tag->ti_Data = 0& \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = (i) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = TRTX_HIGHLIGHT \
+: tag = tag + SIZEOF(TagItem)
+
+#define Integer3(i)             tag->ti_Tag = TROB_Text \
+: tag->ti_Data = 0& \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag-<ti_Data = (i) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = TRTX_3D \
+: tag = tag + SIZEOF(TagItem)
+
+#define IntegerB(i)             tag->ti_Tag = TROB_Text \
+: tag->ti_Data = 0 \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = (i) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = TRTX_BOLD \
+: tag = tag + SIZEOF(TagItem)
+
+#define CenteredInteger(i)      HorizGroupSC \
+: Space \
+: Integer(i) \
+: Space \
+: EndGroup
+
+#define CenteredIntegerH(i)     HorizGroupSC \
+: Space \
+: IntegerH(i) \
+: Space \
+: EndGroup
+
+#define CenteredInteger3(i)     HorizGroupSC \
+: Space \
+: Integer3(i) \
+: Space \
+: EndGroup
+
+#define CenteredIntegerB(i)     HorizGroupSC \
+: Space \
+: IntegerB(i) \
+: Space \
+: EndGroup
+
+#define IntegerBox(def,id,mwid) GroupBox \
+: ObjectBackfillB \
+: VertGroup \
+: SpaceS \
+: HorizGroupSC \
+: Space \
+: Integer(def) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_MinWidth \
+: tag->ti_Data = mwid \
+: tag = tag + SIZEOF(TagItem) \
+: Space \
+: EndGroup \
+: SpaceS \
+: EndGroup
+
+/* Button */
+#define Button(text,id)         tag->ti_Tag = TROB_Button \
+: tag->ti_Data = 0& \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Text \
+: tag->ti_Data = SADD(text) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = (id) \
+: tag = tag + SIZEOF(TagItem) \
+
+#define ButtonR(text,id)        tag->ti_Tag = TROB_Button \
+: tag->ti_Data = 0& \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Text \
+: tag->ti_Data = SADD(text) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = (id) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = TRBU_RETURNOK \
+: tag = tag + SIZEOF(TagItem)
+
+#define ButtonE(text,id)        tag->ti_Tag = TROB_Button \
+: tag->ti_Data = 0& \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Text \
+: tag->ti_Data = SADD(text) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = (id) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = TRBU_ESCOK \
+: tag = tag + SIZEOF(TagItem)
+
+#define ButtonRE(text,id)       tag->ti_Tag = TROB_Button \
+: tag->ti_Data = 0& \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Text \
+: tag->ti_Data = SADD(text) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = (id) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRBU_RETURNOK OR TRBU_ESCOK) \
+: tag = tag + SIZEOF(TagItem)
+
+#define CenteredButton(t,i)     HorizGroupSC \
+: Space \
+: tag->ti_Tag = TROB_Button \
+: tag->ti_Data = 0& \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Text \
+: tag->ti_Data = SADD(t) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = (i) \
+: tag = tag + SIZEOF(TagItem) \
+: Space \
+: EndGroup
+
+#define CenteredButtonR(t,i)    HorizGroupSC \
+: Space \
+: tag->ti_Tag = TROB_Button \
+: tag->ti_Data = 0& \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = TRBU_RETURNOK \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Text \
+: tag->ti_Data = SADD(t) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = (i) \
+: tag = tag + SIZEOF(TagItem) \
+: Space \
+: EndGroup
+
+#define CenteredButtonE(t,i)    HorizGroupSC \
+: Space \
+: tag->ti_Tag = TROB_Button \
+: tag->ti_Data = 0& \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = TRBU_ESCOK \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Text \
+: tag->ti_Data = SADD(t) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = (i) \
+: tag = tag + SIZEOF(TagItem) \
+: Space \
+: EndGroup
+
+#define CenteredButtonRE(t,i)   HorizGroupSC \
+: Space \
+: tag->ti_Tag = TROB_Button \
+: tag->ti_Data = 0& \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRBU_RETURNOK OR TRBU_ESCOK) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Text \
+: tag->ti_Data = SADD(t) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = (i) \
+: tag = tag + SIZEOF(TagItem) \
+: Space \
+: EndGroup
+
+#define EmptyButton(id)         tag->ti_Tag = TROB_Button \
+: tag->ti_Data = 0& \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Text \
+: tag->ti_Data = SADD("") \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = (id) \
+: tag = tag + SIZEOF(TagItem)
+
+#define GetFileButton(id)       tag->ti_Tag = TROB_Button \
+: tag->ti_Data = TRBT_GETFILE \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Text \
+: tag->ti_Data = SADD("") \
+: tag = tag + SIZEOF(TagItem)\
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = (id) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = TRBU_YRESIZE \
+: tag = tag + SIZEOF(TagItem)
+
+#define GetDrawerButton(id)     tag->ti_Tag = TROB_Button \
+: tag->ti_Data = TRBT_GETDRAWER \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Text \
+: tag->ti_Data = SADD("") \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = (id) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = TRBU_YRESIZE \
+: tag = tag + SIZEOF(TagItem)
+
+#define GetEntryButton(id)      tag->ti_Tag = TROB_Button \
+: tag->ti_Data = TRBT_GETENTRY \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Text \
+: tag->ti_Data = SADD("") \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = (id) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = TRBU_YRESIZE \
+: tag = tag + SIZEOF(TagItem)
+
+#define GetFileButtonS(s,id)    tag->ti_Tag = TROB_Button \
+: tag->ti_Data = TRBT_GETFILE \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Text \
+: tag->ti_Data = SADD(s) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = (id) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = TRBU_YRESIZE \
+: tag = tag + SIZEOF(TagItem)
+
+#define GetDrawerButtonS(s,id)  tag->ti_Tag = TROB_Button \
+: tag->ti_Data = TRBT_GETDRAWER \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Text \
+: tag->ti_Data = SADD(s) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = (id) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = TRBU_YRESIZE \
+: tag = tag + SIZEOF(TagItem)
+
+#define GetEntryButtonS(s,id)   tag->ti_Tag = TROB_Button \
+: tag->ti_Data = TRBT_GETENTRY \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Text \
+: tag->ti_Data = SADD(s) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = (id) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = TRBU_YRESIZE \
+: tag = tag + SIZEOF(TagItem)
+
+/* Line */
+#define Line(flags)             tag->ti_Tag = TROB_Line \
+: tag->ti_Data = flags \
+: tag = tag + SIZEOF(TagItem)
+
+#define HorizSeparator          HorizGroupEC \
+: Space \
+: Line(TROF_HORIZ) \
+: Space \
+: EndGroup
+
+#define VertSeparator           VertGroupEC \
+: Space \
+: Line(TROF_VERT) \
+: Space \
+: EndGroup
+
+#define NamedSeparator(text)    HorizGroupEC \
+: Space \
+: Line(TROF_HORIZ) \
+: Space \
+: TextT(text) \
+: Space \
+: Line(TROF_HORIZ) \
+: Space \
+: EndGroup
+
+#define NamedSeparatorI(te,id)  HorizGroupEC \
+: Space \
+: Line(TROF_HORIZ) \
+: Space \
+: TextT(te) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: Space \
+: Line(TROF_HORIZ) \
+: Space \
+: EndGroup
+
+#define NamedSeparatorN(text)   HorizGroupEC \
+: Line(TROF_HORIZ) \
+: Space \
+: TextT(text) \
+: Space \
+: Line(TROF_HORIZ) \
+: EndGroup
+
+#define NamedSeparatorIN(te,id) HorizGroupEC \
+: Line(TROF_HORIZ) \
+: Space \
+: TextT(te) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: Space \
+: Line(TROF_HORIZ) \
+: EndGroup
+
+/* FrameBox */
+#define GroupBox                tag->ti_Tag = TROB_FrameBox \
+: tag->ti_Data = TRFB_GROUPING \
+: tag = tag + SIZEOF(TagItem)
+
+#define NamedFrameBox(t)        tag->ti_Tag = TROB_FrameBox \
+: tag->ti_Data = TRFB_FRAMING \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Text \
+: tag->ti_Data = SADD(t) \
+: tag = tag + SIZEOF(TagItem)
+
+#define _TextBox                tag->ti_Tag = TROB_FrameBox \
+: tag->ti_Data = TRFB_TEXT \
+: tag = tag + SIZEOF(TagItem)
+
+/* DropBox */
+#define DropBox(id)             tag->ti_Tag = TROB_DropBox \
+: tag->ti_Data = 0& \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = (id) \
+: tag = tag + SIZEOF(TagItem)
+
+/* CheckBox gadget */
+#define CheckBox(id)            tag->ti_Tag = TROB_CheckBox \
+: tag->ti_Data = 0& \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem)
+
+#define CheckBoxC(id)           tag->ti_Tag = TROB_CheckBox \
+: tag->ti_Data = 0& \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = TRUE \
+: tag = tag + SIZEOF(TagItem)
+
+#define CheckBoxLEFT(id)        HorizGroupS \
+: CheckBox(id) \
+: Space \
+: EndGroup
+
+#define CheckBoxCLEFT(id)       HorizGroupS \
+: CheckBoxC(id) \
+: Space \
+: EndGroup
+
+/* String gadget */
+#define StringGadget(def,id)    tag->ti_Tag = TROB_String \
+: tag->ti_Data = SADD(def) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = (id) \
+: tag = tag + SIZEOF(TagItem)
+
+#define PasswordGadget(def,id)  tag->ti_Tag = TROB_String \
+: tag->ti_Data = SADD(def) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = (id) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = TRST_INVISIBLE \
+: tag = tag + SIZEOF(TagItem)
+
+/* Cycle gadget */
+#define CycleGadget(ent,val,id) tag->ti_Tag = TROB_Cycle \
+: tag->ti_Data = (ent) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = (id) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = (val) \
+: tag = tag + SIZEOF(TagItem)
+
+#define MXGadget(ent,val,id)    tag->ti_Tag = TROB_Cycle \
+: tag->ti_Data = (ent) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = (id) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = (val) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = TRCY_MX \
+: tag = tag + SIZEOF(TagItem)
+
+#define MXGadgetR(ent,val,id)   tag->ti_Tag = TROB_Cycle \
+: tag->ti_Data = (ent) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = (id) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = (val) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRCY_MX OR TRCY_RIGHTLABELS) \
+: tag = tag + SIZEOF(TagItem)
+
+/* Slider gadget */
+#define SliderGadget(mini,maxi,val,id) tag->ti_Tag = TROB_Slider \
+: tag->ti_Data = 0& \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRSL_Min \
+: tag->ti_Data = (mini) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRSL_Max \
+: tag->ti_Data = (maxi) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = (id) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = (val) \
+: tag = tag + SIZEOF(TagItem)
+
+/* Palette gadget */
+#define PaletteGadget(val,id)   tag->ti_Tag = TROB_Palette \
+: tag->ti_Data = 0& \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = (id) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = (val) \
+: tag = tag + SIZEOF(TagItem)
+
+/* Listview gadget */
+#define ListRO(ent,id,top)      tag->ti_Tag = TROB_Listview \
+: tag->ti_Data = (ent) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRLV_NOGAP OR TRLV_READONLY) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = 0 \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRLV_Top \
+: tag->ti_Data = top \
+: tag = tag + SIZEOF(TagItem)
+
+#define ListSel(ent,id,top)    tag->ti_Tag = TROB_Listview \
+: tag->ti_Data = (ent) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRLV_NOGAP OR TRLV_SELECT) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = 0 \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRLV_Top \
+: tag->ti_Data = top \
+: tag = tag + SIZEOF(TagItem)
+
+#define ListSS(e,id,top,v)     tag->ti_Tag = TROB_Listview \
+: tag->ti_Data = (e) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRLV_NOGAP OR TRLV_SHOWSELECTED) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = v \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRLV_Top \
+: tag->ti_Data = top \
+: tag = tag + SIZEOF(TagItem)
+
+#define ListROC(ent,id,top)    tag->ti_Tag = TROB_Listview \
+: tag->ti_Data = (ent) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRLV_NOGAP OR TRLV_READONLY OR TRLV_NOCURSORKEYS) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = 0 \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRLV_Top \
+: tag->ti_Data = top \
+: tag = tag + SIZEOF(TagItem)
+
+
+#define ListSelC(ent,id,top)   tag->ti_Tag = TROB_Listview \
+: tag->ti_Data = (ent) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRLV_NOGAP OR TRLV_SELECT OR TRLV_NOCURSORKEYS) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = 0 \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRLV_Top \
+: tag->ti_Data = top \
+: tag = tag + SIZEOF(TagItem)
+
+#define ListSSC(e,id,top,v)    tag->ti_Tag = TROB_Listview \
+: tag->ti_Data = (e) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRLV_NOGAP OR TRLV_SHOWSELECTED OR TRLV_NOCURSORKEYS) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = v \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRLV_Top \
+: tag->ti_Data = top \
+: tag = tag + SIZEOF(TagItem)
+
+#define ListRON(ent,id,top)    tag->ti_Tag = TROB_Listview \
+: tag->ti_Data = (ent) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRLV_NOGAP OR TRLV_READONLY OR TRLV_NONUMPADKEYS) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = 0 \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRLV_Top \
+: tag->ti_Data = top \
+: tag = tag + SIZEOF(TagItem)
+
+#define ListSelN(ent,id,top)   tag->ti_Tag = TROB_Listview \
+: tag->ti_Data = (ent) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRLV_NOGAP OR TRLV_SELECT OR TRLV_NONUMPADKEYS) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = 0 \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRLV_Top \
+: tag->ti_Data = top \
+: tag = tag + SIZEOF(TagItem)
+
+#define ListSSN(e,id,top,v)    tag->ti_Tag = TROB_Listview \
+: tag->ti_Data = (e) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRLV_NOGAP OR TRLV_SHOWSELECTED OR TRLV_NONUMPADKEYS) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = v \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRLV_Top \
+: tag->ti_Data = top \
+: tag = tag + SIZEOF(TagItem)
+
+#define ListROCN(ent,id,top)   tag->ti_Tag = TROB_Listview \
+: tag->ti_Data = (ent) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRLV_NOGAP OR TRLV_READONLY OR TRLV_NOCURSORKEYS OR TRLV_NONUMPADKEYS) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = 0 \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRLV_Top \
+: tag->ti_Data = to \
+: tag = tag + SIZEOF(TagItem)
+
+#define ListSelCN(ent,id,top)  tag->ti_Tag = TROB_Listview \
+: tag->ti_Data = (ent) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRLV_NOGAP OR TRLV_SELECT OR TRLV_NOCURSORKEYS OR TRLV_NONUMPADKEYS) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = 0 \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRLV_Top \
+: tag->ti_Data = top \
+: tag = tag + SIZEOF(TagItem)
+
+#define ListSSCN(e,id,top,v)   tag->ti_Tag = TROB_Listview \
+: tag->ti_Data = (e) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRLV_NOGAP OR TRLV_SHOWSELECTED OR TRLV_NOCURSORKEYS OR TRLV_NONUMPADKEYS) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = v \
+: tag->ti_Tag = TRLV_Top \
+: tag->ti_Data = top \
+: tag = tag + SIZEOF(TagItem)
+
+#define FWListRO(ent,id,top)   tag->ti_Tag = TROB_Listview \
+: tag->ti_Data = (ent) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRLV_NOGAP OR TRLV_FWFONT OR TRLV_READONLY) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = 0 \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRLV_Top \
+: tag->ti_Data = top \
+: tag = tag + SIZEOF(TagItem)
+
+#define FWListSel(ent,id,top)  tag->ti_Tag = TROB_Listview \
+: tag->ti_Data = (ent) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRLV_NOGAP OR TRLV_FWFONT OR TRLV_SELECT) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = 0 \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRLV_Top \
+: tag->ti_Data = top \
+: tag = tag + SIZEOF(TagItem)
+
+#define FWListSS(e,id,top,v)   tag->ti_Tag = TROB_Listview \
+: tag->ti_Data = (e) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRLV_NOGAP OR TRLV_FWFONT OR TRLV_SHOWSELECTED) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = v \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRLV_Top \
+: tag->ti_Data = top \
+: tag = tag + SIZEOF(TagItem)
+
+#define FWListROC(ent,id,top)  tag->ti_Tag = TROB_Listview \
+: tag->ti_Data = (ent) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRLV_NOGAP OR TRLV_FWFONT OR TRLV_READONLY OR TRLV_NOCURSORKEYS) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = 0 \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRLV_Top \
+: tag->ti_Data = top \
+: tag = tag + SIZEOF(TagItem)
+
+#define FWListSelC(ent,id,top) tag->ti_Tag = TROB_Listview \
+: tag->ti_Data = (ent) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRLV_NOGAP OR TRLV_FWFONT OR TRLV_SELECT OR TRLV_NOCURSORKEYS) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = 0 \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRLV_Top \
+: tag->ti_Data = top \
+: tag = tag + SIZEOF(TagItem)
+
+#define FWListSSC(e,id,top,v)  tag->ti_Tag = TROB_Listview \
+: tag->ti_Data = (e) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRLV_NOGAP OR TRLV_FWFONT OR TRLV_SHOWSELECTED OR TRLV_NOCURSORKEYS) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = v \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRLV_Top \
+: tag->ti_Data = top \
+: tag = tag + SIZEOF(TagItem)
+
+#define FWListRON(ent,id,top)  tag->ti_Tag = TROB_Listview \
+: tag->ti_Data = (ent) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRLV_NOGAP OR TRLV_FWFONT OR TRLV_READONLY OR TRLV_NONUMPADKEYS) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = 0 \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRLV_Top \
+: tag->ti_Data = top \
+: tag = tag + SIZEOF(TagItem)
+
+#define FWListSelN(ent,id,top) tag->ti_Tag = TROB_Listview \
+: tag->ti_Data = (ent) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRLV_NOGAP OR TRLV_FWFONT OR TRLV_SELECT OR TRLV_NONUMPADKEYS) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = 0 \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRLV_Top \
+: tag->ti_Data = top \
+: tag = tag + SIZEOF(TagItem)
+
+#define FWListSSN(e,id,top,v)  tag->ti_Tag = TROB_Listview \
+: tag->ti_Data = (e) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRLV_NOGAP OR TRLV_FWFONT OR TRLV_SHOWSELECTED OR TRLV_NONUMPADKEYS) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = v \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRLV_Top \
+: tag->ti_Data = top \
+: tag = tag + SIZEOF(TagItem)
+
+#define FWListROCN(ent,id,top) tag->ti_Tag = TROB_Listview \
+: tag->ti_Data = (ent) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRLV_NOGAP OR TRLV_FWFONT OR TRLV_READONLY OR TRLV_NOCURSORKEYS OR TRLV_NONUMPADKEYS) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = 0 \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRLV_Top \
+: tag->ti_Data = top \
+: tag = tag + SIZEOF(TagItem)
+
+#define FWListSelCN(ent,id,top) tag->ti_Tag = TROB_Listview \
+: tag->ti_Data = (ent) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRLV_NOGAP OR TRLV_FWFONT OR TRLV_SELECT OR TRLV_NOCURSORKEYS OR TRLV_NONUMPADKEYS) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = 0 \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRLV_Top \
+: tag->ti_Data = top \
+: tag = tag + SIZEOF(TagItem)
+
+#define FWListSSCN(e,id,top,v) tag->ti_Tag = TROB_Listview \
+: tag->ti_Data = (e) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = (TRLV_NOGAP OR TRLV_FWFONT OR TRLV_SHOWSELECTED OR TRLV_NOCURSORKEYS OR TRLV_NONUMPADKEYS) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = v \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRLV_Top \
+: tag->ti_Data = top \
+: tag = tag + SIZEOF(TagItem)
+
+/* Progress indicator */
+#define Progress(maxi,value,id)   tag->ti_Tag = TROB_Progress \
+: tag->ti_Data = (maxi) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = (id) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Value \
+: tag->ti_Data = (value) \
+: tag = tag + SIZEOF(TagItem)
+
+/* Image */
+#define BoopsiImage(img)       tag->ti_Tag = TROB_Image \
+: tag->ti_Data = (img) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = TRIM_BOOPSI \
+: tag = tag + SIZEOF(TagItem)
+
+#define BoopsiImageD(img,mw,mh) tag->ti_Tag = TROB_Image \
+: tag->ti_Data = (img) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_MinWidth \
+: tag->ti_Data = (mw) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_MinHeight \
+: tag->ti_Data = (mh) \
+: tag = tag + SIZEOF(TagItem) \
+: tag->ti_Tag = TRAT_Flags \
+: tag->ti_Data = TRIM_BOOPSI \
+: tag = tag + SIZEOF(TagItem)
+
+/* Attributes */
+#define ID(id)                  tag->ti_Tag = TRAT_ID \
+: tag->ti_Data = id \
+: tag = tag + SIZEOF(TagItem)
+
+#define Disabled                tag->ti_Tag = TRAT_Disabled \
+: tag->ti_Data = TRUE \
+: tag = tag + SIZEOF(TagItem)
+
+#define ObjectBackfillWin       tag->ti_Tag = TRAT_Backfill \
+: tag->ti_Data = TRBF_WINDOWBACK \
+: tag = tag + SIZEOF(TagItem)
+
+#define ObjectBackfillReq       tag->ti_Tag = TRAT_Backfill \
+: tag->ti_Data = TRBF_REQUESTERBACK \
+: tag = tag + SIZEOF(TagItem)
+
+#define ObjectBackfillB         tag->ti_Tag = TRAT_Backfill \
+: tag->ti_Data = TRBF_NONE \
+: tag = tag + SIZEOF(TagItem)
+
+#define ObjectBackfillS         tag->ti_Tag = TRAT_Backfill \
+: tag->ti_Data = TRBF_SHINE \
+: tag = tag + SIZEOF(TagItem)
+
+#define ObjectBackfillSA        tag->ti_Tag = TRAT_Backfill \
+: tag->ti_Data = TRBF_SHINE_SHADOW \
+: tag = tag + SIZEOF(TagItem)
+
+#define ObjectBackfillSF        tag->ti_Tag = TRAT_Backfill \
+: tag->ti_Data = TRBF_SHINE_FILL \
+: tag = tag + SIZEOF(TagItem)
+
+#define ObjectBackfillSB        tag->ti_Tag = TRAT_Backfill \
+: tag->ti_Data = TRBF_SHINE_BACKGROUND \
+: tag = tag + SIZEOF(TagItem)
+
+#define ObjectBackfillA         tag->ti_Tag = TRAT_Backfill \
+: tag->ti_Data = TRBF_SHADOW \
+: tag = tag + SIZEOF(TagItem)
+
+#define ObjectBackfillAF        tag->ti_Tag = TRAT_Backfill \
+: tag->ti_Data = TRBF_SHADOW_FILL \
+: tag = tag + SIZEOF(TagItem)
+
+#define ObjectBackfillAB        tag->ti_Tag = TRAT_Backfill \
+: tag->ti_Data = TRBF_SHADOW_BACKGROUND \
+: tag = tag + SIZEOF(TagItem)
+
+#define ObjectBackfillF         tag->ti_Tag = TRAT_Backfill \
+: tag->ti_Data = TRBF_FILL \
+: tag = tag + SIZEOF(TagItem)
+
+#define ObjectBackfillFB        tag->ti_Tag = TRAT_Backfill \
+: tag->ti_Data = TRBF_FILL_BACKGROUND \
+: tag = tag + SIZEOF(TagItem)
+
+/* Requester support */
+#define BeginRequester(t,p)     WindowTitle(t) \
+: WindowPosition(p) \
+: WindowBackfillReq \
+: WindowFlags(TRWF_NOZIPGADGET OR TRWF_NOSIZEGADGET OR TRWF_NOCLOSEGADGET OR TRWF_NODELZIP OR TRWF_NOESCCLOSE) \
+: VertGroupA \
+: Space \
+: HorizGroupA \
+: Space \
+: GroupBox \
+: ObjectBackfillB
+
+#define BeginRequesterGads      Space \
+: EndGroup \
+: Space
+
+#define EndRequester            Space \
+: EndGroup \
+: EndProject
+
+
+#endif

@@ -1,0 +1,2 @@
+; Build the ReqEd executable.
+bas -O ReqEd FontReq.o

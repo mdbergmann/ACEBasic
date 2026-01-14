@@ -1,0 +1,19 @@
+
+This is the second subprogram library module I've created for serious use
+(the first was WBarg which started life as an include file).
+
+It encapsulates the functionality of an ASL file requester and was originally
+created for use with my ReqEd utility. It can of course be used by any program.
+
+Since ASL.library is required, Wb 2.x or higher is necessary to use this module.
+
+See test.b for an example of how to use the font requester subprogram. Type "Make"
+to generate the "test" executable.
+
+You should also read the comments at the top of FontReq.h.
+
+This module may be enhanced in the future (see Changes file).
+
+Regards,
+
+David Benn, 5th March 1995

@@ -1,0 +1,6 @@
+
+Place header files supplied with subprogram library module (SUBmod) archives
+in this directory and use "#include <SUBmods/...>" at the top of a program 
+(where "..." is the name of the header file) which uses SUBs in a given SUBmod.
+
+David Benn, 7th October 1995

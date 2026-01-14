@@ -1,0 +1,877 @@
+@database "ACE_Tutorial"
+@Master "ACE:ACE_Tutorial.guide"
+@$VER: ACE_Tutorial.guide 1.0 (13.12.2013)
+@WORDWRAP
+@WIDTH 81
+
+@REMARK Created with AmigaGuide Writer and Guided by Linus McCabe
+
+
+@node MAIN "ACE AmigaBASIC Tutorial"
+@TOC MAIN
+@{B}ACE AmigaBASIC@{UB}
+
+@{I}An introduction to Programming@{UI}
+
+@{"Chapter 1 - An Introduction" LINK "Chapter1" 0}
+@{"Chapter 2 - Understanding Our First Program" LINK "Chapter2" 0}
+@{"Chapter 3 - Introducing Variables" LINK "Chapter3" 0}
+@{"Chapter 4 - Conditions and Branching" LINK "Chapter4" 0}
+@{"Chapter 5 - Loops" LINK "Chapter5" 0}
+@{"Chapter 6 - Beginning Graphics" link "Chapter6" 0}
+@{"Chapter 7 - Fun with Shapes" link "Chapter7" 0}
+@{"Chapter 8 - Turtle Graphics" link "Chapter8" 0}
+@{"Chapter 9 - Subroutines" link "Chapter9" 0}
+@{"Chapter 10 - Arrays" link "Chapter10" 0}
+@{"Chapter 11 - Events and Interactivity" link "Chapter11" 0}
+@{"Chapter 12 - Amiga Special Features" link "Chapter12" 0}
+
+@Rem @{"Appendix A - Fun Samples" link "AppendixA" 0}
+@Rem @{"Appendix B - Colors" link "AppendixB" 0}
+
+@{"Copyright" link "Copyright" 0}
+
+@ENDNODE
+
+@node Chapter1 "An Introduction"
+@TOC MAIN
+@PREV MAIN
+@NEXT Chapter2
+
+@{I}Chapter 1@{UI}
+@{B}An Introduction@{UB}
+
+@{B}ACE and BASIC Programming@{UB}
+Computer programming is defined as the process of creating computer software using programming languages.  Just like we speak and understand English, French, German, or Spanish, computers can understand programs written in certain languages.  These are called programming languages.  In the beginning there were just a few programming languages and they were really easy to learn and comprehend.  But as computers and software became more and more sophisticated, programming languages evolved fast, gathering more complex concepts along the way.  As a result, most modern programming languages and their concepts are pretty challenging to grasp by a beginner.  This fact has started discouraging people from learning or attempting computer programming.
+
+This tutorial is designed to make programming extremely easy to understand, approachable and fun for beginners.  The intention is to bring down the barriers and serve as a stepping stone to the amazing world of computer programming.
+
+@{B}The ACE Environment@{UB}
+Let's start with a quick introduction to the @{B}ACE@{UB} environment.  The usual process to launch @{B}ACE@{UB} is by using @{B}AIDE@{UB} (ACE Integrated Development Environment).  When you first launch @{B}AIDE@{UB}, you will see a window that looks like the following figure.
+
+Figure 1 - Insert AIDE window here
+
+This is the @{B}ACE Integrated Development Environment@{UB}, where we'll write and run our @{B}ACE AmigaBASIC@{UB} programs.  This environment has several distinct elements.
+
+The @{B}Editor@{UB}, found under the @{B}Program@{UB} menu, is where we will write our @{B}ACE AmigaBASIC@{UB} programs.  When you open a sample program or a previously saved program, it will show up in this editor.  You can then modify it and save it for later use.  The editor that @{B}AIDE@{UB} uses can be changed by modifying the @{U}aide.config@{UU} file.
+
+The @{B}Menubar@{UB}, found at the top of the screen after pressing the right mouse button, is used to issue commands either to the editor or the environment.  We'll learn more about the various commands in the menubar as we go.  The first command we'll need to learn is @{B}New@{UB} under @{B}Project@{UB} in the menubar.  Using this command will bring up an empty Editor where we can enter our first program.
+
+@{B}Our First Program@{UB}
+Now that you are familiar with the @{B}ACE@{UB} environment, we will go ahead and start programming in it.  As we just noted above, the editor is the place where we write our programs.  So let's go ahead and type the following line in the editor.
+
+@{"Hello, World program" alink "ACE:prgs/HelloWorld.b/main" 0}
+
+This is our first @{B}ACE@{UB} program.  And if you have typed it correctly, you should see something similar to the figure below.
+
+Figure 2 - Insert First Program graphic here
+
+Now that we have typed our new program, let's go ahead and run it to see what happens.  We can run our program either by clicking on the @{I}Run@{UI} button on the toolbar or by using the shortcut key, F5 on the keyboard.  If everything goes well, our program should run with the result as shown below.
+
+Figure 3 - Insert First Program Output here
+
+Congratulations!  You have just written and run the first @{B}ACE BASIC@{UB} program.  A very small and simple program, but nevertheless a big step towards becoming a real programmer!  Now, there's just one more detail to cover before we go on to create bigger programs.  We have to understand what just happened - what exactly did we tell the computer and how did the computer know what to do?  In the next chapter, we'll analyze the program we just wrote, so we can gain that understanding.
+
+@{B}Saving our program@{UB}
+If you want to close the @{B}AIDE@{UB} and come back later to work on the program you just typed, you can save the program.  It is in fact a good practice to save programs from time to time, so that you don't lose information in the event of an accidental shutdown or a power failure.  You can save the current program be either clicking on the "save" icon on the toolbar or by using the shortcut "RA+S" (press the S key while holding down the Right Amiga key).
+
+@{"Goto next Chapter 2 - Understanding Our First Program" link Chapter2 0}
+@ENDNODE
+
+@node Chapter2 "Understanding Our First Program"
+@TOC MAIN
+@PREV Chapter1
+@NEXT Chapter3
+
+@{I}Chapter 2@{UI}
+@{B}Understanding Our First Program@{UB}
+
+@{B}What really is a computer program?@{UB}
+A program is a set of instructions for the computer.  These instructions tell the computer precisely what to do, and the computer always follows these instructions.  Just like people, computers can only follow instructions if specified in a language they can understand.  These are called programming languages.  There are very many languages that the @{B}Amiga@{UB} computer can understand and @{B}AmigaBASIC@{UB} is one.
+
+Imagine a conversation happening between you and your friend.  You and your friends would use words, organized as sentences to convey information back and forth.  Similarly, programming languages contain collections of words that can be organized into sentences that convey information to the computer.  And programs are basically sets of sentences (sometimes just a few and sometimes many thousands) that together make sense to both the programmer and the computer alike.
+
+@{B}AmigaBASIC Programs@{UB}
+A typical @{B}AmigaBASIC@{UB} program consists of a bunch of @{U}statements@{UU}.  Every line of program represents a statement and every statement is an instruction for the computer.  When we ask the computer to execute an @{B}AmigaBASIC@{UB} program, it takes the program and reads the first statement.  It understands what we're trying to say and then executes our instruction.  Once it's done executing our first statement, it comes back to the program and reads and executes the second line.  It continues to do so until it reaches the end of the program.  That is when our program finishes.
+
+@{B}Back to Our First Program@{UB}
+Here is the first program we wrote;
+
+@{"Hello, World program" alink "ACE:prgs/HelloWorld.b/main" 0}
+
+This is a very simple program that consists of one @{U}statement@{UU}.  That statement tells the computer to write a line of text which is @{B}Hello, World@{UB}, into the text window.
+
+It literally translates in the computer's mind to:
+
+    Write Hello World
+
+You might have already noticed that the statement can in turn be split into smaller segments much like sentences can be split into words.  In the first statement we have 2 distinct segments:
+
+    a) @{I}Print@{UI}
+    b) @{I}"Hello, World"@{UI}
+
+The dot, parentheses and the quotes are all punctuations that have to be placed at appropriate positions in the statement, for the computer to understand our intent.
+
+You might remember the window that appeared when we ran our first program.  That window is called the @{B}Shell@{UB} or sometimes referred to as the @{B}Console@{UB}.  That is where the result of this program goes.  You might have noticed that the Print operation is followed by @{B}Hello, World@{UB} inside quotes.  This text is passed as input to the Print operation, which it then prints out to the user.  This is called the @{U}input@{UU} to the operation.  Some operations take one or more inputs while others don't take any.
+
+@{"Goto next Chapter 3 - Introducing Variables" link Chapter3 0}
+@ENDNODE
+
+@node Chapter3 "Introducing Variables"
+@TOC MAIN
+@PREV Chapter2
+@NEXT Chapter4
+
+@{I}Chapter 3@{UI}
+@{B}Introducing Variables@{UB}
+
+@{B}Using Variables in our program@{UB}
+Wouldn't it be nice if our program can actually say "Hello" with the user's name instead of saying the generic "Hello, World"?  In order to do that we must first ask the user for his/her name and then store it somewhere and then print out "Hello" with the user's name.  Let's see how we can do that.
+
+@{"Hello, Name program" alink "ACE:prgs/HelloName.b/main" 0}
+
+When you type and execute this program, you'll see an output like the following:
+
+Figure 7 - Ask the User's Name
+
+And when you type in your name and hit ENTER, you'll see the following output:
+
+Figure 8 - A Warm Hello
+
+Now, if you run the program again, you'll be asked the same question again.  You can type a different name and the computer will say Hello with that name.
+
+@{B}Analysis of the program@{UB}
+In the program you just ran, the first line that might have caught your attention is this:
+
+    @{I}Input "Enter your name:  ", name$@{UI}
+
+It is an operation and basically it tells the computer to wait for the user to type in something and hit the ENTER key.  Once the user hits the ENTER key, it takes what the user has typed and returns it to the program.  The interesting point is that whatever the user had typed is now stored in a @{U}variable@{UU} called @{B}name$@{UB}.  A @{U}variable@{UU} is defined as a place where you can store values temporarily and use them later.  In the line above, @{B}name$@{UB} was used to store the name of the user.
+
+The next line is also interesting:
+
+    @{I}Print "Hello, " + name$@{UI}
+
+This is the place where we use the value stored in our variable, @{B}name$@{UB}.  We take the value in @{B}name$@{UB} and append it to "Hello" and write it to the Console.
+
+Once a variable is set, you can reuse it any number of times.  For example, you can do the following:
+
+@{"Warm Hello" alink "ACE:prgs/WarmHello.b/main" 0}
+
+And you'll see the following output:
+
+Figure 9 - Reusing a Variable
+
+@{B}Rules for name Variables@{UB}
+Variables have names associated with them and that's how you identify them.  There are certain simple rules and some really good guidelines for naming these variables.  They are:
+
+    1. The name should start with a letter and should not collide with any of the keywords like @{B}if@{UB}, @{B}for@{UB}, @{B}then@{UB}, etc.
+    2. A name can contain any combination of letters, digits and underscores.
+    3. It is useful to name variables meaningfully -- since variables can be as long as you want, use variable names to describe their intent.
+
+@{B}Playing with Numbers@{UB}
+We've just seen how you can use variables to store the name of the user.  In the next few programs, we'll see how we can store and manipulate numbers in variables.  Let's start with a really smiple program:
+
+@{"Add Two Numbers" alink "ACE:prgs/Adding.b/main" 0}
+
+When you run this program you'll get the following as output:
+
+Figure 10 - Adding Two Numbers
+
+In the first line of the program, you're assigning the variable @{B}number1@{UB} with a value of 10.  And in the second line, you're assigning the variable @{B}number2@{UB} with a value of 20.  In the third line, you're adding @{B}number1@{UB} and @{B}number2@{UB} and then assigning the result of that to @{B}number3@{UB}.  So, in this case, @{B}number3@{UB} will have a value of 30.  And that is what we printed out to the Console.
+
+Now, let's modify that program slightly and see the results:
+
+@{"Multiply Two Numbers" alink "ACE:prgs/Multiplying.b/main" 0}
+
+The program above will multiply @{B}number1@{UB} with @{B}number2@{UB} and store the result in @{B}number3@{UB}.  And you can see the result of that program below:
+
+Figure 11 - Multiplying Two Numbers
+
+Simularly, you can subtract or divide numbers.  Here is the subtraction:
+
+    @{I}number3 = number1 - number2@{UI}
+
+And the symbol for division is '/'.  The program will look like:
+
+    @{I}number3 = number1 / number2@{UI}
+
+And the result of this division would be:
+
+Figure 12 - Dividing Two Numbers
+
+@{B}A Simple Temperature Converter@{UB}
+For the next program we'll use the formula C° = 5(F°-32)/9 to convert Fahrenheit temperatures to Celsius temperatures.
+
+First, we'll get the temperature in Fahrenheit from the user and store it in a variable.
+
+    @{I}Input "Enter temperature in Fahrenheit: ", fahr@{UI}
+
+Once we have the Fahrenheit temperature stored in a variable, we can convert it to Celsius like this:
+
+    @{I}celsius = 5 * (fahr - 32) / 9@{UI}
+
+The parentheses tell the computer to calculate the @{B}fahr@{UB} - 32 part first and then process the rest.  Now all we have to do is print the result out to the user.  Putting it all together, we get this program:
+
+@{"Simple Temperature Converter" alink "ACE:prgs/TempConv.b/main" 0}
+
+And the result of this program would be:
+
+Figure 13 - Temperature Conversion
+
+@{"Goto next Chapter 4 - Conditions and Branching" link Chapter4 0}
+@ENDNODE
+
+@node Chapter4 "Conditions and Branching"
+@TOC MAIN
+@PREV Chapter3
+@NEXT Chapter5
+
+@{I}Chapter 4@{UI}
+@{B}Conditions and Branching@{UB}
+
+Going back to our first program, wouldn't it be cool that instead of saying the general @{I}Hello, World@{UI}, we could say @{I}Good Morning, World@{UI}, or @{I}Good Evening, World@{UI} depending on the time of day?  For our next program, we'll make the computer say @{I}Good Morning, World@{UI} if the time is earlier than 12PM; and @{I}Good Evening@{UI} if the time is later than 12PM.
+
+@{"Hello, Time" alink "ACE:prgs/Time.b/main" 0}
+
+Depending on when you run the program you'll see either of the following outputs:
+
+Figure 14 - Good Morning World
+
+Figure 15 - Good Evening World
+
+Let's analyze the first three lines of the program.  You'd have already figured out that these lines tells the computer that if the @{B}Hour$@{UB} is less than 12, print out "Good Morning, World".  The words @{B}If@{UB}, @{B}Then@{UB}, and @{B}EndIf@{UB} are special words that are understood by the computer when the program is run.  The word @{B}If@{UB} is always followed by a condition, which in this case is Hour$ < "12".  The condition is followed by @{B}Then@{UB} and the actual operation to execute.  And after the operation comes @{B}EndIf@{UB}.  This tells the computer that the conditional execution is over.
+
+Between the @{B}Then@{UB} and the @{B}EndIf@{UB}, there could be more than one operation and the computer will execute them all if the condition is valid.  For example, you could write something like this:
+
+    @{I}If Hour$ < "12" Then
+      Print "Good Morning, World."
+      Print "How was breakfast?"
+    End If@{UI}
+
+@{B}Else@{UB}
+In the program at the start of this chapter, you might have noticed that the second condition is kind of redundant.  The @{B}Hour$@{UB} value could either be less than 12 or not.  We didn't really have to do the second check.  At times like this, we can shorten the two @{B}If..Then..Endif@{UB} statements to be just one by using a new word, @{B}Else@{UB}.
+
+If we were to rewrite that program using @{B}Else@{UB}, this is how it will look:
+
+@{"Hello, Time using Else" alink "ACE:prgs/TimeElse.b/main" 0}
+
+And this program will do exactly the same as the other one, which brings us to a very important lesson in computer programming:
+
+    @{I}@{B}In programming, there are usually many ways of doing the same thing.  Sometimes one way makes more sense than the other way.  The choice is left to the programmer.  As you write more programs and get more experienced, you'll start to notice these different techniques and their advantages and disadvantages.@{UI}@{UB}
+
+@{B}Indentation@{UB}
+In all the examples you can see how the statements between @{B}If@{UB}, @{B}Else@{UB}, and @{B}EndIf@{UB} are indented.  This indentation is not necssary.  The computer will understand the program just fine without them.  However, they help us see and understand the structure of the program easier.  Hence, it's usually considered as a good practice to indent the statements in such blocks.
+
+@{B}Even or Odd@{UB}
+Now that we have the  @{B}If..Then..Else..EndIf@{UB} statement in our bag of tricks, let's write out a program that, given a number, will say if it's even or odd.
+
+@{"EvenOdd" alink "ACE:prgs/EvenOdd.b/main" 0}
+
+And when you run this program, you'll see an output like:
+
+Figure 16 - Even or Odd
+
+In this program, we've  introduced another new useful operation, @{B}Mod@{UB}.  And yes, as you already might have figured out, @{B}Mod@{UB} will divide the first number by the second number and then give back the remainder.
+
+@{B}Branching@{UB}
+Remember, in the second chapter you learned that the computer processes a program one statement at a time, in order from the top to bottom.  However, there's a special statement that can make the computer jump to another statement out of order.  Let's take a look at the next program.
+
+@{"Branching" alink "ACE:prgs/Branching.b/main" 0}
+
+Figure 17 - Using Goto
+
+In the program above, we assigned a value of 1 to the variable @{B}i@{UB}.  And then we added a new statement which ends in a colon (:)
+
+    @{I}start:@{UI}
+
+This is called a @{U}label@{UU}.  Labels are like bookmarks that the computer understands.  You can name the bookmark anything and you can add as many labels as you want in your program, as long as they are all uniquely named.
+
+Another interesting statement here is:
+
+    @{I}i = i + 1@{UI}
+
+This just tells the computer to add 1 to the variable @{B}i@{UB} and assign it back to @{B}i@{UB}.  So if the value of @{B}i@{UB} was 1 before this statement, it will be 2 after this statement is run.
+
+And finally,
+
+    @{I}If (i < 25) Then
+        Goto start
+    EndIf@{UI}
+
+This is the part that tells the computer that if the value of @{B}i@{UB} is less than 25, start executing statements from the bookmark start.
+
+@{B}Endless execution@{UB}
+Using the Goto statement you can make the computer repeat something any number of times.  For example, you can take the Even or Odd program and modify it like below, and the program will run for ever.  You can stop the program by clicking on the Close (X) button on the top left corner of the window.
+
+@{"Endless EvenOdd" alink "ACE:prgs/EndlessEvenOdd.b/main" 0}
+
+Figure 18 - Even or Odd running endlessly
+
+@{"Goto next Chapter 5 - Loops" link Chapter5 0}
+@ENDNODE
+
+@node Chapter5 "Loops"
+@TOC MAIN
+@PREV Chapter4
+@NEXT Chapter6
+
+@{I}Chapter 5@{UI}
+@{B}Loops@{UB}
+
+@{B}For Loop@{UB}
+Let's take a program we wrote in the previous chapter.
+
+@{"Branching" alink "ACE:prgs/Branching.b/main" 0}
+
+This program prints out numbers from 1 to 24 in order.  This process of incrementing a variable is so very common in programming that programming languages usually provide an easier method of doing this.  The above program is equivalent to the program below:
+
+@{"For loop" alink "ACE:prgs/for.b/main" 0}
+
+And the output is:
+
+Figure 19 - Using the For loop
+
+Notice that we've reduced the 8 line program to a 4 line program, and it still does exactly the same as the 8 line program!  Remember earlier we said that there are usually several ways of doing the same thing?  This is a great example.
+
+@{B}For..Next@{UB} is, in programming terms, called a @{U}loop@{UU}.  It allows you to take a variable, give it an initial and an end value and let the computer increment the variable for you.  Every time the computer increments the variable, it runs the statements between @{B}For@{UB} and @{B}Next@{UB}.
+
+But if you wanted the variable to be incremented by 2 instead of 1 -- like say, you wanted to print out all the odd numbers between 1 and 24, you can use the loop to do that too.
+
+@{"Odd Numbers" alink "ACE:prgs/OddNum.b/main" 0}
+
+
+Figure 20 - Just the Odd Numbers
+
+The @{B}Step 2@{UB} part of the @{B}For@{UB} statement tells the computer to increment the value of @{B}i@{UB} by 2 instead of the usual 1.  By using @{B}Step@{UB} you can specify any increment that you want.  You can even specify a negative value for the step and make the computer count backwards, like in the example below:
+
+@{"Counting Backwards" alink "ACE:prgs/BackwardsCount.b/main" 0}
+
+Figure 21 - Counting Backwards
+
+@{B}While Loop@{UB}
+The @{B}While@{UB} loop is yet another looping method, that is useful especially when the loop count is not known ahead of time.  Whereas a @{B}For@{UB} loop runs for a pre-defined number of times, the @{B}While@{UB} loop runs until a give condition is true.  In the example below, we're halving a number until the result is greater than 1.
+
+@{"Halving" alink "ACE:prgs/Halving.b/main" 0}
+
+Figure 22 - Halving Loop
+
+In the program above, we assign the value 100 to number and run the @{B}While@{UB} loop as long as number is greater than 1.  Inside the loop, we print out the number and then we divide it by two, effectively halving it.  And as expected, the output of the program is numbers that are getting progressively getting halved one after another.
+
+It'll be really hard to write this program using a @{B}For@{UB} loop, because we don't know how many times the loop will run.  With a @{B}While@{UB} loop it's easy to check for a condition and ask the computer to either continue the loop or quit.
+
+It'll be interesting to note that every while loop can be unwrapped into an @{B}If..Then@{UB} statement.  For instance, the program above can be rewritten as follows, without affecting the end result.
+
+@{"Halving with Goto" alink "ACE:prgs/HalvingGoto.b/main" 0}
+
+@{"Goto next Chapter 6 - Beginning Graphics" link Chapter6 0}
+@ENDNODE
+
+@node Chapter6 "Beginning Graphics"
+@TOC MAIN
+@PREV Chapter5
+@NEXT Chapter7
+
+@{I}Chapter 6@{UI}
+@{B}Beginning Graphics@{UB}
+
+So far in all of our examples, we've used the @{B}Console@{UB} to explain the fundamentals of the @{B}AmigaBASIC@{UB} language.  However, @{B}AmigaBASIC@{UB} comes with a powerful set of Graphics capabilities that we'll start exploring in this chapter.
+
+@{B}Introducing GraphicsWindow@{UB}
+Just like we had a @{B}Console@{UB} window that allowed us to work with Text and Numbers, @{B}AmigaBASIC@{UB} also provides a @{B}GraphicsWindow@{UB} that we can use to draw things.  Let's begin by displaying the GraphicsWindow.
+
+@{"Simple Graphic Window" alink "ACE:prgs/window.b/main" 0}
+
+When you run this program, you'll notice that instead of the usual black text window, you get a white Window like the one shown below.  There's nothing much to do on this window yet.  But this will be the base window on which we'll work on in this chapter.  You can close this window by pressing any key on the keyboard.
+
+Figure 23 - An empty Graphics Window
+
+@{B}Setting up the GraphicsWindow@{UB}
+The graphics window allows you to customize its appearance to your desire.  You can change the title, the background and its size.  Let's go ahead and modify it a bit, just to get familiar with the window.
+
+@{"Custom Graphic Window" alink "ACE:prgs/windowcustom.b/main" 0}
+
+Here's how the customized graphics window looks.  You can change the background color to one of the many values listed in Appendix B. Play with these properties to see how you can modify the window's appearance.
+
+Figure 24 - A Custom Graphics Window
+
+@{B}Drawing Lines@{UB}
+Once we have the GraphicsWindow up, we can draw shapes, text, and even pictures on it.  Let's start by drawing some simple shapes.  Here's a program that draws a couple of lines on the GraphicsWindow.
+
+@{"CrissCross" alink "ACE:prgs/X.b/main" 0}
+
+Figure 25 - CrissCross
+
+The first two lines of the program setup the window and the next two lines draw the crisscross lines.  The first two numbers that follow @{U}DrawLine@{UU} specify the starting x and y co-ordinates and the other two specify the ending x and y co-ordinates.  The interesting thing with computer graphics is that the co-ordinates (0,0) start at the top left corner of the window.  In effect, in the co-ordinate space the window is considered to be on the 2nd quadrant.
+
+Figure 26 - The co-ordinate map
+
+If we go back to the line program, it's interesting to note that @{B}AmigaBASIC@{UB} allows you to modify the properties of the line, such as the color and its thickness.  First, let's modify the color of the lines as shown in the program below.
+
+@{"Color CrissCross" alink "ACE:prgs/XColor.b/main" 0}
+
+Figure 27 - Changing Line Color
+
+@Rem Now, let's modify the size too.  In the program below, we change the line width to 10, instead of the default which is 1.
+@Rem
+@Rem Link to LineWidth program text
+@Rem
+@Rem Figure 28 - Thick Colorful Lines
+@Rem
+@Rem @{I}PenWidth@{UI} and @{I}PenColor@{UI} modify the pen with which these lines are drawn.  They not only affect lines but also any shape that is drawn after the properties are updated.
+@Rem 
+@Rem By using the looping statements we learned in the previous chapters, we can easily write a program that draws multiple lines with increasing pen thickness.
+@Rem
+@Rem Link to WiderPen program text
+@Rem
+@Rem Figure 29 - Mulitple Pen Widths
+@Rem
+@Rem The interesting part of this program is the loop, where we increase the @{I}PenWidth@{UI} every time the loop is run and then draw a new line under the old one.
+
+@{B}Drawing and Filling Shapes@{UB}
+When it comes to drawing shapes, there are usually two types of operations for every shape.  They are @{U}Draw@{UU} operations and @{U}Fill@{UU} operations.  Draw operations draw the outlines of the shape using a pen, and Fill operations paint the shape using a brush.  For example, in the program below, there are two rectangles, one that is drawn using the Red pen and one that's filled using the Green Brush.
+
+@{"Drawing and Filling" alink "ACE:prgs/BoXes.b/main" 0}
+
+Figure 30 - Drawing and Filling
+
+To draw or fill a rectangle, you need four numbers.  The first two numbers represent the X and Y co-ordinates for the top left corner of the rectangle.  The third number specifies the width of the rectangle while the fourth specifies its height.  In fact the same applies for drawing and filling ellipses, as shown in the program below.
+
+Link to DrawFillEllipses program text
+
+Figure 31 - Drawing and Filling Ellipses
+
+Ellipses are just a general case of circles.  If you want to draw circles, you would have to specify the same width and height.
+
+Link to Circles program text
+
+Figure 32 - Circles
+
+@{"Goto next Chapter 7 - Fun with Shapes" link Chapter7 0}
+@ENDNODE
+
+@node Chapter7 "Fun with Shapes"
+@TOC MAIN
+@PREV Chapter6
+@NEXT Chapter8
+
+@{I}Chapter 7@{UI}
+@{B}Fun with Shapes@{UB}
+
+We're going to have some fun in this chapter with whatever we've learned so far.  This chapter contains samples that show some interesting ways of combining all that you've learned so far to create some cool looking programs.
+
+@{B}Rectangalore@{UB}
+Here we draw multiple rectangles in a loop, with increasing size.
+
+@{"Rectangalore" alink "ACE:prgs/XBoXes.b/main" 0}
+
+Figure 33 - Rectangalore
+
+@{B}Circtacular@{UB}
+A variant of the previous program, draws circles instead of squares.
+
+Link to Circtacular program text
+
+Figure 34 - Circtacular
+
+@{B}Randomize@{UB}
+This program sets random colors for the brush and then randomly sets the x and y co-ordinates for the dots.  These two operations can be combined in interesting ways to create interesting programs that give different results each time they are run.
+
+@{"Randomize" alink "ACE:prgs/Dotty.b/main" 0}
+
+Figure 35 - Randomize
+
+@{B}Fractals@{UB}
+The following program draws a simple triangle fractal using random numbers.  A fractal is a geometric shape that can be subdivided into parts, each of which resembles the parent shape accurately.  In thise case, the program draws hundreds of triangles each of which resembles its parent triangle.  And since the program runs for a few seconds, you can actually see the triangles forming slowly from mere dots.  The logic itself is somewhat hard to describe and I'll leave it as an exercise for you to explore.
+
+Link to Fractals program text
+
+Figure 36 - Triangle Fractal
+
+If you want to really see the dots slowly forming the fractal, you can introduce a delay in the loop by using the @{I}Program.Delay@{UI} operation.  This operation takes in a number that specifies in milliseconds, how long to delay.  Here's the modified program, with the modified line in bold.
+
+Link to DelayFractals program text
+
+Increasing the delay will make the program slower.  Experiment with the numbers to see what's best for your taste.
+
+Another modification you can make to this program is to replace the following line:
+
+    @{I}Pset(x,y), 1@{UI}
+
+with
+
+    @{I}Pset(x,y), Rnd * 6@{UI}
+
+This change will make the program draw the pixels of the triangle using random colors.
+
+@{"Goto next Chapter 8 - Turtle Graphics" link Chapter8 0}
+@ENDNODE
+
+@node Chapter8 "Turtle Graphics"
+@TOC MAIN
+@PREV Chapter7
+@NEXT Chapter9
+
+@{I}Chapter 8@{UI}
+@{B}Turtle Graphics@{UB}
+
+@{B}Logo@{UB}
+In the 1970s, there was a very simple but powerful programming language, called Logo that was used by a few researchers.  This was until someone added what is called "Turtle Graphics" to the language and made available a "Turtle" that was visible on the screen and responded to commands like @{U}Move Forward@{UU}, @{U}Turn Right@{UU}, @{U}Turn Left@{UU}, etc.  Using the Turtle, people were able to draw interesting shapes on the screen.  This made the language immediately accessible and appealing to people of all ages, and was largley responsible for its wild popularity in the 1980s.
+
+ACE AmigaBASIC comes with a @{B}Turtle@{UB} object with many commands that can be called from within ACE AmigaBASIC programs.  In this chapter, we'll use the Turtle to draw graphics on the screen.
+
+@{B}The Turtle@{UB}
+To begin with, we need to make the Turtle visible on the screen.  This can be achiveved by a simple one line program.
+
+    @{I}Turtle.Show()@{UI}
+
+When you run this program you'll notice a white window, just like the one we saw in the previous chapter, except this one has a Turtle in the center.  It is this Turtle that is going to follow our instructions and draw whatever we ask it to.
+
+Figure 37 - Turtle is visible
+
+@{B}Moving and Drawing@{UB}
+One of the instructions that the Turtle understands is @{B}Move@{UB}.  This operation takes a number as input.  This number tells the Turtle how far to move.  Say, in the example below, we'll ask the Turtle to move 100 pixels.
+
+    @{I}Turtle.Move(100)@{UI}
+
+When you run this program, you can actually see the turtle move slowly a 100 pixels upwards.  As it moves, you'll also notice it drawing a line behind it.  When the Turtle has finished moving, the result will look something like the figure below.
+
+Figure 38 - Move a hundred pixels
+
+@{B}Drawing a Square@{UB}
+A square has four sides, two vertical and two horizontal.  In order to draw a square we need to be able to make the Turtle draw a line, turn right and draw another line and continue this until all four sides are finished.  If we translated this to a program, here's how it would look.
+
+Link to TurtleSquare program text
+
+When you run this program, you can see the Turtle drawing a square, one line at a time, and the result looks like the figure below.
+
+Figure 39 - Turtle drawing a square
+
+It's interesting to note that we're issuing the same two instructions over and over - four time precisely.  And we've already learnt that such repetitive commands can be executed using loops.  So, if we take the program and modify it to use the @{B}For..EndFor@{UB} loop, we'll end up with a much simpler program.
+
+Link to TurtleLoop program text
+
+@{B}Changing Colors@{UB}
+The Turtle draws on the exact same GraphicsWindow that we saw in the previous chapter.  This means that all the operations that we learned in the previous chapter are still valid here.  For instance, the following program will draw the square with each side in a different color.
+
+Link to ColorTurtle program text
+
+Figure 40 - Changing Colors
+
+@{B}Drawing more complex shapes@{UB}
+The Turtle, in addition to the @{B}TurnRight@{UB} and @{B}TurnLeft@{UB} operations, has a @{B}Turn@{UB} operation.  This operation takes one input which specifies the angle of rotation.  Using this operation, it is possible to draw any sided polygon.  The following program draws a hexagon (a six-sided polygon).
+
+Link to TurtleHex program text
+
+Try this program out to see if it really draws a hexagon.  Observe that since the angle between the sides is 60 degrees, we use Turn(60).  For such a polygon, whose sides are all equal, the angle between the sides can be easily obtained by dividing 360 by the number of sides.  Armed with this information and using variables, we can write a pretty generic program that can draw any-sided polygon.
+
+Link to AnyPoly program text
+
+Using this program, you can draw any polygon by just modifying the sides variable.  Putting 4 here would give us the Square we started with.  Putting a sufficiently large value, say 50 would make the result indistinguishable from a circle.
+
+Figure 41 - Drawing a 12-sided polygon
+
+Using the technique we just learned, we can make the Turtle draw multiple circles each time with a little shift resulting in an interesting output.
+
+Link to TurtleCircles program text
+
+The program above has two @{B}For..EndFor@{UB} loops, one within the other.  The inner loop (i=1 to sides) is similar to the polygon program and is responsible for drawing a circle.  The outer loop (j=1 to 20) is responsible for turning the Turtle by a small bit for every circle that is drawn.  This tells the Turtle to draw 20 circles.  When put together, this program results in a very interesting pattern, like the one shown below.
+
+Figure 42 - Going in circles
+
+@{B}Moving Around@{UB}
+You can make the turtle not draw by calling the @{B}PenUp@{UB} operation.  This allows you to move the turtle to anywhere on the screen without drawing a line.  Calling @{B}PenDown@{UB} will make the turtle draw again.  This can be used to get some interesting effects, like say, dotted lines.  Here's a program that uses this to draw a dotted line polygon.
+
+Link to DottedPoly program text
+
+Again, this program has two loops.  The inner loop draws a single dotted line, while the outer loop specifies how many lines to draw.  In our example, we used 6 for the sides variable and hence we got a dotted line hexagon, as below.
+
+Figure 43 - Using PenUp and PenDown
+
+@{"Goto next Chapter 9 - Subroutines" link Chapter9 0}
+@ENDNODE
+
+@node Chapter9 "Subroutines"
+@TOC MAIN
+@PREV Chapter8
+@NEXT Chapter10
+
+@{I}Chapter 9@{UI}
+@{B}Subroutines@{UB}
+
+Very often while writing programs we'll run into cases where we'll have to execute the same set of steps, over and over again.  In those cases, it probably wouldn't make sense to rewrite the same statements multiple times.  That's when @{U}Subroutines@{UU} come in handy.
+
+A subroutine is a portion of code within a larger program that usually does something very specific, and that can be called from anywhere in the program.  Subroutines are identified by a name that follows the @{B}Sub@{UB} keyword and are terminated by the @{B}EndSub@{UB} keyword.  For example, the following snippet represents a subroutine whose name is @{U}PrintTime@{UU}, and it does the job of printing the current time to the TextWindow.
+
+    @{I}Sub PrintTime
+        Print Time$
+    EndSub@{UI}
+
+Below is a program that includes the subroutine and calls it from various places.
+
+@{"Print Time subroutine" alink "ACE:prgs/PrintTime.b/main" 0}
+
+Figure 44 - Calling a simple Subroutine
+
+You execute a subroutine by calling @{U}SubroutineName()@{UU}.  As usual, the punctucation "()" are necessary to tell the computer that you want to execute a subroutine.
+
+@{B}Advantages of using Subroutines@{UB}
+As we just saw above, subroutines help reduce the amount of code you have to type in.  Once you have the @{U}PrintTime@{UU} subroutine written, you can call it from anywhere in your program and it'll print the current time.
+
+In addition, subroutines can help decompose complex problems into simpler pieces.  Say you had a complex equation to solve, you can write several subroutines that solved smaller pieces of the complex equation.  Then you can put the results together to get the solution to the original complex equation.
+
+Subroutines can also aid in improving the readability of a program.  In other words, if you have well named subroutines for commonly run portions of your program, your program becomes easy to read and comprehend.  This is very important if you want to understand someone else's program or if you want your program to be understood by others.  Sometimes, it is helpful even when you want to read your own program, say a week after you wrote it.
+
+@{B}Using variables@{UB}
+You can access and use any variable that you have in a program from within a subroutine.  As an example, the following program accepts two numbers and prints out the larger of the two.  Notice that the variable max is used both inside and outside of the subroutine.
+
+@{"Two numbers Max" alink "ACE:prgs/Max.b/main" 0}
+
+And the output of this program looks like this.
+
+Figure 45 - Max of two numbers using Subroutine
+
+Let's look at another example that will illustrate the usage of Subroutines.  This time we'll use a graphics program that computes various points which it will store in variables x and y.  Then it calls a subroutine @{B}DrawCircleUsingCenter@{UB} which is resonsible for drawing a circle using x and y as the center.
+
+Link to CircleSub program text
+
+Figure 46 - Graphics Example for Subroutines
+
+@{B}Calling Subroutines inside Loops@{UB}
+Sometimes subroutines get called from inside a loop, during which time they execute the same set of statements but with different values in one or more of the variables.  For instance, say if you have a subroutine name @{U}PrimeCheck@{UU} and this subroutine  determines if a number is prime or not.  You can write a program that lets the user enter a value and you can then say if it is prime or not, using this subroutine.  The program below illustrates that.
+
+@{"Prime Check" alink "ACE:prgs/PrimeCheck.b/main" 0}
+
+The @{U}PrimeCheck@{UU} subroutine takes the value of @{B}i@{UB} and tries to divide it by smaller numbers.  If a number divides @{B}i@{UB} and leaves no remainder, then @{B}i@{UB} is not a prime number.  At that point the subroutine sets the value of @{U}isPrime@{UU} to "False" and exits.  If the number was indivisible by smaller numbers then the value of @{U}isPrime@{UU} remains as "True".
+
+Figure 47 - Prime Check
+
+Now that you have a subroutine that can do the Prime test for us, you might want to use this to list out all the prime number below, say, 100.  It is really easy to modify the above program and make the call to @{U}PrimeCheck@{UU} from inside a loop.  This gives the subroutine a different value to compute each time the loop is run.  Let's see how this is done with the example below.
+
+Link to PrimeNumbers program text
+
+In the program above, the value of @{B}i@{UB} is updated every time the loop is run.  Inside the loop, a call to the subroutine @{U}PrimeCheck@{UU} is made.  The subroutine @{U}PrimeCheck@{UU} then takes the value of @{B}i@{UB} and computes whether or not @{B}i@{UB} is a prime number.  This result is stored in the variable @{U}isPrime@{UU} which is then accessed by the loop outside of the subroutine.  The value of @{B}i@{UB} is then printed if it turns out to be a prime number.  And since the loop starts from 3 and goes up to 100, we get a list of all the prime numbers that are between 3 and 100.  Below is the result of the program.
+
+Figure 48 - Prime Numbers
+
+@{"Goto next Chapter 10 - Arrays" link Chapter10 0}
+@ENDNODE
+
+@node Chapter10 "Arrays"
+@TOC MAIN
+@PREV Chapter9
+@NEXT Chapter11
+
+@{I}Chapter 10@{UI}
+@{B}Arrays@{UB}
+
+By now you must be well versed with how to use variables -- after all you have come this far and you're still having fun, right?
+
+Let's for a moment, revisit the first program we wrote with variables:
+
+@{"Hello Name" alink "ACE:prgs/HelloName.b/main" 0}
+
+In this program, we received and stored the name of the user in a variable called name.  Then later we said "Hello" to the user.  Now, let's say there is more than one user - say, there are 5 users.  How would we store all their names?  One way of doing this is:
+
+@{"Non-Array Names" alink "ACE:prgs/NameNonArray.b/main" 0}
+
+When you run this you'll get the following result:
+
+Figure 49 - Not using arrays
+
+Clearly there must be a better way to write such a smiple program, right?  Especially since the computer is really good at doing repetitive tasks, why should we bother with writing the same code over and over for every new user?  The trick here is to store and retrieve more than one user's name using the same variable.  If we can do that then we can usa a For loop we learned in earlier chapters.  This is where arrays come to our help.
+
+@{B}What is an array?@{UB}
+An array is a special kind of variable which can hold more than one value at a time.  Basically, what it means is that instead of having to create @{B}name1@{UB}, @{B}name2@{UB}, @{B}name3@{UB}, @{B}name4@{UB}, and @{B}name5@{UB} in order to store fiver user names, we could just use name to store all five users' names.  The way we store multiple values is by use of this thing called an "index."  For example, @{B}name[1]@{UB}, @{B}name[2]@{UB}, @{B}name[3]@{UB}, @{B}name[4]@{UB}, and @{B}name[5]@{UB} can all store a value each.  The numbers 1, 2, 3, 4, and 5 are called indices for the array.
+
+Even though @{B}name[1]@{UB}, @{B}name[2]@{UB}, @{B}name[3]@{UB}, @{B}name[4]@{UB}, and @{B}name[5]@{UB} all look like they are different variables, they're in reality all just one variable.  And what's the advantage of this, you may ask.  The best part of storing values in an array is that you can specify the index using another variable -- which allows us to easily access arrays inside loops.
+
+Now, let's look at how we can put our new knowledge to use by rewriting our previous program with arrays.
+
+@{"Name array" alink "ACE:prgs/NameArray.b/main" 0}
+
+Much easier to read, isn't it?  Notice the two bolded lines.  The first one stores a value in the array and the second one reads it from the array.  The value you store in @{B}name[1]@{UB} will not be affected by what you store in @{B}name[2]@{UB}.  Hence for most purposes you can treat @{B}name[1]@{UB} and @{B}name[2]@{UB} as two different variables with the same identity.
+
+Figure 50 - Using arrays
+
+The above program gives almost the exact same result as the one without arrays, except for the comma at the end of @{I}Mantis@{UI}.  We can fix that by rewriting the printing loop as:
+
+    @{I}Print "Hello "
+    For i = 1 to 5
+        Print name$[i]
+        If i < 5 Then
+            Print ", "
+        EndIf
+    EndFor
+    Print@{UI}
+
+@{B}Indexing an array@{UB}
+In our previous program you saw that we used numbers as indices to store and retrieve values from the array.  It turns out that the indices are not restricted to just numbers and in practice it's very useful to use textual indices too.  For example, in the following program, we ask and store various pieces of information about a user and then print out the info that the user asks for.
+
+Link to NonNumericIndex program text
+
+Figure 51 - Using non-numeric indices
+
+@{B}More than one dimension@{UB}
+Let's say you want to store the name and phone number of all your friends and then be able to lookup their phone numbers whenever you need -- kinda like a phonebook.  How would we go about writing such a program?
+
+In this case, there are two sets of indices (also known as the array's dimension) involved.  Assume we identify each friend by their nickname.  This becomes our first index in the array.  Once we use the first index to get our friend variable, the second of indices, name and phonenumber would help us get to the actual name and phone number of that friend.
+
+The way we store the data would be like this:
+
+    friends["Rob"]["Name"] = "Robert"
+    friends["Rob"]["Phone"] = "555-6789"
+    
+    friends["VJ"]["Name"] = "Vijaye"
+    friends["VJ"]["Phone"] = "555-4567"
+
+    Friends["Ash"]["Name"] = "Ashley"
+    Friends["Ash"]["Phone"] = "555-2345"
+
+Since we have two indices on the same array, friends, this array is called a two dimensional array.
+
+Once we have set this program up, we can then take as input the nickname of a friend and then print out the information we have stored about them.  Here's the full program that does that:
+
+Link to SimplePhoneBook program text
+
+Figure 52 - A simple phone book
+
+@{B}Using Arrays to represent grids@{UB}
+A very common use of multi-dimensional arrays is to represent grids/tables.  Grids have rows and columns,  which can fit nicely into a two dimensional array.  A simple program that lays out boxes in a grid is given below:
+
+Link to Grid program text
+
+This program adds rectangles and positions them to form an 8x8 grid.  In addition to laying these boxes, it also stores these boxes in an array.  Doiong so makes it easy for us to keep track of these boxes and use them again when we need them.
+
+Figure 53 - Laying out boxes in a grid
+@Rem 
+@Rem For example, adding the following code to the end of the previous program would make these boxes animate to the top left corner.
+@Rem 
+@Rem    For r = 1 To rows
+@Rem        For c = 1 To columns
+@Rem            Shapes.Animate(boxes[r][c], 0, 0, 1000)
+@Rem            Program.Delay(300)
+@Rem        EndFor
+@Rem    EndFor
+@Rem
+@Rem Figure 54 - Keeping track of boxes in the grid
+@Rem
+
+@{"Goto next Chapter 11 - Events and Interactivity" link Chapter11 0}
+@ENDNODE
+
+@node Chapter11 "Events and Interactivity"
+@TOC MAIN
+@PREV Chapter10
+@NEXT Chapter12
+
+@{I}Chapter 11@{UI}
+@{B}Events and Interactivity@{UB}
+
+In the first two chapters, we introduced objects that have @{U}Properties@{UU} and @{U}Operations@{UU}.  In addition to properties and operations, some objects have what are called @{B}Events@{UB}.  Events are like signals that are raised, for example, in response to user actions, like moving the mouse or clicking it.  In some sense events are the opposite of operations.  In the case of operation, you as a programmer call it to make the computer do something; whereas in the case of events, the computer lets you know when something ineresting has happened.
+
+@{B}How are events useful?@{UB}
+Events are central to introducing interactivity in a program.  If you want to allow a user to interact with your program, events are what you'll use.  Say, you're writing a Tic-Tac-Toe game.  You'll want to allow the user to choose his/her play, right?  That's where events com in -- you receive user input from within your program using events.  If this seems hard to grasp, don't worry, we'll take a look at very simple example that will help you understand what events are and how they can be used.
+
+Below is a very simple program that has just one statement and one subroutine.  The subroutine uses the @{U}ShowMessage@{UU} operation on the GraphicsWindow object to display a message box to the user.
+
+Link to MessageBox program text
+
+The interesting part to note in the program above is the line where we assign the subroutine name to the @{B}MouseDown@{UB} event of GraphicsWindow object.  You'll notice that MouseDown looks very much like a property -- except that instead of assigning some value, we're assigning the subroutine @{U}OnMouseDown@{UU} to it.  That's what is special about events -- when the event happens, the subroutine is called automatically.  In this case, the subroutine @{U}OnMouseDown@{UU} is called every time the user clicks using the mouse, on the GraphicsWindow.  Go ahead, run the program and try it out.  Anytime you click on the GraphicsWindow with your mouse, you'll see a message box just like the one shown in the picture below.
+
+Figure 55 - Response to an event
+
+This kind of event handling is very powerful and allows for very creative and interesting programs.  Programs written in this fashion are often called event-driven programs.
+
+You can modify the @{U}OnMouseDown@{UU} subroutine to do other things than popup a message box.  For instance, like in the program below, you can draw big blue dots where the user clicks the mouse.
+
+Link to BlueDots program text
+
+Notice that in the program above, we used @{U}MouseX@{UU} and @{U}MouseY@{UU} to the mouse co-ordinates.  We then use this to draw a circle using the mouse co-ordinates as the center of the circle.
+
+@{B}Handling multiple events@{UB}
+There are really no limits to how many events you want to handle.  You can even have one subroutine handle multiple events.  However, you can handle an event only once.  If you try to assign two subroutines to the same event, the second one wins.
+
+To illustrate this, let's take the previous example and add a subroutine that handles key presses.  Also, let's make this new subroutine change the color of the brush, so that when you click your mouse, you'll get a different colored dot.
+
+Link to ColoredDots program text
+
+Figure 57 - Handling multiple events
+
+If you ran this program and clicked on the window, you'll get a blue dot.  Now, if you press any key once and click again, you'll get a different colored dot.  What's happening when you press a key is that the subroutine @{U}OnKeyDown@{UU} gets executed which changes the brush color to a random order.  After that when you click the mouse, a circle is drawn using the newly set color -- giving the random color dots.
+
+@{B}A paint program@{UB}
+Armed with events and subroutines, we can now write a program that lets users draw on the window.  It's surprisingly easy to write such a program, provided we break down the problem into smaller bits.  As a first step, let's write a program that will allow users to move the mouse anywhere on the graphics window, leaving a trail wherever they move the mouse.
+
+Link to PaintProgram program text
+
+However, when you run this program, the first line always starts from the top left edge of the window (0,0).  We can fix this problem by handling the @{U}MouseDown@{UU} event and capture the @{U}prevX@{UU} and @{U}prevY@{UU} values when that event comes.
+
+Also, we really only need the trail when the user has the mouse button down.  Other times, we shouldn't draw the line.  In order to get this behavior, we'll use the @{U}isLeftButtonDown@{UU} property on the @{B}Mouse@{UB} object.  This property tells whether the Left button is being held down or not.  If this value is true, then we'll draw the line, if not we'll skip the line.
+
+Link to MouseDownDraw program text
+
+@ENDNODE
+
+@node Chapter12 "Amiga Special Features"
+@TOC MAIN
+@PREV Chapter11
+@NEXT AppendixA
+
+     This chapter to be completed later.
+
+@EndNode
+
+@node AppendixA "Fun Samples"
+@TOC MAIN
+@PREV Chapter12
+@NEXT AppendixB
+
+@{I}Appendix A@{UI}
+@{B}Fun Samples@{UB}
+
+@{B}Turtle Fractal@{UB}
+
+Figure 58 - Turtle drawing a fractal tree
+
+Link to TurtleFractal program text
+
+@{B}Photos from Flickr@{UB}
+
+Figure 59 - Retrieving pictures from Flickr
+
+Link to FlickrPhotos program text
+
+@{B}Dynamic Desktop Wallpaper@{UB}
+
+Link to DynamicDesktopWallpaper program text
+
+@{B}Paddle Game@{UB}
+
+Figure 60 - Paddle Game
+
+Link to PaddleGame program text
+
+@ENDNODE
+
+@node AppendixB "Colors"
+@TOC MAIN
+@PREV AppendixA
+
+@{I}Appendix B@{UI}
+@{B}Colors@{UB}
+
+Here's a list of named colors supported by @{B}AmigaBASIC@{UB}, categorized by their base hue.
+
+@ENDNODE
+
+@node Copyright "Copyright"
+
+(C) Copyright 2013   All rights reserved.
+
+Amiga Basic was developed by Microsoft Corporation.
+Microsoft® BASIC for the Amiga
+
+Microsoft is a registered trademark of Microsoft Corporation.
+Amiga is a trademark of Amiga, Inc.
+
+@ENDNODE

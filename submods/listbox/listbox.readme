@@ -1,0 +1,16 @@
+   Short: A simple ListView-based requester.
+Uploader: David Benn, D.Benn@appcomp.utas.edu.au
+  Author: David Benn, Nils Sjoholm
+
+ListBox is a general purpose requester which consists of a Listview gadget
+and two buttons. The ListBox function may be passed an array of strings
+to be viewed via the requester, any of which may be selected by the user
+with the number of the selected string being returned. Zero is returned 
+if the cancel button or close-window gadget are clicked, or if no string is
+explicitly selected.
+
+This SUBmod relies upon the new ACE header files although the SUBmod itself 
+(ListBox.o) is supplied precompiled and assembled.
+
+17th October 1995
+

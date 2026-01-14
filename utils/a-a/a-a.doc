@@ -1,0 +1,255 @@
+From XRACTON@FULLERTON.EDU Thu Jun 24 00:39:05 1993
+Return-Path: <XRACTON@FULLERTON.EDU>
+Received: from csu.Fullerton.EDU by leven.appcomp.utas.edu.au (4.1/SMI-4.1)
+	id AB05310; Thu, 24 Jun 93 00:38:13 EST
+Received: from FULLERTON.EDU by FULLERTON.EDU (PMDF #2446 ) id
+ <01GZPKDRJYSS002QFT@FULLERTON.EDU>; Wed, 23 Jun 1993 07:36:24 PST
+Date: 23 Jun 1993 07:36:23 -0800 (PST)
+From: ROLAND ACTON <XRACTON@FULLERTON.EDU>
+Subject: A-A documentation
+To: dbenn@leven.appcomp.utas.edu.au
+Message-Id: <01GZPKDRJYSU002QFT@FULLERTON.EDU>
+X-Vms-To: IN%"dbenn@leven.appcomp.utas.edu.au"
+Mime-Version: 1.0
+Content-Transfer-Encoding: 7BIT
+Status: OR
+
+                            AMOS to ACE
+                            Version 1.0
+                           June 22, 1993
+
+INTRODUCTION
+------------
+  This program is intended for people like me: people who have a
+big, bulky application program written in AMOS BASIC. AMOS is nice
+for development, because it's interpreted, and runs fast. But
+programs written in it have a lot of problems - such as opening up
+their own screen (which is not Intuition-compatible), not
+multitasking with each other, and not working properly with the
+68040. This makes AMOS programs murder to run for any serious
+computer user - and most of them won't.
+  ACE has its own set of problems, but most of them are compiler
+limitations. They're not things that would affect the end user of
+the application program. When you're writing programs for fame,
+instead of fortune, that's an important consideration.
+  AMOS and ACE are not completely compatible. Most of the commands
+found in ACE are in AMOS, but some of them have the parameters in a
+different order. There are a few cases where both programs have the
+same function, but require a different command to execute it. This
+can make converting from one to the other rather tedious - and once
+you do, you have to either drop the original version, or (try) to
+develop them both in parallel.
+  AMOS to ACE is designed to help. With it, you can keep one version
+of your program (in AMOS format) and convert it to ACE when you're
+ready to compile it. It has quite a few limitations, and can't
+convert anywhere near all of AMOS's command set (most of them have
+no analogues in ACE), but should be very useful to serious
+developers (who don't want to admit that they're writing programs in
+AMOS). The program is user-extensible, and enough information is
+provided in this documentation to allow interested users to
+customize the program.
+
+SUPPORTED CONVERSIONS
+---------------------
+X, Y, A$, B$, ect. represent the positions of variables in commands.
+
+AMOS VERSION                            ACE VERSION
+Inc X                                   ++X
+Dec X                                   --X
+Add X,Y-Z                               X=X+Y-Z
+Free                                    FRE(-1)
+Instr(A$,B$,X)                          INSTR(X,A$,B$)
+Upper$(A$)                              UCASE$(A$)
+End If                                  END IF
+If(X=Y)                                 IF (X=Y) THEN
+Do                                      REPEAT
+Loop                                    UNTIL 1=0
+Rnd(X)                                  RND
+Fix(A)                                  FIX A+1
+Say "hello",1                           SAY "hello"
+Open Out 1,"out_file"                   OPEN "O",#1,"out_file"
+Open In 1,"junk_file"                   OPEN "I",#1,"junk_file"
+Append 1,"my_foo_bar"                   OPEN "A",#1,"my_foo_bar"
+Hex$(X,Y)                               HEX$(X)
+Bin$(X,Y)                               BIN$(X)
+Deek(A)                                 PEEKW(A)
+Doke A,Y                                POKEW A,Y
+Leek(A)                                 PEEKL(A)
+Loke A,Y                                POKEL A,Y
+Procedure HELLO[X,Y,Z]                  SUB HELLO(X,Y,Z)
+Procedure HELLO                         SUB HELLO
+End Proc                                END SUB
+Proc HELLO[X,Y,Z]                       CALL HELLO(X,Y,Z)
+Proc HELLO                              CALL HELLO
+Set Buffer 100                          <blank line>
+String$(A$,X)                           STRING$(X,A$)
+Rename "hello" To "goodbye"             NAME "hello" AS "goodbye"
+Lower$(A$)                              LCASE$(A$)
+
+  Note that the LCASE$ function is not part of ACE's command set. It
+is found in <strings.h> and must be included.
+  Although a version of the MID$ command, with different syntax, is
+also in <strings.h>, A-A does not convert to it from AMOS. AMOS's
+version of the MID$ command has a serious bug, and should never be
+used. (Note that AMOS's MID$ FUNCTION works properly)
+  I've been told that in a recent version of AMOS Pro the MID$
+command bug has finally been found and corrected, but in all prior
+versions (and in all versions of the original AMOS) the bug still
+exists.
+
+HOW IT WORKS
+------------
+  A-A works by comparing each program line against several dozen
+internal templates. If a match is found, the "corrected" version of
+the match is output. If not, the first character of the line is
+deleted from the internal buffer and output to the destination file,
+and the process begins again. A typical template looks like this:
+
+CONVANYFROM$(11)="Rnd(\1)"+Chr$(10)
+
+  The "R", "n", "d" and left parenthesis characters are "constants" -
+if they don't match with the input line, the comparison immediately
+fails. The backslash is special - it is the "variable" character.
+A-A has nine internal "variables" which it uses to rearrange parts
+of the input line. The backslash must be followed immediately by the
+variable number, and then by the "success-character" and the
+"failure-character". When A-A sees the backslash, it scans through
+the input line, looking for both the success and failure characters.
+If the failure-character appears before the success-character, or
+the success-character does not appear at all, the match fails.
+  Otherwise, the input line, up to the point that the
+success-character was found, is placed in the specified "variable",
+and A-A continues comparing the template against the input line,
+starting from the position right after where the success-character
+was found. Notice that the success-character in the example is a
+right parenthesis, and the failure-character is a linefeed (the
+Amiga's end-of-line character).
+  If any match fails, all variables are cleared before the input
+line is compared against the next template. Also, if the same
+variable appears multiple times in a template, the appropriate
+section of the input line is added onto the existing contents of the
+variable.
+  If a template matches completely, a definition such as this is
+used to determine what to output:
+
+CONVANYTO$(11)="RND"
+
+  All characters specified, except for the backslash character, are
+output verbatim. Again, the backslash character is special - it is
+followed immediately by a variable number, and the contents of that
+variable are inserted into that position in the output. In the
+example, the contents of the variable have been discarded - ACE's
+version of the Random function does not take a parameter.
+  There are two kinds of templates in A-A.  The ones in the arrays
+beginning with CONVBEGIN are checked against the input line only
+once, starting with the first character. This is because certain
+commands (such as IF) can only legally appear at the beginning of
+the line, and so it is not necessary to check for them across the
+entire line. Commands in the arrays beginning with CONVANY (such as
+the Instr function) can appear at any place in the input line, and
+so are checked for at every position.
+  The template conversion method has some problems. The worst of
+them appears in connection with strings. If A-A sees the input line
+
+PRINT "Let Freedom Ring"
+
+it will erroneously convert the Free in Freedom to FRE(-1).
+  Another problem occurs because of AMOS's IF statements. There are
+actually two versions of the IF statement in AMOS - one that has a
+"then" and one that does not. The scope of the "then" version is
+limited to the current line; the other version must be terminated
+with an END IF. A-A will always add a THEN onto the end of an IF;
+this will cause ACE to generate an error if there was already a THEN
+there. Fortunately, though, AMOS has an odd restriction about the
+"then" version - it can't be used if you're already inside an IF (of
+either kind). Thus I never use the "then" version, because I would
+have to rewrite it if I ever put another IF around that block of
+code. Hopefully, most other AMOS users think the same way.
+  A third problem occurs because the conversion routines are not
+recursive. If A-A converts an IF statement, it will not convert the
+statement's parameters.
+  A-A does have one "special case" patch - if the success-character
+in a variable is a right parenthesis, A-A will keep track of the
+number of left and right parentheses it encounters in the input
+line, and not match with any nested right parentheses.
+  These problems, and others, can be solved (with some annoyance) by
+using the conditional conversion feature.
+
+CONDITIONAL CONVERSION
+----------------------
+  Sections of code can be designated as AMOS-only or ACE-only. This
+is done in the following way:
+
+Rem Begin AMOS
+      ...
+<AMOS-only code>
+      ...
+Rem End AMOS
+
+Rem ACE      ...
+Rem ACE <ACE-only code>
+Rem ACE      ...
+
+  Note that these Rem statements must be typed EXACTLY as shown.
+  When A-A sees the text "Rem Begin AMOS", it will discard all lines
+after that until it sees the text "Rem End AMOS". It will then place
+"Rem AMOS" into the output stream to mark the place (in case you
+want to look at the output file) and continue as normal.
+  When A-A sees the text "Rem ACE", it will strip it out and place
+the remainder of the line into the output stream, without performing
+any conversions. It will then continue as normal.
+  Although this feature was mainly intended to allow you to replace
+AMOS commands (particularly graphic-oriented ones) with ones that
+will work under ACE, it can also be used to get around the template
+converter's limitations. Make a copy of the "problem" line, manually
+do whatever conversions are necessary, and designate the old and new
+lines as AMOS- and ACE-only, respectively.
+  Making use of this feature will affect the size of your source
+code and (marginally) the speed of your interpreted program. It will
+not affect the final compile, because only the ACE sections will get
+to the compiler.
+
+VARIABLE TYPE DIFFERENCES
+-------------------------
+  AMOS has two kinds of numeric variables: integers (4 bytes) which
+do not have a qualifier, and floating-point variables (4 bytes),
+which have a "#" as a qualifier. ACE has four kinds: short integer
+(2 bytes, "%" qualifier), long integer (4 bytes, "&"),
+single-precision (4 bytes, "!"), and double-precision (8 bytes,
+"#").
+  In AMOS, if no qualifier is appended to a variable name, it is
+treated as an integer. In ACE it's treated as single-precision.
+This isn't a problem because A-A automatically puts a DEFLNG a-z
+directive at the beginning of the output file, which makes all
+integers the same length as AMOS.
+  The difference is with the floating-point variables. In AMOS, a
+4-byte float has a trailing hash character; in ACE it has a trailing
+exclamation point. The easiest course is simply to leave the
+variable alone; ACE will just see it as a variable of greater
+precision than it originally was. This should cause no problems (I
+hope).
+  At the moment, double-precision variables aren't implemented in
+ACE - they're treated by the compiler as single-precision. So, for
+now, there is no potential incompatibility problem.
+
+OTHER STUFF
+-----------
+  There are two extra subroutines in A-A called BEFORECHECK and
+AFTERCHECK. These are called on each character "step" through the
+input line, before and after (respectively) the line is compared
+against the templates. At the moment, BEFORECHECK is being used only
+to implement the conditional conversion feature, and AFTERCHECK is
+blank. You can place extra code in the subroutines to make A-A
+handle your specific personal requirements.
+
+
+
+Interested parties can contact me at:
+
+Roland Acton
+8001 Bluebird Lane
+La Palma, CA, 90623
+U.S.A.
+
+Internet: xracton@ccvax.fullerton.edu
+

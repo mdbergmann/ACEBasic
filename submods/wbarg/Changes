@@ -1,0 +1,8 @@
+
+WBarg Subprogram Library Module - Changes
+-----------------------------------------
+
+5/3/95		-	ACE now allows _EXIT_PROG to be externally referenced by
+			SUBmods obviating the need for the kludgy workaround
+			(EXTERNAL _EXIT_PROG and inline assembly "xdef _EXIT_PROG"
+			used in the first version of WBarg.o).

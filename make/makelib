@@ -1,0 +1,4 @@
+.key arg
+
+; make a linked library from a single assembly source file.
+a68k sys:ace/src/lib/asm/<arg>.s sys:ace/lib/<arg>.lib

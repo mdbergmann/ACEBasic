@@ -1,0 +1,49 @@
+
+ReqEd - Changes
+===============
+
+Version 1.1
+-----------
+
+13/2/95	-	Fixed a silent bug in which the TAG_DONE entry in FontReq.b 
+		was missing from the TagItems array passed to AllocAslRequest().
+
+	-	Code generated for text rendering is now placed in a multi-
+		statement so as to reduce length of SUB.
+
+14/2/95	-	Dirty bit is now set when the requester window is moved
+		to a different location on the screen. This allows a save 
+		to occur when "Save..." is selected from the Project menu.
+
+18/2/95	-	Added cross-hair mouse pointer to main window when active.
+
+19/2/95	-	Implemented bevel-boxes (raised and recessed) as tool bar
+		objects.
+
+	-	When modifying a gadget's text, default value or max. slider
+		value, the previous is shown in the InputBox as the default.
+
+	-	Max. slider value entry now loops until the value is > 0
+		rather than the POTX/Y gadget disappearing from the window
+		when the value is 0. This also prevents negative values from
+		being entered (this should have been handled before).
+
+
+Version 1.11
+------------
+
+20/2/95	-	Version 1.1 was released after testing on an A1200 and A3000
+		without incident. However, ReqEd was shortly thereafter found
+		to crash an A500 when the tool bar window was selected from the
+		Project menu: the window failed to render because after the 
+		addition of plateau and panel layout object buttons, the tool 
+		bar window exceeded the height of the screen on my A500. The 
+		solution was to decrease the height of each button by one
+		vertical font height. Subsequent code assumes the existence
+		of the tool bar window.
+
+Version 1.12
+------------
+
+12/9/96	- 	More leading space added to menu items to better accomodate
+		checkmarks for certain fonts.

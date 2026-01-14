@@ -1,0 +1,3 @@
+.key prg
+; Compile prg and link with EasyRequest SUBmod.
+bas -O <prg> EasyRequest.o

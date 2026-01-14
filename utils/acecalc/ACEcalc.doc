@@ -1,0 +1,153 @@
+
+				-------------------
+				ACEcalc version 2.0
+				------------------- 
+
+					by
+
+			    David J. Benn, November 1995
+
+
+CONTENTS
+--------
+° General Description
+° Order of Operations
+° Accuracy of Calculations
+° Error Messages
+° Inside the Program
+° Problems/Limitations
+° Changes
+° Contacting the Author
+            
+
+General Description
+-------------------
+ACEcalc is Workbench calculator which allows for the construction and
+evaluation of fixed-point infix expressions.
+
+Legal operators are: +,-,*,/,^ corresponding to addition, subtraction,
+multiplication, division, exponentiation. Two additional operators: (
+and ) allow sub-expressions to be parenthesised.
+
+Unary functions currently provided are: SIN, COS, TAN, LOG, EXP, SQR,
+and INT which correspond to sine, cosine, tangent (these expect radians),
+natural logarithm, e raised to the power of n, square root and integer
+conversion with rounding. All functions take a single argument.
+
+Expressions are entered either by clicking buttons on the calculator 
+with the mouse, or by using the Amiga's keyboard. In the latter case,
+the return/enter key has the same effect as "=", and the destructive
+backspace and Del keys correspond to the "«-" button on the calculator.
+
+Note that all buttons in the first four rows have keyboard equivalents,
+but that none in the last two rows do.
+ 
+There are three other calculator buttons of note: CLR, STO, RCL. The
+first clears the calculator's display. STO stores the current expression
+(shown in the calculator's display). RCL retrieves the most recently
+stored expression and displays it. There is only a single memory. In
+order to clear the memory, select CLR and STO in sequence.
+
+Typical ACEcalc usage is somthing like this (comments in curly braces):
+
+	(12+2)*3.5		{enter this expression}
+	=			{"=" button or keyboard equivalent}
+	49			{result appears in display}
+	STO			{store 49}
+	CLR			{clear the display}
+	SIN(			{enter "SIN("}
+	RCL			{recall memory contents}
+	)			{closing parenthesis}
+	=			{"=" button or keyboard equivalent}
+	-0.9537535		{result of SIN(49) appears in display}
+	
+The project menu has items for an About box and quitting. The program
+may be exited by selecting the latter from the Project menu, hitting
+Amiga-Q or clicking the calculator's close button.
+
+Note that the calculator window may be dragged around the screen and
+depth arranged.
+
+
+Order of Operations
+-------------------
+Expression evaluation proceeds from left to right, with operation
+precedence as follows:
+
+	1. 	()	
+	2. 	SIN,COS,TAN,LOG,EXP,SQR,INT
+	3.	^
+	4.	*,/
+	5.	+,-
+
+
+Accuracy of Calculations
+------------------------
+Since ACEcalc only uses single-precision floating point math, the accuracy
+of results is limited to around 8 integer digits or 7 decimal places, and 
+beyond that, digits should be treated with suspicion.
+
+A big advantage of single-precision math (Motorola FFP in this case) is
+that it's fast. However, when ACE (see "Inside the program") supports 
+double-precision (IEEE) floating point math, so will ACEcalc.
+
+   
+Error Messages
+--------------
+If an expression is malformed and cannot meaningfully be evaluated,
+ACEcalc displays the message: SYNTAX ERROR.
+
+If a divisor evaluates to zero the DIVISION BY ZERO message is displayed.
+
+You should never see the STACK OVERFLOW or STACK UNDERFLOW messages. Let 
+me know if you do.
+
+
+Inside the Program
+------------------
+ACEcalc was written in ACE BASIC, a freeware AmigaBASIC compiler (developed 
+by yours truly).
+
+The calculator relies heavily upon ACE's GUI capabilities for the
+creation and handling of menus, buttons etc.
+
+The expression evaluation engine is a recursive descent parser.
+
+
+Problems/Limitations
+--------------------
+° While ACEcalc displays exponential format numbers when a result is
+  too large to be displayed in fixed point format, such results can
+  not be used as components in subsequent calculations.
+
+
+Changes
+-------
+Version 2.0	- Buttons now use topaz 8 font to avoid imagery mangling
+		  when other default screen fonts are used.
+
+		- Bug in exponentiation fixed: use of negative exponents
+	  	  resulted in incorrect results. Also, since ACE v2.39
+		  (unreleased at this time) uses single-precision IEEE
+		  if available on the system in use, the results of
+		  exponentiation are in general more accurate.
+
+		- MsgBox function usage replaced by MsgBox statement.
+  
+    
+Contacting the Author
+---------------------
+You can reach me in a number of ways:
+
+	Internet:	D.Benn@appcomp.utas.edu.au
+	
+	CompuServe:	100033,605
+
+	Phone:		(003) 261 461 [AH]
+
+	Snail Mail:	9 Mayne Street,
+			Invermay, Tasmania,
+			Australia, 7248
+
+
+				(*---oOo---*)

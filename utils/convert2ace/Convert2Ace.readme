@@ -1,0 +1,106 @@
+
+
+        Convert2Ace.
+
+        Convert2Ace is a simple utility to convert C-headers to
+        ACE Basic headers. To be able to use it you must have
+        OS 2.04+. It also uses the xen.font so if you don't have
+        it just install the font. It should be in this arcive.
+        I could have made Convert2Ace standalone without a library
+        but there can be more utility (maybe) written in CanDo so
+        I decide to distribute it with the cando.library. Put that
+        in libs.
+
+        CHANGED. Made Convert2ACE standalone, you don't need
+        cando.library anymore.
+
+        Use this utility at your own risk.
+
+        Here is some guidelines on how to use Convert2Ace.
+
+
+        Before you let Convert2Ace do its job you have to browse
+        through the C-headers and correct (perhaps) some things.
+
+        What you shall look for is:
+
+        typedef struct {
+        .....
+        .....
+        }structname
+
+        You have to convert that to a regular struct.
+
+        struct structname {
+        ....
+        .....
+        }        
+
+        Structs in structs, you have to lift the struct out
+        and put it as a stand alone struct. So is enum in a
+        struct, just convert it to a regular struct.
+
+        Struct members have to be on the same line eg.
+        LONG     member,
+                 member1,
+                 member2;
+
+        This won't work you have to put those on the same line
+        LONG     member,member1,member2;
+
+        OR
+
+        LONG     member;
+        LONG     member1;
+        LONG     member2;<--- don't forget the semicolon
+
+        When a struct pointer is defined like this
+        struct Window   *   NextWindow;
+        change to
+        struct Window      *NextWindow;
+
+        If there is something like this in the header
+        (11 << 4L) change to  (11<<4L)
+        just remove the spaces.
+
+        If there is long defines in the header eg.
+        0x6454466L change it to 0x6454466&
+
+        REMARK.  If there is xxxx|ooroor in the header just
+        put in spaces around |.   xxxx | ooroor. It will
+        be changed to OR by Convert2ACE.
+
+
+        Now to the code Conver2Ace produce.
+
+        After Convert2Ace is done browse the header for things
+        like this.
+
+        >>>>STRING ..... SIZE ..*.....
+        That's an array of structs, you have to recalculate the value.
+
+        You will also see STRING ...... SIZE ...*SIZEOF(LONGINT)
+                                                *SIZEOF(SHORTINT)
+                                                *SIZEOF(ADDRESS)
+
+        Ace will support this but for now recalculate those.
+
+        Sometimes Convert2Ace don't put in a & instead of a L when it
+        convert left shift (11<<4L) to decimal. It just sometimes
+        skips the & and I can't find out why. Just keep your eyes open
+        for this. It's always the last one in a series of converts.
+
+        Check for other stuff as well, Convert2Ace can't handle all
+        but most of the C-headers was translated without any problems.
+
+        One final word, when Convert2Ace is done it will ask where to
+        save the new header, it will open (the first time) in the same
+        directory your c-header is. DON'T OVERWRITE YOUR ORIGINAL
+        HEADER. Now you are warned.
+
+
+        Nils Sjoholm
+
+        nils.sjoholm@mailbox.swipnet.se
+
+

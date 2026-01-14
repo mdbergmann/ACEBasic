@@ -1,0 +1,14 @@
+stack 40000
+
+app ram:NAP_Mods.b ram:t/NAP_Mods.b
+set _maxerr 0
+ace -OmE ram:t/NAP_Mods.b
+
+if -r $_maxerr 10 -
+ delete >NIL: ram:t/NAP_Mods.b
+ a68k ram:t/NAP_Mods.s
+ delete >NIL: ram:t/NAP_Mods.s
+ cp >nil: ram:t/NAP_Mods.o ram:NAP_Mods.o
+endif
+
+del >NIL: ram:t/NAP*

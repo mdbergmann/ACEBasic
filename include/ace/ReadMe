@@ -1,0 +1,11 @@
+
+The contents of this directory are subject to change.
+
+Some header files (eg. fexists.h) here may become subprogram library modules 
+(SUBmods). In general, those which define useful subprograms are likely to be 
+so converted. 
+
+The contents of other headers are likely to be expanded in the future, eg. 
+acedef.h.
+
+David Benn, 7th October 1995

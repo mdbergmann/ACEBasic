@@ -1,0 +1,9 @@
+stack 40000
+
+set _maxerr 0
+ace -OE ram:NAP.b
+
+if -r $_maxerr 10 -
+ a68k ram:NAP.s
+ del >NIL: ram:NAP.s
+endif

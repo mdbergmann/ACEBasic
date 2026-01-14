@@ -1,0 +1,35 @@
+#ifndef  FUNCS_MATHIEEEDOUBTRANS_FUNCS_H
+#define  FUNCS_MATHIEEEDOUBTRANS_FUNCS_H
+
+/*
+**
+** Function declarations for ACE Basic
+**
+** Note: Translated to ACE by Nils Sjoholm
+**
+** Date: 11-Oct-95 TO 14-Oct-95
+**
+*/              
+
+#ifndef  EXEC_TYPES_H
+#include <exec/types.h>
+#endif
+
+DECLARE FUNCTION DOUBLE IEEEDPAtan( DOUBLE parm ) LIBRARY mathieeedoubtrans
+DECLARE FUNCTION DOUBLE IEEEDPSin( DOUBLE parm ) LIBRARY mathieeedoubtrans
+DECLARE FUNCTION DOUBLE IEEEDPCos( DOUBLE parm ) LIBRARY mathieeedoubtrans
+DECLARE FUNCTION DOUBLE IEEEDPTan( DOUBLE parm ) LIBRARY mathieeedoubtrans
+DECLARE FUNCTION DOUBLE IEEEDPSincos( ADDRESS pf2, DOUBLE parm ) LIBRARY mathieeedoubtrans
+DECLARE FUNCTION DOUBLE IEEEDPSinh( DOUBLE parm ) LIBRARY mathieeedoubtrans
+DECLARE FUNCTION DOUBLE IEEEDPCosh( DOUBLE parm ) LIBRARY mathieeedoubtrans
+DECLARE FUNCTION DOUBLE IEEEDPTanh( DOUBLE parm ) LIBRARY mathieeedoubtrans
+DECLARE FUNCTION DOUBLE IEEEDPExp( DOUBLE parm ) LIBRARY mathieeedoubtrans
+DECLARE FUNCTION DOUBLE IEEEDPLog( DOUBLE parm ) LIBRARY mathieeedoubtrans
+DECLARE FUNCTION DOUBLE IEEEDPPow( DOUBLE _EXP, DOUBLE arg ) LIBRARY mathieeedoubtrans
+DECLARE FUNCTION DOUBLE IEEEDPSqrt( DOUBLE parm ) LIBRARY mathieeedoubtrans
+DECLARE FUNCTION SINGLE IEEEDPTieee( DOUBLE parm ) LIBRARY mathieeedoubtrans
+DECLARE FUNCTION DOUBLE IEEEDPFieee( SINGLE _SINGLE ) LIBRARY mathieeedoubtrans
+DECLARE FUNCTION DOUBLE IEEEDPAsin( DOUBLE parm ) LIBRARY mathieeedoubtrans
+DECLARE FUNCTION DOUBLE IEEEDPAcos( DOUBLE parm ) LIBRARY mathieeedoubtrans
+DECLARE FUNCTION DOUBLE IEEEDPLog10( DOUBLE parm ) LIBRARY mathieeedoubtrans
+#endif   /* FUNCS_MATHIEEEDOUBTRANS_FUNCS_H */

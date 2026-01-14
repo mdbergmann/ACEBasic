@@ -1,0 +1,80 @@
+.key arg1,arg2,arg3
+
+; ** compile, assemble and link an ACE program **
+;
+; ** NOTE: this Wb 1.3 version of bas only handles
+; ** ACE source files with ".b" - not ".bas" - extensions.
+
+; make sure stack is big enough.
+STACK 40000
+
+; don't abort script if ACE or APP quits 
+; with a return code of 10 (ERROR).
+FAILAT 11
+
+IF <arg2> GT ""
+
+ ; at least 2 arguments: <arg1> = compiler options.
+ ;			 <arg2> = ACE source file.
+ ;			 <arg3> = extra object module/library to link.
+
+ ; preprocess source file.
+ app <arg2>.b ram:t/<arg2>.b
+ IF NOT ERROR
+
+   ; compile preprocessed source file.
+   ace <arg1> ram:t/<arg2>
+
+   IF NOT ERROR
+     ; assemble and link
+     delete >NIL: ram:t/<arg2>.b
+     a68k ram:t/<arg2>.s 
+     delete >NIL: ram:t/<arg2>.s
+     blink ram:t/<arg2>.o LIB <arg3>+ACElib:startup.lib+ACElib:db.lib+
+			      ACElib:ami.lib SMALLCODE SMALLDATA
+
+     ; leave us with the executable (and icon?).
+     copy ram:t/<arg2> ""
+
+     IF EXISTS ram:t/<arg2>.info
+       copy ram:t/<arg2>.info ""
+     ENDIF
+
+   ENDIF
+
+ ENDIF
+
+ELSE 
+
+ ; no compiler options: <arg1> = ACE source file.
+ ;			<arg2> = extra object module/library to link.
+
+ app <arg1>.b ram:t/<arg1>.b
+
+ IF NOT ERROR
+
+   ; compile source file.
+   ace ram:t/<arg1>
+
+   IF NOT ERROR
+     ; assemble and link.
+     delete >NIL: ram:t/<arg1>.b
+     a68k ram:t/<arg1>.s 
+     delete >NIL: ram:t/<arg1>.s
+     blink ram:t/<arg1>.o LIB <arg2>+ACElib:startup.lib+ACElib:db.lib+
+ 		              ACElib:ami.lib SMALLCODE SMALLDATA
+
+     ; leave us with the executable (and icon?).
+     copy ram:t/<arg1> ""
+   
+     IF EXISTS ram:t/<arg1>.info
+       copy ram:t/<arg1>.info ""
+     ENDIF
+
+   ENDIF
+ ENDIF
+
+ENDIF
+
+; kill any remaining temporary files.
+delete >NIL: ram:t/<arg2>#?

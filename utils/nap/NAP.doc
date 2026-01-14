@@ -1,0 +1,365 @@
+
+
+ |\   |       |¯¯¯¯|       |¯¯¯¯|                        Version 2.00
+ | \  |       |____|       |____|                         08-18-1996
+ |  \ |       |    |       |                                Beta-3
+ |   \| e w   |    | C E   |     r e p r o c e s s o r
+
+
+
+
+ I N T R O D U C T I O N
+
+ As you can recognize  by reading the name of the program,  NAP  is a
+ new preprocessor for the programming language ACE.
+
+ Until now APP or a C preprocessor (mostly CPP)  was used by users of
+ ACE. Both have had advantages and disadvantages. Whereas APP doesn't
+ recognize defines but removes ACE comments, CPP does process defines
+ but can only remove C-structures.
+
+ NAP has been created to combine the features of APP and CPP. Lots of
+ features are not included yet,  but the features already implemented
+ should satisfy many wishes.
+
+
+ B A C K G R O U N D
+
+ In February of 1996 I worked for the 1st time with includes. I don't
+ know anymore what I wanted to do. But at least I needed some certain
+ structures and used therefore an include command to get these struc-
+ tures.
+ But to my big surprise  I'd to notice that there have also been many
+ structures added I didn't need.  Therefore I thought why not writing
+ a program  that does remove these unused structures  and furthermore
+ ACE comments and those stupid comments left by CPP.  The idea was to
+ run this program, so called RemoveStuff,  after the preprocessor and
+ to filter its output again.  I even thought of expanding RemoveStuff
+ to a real preprocessor in the future.
+ But I got rid of this idea because I was uncertain about some facts.
+ Then Herbert Breuer wrote me due to RemoveStuff and asked whether it
+ would be possible to make RemoveStuff a  self-standing preprocessor.
+ Some  e-mails  later I started my work.  The  1.x versions have been
+ running quite satisfying but they were very slow.  Furthermore, only
+ the preprocessor command INCLUDE has been processed.
+
+ But now  we are already at  version 2.00.  This version is the third
+ "official" beta release of this version.
+
+
+ S P E E D
+
+ Whereas the 1st beta release has been about 100 per cents faster  at
+ the time of  release  than the first working version  (which has not
+ been released),  the 2nd beta release is even  200 per cents  faster
+ than the 1st one.
+
+ For testing purposes I am using a short program called NAPtest.b. To
+ process this program CPP needs 15 seconds. At the time when I'm wri-
+ ting this manual, NAP needs 26 seconds.
+ The following is a table about speeding increase I could get NAP to.
+ But these numbers have to be seen with reservation.  On the one hand
+ they can differ  ± 1 seconds.  Furthermore they are only valid on an
+ Amiga 500 with KS 1.3 and one mega byte RAM.  On the other hand  all
+ include files had to be loaded from disc making NAP even slower.
+ Theoretically  NAP  could be on modern Amigas nearly as fast as  CPP
+ due to faster loading.  But anyway.  On new  Amigas  NAP  should  be
+ faster anyway. If it is fast enough that the difference to the speed
+ of CPP can be neglected must be shown.
+
+ +---------+-----------+-------+-------------------+----------------+
+ | version |   date    | time  | run without opts  | run with -sqe  |
+ +---------+-----------+-------+-------------------+----------------+
+ |         | 06-26-'96 | 14:20 |    194 seconds    |     unknown    |
+ |         | 06-27-'96 | 13:20 |    162 seconds    |     unknown    |
+ |         | 06-28-'96 | 14:30 |    151 seconds    |     unknown    |
+ |         | 06-29-'96 | 12:35 |    130 seconds    |     unknown    |
+ |         |           | 19:55 |    115 seconds    |     unknown    |
+ |         | 07-01-'96 | 15:30 |    100 seconds    |     unknown    |
+ |         |           | 20:40 |     87 seconds    |   92 seconds   |
+ |  2-00b  | 07-12-'96 | 12:30 |     88 seconds    |   88 seconds   |
+ +---------+-----------+-------+-------------------+----------------+
+ |         | 07-17-'96 | 23:45 |     33 seconds    |   31 seconds   |
+ |         | 07-19-'96 | 11:30 |     31 seconds    |   28 seconds   |
+ |  2-00b2 | 07-23-'96 | 20:00 |     26 seconds    |   22 seconds   |
+ +---------+-----------+-------+-------------------+----------------+
+
+ These increases could be achieved  by replacing certain ACE routines
+ by faster assembler routines and by optimising the source code. Some
+ parts of the routines have even been totally rewritten.
+ The big destination by me is to get  NAP  to do everything  CPP does
+ and to do this with nearly the same speed. Therefore this version is
+ in a kind of midfield.
+
+
+ R E S T R I C T I O N S
+
+ Since many changements came to NAP since version 1.1, there are some
+ things not working such as wanted.  This doesn't mean that there are
+ bugs in NAP, I'd like to call them nasty side-effects. But of course
+ there might also be bugs (see section "Known Bugs").  Therefore this
+ is a beta release.
+
+ - #include
+
+   * When NAP finds such a command it tries to include the file if it
+     has not been included yet. Within this file another #include can
+     be and so on.
+     ACE supports file openings for 9 files at the same time.  There-
+     fore NAP is unable to open more than 9 files a time. One file is
+     always open, this is the output file.
+     Until now  I never had more than seven files open.  But if there
+     are case where more than 9 files must be opened I already have a
+     plan how to realize this.
+
+ - #define
+
+   * Defines are always case-sensitiv. Since this is also the case by
+     CPP I suppose this is standard.
+
+ - Comments
+
+   * Block comments must not be nested! This shouldn't happen anyway.
+     But it could happen that someone uses { } within such a comment,
+     to demonstrate something  (so happend within the source code  of
+     NAP v1.1  where I wanted to say within a block comment  that the
+     following sub program replaces all C comments through { } !!)
+
+ - in general
+
+   * Tabulators are forbidden!  They mark  (as all ASCII codes <= 10)
+     the end of a line.  And tab has the ASCII code 9.  In future re-
+     leases this restriction will probably been removed.
+
+
+ U S A G E
+
+ NAP can only be launched from the CLI. It needs a minimum of two op-
+ tions :  the input and  the output file.  But there can also further
+ parameters be passed, which activate or deactivate certain actions.
+
+ Usage: NAP [-option [-option [-...]]] <inputfile> <outputfile>
+
+ Options consist of one letter.  If more than one option is used they
+ can be clued together. Exceptions are options which need an additio-
+ nal parameter.  This parameter must be put directly  without  spaces
+ behind the option letter. Behind the parameter there must be a space
+ thus leading to a new parameter field of NAP.
+
+ Now all options are explained.  Most of them are so-called switches.
+ They activate or deactive features of NAP.
+
+ - Option S
+   Switches the removement of unused structures off.
+
+ - Option C
+   Switches the removement of comments off.
+
+ - Option Q
+   Defines are not replaced within the source code  but defined via a
+   CONST statement (exception: within structures)
+
+ - Option I
+   Defines are just ignored.
+
+ - Option E
+   Error and warning messages are suppressed.
+
+ - Option B<buffersize>
+   Sets file buffer to <buffersize>*1000 bytes.
+
+ - Option H
+   Prints the usage message.
+
+ - Option D<token>[=<replacement>]
+   Defines  <token>  as if  "#define <token> <replacement>"  has been
+   found within the source code. If <replacement> is not submitted, a
+   1 will be used.
+
+ - Option U<token>
+   Undefines <token> as if you wrote "#undef <token>".
+
+ - Option P<directory>
+   Adds a new  path to the  path list  to be gone through for include
+   files.  You can define 7 new paths.  The current directory and the
+   logical device ACEINCLUDE: are always defined! Pay attention that
+   <directory> must end with : or /
+
+
+ F E A T U R E S
+
+ NAP does many things.  Some can be de-/activated.  It follows a des-
+ cription of NAP's work when no options are used (default).
+ At first  NAP  checks  whether the input  and the output file can be
+ opened. It the output file already exists it will be deleted without
+ warning  (sorry).  This could change in future releases.  Afterwards
+ NAP goes through the contents of the input file  and copies it  line
+ by line to the output file.  During this work all C comments are re-
+ placed by ACE comments.  Furthermore the comments are removed.  Same
+ for structures which aren't used within this programme.
+ By processing the input file  NAP also tries to summarize bunches of
+ empty lines  (but they must be REAL empty lines).  Furthermore  each
+ line (except comments !) are checked of the use of defines. If a de-
+ fine is found it will be replaced.  Eventually passed parameters are
+ put in.
+
+
+ H I N T S  . . .
+
+ ... to defines:
+
+  Defines are declared via:      #define <token> <replacement>
+  NAP supposed that  there  are  no  spaces  within  <token>.  Within
+  <replacement> may be spaces. It is even possible to split <replace-
+  ment> in different lines.  To be precisely, NAP joins the following
+  line to the current one (but only within defines), it the last let-
+  ter is a \ or a ~.
+
+ ... to #if and #elif statements
+
+  Although I suppose it to be against the  ANSI-C standard  I added a
+  = for <expression>. If the result of the left side is equal the re-
+  sult of the right side, a 1 will be given back,  otherwise a 0.  In
+  front and after the = you have to put a space.
+  Otherwise NAP checks, whether <expression> is true ( <>0 ) or false
+  (=0).  At the moment you can use +, -, *, \ and /.  You are allowed
+  to use parantheses,  but  they must not be nested.  Principally all
+  numbers within  <expression>  are considered to be decimal.  If you
+  wish to use hexadecimal or octal numbers you must use the ACE-typi-
+  cal predecessors!
+  The result of <expression> is always SINGLE!  Therefore the  result
+  can be vary a little bit.
+
+
+
+ K N O W N  B U G S
+
+ * NAP seems to interprete some special letters like © as markings of
+   the end of line. I really don't know why! (REALLY!!!)
+ * Since  NAP  defines unused structures as structures  which are not
+   declared and which are not used within a structure that is declar-
+   ed,  it might be possible  that it removes structures even if they
+   are needed!  This may happen  when this structure is only affected
+   by a SIZEOF command but not declared,  neither  directly nor indi-
+   rectly.
+   This error should not occur very often.
+
+ If you find more bugs please tell me (see section "Copyright").
+
+
+ F U T U R E  R E L E A S E S
+
+ NAP is not complete yet.  Many things could be added,  some probably
+ already in the next versions.
+
+  - speed increasing
+  - joining of lines even without #define
+  - implementing of more preprocessor commands (#ASSERT, #PRAGMA ...)
+  - using of tabs within the input file
+  - more options  (by reading the manual of CPP  I see lots of things
+    NAP is missing)
+  - (your ideas ...)
+
+
+ C O P Y R I G H T
+
+ NAP is  Cardware.  This does just mean  that I do not want money for
+ NAP  (but I would also not reject it!!!),  but that  I  am satisfied
+ with a picture postcard or a letter  where the user tells  that s/he
+ uses NAP and how s/he likes it.
+ This makes sense (in my eyes).  At first I get to know how many peo-
+ ple uses NAP,  how far it is spread  and how the people think  about
+ it.  Second I get some nice stamps ;)   So, if anybody  really  does
+ what he is supposed to do, s/he could perhaps use some nicer stamps.
+ Who does not want to use snail mail can also send an EMail.  This is
+ for people  who want to say a lot or where there will follow a long-
+ er correspondence.  Furthermore I would prefer EMail from German and
+ East-European users since I have enough stamps from these countries.
+ If they don't have EMail access they could send a postcard anyway.
+ I am putting NAP to cardware  since, on the one hand, I wouldn't get
+ money for it when making it shareware but, on the other hand, I just
+ want to get something for  my  hard work  (and  sending  a  postcard
+ should not be  too expensive  in any country that  the  user  cannot
+ afford it. So come on!)
+
+ Otherwise NAP is the full property of the author and programmer. Ev-
+ ery changement is strictly forbidden  and breaks international copy-
+ right laws.  Parts of NAP's source, especially routines like Search2
+ from the file NAP_Mods.b,  can be used in your own programs  as long
+ as all  changes are made recognizable  as well as the fact that  the
+ copyright for these routines are still by the author of NAP. If any-
+ one earns money with programs containing  NAP  routines  the written
+ permission of the author is necessary.  If not,  it is enough to in-
+ form the author.
+ It is also forbidden  to earn money  with  NAP.  This means that the
+ selling of NAP is prohibited  if more than 2 US-$ or the same in any
+ other currency is to pay for.
+ But you are allowed to copy and  spread  NAP  freely  as long as all
+ files stay unaltered.
+
+ There is no warranty for NAP,  therefore no liability of the author.
+ With the first use of  NAP  you  do  made clear  that you agree with
+ using NAP completely on your own risk.
+
+
+ C R E D I T S
+
+ A big Thank You goes at first to my  Amiga 500  which stayed with me
+ many years loyally.  And  he is going to do this probably some years
+ more.
+ Also many thanks go to  Herbert Breuer  who encouraged me  since the
+ beginning of  NAP  (in fact I would have never  started  programming
+ NAP without him) and who stand by me with advices and hints.
+ Furthermore,  thanks to David Benn,  author of ACE,  who did help me
+ often when I had had problems.
+ Last, but not least,  thanks to all the people  who are using or who
+ are going to use NAP and who are showing understanding  for eventual
+ bugs.
+
+
+ C O N T A C T I N G  T H E  A U T H O R  A N D  A B O U T  H I M
+
+ Well,  the author of NAP am I ;)  My name is Daniel Seifert and I am
+ living in Berlin-Hellersdorf  (Hellersdorf is the eastmost suburb of
+ Berlin). This is also the place where I go to school, in fact to the
+ 1st Gymnasium (= grammar school !) Hellersdorf.  I am in the twelfth
+ grade.
+ If anybody want to talk with me, due to NAP (see also section "Copy-
+ right"), due to one of my other programs or due to something else  I
+ will take me time to answer  him/her.  But I am not willed to  spend
+ money for this! So, if anyone want to talk s/he should use EMail. My
+ account is at my school. Therefore there might be some delays due to
+ important exams or due to holidays. If anyone doesn't have the chan-
+ ce to use EMail  I do also write via "snail" mail.  But the post fee
+ should be send to me before,  since I not very often suppose mail so
+ important that I want to spend money for.  So  if you do not send me
+ the postage, it will surely happen that you do not get an answer.
+ Otherwise I would really like talking to you.
+
+ (Postage in Germany for a 20g letter : within the European Community
+ 1 DM,  to other countries 2 DM or 3 DM for air mail.  If you want to
+ swap more than one letter, send a little bit more money for the next
+ letters.  If the money is  not enough  I do just send the  letter as
+ "Recipients pay", but I do not know whether this will work.)
+
+ +---------------------------------------------------------------------+
+ | Daniel Seifert            //tm   Tel: (+49) 030 / 9984711           |
+ | Weißenfelser Str. 40     //    EMail: dseifert@hell1og.be.schule.de |
+ | 12627 Berlin         \\ //                           +--------------+
+ | GERMANY               \X/ The Amiga lives ...        |/\_    _/\_   |
+ +------------------------------------------------------+\/\~~~~/\/\~~~|
+ | PGP finger print : A8B0282C985102066C8769391CF146AB  |/\/\~~/\/\/\~~|
+ | Public key (6D99EA5D) available on request/keyserver |\/\/\/\/\/\/\/|
+ +------------------------------------------------------+--------------+
+
+ From October '96 :
+
+ +-------------------------------------------------------------------+
+ | Daniel Seifert          //tm   Tel: (+49) 030 /  ? ? ?            |
+ | Elsenborner Weg 25     //    EMail: dseifert@hell1og.be.schule.de |
+ | 12621 Berlin       \\ //                             +------------+
+ | GERMANY             \X/ The Amiga lives ...          |   |¯\      |
+ +------------------------------------------------------+   |  ) _   |
+ | PGP finger print : A8B0282C985102066C8769391CF146AB  |   | / (_   |
+ | Public key (6D99EA5D) available on request/keyserver |   ¯¯  __)  |
+ +------------------------------------------------------+------------+

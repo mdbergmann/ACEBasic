@@ -1,0 +1,339 @@
+============
+Introduction
+============
+
+BLINK is a linker written as a replacement for ALINK.  It is fully
+ALINK compatible accepting all command line options and WITH files. 
+BLINK supports many additional options not found in ALINK.
+
+BLINK has been produce through the combined efforts of
+    The Software Distillery
+       currently comprised of:
+    Dave Baker
+    Ed Burnette
+    Stan Chow
+    Jay Denebeim
+    Gordon Keener
+    Jack Rouse
+    John Toebes
+    Doug Walker
+
+It may be freely distributed provided:
+    1) No charge is made for its use or distribution
+    2) This manual is distributed along with the executable module
+    3) No modifications are made to the executable module
+
+Failure to comply with these rules will simply work to convince people
+that there is no value in producing good freely redistributable software.
+
+The latest version of BLINK and our other projects are available from
+our BBS:
+     Deep Thought     (919) 471-6436
+Address all correspondence to 
+     John Toebes
+     The Software Distillery
+     235 Trillingham Lane
+     Cary NC 27511
+
+Let us know what you do and don't like about it.  There are several
+enhancements that WILL be out in the next major release:
+  * Overlay support
+  * Complete XREF of library references
+  * Additional hunk coalescing features
+  * More finely tuned code
+
+===========
+Using BLINK
+===========
+
+Command Line Syntax.
+--------------------
+
+BLINK is driven by keyword parameters in any order indicating the
+action to be performed.  The basic syntax is:
+
+BLINK [FROM][ROOT] files  [TO file][WITH file][VER file]
+[LIBRARY | LIB files][MAP file map_options][XREF file][options]
+
+where:
+ file    means a single file
+
+ files   means zero or more file names separated by a comma, plus sign
+         or space
+
+and the following keywords are recognized:
+
+ FROM files       - specifies the object files that are the primary
+                    input to the linker.  These object files will
+                    always be copied to the root of the object
+                    module.  You must specify at least one object file
+                    for the root.  If it appears as the first option
+                    to BLINK then the FROM keyword is optional and may
+                    be omitted.  ROOT is an acceptable synonym for FROM.
+                    FROM may be used more than once with the files for
+                    each FROM adding to the list of files to be linked.
+
+ TO file          - specifies target object module to create.  If
+                    omitted it defaults to the same name as the first
+                    object module listed on a FROM option with its .o
+                    suffix removed.
+
+ WITH file        - specifies a file containing BLINK command options
+                    to be processed for this link.  More than one WITH
+                    file may be specified as may WITH files contain
+                    WITH statements.  The contents of all with files
+                    will be treated as if they were specified on the
+                    BLINK command line.
+
+ VER file         - a destination file to contain all linker output
+                    messages.  If you do not specify it then all
+                    messages go to the terminal.
+
+ LIBRARY files    - specifies the files to be scanned as libraries. 
+                    Only referenced segments from library files will
+                    be included in the final object module.  LIB is a
+                    valid synonym for LIBRARY.
+
+ XREF file        - specifies a file to which the cross reference
+                    information will be written.  If not specified
+                    and a cross reference is requested with the MAP
+                    option, the cross reference listing will appear as
+                    part of the map file.
+
+ FASTER           - a do-nothing option that is included only for
+                    ALINK compatibility.
+
+ VERBOSE          - causes BLINK to print out the names of each file
+                    as it processes it.
+
+ NODEBUG          - supresses any HUNK_DEBUG, symbol table
+                    information or hunk names in the final object
+                    file.  This is equivalent to the object file
+                    that would be produced if STRIPA were run on the
+                    final object file
+
+ SMALLDATA        - causes all DATA and BSS sections to be Coalesced
+                    into a single hunk.  This is useful for combining all
+                    data hunks from a program into a single hunk - decreasing
+                    load time but potentially producing larger hunks that are
+                    difficult to scatter load
+
+ SMALLCODE        - causes all CODE hunks to be Coalesced into a single hunk.
+
+ WIDTH n          - sets the maximum line length for the map and cross
+                    reference listings.  This is useful when sending
+                    the output to a divice that has different line
+                    length requirements.  If not specified it defaults
+                    to 80.
+
+ MAP file options - specifies a file to which a map is to be written.
+                    options controls which parts of the map will be
+                    written.  See the MAP section for more information.
+
+ OVERLAY          - specifies the start of an overlay tree terminated
+                    by a line consisting of a single pound sign '#'.
+                    See the OVERLAY section for more information.
+
+
+ DEFINE		  - allows for definition or re-definition of a symbol
+ 		    Useful for stubbing yet unwritten routines, resolving 
+		    unresolved references and link time patches to your
+		    code. Possible combinations are: DEFINE symbola = 
+		    symbolb where you want symbola to be resolved to symbolb
+                    and symbolb has been previously defined in your code.
+                    DEFINE symbola = some constant where the constant is
+                    either a decimal or hexadecimal number. If hexadecimal
+                    number is input it must be preceded with a $ sign. ie.
+                    DEFINE symbola = $dead or DEFINE symbola = 1234. 		
+
+Example Command Line Usage:
+---------------------------
+
+BLINK 
+
+==========
+WITH Files
+==========
+
+Although BLINK is completely compatible with ALINK WITH files the order
+and format used to input options is quite position independant. FROM files
+and LIBRARY options can span several lines with or without line continuation
+characters "+". I hope the examples below reflect this remarkable flexability.
+Gee a tool that is user-friendly. We must be doing something wrong !   
+
+Example WITH files
+------------------
+
+from c.o vt100.o init.o window.o xmodem.o remote.o kermit.o script.o
+lib lib:lc.lib  lib:amiga.lib
+verbose smallcode smalldata
+to vt100
+
+or yet another way
+
+FROM c.o 
+vt100.o
+init.o window.o
+xmdem.o remote.o kermit.o script.o
+LIBRARY
+lib:lc.lib
+lib:lc.lib
+MAP ram:vt100.map
+TO df1:vt100/vt100
+SMALLCODE
+SMALLDATA
+VERBOSE
+
+ 
+or better yet, a standard sort of header WITH file that you can append
+the specifics to the end of the file and save some typing every time you
+need to create a WITH file.
+
+LIBRARY
+ram:lc.lib
+ram:amiga.lib
+SMALLDATA
+SMALLCODE
+MAP
+ram:mymap
+VERBOSE
+XREF ram:myxref
+FROM c.o
+vt100.0 init.o window.o xmodem.o remote.o kermit.o script.o
+
+In the above exmaple you will notice that no TO file was specified.
+BLINK will atomatically create a TO file for you in the current directory
+with the name of the first module in you FROM list no including the
+startup routine in this case c.o. So in the above example the executable
+will be called VT100 without the .o extension. Nice touch EH! 
+ 
+========
+Overlays
+========
+
+Not supported in this release
+
+=========
+Map Files
+=========
+MAP <map file> <map options>
+<map options> are H S X F O PLAIN FANCY
+MAP [[filename],option,option,...]
+   filename   map output file
+   option     letter of report to produce (see below)
+
+WIDTH n		columns allowed in map file (default 80)
+INDENT n	columns to indent on a line (included in width) (default 0)
+		default 0
+HEIGHT n	lines on a page in map file (0 indicates no pagenation)
+		(default 55)
+HWIDTH n	width of hunk names (default 8)
+FWIDTH n	width of file names (default 16)
+PWIDTH n	width of program unit names (default 8)
+SWIDTH n	width of symbol names (default 8)
+FANCY		flag to allow printer control characters in the map file
+		(this is the default condition)
+PLAIN		turns off the FANCY option
+BUFSIZE <n>
+
+map:	map has sub keywords, they are:
+		h - MapHunk
+		s - MapSym
+		x - MapXref
+		f - MapFile
+		o - MapOvly
+	additionaly it will accept other keywords that
+	can have parameters:
+		width	- (1-132) def 80
+		height	- (1-255) def 55
+		Hwidth	- (1-255) def 8 (hunk name width)
+		Fwidth	- (1-255) def 16 (file name width)
+		Swidth	- (1-255) def 25 (Symbol width)
+		indent	- (1-255) def 0 (line indentation)
+
+
+====================
+BLINK Error messages
+====================
+  1 Parser failure.
+  2 Pass 1 failure.
+  4 Coalesce failure.
+  5 Map failure.
+  3 Pass 2 failure.
+  6 Symbol Initialization failure.
+200 Out of memory!! 
+300 Read error on file '%s' 
+301 Write error on file '%s' 
+400 *** Break: Blink terminating. 
+425 Cannot find library %s 
+426 Cannot find object %s 
+444 Hunk_Symbol has bad %d symbol %s 
+445 Invalid HUNK_SYMBOL %s 
+446 Invalid symbol type %d for %s 
+447 %s is a load file 
+448 Invalid hunk #%d 
+449 No hunk_end seen for %s 
+501 Invalid Reloc 8 or 16 reference 
+502 Distance for Reloc16 > 32768 
+503 Distance for Reloc8 > 128 
+504 Distance for Data Reloc16 > 32768 
+505 Distance for Data Reloc8 > 128 
+506 Can't locate resolved symbol %s 
+507 Unknown Symbol type %d 
+508 Symbol type %d unimplemented 
+509 Unknown hunk type %d in Pass2 
+600 Invalid command '%s' 
+601 %s option specified more than once 
+602 Unable to open map file '%s' 
+603 %s is not a valid number 
+604 with file is not readable 
+605 Cannot open with file '%s' 
+606 Unable to open output file '%s' 
+607 No FROM/ROOT files specified 
+999 Unknown internal error <<<let us know if you get this one
+
+=============
+BLINK History
+=============
+5.5 Released 18 August 1986
+5.6 Released 20 August 1986
+   Fixed problem with map file generation
+   Fixed problem with map file error messages
+5.7 Released 22 August 1986
+   Corrected incompatibilities with Lattice 3.02 and 3.03 generating extra
+      HUNK_ENDs.
+   Added TABS to the with file/command line parser
+   Fixed messages so last unresolved reference is not overwritten by VERBOSE
+      messages in PASS2.
+6.0 Unreleased
+   Added support for patching reloc16s to allow that -r option of Lattice to
+      used with Blink.
+   Rewrote map sorting algorithm to significantly cut map generation time.
+   Corrected various parser bugs.
+   Added ability to BLINK files linked with ALINK
+6.1 Unreleased
+   Added link time to map page headers.
+   Added define statement.
+   Corrected problems in handling of CHIP and FAST hunk types
+6.2 Unreleased
+   Rewrote algorithm for patching reloc16s.
+   Moved map to after pass2.
+   Reduced memory usage by changing required alignment boundary from 4 to 2.
+   Added suppression of dummy entry hunk.
+   Added default TO file logic.
+6.3 Unreleased
+   Enhanced algorighm for pathing reloc16s to produce optimal size in two
+      passes.
+   Reduced size of patch jumps to 6 bytes.
+   Added support for allowing startup code to initialize BSS section.
+   Added support to allow startup code to produce a completely reentrant
+      module to be used with 1.2 resident command.
+   Added minimum size for memory requests to reduce likelyhood of a GURU when
+      system is too tight on memory.  If less than 1K contiguous is available,
+      BLINK will terminate.
+6.4 Released 22 September 1986
+   Added cross reference of libraries to the map
+   Major clean up oc return code checking internally
+   Reduced large sections of code
+   Deleted REACH and REALREACH keywords from parser.
+   Corrected suppressing of dummy entry hunk.

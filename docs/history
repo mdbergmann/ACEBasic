@@ -1,0 +1,1685 @@
+
+				-----------
+				ACE history		
+				-----------		
+
+2/3/92			- Version 1.0 released to testers.
+
+13/3/92 		- Numerous bug fixes:
+				- parameters were being corrupted in some
+				  complex recursive calls (see ackermann.b).
+				- array referencing with float index in INPUT
+				  was corrupting the input value.
+				- narrator library was being expunged after
+				  every SAY command -- now only expunged
+				  once at the end of the program.
+
+14/3/92			- Above fixes released to testers.
+
+22/3/92 - 27/3/92	- Added block comments {...}.
+			- Added forward SUB declarations.
+			- Made ALL shared variables call-by-reference.
+			- Local SUB string duplication bug fixed (same
+			  BSS object name being given to numerous
+			  strings in different subprograms). 
+			- Re-released to testers.
+
+4/4/92			- Fixed relational string operators >,<,>=,<=
+			  so that proper lexicographical comparisons are
+			  made. Even though = and <> worked fine before,
+			  these have also been modified. All now use a
+			  more efficient C-style _strcmp function. 
+
+5/4/92			- Update sent to testers.
+
+7/4/92			- Maximum duration for SOUND (in db.lib) changed
+			  to 999 from 77 to accomodate large sound samples
+			  (see play.b for an example).
+
+21/4/92			- Sequential files simplified: EOF no longer looks
+			  for EOF character (ASCII 28), it just tries to
+			  seek past the current position returning a seek
+			  error if it can't (ie: EOF reached).
+			
+22/4/92			- Made CLS 1.3 and 2.04 compatible (in db.lib).
+			- Added logical shift functions [SHL(n,m),SHR(n,m)].
+			- Added turtle graphics XCOR and YCOR functions.
+			- Fixed long integer SUB bug: when calling a long
+			  SUB with bsr, A68K spat the dummy when it saw
+			  a '&' (eg: bsr TEST&). All '&'s replaced by '@'s.
+			- Added Ctrl-C trapping to compiler. Partly works.
+			- Fixed HEADING so it's always non-negative.
+
+2/5/92 - 8/5/92		- Added screens, PALETTE, PAINT, SYSTEM, DATE$.
+			- Made CIRCLE rendering faster by using DrawEllipse()
+			  if full 360 degree ellipse is requested.
+			- Updated ace.doc and noted that SADD is not required
+			  for string constants (ie: it's optional).  
+
+12/5/92			- Incorporated command line arguments [argcount,arg$].
+
+16/5/92			- Added single precision MOD.
+			- Fixed OCT$ which was giving incorrect results
+			  for high values. Now only handles positive LONGs.
+			- Added BIN$. Like OCT$, n=abs(n) [n is LONG].
+			- Added FRE(n), with extras (see ace.doc).
+			- Added POTX(n) and POTY(n), where n=0 or 1.
+
+17/5/92			- Fixed bug in _deletewindow (db.s): Contents of
+			  location zero was being moved into window lists
+			  instead of #0 (!).
+
+6/6/92			- Fixed RIGHT$ bug: was returning the NULL string
+			  when requested sub-string length equalled string 
+			  length.
+			- Modified MOUSE(1) and MOUSE(2) code to work when
+			  an ACE screen is active.
+
+8/6/92			- Added WorkBench startup capability.
+			- Added REPEAT...UNTIL loop construct ala Pascal
+			- Added CASE...END CASE construct.
+			- Added DAY function.
+
+9/6/92			- Added two compiler options:
+			
+				(i) Ctrl-C break trapping.
+			       (ii) Optimisation (peephole).
+
+11/6/92			- Added definable numeric constants.
+			- Incorporated a BORDERLESS window for each
+			  user-defined screen to facilitate IDCMP
+			  events. 
+			- INKEY$ can now be used to read keystrokes
+			  from a user-defined screen's window.
+			- Fixed RAW: window routine bug. The same
+			  Wdw-id was unwittingly being allowed to be 
+			  used for more than one window creation.
+			
+12/6/92			- Modified CLS to work with user-defined screens.
+
+13/6/92 - 14/6/92	- Incorporated external variables
+			  and functions (C, assembler...).
+
+28/6/92			- Modified LOCATE to work with user-defined screens.
+			- Fixed exponentiation so that it always returns
+			  a float, in case of a negative exponent.
+			
+29/6/92			- Incorporated full 32-bit math. ACE is now Wb 2.0
+			  *reliant* (due to use of utility.library):
+
+				(i) 32-bit division replaced 32-bit \ 16-bit.
+			       (ii) 32-bit MOD replaced 32-bit MOD 16-bit.
+			      (iii) Multiplication:
+					
+						- 16 x 16 bit integer (new).
+						- 32 x 32 bit integer (new).
+						- float x float.
+
+			       (iv) Array index calculations now use 32-bit
+				    unsigned multiplication. This fixes the
+				    bug that disallowed absolute indexes of
+				    greater than 65535.
+
+			- Fixed yet another bug in INPUT: string array input
+			  was producing pointers which all lead to one string.
+			- Defined numeric constants can now be signed.
+
+30/6/92			- Added LOF(n) function.
+			- Modified WAVE statement so that size of waveform
+			  table can be up to 131070 bytes (hardware limitation).
+			- Fixed CHR$ bug: LONG parameters weren't being 
+			  coerced to SHORT.
+
+2/7/92			- Added the CSTR function.
+
+3/7/92			- Added the HANDLE(n) function.
+			- split db.s into db.s and turtle.s due to
+			  link problems: Blink or ACE programs GURU when 
+			  db.lib too big. 
+
+4/7/92			- Added optional variable declarations.
+			- Wrote a simple pre-processor for ACE: app,
+			  to allow include files.
+
+7/7/92			- Added event trapping: BREAK,MOUSE,TIMER(n).
+			- MENU event trapping not yet complete since
+			  menus themselves have to be implemented.
+			- Added CSRLIN and POS for screens only so far.
+			- Changed over from SetSignal() to CheckSignal()
+			  for ctrl-c -b compiler option and BREAK event
+			  trapping.
+
+16/7/92			- Added: 
+				 (i) ADDRESS option for DIM.
+				(ii) SIZE option for STRING.
+			       (iii) increment and decrement operators.
+				(iv) indirection operators: @,*%,*&,*!.
+
+17/7/92	- 19/7/92	- Improved efficiency of strings and string arrays. 
+			  The modifications also allow strings and string 
+			  arrays to be passed by reference. 
+			  
+20/7/92			- Modified LOCATE, POS and CSRLIN so they take 
+			  account of the current font (in ScreenMode).
+			- Improved PRINTS so that it behaves in almost the 
+			  same way as PRINT.
+	
+28/7/92			- Added SIZEOF function.
+			- Fixed a long-standing bug that caused GURUs
+			  during parameter passing when a context-switch
+			  occurred, corrupting the stack. This is a short-term
+			  fix only, and will be replaced by use of C-style
+			  parameter passing.
+
+8/8/92 - 9/8/92 	- Added structures.
+			- Modified VARPTR to handle structures.
+			
+6/12/92			- Divided main linked library into functional modules
+			  which are joined to produce db.lib. The code from
+			  db2.lib and turtle.lib has been incorporated into
+			  db.lib.
+
+6/12/92 - 7/12/92	- Further modularised compiler source files. I could
+			  *really* use a make utility now!
+
+8/12/92			- Changed SHR and SHL code generation from lsr.l and
+			  lsl.l to asr.l and asl.l respectively, in order to
+			  handle shifts of negative numbers correctly! (oops)
+
+12/12/92 - 13/12/92	- Improved PAINT. Too much RAM was being reserved.
+
+12/12/92 - 13/12/92	- Added AREA, AREAFILL, PATTERN.
+
+13/12/92		- Added SCROLL, SPACE$.
+			- Fixed bug in PAINT: border color not being reset.
+ 
+21/12/92		- Improved LOF by using Seek() rather than
+			  Examine() to find file length. This removed
+			  the need to use the 2.04 function DupLockFromFH()
+			  making LOF 1.3 compatible.
+			- Reverted to SetSignal() from CheckSignal() to
+			  preserve 1.3 compatibility.
+
+22/12/92		- Replaced 32-bit integer math routines in  
+			  utility.library with lmath.a routines from 
+			  Sozobon's ZC.lib. This obviates the need for the 
+			  2.04 utility.library making all ACE integer math 
+			  1.3 compatible. The lmath.a module has been
+			  incorporated into db.lib, with slight modifications
+			  (source is called lmath.s).
+			- Brought DIM in line with AmigaBASIC. If a dimension
+			  is specified as N, the resulting subscript range
+			  is 0..N, rather than 0..N-1 (as it is in C and was
+			  in ACE up until now).
+			- Removed reference to ACElibs: from libfunc.c, so 
+			  this no longer has to be ASSIGNed in the user-startup
+			  or startup-sequence script.
+			  
+26/12/92		- Added support for Workbench arguments in the form of
+			  an include file (WBarg.h).
+
+27/12/92		- Modified APP so that an include file is only ever
+			  included once per program. APP now also handles
+			  single and multi-line comments ("'" and {..}).
+
+28/12/92 - 29/12/92	- Fixed some long-standing little bugs in the lexical
+			  analyser.
+			- Moved the code for comments from the parser to the 
+			  lexical analyser.
+			- Added the rest of AmigaBASIC's reserved words for 
+			  completeness and because I may get around to
+			  implementing some things that I didn't originally
+			  think I would.
+			- Changed the lexical analyser's reserved word search
+			  method from sequential to binary. This has resulted 
+			  in a dramatic improvement in compilation speed 
+			  (around twice as fast as before). I should have done
+			  this a long time ago.
+			- Added code to prevent APP from looking for comments
+			  inside string literals!
+			- Removed ++ and -- operators from factor() because
+			  they are confusing (IMHO). Pre-increment (++) and
+			  pre-decrement (--) can now only be applied to 
+			  variables, not as part of an expression.
+ 
+30/12/92		- Added STRING$ and INSTR.
+
+1/1/93			- Added descriptions for ALL functions and commands
+			  in ref.doc since some people using ACE won't have
+			  the AmigaBASIC manual.
+
+5/1/93 - 6/1/93		- Work on sequential files:
+	
+				- CLOSE can be used to close more than
+				  one file now, but at least one filenumber
+				  still has to be specified.
+
+				- Added LINE INPUT #filenumber,string-variable.
+
+				- Added INPUT$(X,[#]filenumber) and ditched
+				  INP$.
+
+				- Improved performance of all sequential file 
+				  functions in db.lib.
+	
+				- Made file format produced by WRITE identical
+				  to AmigaBASIC.
+ 
+				- Added PRINT #filenumber,expression-list.
+	
+				- Added INPUT#filenumber,variable-list.
+
+			- ACE files are now very nearly identical to AmigaBASIC.
+
+12/1/93			- Fixed a bug in VAL that was causing numbers with
+			  more than 8 decimal places to give weird results.
+			- In considering the use of double-precision math
+			  in ACE, I have realised that Motorola FFP values
+			  can handle up to 8 decimal places of accuracy,
+			  whereas in AmigaBASIC, a number with >= 7 decimal
+			  places is classed as a double-precision value. 
+			  Given the degradation in accuracy which occurs
+			  when more than 8 digits (counting both sides of 
+			  the decimal point) are specified in an ACE FFP 
+			  value, AmigaBASIC's double-precision convention
+			  will probably be followed in ACE.
+			- Increased the size of the buffer for INPUT$ from
+			  MAXSTRINGSIZE to MAXSTRINGSIZE*32 (32K currently)
+			  to facilitate the reading of longer files.
+			- Made all library functions which impose a limit
+			  upon the number of characters in a string or buffer
+			  use MAXSTRINGSIZE-1 (changed string.s and file.s).
+
+13/1/93			- Stopped a large memory leak when ACE quits due to
+			  an internal list memory allocation error. There
+			  still seems to be a small leak however.
+			- Modified the bas script so that intermediate 
+			  files are deleted after each stage of the compile-
+			  assemble-link process. This frees up more RAM. 
+			  
+19/1/93			- Fixed a bug in the lexical analyser which was
+			  returning a value of 1 for ANY number of the
+			  form nnE[+|-]mm when mm was 0.
+
+20/1/93			- AREA was only allowing 19 points, not 20. Fixed this.
+
+21/1/93			- Fixed a weird AREAFILL and PAINT bug. Both of 
+			  these routines allocate and initialise a temporary
+			  rastport for area/flood filling. Although the
+			  memory was being freed, the TmpRas pointer was
+			  not zero'd. On the next call to PRINTS or Text()
+			  a GURU 8100 000C resulted (recoverable alert under
+			  2.04). It appears that Text() or some lower-level
+			  graphics primitive tries to use an existing TmpRas
+			  if one seems to exist. After making Rp->TmpRas=NULL
+			  the bug disappeared.
+
+26/1/93			- Modified APP so that lines taken up by block
+			  comments are represented by line-feeds in the
+			  destination file so as to prevent line mismatches
+			  between the latter and the source file. This still
+			  doesn't get around the problem of line mismatches
+			  caused by #include directives though. 
+
+31/1/93			- Changed effect of DEFDBL and <ident># so that 
+			  they yield single-precision data types rather
+			  than double-precision. This avoids any problems
+			  further down the line (because double-precision
+			  is not yet supported).
+
+2/2/93			- Added ctrl-c user break trapping to APP and 
+			  improved the reliability of ACE's ctrl-c trapping.
+
+4/2/93			- ACE v1.0 released to the public! First started
+			  work on ACE in October 1991.
+
+*******************************************************************************
+
+6/2/93			- Work on ACE v1.01 commenced.
+
+			- Improved compile-time error handling. Now, the
+			  whole offending line is displayed and a carat
+			  marks the place in the line where the error was
+			  identified. The rest of that line is then ignored
+			  so as to prevent further spurious errors. More 
+			  work remains to be done for this revision on this.
+			- The observation was made that AmigaBASIC does NOT
+			  evaluate exponentiation operations from right to
+			  left as previously thought, but from left to right
+			  as with all other operations. This obviates the
+			  need to change ACE's exponentiation evaluation 
+			  method. 
+			- AmigaBASIC does not allow a term of the form:
+			  n^-m or n^(-m). ACE allows the latter but not
+			  the former.
+			 
+7/2/93			- Fixed INPUT from RAW: windows so that the 
+			  destructive backspace key actually erases text
+			  as it does in a CON: window. The routine was 
+			  also cleaned up in general and made more
+			  efficient.
+			- Sequential file OPEN modes can now be upper
+			  or lower case (ie: "I" or "i" etc).
+		
+11/2/93			- Fixed the FOR loop index bug by not allowing
+			  a shared variable to be used as the index.
+			- Trailing characters (other than '&') can now 
+		 	  be used to coerce one numeric literal to 
+			  another. Note that & and % have the same
+			  effect as CLNG and CINT in ACE (ie: they
+			  _always_ round up). 
+
+12/2/93			- String literals now need not have an end quote.
+			  Such a string will be truncated at the end of 
+			  the line.
+			- Fixed bug in LINE INPUT# whereby the variable's
+			  data type was not correctly established if the
+			  variable was declared with STRING.
+			- LINE INPUT# was also modified to accept a string
+			  array as well as a simple string variable.
+
+13/2/93			- BASIC line numbers have been implemented for 
+			  backward compatibility with old BASIC programs 
+			  and for consistency with AmigaBASIC.
+
+14/2/93			- Fixed a bug in STRUCT..END STRUCT & CASE..END CASE
+			  where blank lines caused spurious compilation errors.
+			- Changed a hard-coded X:Y screen ratio constant in the
+			  turtle graphics section of db.lib to a data item 
+			  which can be accessed/modified with ACE's EXTERNAL
+			  directive (EXTERNAL _tg_xy_ratio).
+			- Made several compile-time errors "cleaner".
+
+15/2/93			- Improved error handling for undeclared arrays.
+			- Fixed a bug in INPUT#. It was crashing when the
+			  file wasn't open or the file number was invalid.
+			- Rewrote VAL code in C. It now handles fixed-point
+			  and exponential format single-precision values
+		  	  as well as decimal, octal and hexadecimal integers.
+			  
+16/2/93			- Rewrote _short_from_string and _long_from_string
+			  in C. These routines are used by INPUT and INPUT#
+			  to extract integer values from strings. Decimal,
+			  octal and hexadecimal values may now be handled 
+			  via INPUT and INPUT#.
+
+18/2/93			- Rewrote _strsingle which is used by PRINT#, WRITE#,
+			  PRINTS and STR$ so that it produces fixed-point 
+			  and exponential format single-precision output.
+			  PRINT also uses this routine now. The new version
+			  of _strsingle (written in C) is somewhat faster than 
+			  the original which was badly coded in assembler.
+			  A single-precision number is converted to the form:
+			  -|+.mmmmmmmmE-|+nn by fpa(). If 7 <= nn < -6 the
+			  number is displayed in exponential format.	  
+			- Added a FIX command (see ref.doc for details) which
+			  alters the number of decimal places a FFP value is
+			  rounded to.
+
+19/2/93			- Replaced _round routine in db.lib. This is used by	
+			  by CINT and CLNG and wherever a float needs to be
+			  rounded to an integer. The new version seems to be
+			  faster than the old one which used fpa() and arnd().
+			  The former only uses mathffp.library functions.
+
+20/2/93			- ACE v1.01 released.
+
+*******************************************************************************
+
+28/2/93			- Work on ACE v1.02 commenced.
+
+			- Added a compiler switch (-i) which makes an icon 
+			  for the executable just created by ACE.
+			- Added ON <event-specifier> GOTO. This is in addition
+			  to ON <event-specifier> GOSUB which was already
+			  implemented.
+			- Changed all bsr and bra 68000 instructions to jsr
+			  and jmp respectively in order to avoid the 32K
+			  displacement limit. Moreover, some beq instructions 
+			  have been replaced by a combination of bne and jmp 
+			  to avoid this limit. This included changes to the
+			  code for: IF, CASE, REPEAT..UNTIL, WHILE..WEND.  
+			- Fixed a bug whereby return code in d0 was being 
+			  overwritten before the program ended, due to calls
+			  to cleanup routines.	 
+
+1/3/93			- Changed all occurrences of bsr in db.lib and 
+			  startup.lib sources to jsr so as to avoid the 
+			  32K limit mentioned above (28/2/93).
+			- Implemented KILL and NAME.
+			- ON..GOTO and ON..GOSUB implemented.
+
+6/3/93 - 10/3/93	- Rewrote SAY command in C and added support
+			  for mode-array(7) and mode-array(8) such that
+			  ACE SAY now allows for asynchronous speech.
+			- Moreover, a SAY(n) function has been added,
+			  where SAY(0) returns -1 or 0 to indicate whether
+			  there is active asynchronous speech, SAY(1) returns 
+			  the mouth width and SAY(2) returns the mouth height 
+			  corresponding to the phoneme being spoken. 
+
+14/3/93			- Added support for SAY mode-array element #6. This
+			  allows for 12 different audio channel allocation
+			  combinations as per AmigaBASIC. See ref.doc for more.
+			- Improved performance of INSTR function by only 
+			  checking first character of target string against
+			  each character in the source string until they
+			  match. At this point a full sub-string comparison
+			  is carried out.
+
+12/4/93			- Fixed a bug in shared library function declaration
+			  code in which a search for a non-existent function
+			  sometimes caused the compiler to hang. The routine
+			  responsible was rewritten with a resultant speedup.
+
+13/4/93			- Fixed a bug which had been lurking for some time,
+			  related to string variable assignments. A string
+			  variable not declared with the STRING command was
+			  not always being associated with a storage area.
+			  In fact, only the first occurrence of the string
+			  was being so associated. If this first occurrence
+			  was in a CASE or IF statement, it might never be
+			  reached with the consequence that the string
+			  in question was associated with a random address
+			  in memory! This is now fixed, so that each time
+			  the string is assigned a value, it is bound to
+			  its correct address. Obvious in hindsight.
+
+15/4/93			- Commodore Australia have given me permission to 
+			  include the .bmap files in the ACE archive. I 
+			  don't have this in writing yet though. ConvertFD 
+			  can not be distributed however, so a completely
+			  new (functionally equivalent) program will have
+			  to be written. 
+
+16/4/93	- 17/4/93	- A couple of bugs which were related to the above
+			  string bug (13/4/93) were fixed because they
+			  were missed at the time and resulted in complaints
+			  from A68K (legitimate ones) about unknown symbols.
+			- Testing has shown that a plethora of problems
+			  of previously unknown origin were related to the
+			  string bugs described above. Also, Michael 
+			  Zielinski has reported that there are no longer 
+			  any Enforcer hits from ACE now after the fixes
+			  from 13/4/93.
+
+18/4/93			- ACE v1.02 released.
+
+*******************************************************************************
+
+9/5/93			- Work on ACE recommenced.
+
+			- ARG$(0) added for access to a CLI command's name.
+
+11/5/93			- CHDIR command implemented.
+
+18/5/93 - 21/5/93	- Enhanced FILES command implemented. 
+
+30/5/93			- A few string functions (ARG$,SPACE$,STRING$,UCASE$)
+			  were using a single buffer for each result
+			  which was being overwritten during evaluation
+			  of an expression such as: UCASE$(..) = UCASE$(..)
+			  This was fixed by creating a temporary string
+			  for each function call as with other string 
+			  functions. 
+			- * INPUT$ still uses a single 32K buffer however! *
+
+6/6/93			- Command line argument handling routines completely
+			  rewritten in C. This fixed an infrequent bug in 
+			  which the last argument wasn't always being parsed
+			  and enabled the correct parsing of quoted arguments.
+			- Added two new compiler switches: -E and -c. The
+			  first creates a file called ace.err which contains
+			  all the compile-time errors at the end of an ACE run.
+			  The second includes each ACE source code line as a
+			  comment in the assembly source code.
+
+7/6/93			- A bug in exec.library version checking was
+			  preventing CLS from correctly changing the 
+			  background colour after a COLOR command on 
+			  machines higher than V37 (ie: Wb 3.0 machines 
+			  like the A1200). This is now fixed.
+
+10/6/93			- Fixed a bug in which CLOSE was sometimes causing a
+			  privilege violation processor trap. DOSBase wasn't
+			  always being moved to a6 prior to calling the 
+			  dos.library Close function (!). 
+
+12/6/93			- Added ptr_term() function between expterm() and
+			  factor() in expression parser to correct the
+			  precedence of !%, !& and !* operators.
+			- I have decided to leave SUB parameters as they
+			  are for now. See ace.doc Subprograms section
+			  for latest details.
+			- Added SLEEP command. So far only works when in
+			  screen mode.
+
+13/6/93			- Fixed a bug in which insymbol() was being called
+			  one too many times by the "@" code when the address
+			  of a structure member was being found.
+			- Added code to address_of_object() (used by @ and
+			  VARPTR) to find the address of an array element.
+			  This code - and therefore @ and VARPTR - can now 
+			  find the address of:
+			
+					- simple variables
+					- external variables
+					- arrays
+					- array elements
+					- structures
+					- structure members
+		
+			- Added a -l compiler switch which displays each
+			  ACE program source line before it is compiled. 
+			- Implemented SWAP command ala AmigaBASIC. It swaps
+			  simple and external variables, array elements,
+			  structures or structure members.
+
+14/6/93			- Modified the handling of string value parameters
+			  so that association with BSS storage occurs at the
+			  start of subprogram execution rather than waiting
+			  for an assignment. This fixes the address for the
+			  life of the parameter. One consequence of this is
+			  that VARPTR and @ correctly access the address
+			  of the formal parameter, not the actual parameter.
+			  This also ensures the correct handling of such
+			  parameters by the SWAP command.
+
+19/6/93			- Modified address_of_object() so that when the
+			  address of a structure variable is requested
+			  with @ or VARPTR, the address of the variable
+			  in the stack frame is returned, rather than the
+			  start address of the structure. The latter can
+			  still be obtained by simply referencing the
+			  variable (eg: x = mystructvar). The modification
+			  makes variable structure parameters possible 
+			  (see ace.doc "Structures" for an example).
+
+20/6/93			- Made structures sharable with the SHARED statement.
+			- SUB parameters may now be preceded by SHORTINT,
+			  LONGINT,SINGLE or STRING to indicate data type
+			  rather than always having to use %,&,! or $.
+			- String array elements can now have a specifiable
+			  size via a new SIZE option in DIM. 
+			- String variable declarations with STRING command
+			  will now accept defined constants for the SIZE
+			  option.
+
+29/6/93			- A bug in both BIN$ and OCT$ (such that negative 
+			  values were being negated) was fixed.
+
+30/6/93			- ADDRESS data type added. This is really just an 
+			  alias for LONGINT but it makes a lot more sense
+			  when viewed in the context of a variable, parameter
+			  or structure member which holds an address.
+			- It is now possible to declare a SUB to be of a
+			  certain data type by using: LONGINT,SHORTINT etc.
+			- Shared structures worked fine when modifying/using
+			  structure members, but not when modifying the
+			  address held by the structure variable itself. 
+			  This has been fixed.
+
+1/7/93			- ALLOC function implemented. This is a hassle-free
+			  Unix-style memory allocator which makes use of
+			  the Alloc/FreeRemember functions of Intuition.
+
+2/7/93			- Added ASSEM..END ASSEM for inline assembly code
+			  inclusion.
+			- OPTION <switch>+|-[,<switch>+|-..] can now be 
+			  used to set compiler directives as well as being
+			  able to do so from the command line.
+
+3/7/93			- Fixed a bug in which the type of structure
+			  members was not being correctly determined by
+			  the SWAP command such that short integer and
+			  string structure members were not being handled
+			  properly.
+
+4/7/93			- SIZEOF now correctly returns the size of a
+			  structure variable. Prior to today, only
+			  the size of a structure definition was 
+			  correctly returned. This was an oversight.
+
+10/7/93			- ACE version 1.1a released.
+
+*******************************************************************************
+
+4/9/93			- Work on ACE v2.0 commenced.
+
+4/9/93 - 12/9/93	- Flexible serial I/O support added to ACE. Up to
+			  255 channels are supported.
+			- ERR function added (serial errors only so far).
+
+25/9/93			- Serial I/O routines tidied up. 
+			- ERROR trapping implemented (serial errors only 
+			  so far).
+
+26/9/93			- Buffered file I/O error codes added. These are
+			  returned by ERR and recognised by ON ERROR.
+
+10/10/93		- TAB function now works for screens.
+			- Implemented PTAB function.
+			- Made PRINT command screen/window mode transparent.
+			- This is all part of a conspiracy to make ACE able
+			  to handle Intuition and DOS windows completely
+			  transparently. Next comes INPUT transparency. 
+			  
+11/10/93		- Made INPUT command screen/window mode transparent!
+			- Implemented SPC function.
+
+24/10/93		- Extended ctrl-c break trapping to screen mode.
+
+24/10/93 - 25/10/93	- Intuition windows implemented! ACE now allows
+			  for windows on screens! In fact, all windows
+			  except the shell/CLI are now Intuition windows
+			  in ACE. Next comes menus and gadgets...
+			- Added WINDOW(12) and WINDOW(13) which return
+			  font width and height (respectively) for the
+			  current output window.
+			- Screen colours are now adopted from Workbench
+			  as per AmigaBASIC.
+
+26/10/93		- Window close event trapping implemented. Since
+			  ACE doesn't automatically handle the closing of
+			  windows when the close gadget has been clicked,
+			  a compiler switch (-w) and user-defined event
+			  trapping was deemed to be the best way to handle 
+			  this.
+			- Fixed yet another bug in CLS which was causing
+			  the print position to be incorrectly aligned in
+			  Intuition windows.
+
+1/11/93			- ACE windows now handle certain control characters
+			  (ASCII: 7,8,9,10,12,13) in exactly the same way as
+			  AmigaBASIC, eg: CHR$(7) rings the BELL!
+			- Implemented boolean gadgets and gadget WAITing.
+			  Next comes gadget event trapping, a gadget function,
+			  string and proportional gadgets, as well as some
+			  tidying up.
+
+2/11/93			- Implemented GADGET(n) function and ON GADGET event
+			  trapping.
+
+6/11/93			- Implemented String and LongInt gadgets.
+
+7/11/93 - 8/11/93	- Implemented proportional gadgets (horizontal and
+			  vertical sliders). 
+			- Window close gadget events are now passed on for
+			  ON WINDOW or -w compiler switch trap handling.
+
+9/11/93 - 10/11/93	- Menus have finally been implemented in ACE!! This
+			  includes menu command keys (keyboard shortcuts),
+			  MENU WAIT command, MENU event trapping and MENU(n)
+			  function.
+
+5/12/93			- MENU and GADGET trapping/WAITing now fully 
+			  supports WINDOW close-gadget handling.
+			- WAIT GADGET 0 implemented: waits for ANY gadget.
+			  This is in my opinion, the best method of dealing
+			  with gadgets in ACE since it is very flexible and
+			  CPU-nice. It is however modal.
+			- Fixed two bugs in the completely rewritten INPUT
+			  code: no space after "?" and no scrolling after
+			  INPUT at bottom of window. 
+
+15/12/93		- Fixed PRINT/PRINTS/PRINT# inability to accept 
+			  some parameters delimited only by spaces. ACE 
+			  seems to accept just about anything delimited
+			  by spaces now (or of course by commas/semicolons).
+			- Fixed a long-standing bug in which the compiler
+			  would incorrectly parse IF .. THEN PRINT ELSE ..
+			  such that ELSE was ignored. This works fine now.
+
+16/12/93 - 17/12/93	- Fixed BSS structure object alignment so that
+			  all such structures will be long-word aligned.
+			- Reduced the amount of code written to the target
+			  file when internal compiler errors occur to a
+			  short skeleton program. This may yet be further
+			  minimised.
+			- I have started the process of improving the
+			  efficiency of the compiler's memory management
+			  routines by using code similar to the ALLOC
+			  function in ACE as well as trying to reduce
+			  the size of each node in the symbol table. 
+			- The arbitrary DIM limit of 10 dimensions has
+			  been removed; 255 are now allowed as per 
+			  AmigaBASIC.
+
+17/12/93 - 18/12/93	- Memory management and efficiency improvement 
+			  continues.
+			- The compilation line number indicator has been
+			  streamlined to cut down on I/O and improve its
+			  appearance.
+			- Memory leaks now seem to be "capped".
+			- The arbitrary SHARED limit of 40 has been lifted.
+			- Fixed a problem caused by editors which don't
+			  automatically append a line-feed (ASCII 10)
+			  to the end of a file, such that the last line
+			  of a program wasn't being parsed.
+			- SERIAL OPEN randomly generating ERR=300 (OPEN_ERR).
+			  Probably caused by OpenDevice() result not being
+			  coerced from BYTE to ULONG (??). Fixed this.
+			- Fixed a bug in which insufficient memory was
+			  being allocated to hold DIM index information. 
+
+24/12/93		- CHR$(13) now only performs a CR (in user-defined
+			  windows) as per the CON: and RAW: windows.
+			  In AmigaBASIC, CHR$(13) does the same as CHR$(10), 
+			  ie: LF.
+			- Appended ASL library stub (generated by genstubs)
+			  to ACE's ami.lib so that ASL file requesters can
+			  be used by FILEBOX$ function (see below).
+			- Implemented MSGBOX and FILEBOX$ functions which
+			  easily allow the ACE programmer to invoke system 
+			  and file requesters respectively. Thus far only
+			  the ASL file requester has been implemented. The
+			  next step is to test for the operating system
+			  version at run-time and call different file
+			  requester code for Amigas running anything less
+			  than 2.04.
+			- Started writing the code for an IDE so that ACE
+		 	  can be run from the Workbench. This will be
+			  developed over the coming months, but a simple
+			  version should be working within days.
+
+25/12/93		- Yes I know it's Xmas. It's also 1 am. 
+			  So I'm a fanatic! :-).
+			- I have *finally* found the ZC code which causes
+			  the conflict with ACE's ctrl-c trapping mechanism.
+			  Upon examination of the ZC source code, I found
+			  the culprit to be a function called Chk_Abort().
+			  This I redefined (in misc.c of ACE's source code)
+			  to do nothing except return 0. This redefinition
+			  has also been made in app.c.
+			- APP now uses the alloc()/free_alloc() functions
+			  for handling memory allocations. 
+
+26/12/93		- Modified ACE so that the ".b" extension can be
+			  used. This is still optional though. The main
+			  reason for doing this was to accomodate TDS's
+			  (Twilight Development System, an excellent
+			  shareware IDE) apparent need to have the
+			  extension of source files made explicit.
+			- Fixed MsgBox so that it works correctly under
+			  Wb 1.3. The requester wasn't taking on the
+			  correct proportions.
+			- Added support for a Wb 1.3 FILEBOX$. It requires
+			  the arp.library. I may eventually replace this
+			  with standalone code (when I get time to write 
+			  a nice, simple file requester or some kind soul
+			  gives me the source for one).
+
+27/12/93		- Implemented "SYSTEM command-string" which has the
+			  same effect as Execute(command-string,0L,stdout).
+			- Finally got around to implementing DEF FN, as a 
+			  simple variation on SUB.
+
+28/12/93		- Optional parameter is now legal in ACE's RND
+			  function. It is currently only a dummy.
+			- FileBox$ modified so that a single string
+			  parameter is required. This allows a title
+			  for the requester to be supplied (eg: "Open"). 
+
+2/1/94			- As promised above (see 24/12/93) I've written
+			  a simple IDE for ACE called AIDE. This is 1000
+			  lines of ACE code and the results are fairly
+			  pleasing. The source code for this program
+			  will be included in the archive as an example
+			  of what can be done with some of ACE's more
+			  recent features. AIDE currently only runs
+			  properly under Wb 2.04 (and up).  
+			- Fixed a bug in which IF..THEN struct->member...
+			  was causing an Undeclared label error!
+			- Changed the return values of MsgBox to -1 and 0
+			  instead of 1 and 0 so that "OK" (or whatever the
+			  first gadget is) can be seen as a boolean TRUE.
+			- String structure members didn't allow a named 
+			  numeric constant to be given for the optional 
+			  SIZE parameter, but they do now.
+			- String array, structure member and variable 
+			  declarations allowed a string of non-positive
+			  size. This has been fixed.
+
+3/1/94			- I started out with the simple intention of
+			  adding a bit more compatibility to ACE's
+			  shared library function handling and ended
+			  up with almost total compatibility with
+			  AmigaBASIC. Only "almost" because shared
+			  library function declarations are still
+			  mandatory in ACE. That's now the only
+			  difference. The previous ACE syntax is
+			  still supported though.  
+			 
+4/1/94			- I have written an ACE program (autonum.b) 
+		  	  which takes the drudgery out of maintaining
+			  the line number references to the sections
+			  in ace.doc and also adds page numbers.
+		
+5/1/94			- Implemented a SYSTEM function which returns
+			  ExecBase->libNode.lib_Version (eg: 34 = Wb 1.3).
+
+6/1/94			- After some false starts, I've added "EXIT FOR"
+			  which provides a (read: THE) clean way of exiting 
+			  from a FOR..NEXT loop in ACE.
+			- Implemented INPUTBOX and INPUTBOX$! I took the
+			  syntax from Visual Basic's functions of the same
+			  names. ACE now has 3 standard requester types.
+
+7/1/94			- Completed the last bits of improving the
+			  efficiency of ACE's memory allocation routines.
+			  I couldn't get it to produce any memory leaks.
+
+8/1/94			- Well, I thought I was finished with the memory
+			  allocation stuff from yesterday, but I decided
+			  to try speeding things up some more. This I have
+			  done by decreasing the number of allocation
+			  function calls by half for the code list. I've
+			  also switched to ZC.lib's malloc() & free() which
+			  seem to be solid.
+			- Tested ACE on an A1200 this morning. It seems fine
+			  although a "Magic Menus" commodity didn't get along 
+			  too well with ACE's menus.
+			- Just finished my standard pre-release testing run 
+			  of ACE which involves compiling and running over
+			  50 programs under Wb 2.04. A number of programs
+			  were also tested under Wb 1.3 with and without
+			  fast RAM switched on.
+
+9/1/94			- Fixed a bug which made A68K generate syntax errors 
+			  because some label names conflicted with assembly 
+			  keywords (CPU register names to be specific).
+			- In the process I found a couple more bugs: 		
+			  variables starting with an underscore but with
+			  no trailing type character were not being assigned
+			  a data type; DEF FN return values were not always
+			  being coerced correctly.
+			- Everything from yesterday is now being re-tested.
+
+10/1/94			- Fixed a bug in which ACE tried to clean up
+			  asynchronous speech when the narrator.device
+			  was not present and SAY had aborted. Sigh. 
+			  Another testing run me-thinks.
+
+12/1/94 - 13/1/94	- Peter Zielinski (Sydney) has been testing ACE the 
+			  last couple of days and found a problem in which 
+			  menus looked weird with some fonts. This has been 
+			  fixed.
+			- I realised that there would be a similar problem
+			  with InputBox$ and fonts other than Topaz 8. This  
+			  function has been modified to handle non-topaz-8
+			  requester title fonts, but Topaz 8 is used for
+			  the requester prompt and boolean gadget text.
+			- Fixed a bug in which LIBRARY CLOSE (used without  
+			  a specific library name) was producing incorrect
+			  library base names for libraries not on ACE's
+			  standard libraries list (ie: those opened at
+			  the start of a program run and closed at the end)
+			  resulting in an undefined label error from A68K.
+			- Also, a library base (again, for non-ACE-listed
+			  libraries) now gets zeroed after a call to ACE's   
+			  _close_library routine in case it's closed again
+			  (_close_library check for NULL).
+
+14/1/94			- Improved menu text rendering by using the graphics
+			  library TextLength() function to get more precise
+			  widths for menu titles and items.
+ 
+15/1/94			- Fixed a bug in which INPBOX[$] was growing in
+			  size (from the bottom) when called multiple times
+			  with a non-topaz font as the screen font.
+			- Tried many things to fix a bug in which INPUTBOX[$]
+			  gadgetry display gets corrupted by _some_ fonts.
+			- Improved INPUTBOX[$] by making the string gadget
+			  active when the requester is rendered. This means
+			  that the user doesn't have to select the string
+			  gadget before entering text into it. 
+			- Tweaked the width of menu item text highlighting.
+			- AIDE has been steadily improved over the last week.
+
+16/1/94			- Tested all example programs under 2.04 and 1.3
+			  (and also with NoFastMem under 1.3).
+
+19/1/94			- ACE version 2.0 released.
+
+*******************************************************************************
+
+23/1/94			- Work on ACE recommenced.
+	
+			- Fixed a bug in val.c: val() and long_from_string()
+			  were not skipping leading whitespace (<= ASCII 32).
+			  VAL and INPUT use these functions. So does INPUT#
+			  but it does its own whitespace skipping.
+			  I am stunned that this bug has been around since
+			  February 1993! That's when I rewrote the code from
+			  assembler (the latter DID skip leading whitespace).
+			  This is a good example of how it is still possible 
+			  to overlook simple bugs no matter how much testing 
+			  you do. I'm just amazed I never caught this one!!
+			  I found this bug two days after the release of
+			  version 2.0 :(. Sigh.
+
+			- Added a "Run in Shell..." option to AIDE's 
+			  Program menu (see AIDE.doc). This also handles
+			  command-line arguments. The "Execute..." I/O window 
+			  now has a close gadget rather than prompting for
+			  the 'C' key to be pressed since the latter may fail 
+			  if the command being executed fails. 
+
+24/1/94			- AIDE: Added code to properly handle 
+			  multiple "Execute..." and "Run in Shell..."
+			  selections by using unique shell-startup script 
+			  names.
+
+6/2/94			- More modifications to AIDE (now v1.02). See
+			  "Changes" file in AIDE directory from now on.
+			- Added FONT and STYLE commands to ACE.
+
+7/2/94			- Implemented LONGINT(n) function.
+
+8/2/94			- ACE now accepts ".bas" extensions for the sake 
+			  of compatibility with GW-BASIC, HiSoft BASIC etc.
+			  AIDE and bas have been modified to handle ".bas" 
+			  extensions also.
+
+15/2/94			- Implemented MESSAGE feature which provides a
+			  simple interprocess communication facility.
+
+16/2/94			- SCREEN FORWARD and SCREEN BACK added to ACE. 
+
+26/2/94			- Structures may now have other structures as
+			  members. To use them it is necessary to take
+			  their address (with "@" or VARPTR) and assign
+			  this address to a structure pointer of the 
+			  member's type.
+			- FILEBOX$ now has an optional second parameter:
+			  default-directory. A couple of people requested
+			  this and I agree with its utility.
+
+27/2/94			- Added support for IFF graphic files. You can
+			  open, view and get information about picture
+			  files in ACE via three commands and a function.
+			  See ref.doc under "IFF".
+
+28/2/94			- Weird bugs appeared in file I/O after adding
+			  the IFF module to db.lib. Excluding iff.o
+			  got rid of the problem. It remains out while
+			  I figure out the problem. I believe it to be
+			  a module/library size problem. This sort of
+			  thing has cropped up before.
+
+6/3/94			- It was pointed out to me by Chuck Kenny that 
+			  user-defined windows could be "lost" behind a
+			  screen's default window when the former are
+			  equipped with depth gadgets. Jeff Harris
+			  made me aware that this would occur if the
+			  borderless default window was not also a
+			  backdrop window. It wasn't, but now it is. :)
+
+7/3/94			- The GADGET statement now allocates memory
+			  for each boolean gadget's text and takes
+			  a copy of it. This avoids the problem of
+			  having the text in two or more buttons 
+			  changing when a single variable is used 
+			  for all the buttons. I had known about
+			  this problem for some time, but recent 
+			  discussions with Chuck Kenny and Kendall 
+			  Sears made me take definitive action. 
+
+20/3/94			- Today I began the process of trying to
+			  reduce db.lib module sizes so as to link
+			  less non-essential code to ACE executables.
+			  An average improvement of 10K has been made
+			  thus far, per executable (eg: from 45 to 35K). 
+			- Work has been too busy of late to do any other
+			  serious work on ACE. Sigh.
+
+3/4/94			- More work on decreasing the size of library
+			  modules and limiting dependencies between them.
+
+4/4/94			- CLEAR ALLOC statement implemented. This command
+			  frees memory allocated by ALLOC at any time,
+			  allowing more intelligent use of ALLOC when
+			  memory is tight.
+			- ALLOC's second parameter (mem-type) is now 
+			  optional. When not specified, or when outside
+			  the range 0..5 CLEARED+PUBLIC memory is allocated.
+			- After the modifications to db.lib and a small bug
+			  fix in the IFF library module (a file wasn't being
+			  closed), the IFF commands and function seem to be
+			  coexisting peacefully with the rest of db.lib. 
+
+5/4/94			- Fixed a bug in which calls to INPUTBOX were
+			  interfering with the correct functioning of
+			  INPUTBOX$ by keeping longint string gadget
+			  mode and buffer length in force. Peter Zielinski
+			  found this problem and reported it to me.
+
+10/4/94			- OPEN's "A" (append) mode wasn't creating a new
+			  file if the specified file didn't exist! It only
+			  worked with files that existed. This was an
+			  incorrect interpretation on my part of what
+			  "append" mode meant in AmigaBASIC. Thanks to
+			  Peter (strikes again) Zielinski for pointing 
+			  this out to me.
+			- Added (over the last few days) some more
+			  peephole optimisation code to ACE: integer sign 
+			  extension, constant negation. The former speeds 
+			  up IFS significantly (went from 372 to 507 peephole
+			  removals as the result of the new optimisations).
+
+11/4/94			- Bogus peephole removals were causing the failure
+			  of some programs. This has been fixed.
+
+23/4/94			- Window flags were being accumulated so that the
+			  type specification of a call to the WINDOW
+			  command was affecting subsequent calls (to WINDOW).
+			  This meant that if a window was specified as
+			  having a close gadget, _all_ later windows were
+			  "inheriting" a close gadget. :(
+			  Thanks to Kenneth Brill and Sean Miller for picking
+			  this one up and reporting it. This and the 5/4/94
+			  INPUTBOX[$] bug have taught me to be more careful	
+			  with static structures and their contents.
+
+30/4/94			- WINDOW OUTPUT was causing windows to be activated
+			  contrary to AmigaBASIC. This has been fixed.
+			- I just realised that when no window type is
+			  specified in AmigaBASIC, the default is a type
+			  value of 31 (ie: the works). ACE has been changed
+			  to fall in line with this policy. You can still 
+			  specify zero for a window to have no gadgets etc.
+			- I just found an undocumented feature in the 
+			  window module of ACE's run-time library. If a
+			  type of 32 is specified for a window, the window
+			  will be borderless! 
+			- GADGET(1) now returns 256 if the window's close
+			  gadget was clicked after doing a GADGET WAIT 0.
+			- It was also discovered that GADGET(1) was only
+			  returning valid values for gadget-ids from 1 to 9.
+			  Sigh. This has been fixed (allows 1 to 255 now).
+
+5/4/94			- Found and fixed two bugs related to MENU. Dan
+			  Oberlin reported that using LEFT$ in conjunction
+			  with MENU caused problems. Specifically I found
+		  	  that menu item strings weren't being copied 
+			  (same problem as with GADGET command on 7/3/94)
+			  so that the LEFT$ buffer (one static buffer per 
+			  call to LEFT$) was being used as a source for 
+			  all menu items (eg. in a single menu). I also
+			  discovered much to my dismay that allocation
+			  for menu title strings (and now item strings)
+			  was not allocating memory for the end-of-string
+			  marker! Double sigh. This is probably the cause
+			  of the occasional mergings of characters in the
+			  menu bar I've observed. I'm also aware that an
+			  extra rightmost menu title appears when the 
+			  Magic Menu commodity is used. Thus far I've seen
+			  nothing in the MENU code to account for this.
+
+6/5/94			- Fixed a bug which has reared its head a number
+			  of times before but didn't seem to be repeatable
+			  or consistent. In the last week I have had 3 bug
+			  reports consistent with this kind of thing. A GURU
+			  (80000003) shows up either when the RMB is clicked
+			  numerous times in succession or when a window is
+			  closed. The first of these has been fixed by 
+			  utilising info' posted to the ACE list by Kendall
+			  Sears. This was a bug fix posted to BIX by Peter
+			  Cherna some time ago concerning the fact that
+			  if the IntuiMessage's IAddress field was being
+			  dereferenced before the Class of the message was
+			  ascertained. If the class wasn't GADGETUP, the
+			  IAddress field contained garbage. If this value
+			  was a non-longword aligned address, a 68000 CPU
+			  trap was invoked. I have yet to determine whether
+			  or not the window-close type bug is also related
+			  to this kind of dereferencing.
+			- I also took this opportunity to add a call to
+			  sleep() before the gadget waiting code. This
+			  has been in use in the menu run-time code for 
+			  some time.
+
+13/5/94			- Opening a file in RAM: for "append" was not
+			  working under Wb 1.3. I modified the code to
+			  make this work for 1.3 and above, by not using
+			  MODE_READWRITE which seems to behave differently
+			  under 1.3 and 2.04.
+
+14/5/94-15/5/94		- Added SLEEP FOR <seconds> command. Someone asked
+			  for this recently (Tim Lewis as I recall) and I've
+			  thought about doing it for some time anyway. Why
+			  the "noise word" 'FOR'? It's easier to parse it
+			  this way (ie. disambiguation from SLEEP).
+
+5/6/94			- Fixed a bug in which VAL was returning garbage 
+			  from whitespace strings.
+
+12/6/94			- Implemented a mechanism to allow for multi-module
+			  ACE projects and/or the creation of ACE subprogram
+			  libraries. See ace.doc for more about this feature.
+			- Added a push/pop pair for d1-d7 and a0-a6 around
+			  external function calls so as to prevent register
+			  corruption.
+			- Added to the syntax of DECLARE FUNCTION so that
+			  external functions can now be declared via a 
+			  similar syntax to SUBs and library functions.
+			  The new syntax also allows for an external 
+			  function's parameter-list to be documented.
+
+20/6/94 - 23/6/94	- Completed work on external SUB definition and
+			  declarations. Subprograms in modules retain
+			  full functionality albeit with some specific
+			  requirements as laid out in ace.doc.
+
+24/6/94 - 25/6/94	- Implemented a bevel-box function to give gadgets
+			  the look-and-feel of Wb 2.x/3.0. This same
+			  function will also be used to implement a 
+			  command which allows ACE programmers to easily
+			  create bevel boxes. Thus far boolean & proportional
+			  gadgets have been converted. Note that GadTools
+			  library is NOT used to achieve the 3D beveled
+			  look in ACE.
+
+25/6/94			- GADGET MOD command added which allows proportional
+			  gadgets to be modified after creation. The knob
+			  position and maximum number of positions can be
+			  changed via this command. The latter is optional.
+			- The keywords ON and OFF may now be used instead
+			  of 1 and 0 for the "status" parameter of the GADGET
+			  command. STRING, LONGINT, POTX and POTY can be
+			  used in place of the "type" parameter in the 
+			  GADGET command. In both cases, readability is
+			  improved dramatically for what is admittedly
+			  a somewhat overloaded command. A BUTTON keyword
+			  is also planned for the "type" parameter.   
+
+30/6/94			- Added string-gadget bevel-box code to bevel.c
+			  which all string gadgets now call to get the
+			  GadTools 3D look.
+
+6/7/94 - 7/7/94		- Finished tweaking 3D look of gadgets.
+			- Gave InputBox[$] the new 3D look.
+
+10/7/94			- Now, if the first argument to the ACE command
+			  is "words" (must be lower-case), all reserved
+			  words for the current version of the compiler
+			  will be dumped to standard output.
+			- BEVELBOX command implemented.
+			- BUTTON keyword added for use in GADGET command.
+			  See entry for 25/6/94.		
+			- BUTTON gadget text now uses color-id 1 in 
+			  accordance with Workbench (requester) gadgets.
+
+12/7/94			- Event trapping is now considerably more
+			  harmonious after centralising all Intuition
+			  message handling for event trapping (eg. for
+			  menus, gadgets, keypresses). The upshot is
+			  that event trapping can be mixed in any way
+			  the programmer wishes. This is of course, as
+			  it should be.
+
+14/7/94			- Longstanding PSET bug fixed. PSET didn't
+			  modify current output window pen position
+			  ready for next graphics operation. This is
+			  because WritePixel() alone was being used.
+			  Move() is also used now with a tiny penalty
+			  in time (~.2 seconds difference over a 10,000
+			  pixel plot). 
+
+24/7/94			- Fixed a bug in the peephole optimiser which
+			  tried to negate things other than immediate
+			  mode numeric literals.
+			- Fixed a bug in INPUTBOX[$] code in which 
+			  an IntuiMessage field was being dereferenced
+			  in a situation in which it should not have
+			  been. This had the potential to cause a 
+			  GURU, although it never did for me.
+			- Increased buffer for string/longint gadgets
+			  to 1024 characters (including NULL).
+			- Also fixed a bug in which the right side of
+			  string/longint gadgets had a bite taken out
+			  when selected sometimes.
+
+24/7/94 - 26/7/94	- After finding that my last approach to improving
+			  event trapping was flawed, I had a rethink. The
+			  result was a that a lot of code was rewritten. The
+			  whole thing is now far simpler and more efficient.
+
+28/7/94			- Fixed a bug which was introduced in version 2.0
+			  of ACE in which CLS called ClearRaster() (instead
+			  of a console control string being executed as it
+			  is normally) for a shell window after the final 
+			  user-defined screen (when no windows were opened 
+			  by the program) had been closed. This resulted in 
+			  the shell's borders being erased.
+
+29/7/94			- Long-integer math routines modified to be
+			  compatible with C code which is linked to ACE
+			  programs as EXTERNAL FUNCTIONs. Some operands
+			  were previously passed in opposite order to
+			  that expected by C code (eg. n / m would have
+			  had to be coded as m / n).
+
+3/8/94			- ASSEM..END ASSEM was behaving oddly when blank
+			  lines were present. This has been fixed. However
+			  if anything appears on the same line as "ASSEM"
+			  that whole line is included. Also, if anything
+			  appears on the same line as "END ASSEM", that
+			  whole line is omitted.
+
+7/8/94			- Switched over to ILBM.library to get IFF commands
+			  and functions working in ACE. Need yet to allow
+			  HAM screen mode though via SCREEN command.
+			- Fixed a (dumb) bug in which floating-point "--"
+			  function (SPSub) was not being externally 
+			  referenced correctly.
+
+10/8/94 - 11/8/94	- Added HAM and EXTRA_HALFBRITE screen modes (5,6)
+			  to ACE's SCREEN command! (Yippee! About time right?).
+			- IFF commands/functions refined further. ACE now
+			  handles HAM pictures. If a picture doesn't display
+			  correctly when opened onto an ACE screen, simply
+			  allow ILBM.library to open its own screen & window.
+
+13/8/94			- Fixed a bug in WINDOW OUTPUT command: if the shell
+			  was made active via this command it was still being
+			  seen as being an Intuition window. :(
+			- Re-implemented WINDOW(0) correctly after a recent
+			  conversation with Peter Zielinski and a question
+			  from Kimmo on the ACE list. It now returns the
+			  window-id of the selected output window.
+
+14/8/94			- Modified MsgBox so that it zero is returned if 
+			  button-text1 is NULL. 
+			- Added ctrl-c break trapping to "ACE words"
+			  command.
+			- WINDOW code was modified so that a copy of the
+			  window title text is made, for the same reason
+			  that menu and button text is copied (so it is
+			  static).  
+
+20/8/94			- Whenever a program uses IFF commands, ACE now
+			  looks in LIBS: to see whether the ILBM.library
+			  exists. If it doesn't, ACE _creates_ it, deleting
+			  it at the end of the program run. If the library
+			  already exists before the ACE program begins, it
+			  is simply used.
+			- STYLE command extended to work in shells (console
+			  windows) as well as windows created with WINDOW.
+			- Fixed a bug which caused some nested CASE statements
+			  to fail at assembly time.
+			- ACE was looking at one byte too many when looking
+			  for a function name in .bmap files. Fixed this.
+			- A WINDOW bug that gave _all_ windows a title bar 
+			  was fixed. This bug was introduced unintentionally
+			  via work done on 14/8/94.
+
+22/8/94			- Fixed a known bug in which an identifier which
+			  started with an underscore _always_ got a type
+			  of single-precision. Now an underscore can be 
+			  DEFxxx'd in the same way that A..Z can.
+			- Added MESSAGE CLEAR command: removes all messages
+			  currently queued at a message port.
+
+24/8/94			- In recent times I had a number of reports of
+			  certain programs not working correctly on A1200s,
+			  involving the use of command line arguments. In
+			  fact, these programs (eg. FD2BMAP.b) were causing
+			  GURUs. I tracked this down to a call to AllocMem()
+			  which specified FAST RAM instead of PUBLIC RAM!!!!
+			  I have no idea why I would have done this!! The bug
+			  manifested itself when I ran NoFastMem on my A500,
+			  simulating the situation found on stock 2 Meg CHIP
+			  RAM A1200s. This has been fixed of course!
+
+26/8/94 - 27/8/94	- GADGET command now correctly handles Screen TextFont
+			  as set in Prefs (affects BUTTON and STRING/LONGINT
+			  gadgets).
+
+28/8/94			- Added SCREEN(4),SCREEN(5) and SCREEN(6) to return
+			  a screen's bitmap and x,y font sizes. The SCREEN
+			  function was also rewritten in C.
+			- Changed temporary directory used by IFF READ to
+			  ram:ILBMtmp to avoid any complaints about making 
+			  the assumption that T: = ram:t. 
+			- SHORTINT parameters to shared library functions 
+			  are now always sign-extended to avoid the need
+			  for explicit coercion to LONGINT.
+			- MESSAGE WAIT no longer clears a message port of
+			  all "old" messages before waiting for a new one.
+			  MESSAGE CLEAR is now the only means by which this
+			  can be done.
+
+1/9/94			- MESSAGE READ now allocates memory for a simple 
+			  buffer if necessary.
+			- DIM and DECLARE FUNCTION may now optionally be 
+			  followed by one of: SHORTINT, LONGINT, SINGLE, 
+			  ADDRESS or STRING.
+			- The formal parameter list identifiers for DECLARE 
+			  FUNCTION may now optionally be preceded by one of 
+			  the above type identifiers.
+
+2/9/94			- The ALLOC function now also handles requests for
+			  MEMF_ANY. MEMF_ANY | MEMF_CLEAR has become the new 
+			  default. I was prompted to do this after a recent
+			  discussion on the ACE mailing list in which it was
+			  pointed out that the use of MEMF_PUBLIC memory as
+			  the default/norm is not really correct. See RKM
+		  	  and Exec autodocs for more. 
+			- ACE wasn't complaining when too few array indices
+			  were given. It does now.
+
+3/9/94			- MSGBOX is now also usable as a statement for those
+			  occasions when the return value from sysrequest() 
+			  is of no interest. The statement only takes two
+			  parameters, not three. See ref.doc for more.
+			- Removed some redundant IDCMP handling code. This
+			  resulted in an increase in run-time efficiency. I
+			  also suspect that this redundant code caused the
+			  loss of a (small but annoying) number of intuition
+			  messages.
+
+3/9/94 - 4/9/94		- The address of external functions and subprograms
+			  can now be determined with VARPTR or the @ operator
+			  (see prgs/misc/Task for an example).
+
+9/9/94			- ++ and -- were not always correctly handling
+			  *external* variables. They do now.
+			- External variable/function declarations can now
+			  use type keywords: SHORTINT,LONGINT,ADDRESS,
+			  SINGLE,STRING (functions only).
+			- Explicitly disallowed external string variables
+			  because of the danger of trying to assign a value
+			  to an external character buffer of unknown size.
+			  It is still possible to treat such a buffer as
+			  an address which can be used when declaring a
+			  string variable or with CSTR. Functions can also
+			  return pointers to strings. They also didn't work
+			  properly before. :(
+
+10/9/94			- Occurrences of MEMF_PUBLIC changed to MEMF_ANY
+			  in all cases in compiler and library code except
+			  aceports.c (message ports).
+			- Line continuation character ('~') implemented 
+			  allowing calculations, parameter-lists etc to
+			  be spread over multiple lines.
+
+11/9/94			- Added SERIAL(n,12) which returns the status of the
+			  port lines and registers associated with a serial
+			  channel.
+			- ACE's "WORDS" parameter made case insensitive. 
+			- Added ERR values for opening windows and screens.
+			- Improved peephole optimisation further. Certain
+			  redundant register moves were not being removed.
+			  In the process of doing this, the optimiser had
+			  to be tightened up in places to prevent valid
+			  code from being removed.
+			- Fixed Turtle Graphics aspect ratio so as to 
+			  correctly reflect screen mode.
+
+17/9/94			- ON ERROR trapping works for windows and screens
+			  now.
+			- Fixed a bug in which spaces always printed in
+			  "legal" print rows. This conflicts with SETXY'd
+			  (or PRINTs following gfx commands) print positions. 
+
+18/9/94			- Version 2.29 released to several beta testers.
+
+1/10/94			- Fixed a bug which was introduced on the 1/9/94 such
+			  that a declaration like: DIM a(10),b(10),c$(10) 
+			  caused c$() to become a single-precision array!
+			- Fixed a bug in EXTERNAL FUNCTION which was also 
+			  introduced recently (through accidental code 
+			  deletion), in which the absence of a type-word 
+			  (eg. SHORTINT) caused the command to be incorrectly 
+			  parsed. 
+			- External string variables correctly re-implemented. 
+			  This assumes that the external string has been 
+			  declared as an array of characters ala C (tested with
+			  ZC and SAS/C), _not_ as a pointer to char! See entry 
+			  for 9/9/94.
+
+22/10/94		- ACE version 2.3 prepared for release (finally!).
+
+*******************************************************************************
+
+27/2/95			- Work on ACE recommenced after a 5 month break
+			  during which time ReqEd was developed (and 2
+			  revisions released after v1.0), numerous fun
+			  programs were written by yours truly and a 
+			  zoo of bugs was uncovered. These are now my
+			  priority before adding further features. 
+
+			- Fixed a bug in which too many gadgets were
+			  being refreshed when a gadget was modified,
+			  or removed and replaced. This sometimes
+			  resulted in ACE's 3D gadget imagery being
+			  mangled by old intuition imagery. 
+
+5/3/95			- Since bevelboxes were added to INPUTBOX[$]
+			  graphics.library has been required as well
+			  as intuition.library. This was not being
+			  explicitly opened, resulting in a GURU if
+			  some other command/function didn't open it.
+
+			- Even when RANDOMIZE was used RND always returned
+			  the same first value. This has been corrected by 
+			  having RANDOMIZE call RND once.
+
+			- Linkable subprogram modules were unable to 
+			  externally reference _EXIT_PROG in the main
+			  module requiring a kludgy workaround (see the
+			  Changes file in the latest version of the FontReq
+			  SUBmod). This has been rectified.
+
+10/3/95			- Fixed a bug in which certain shared library 
+			  function entries weren't recognised as being 
+			  in a bmap file because of ACE mistaking a zero
+			  byte in a function offset for the end of the 
+			  register list in certain entries.
+
+11/3/95			- ALLOC function was sharing code with an internal
+			  db.lib memory allocation function. This worked 
+			  fine so long as CLEAR ALLOC was never called.
+			  If db.lib had invoked any functions which called
+			  the alloc() function, CLEAR ALLOC caused the 
+			  memory so allocated to be freed! This kind of
+			  coincidence happened rarely enough for the bug
+			  to evade my notice for some time. When developing
+			  ReqEd, the bug bit me however. I chose to employ
+			  a workaround in that case, but have now made a 
+			  clear internal distinction between db.lib's and
+			  ALLOC's memory allocator.
+			- While fixing the ALLOC bug, I noticed that in a
+			  couple of cases, internally (db.lib) allocated 
+			  memory wasn't being freed. This has been fixed.
+			- Fixed the nasty array bug which was discussed 
+			  at length via the ACE mailing list in January.
+			  This involved ensuring that all occurrences of
+			  "(aN,d7)" were replaced by "(aN,d7.L)" so that
+			  d7 is considered to hold a LONGINT index for
+			  use with register indirect with displacement
+			  and index addressing mode.
+			- Gadget imagery was being mangled when string,
+			  longint, potx and poty gadgets were closed.
+			  This has been fixed.
+			- When button gadgets were closed and opened
+			  again using the same gadget-id, if no style
+			  parameter was specified upon reopening, the
+			  previous state (ON or OFF) was being retained!
+			  This was due to an internal flag not being
+			  reset when opening a gadget. This has been 
+			  fixed.
+			- Fixed a bug in the peephole optimiser in 
+			  which code such as: 	CONST x = -2 
+						y% = -x
+			  generated:
+						move.w #--2,-(sp)
+			  instead of:
+						move.w #2,-(sp)
+
+12/3/95			- Button gadgets may now have their text's font
+			  and style specified.
+
+			- Version 2.35 prepared for release. This is only 
+			  a partial release: ace, db.lib ref.doc and this
+			  history log.
+
+			- I expect there to be a few small releases (such
+			  as this one) in the next couple of months because
+			  it's the only way in which I can hope to provide
+			  ACE programmers with any updates at the moment.
+			  Work is very busy right now and study is keeping
+			  me busy at other times.
+	
+*******************************************************************************
+
+7/8/95 - 8/8/95		- Recommenced work on ACE.
+			- SUBs may now be used as event handlers via
+			  ON <event> CALL <SUBname>. 
+
+5/10/95 - 6/10/95	- Received permission from Dr Peter Kittel to make
+			  the bmaps and ACE headers (converted from C by Nils
+			  Sjoholm) available to the ACE community. Fantastic!
+			- Fixed a dumb bug which caused certain borderline 
+			  integers to be misclassified (ie. shortint instead
+			  of longint). This has been lurking for a long time
+			  but only recently caused problems. Thanks to Nils
+			  Sjoholm and Andrew Fineberg for alerting me.
+			- Fixed a bug in ASSEM..END ASSEM in which certain
+			  assembly code caused "unknown symbol" errors.
+
+*******************************************************************************
+
+3/11/95			- Fixed a bug in SAY command which prevented multiple
+			  SAYs when no mode array was supplied due to a bogus
+			  check for non-existent data. This managed to hide
+			  due to the fact that I almost always supply a mode
+			  array. John Mason reported this behaviour to me.
+
+5/11/95 - 6/11/95 	- Exponentiation in ACE is now carried out via the
+ 			  IEEE single-precision function IEEESPPow() because 
+			  it is more accurate and handles negative base values 
+			  correctly. The parameters and result are converted 
+			  to and from IEEE format respectively. 
+
+			  This change was necessitated by a bug uncovered 
+			  when strange behaviour was reported by Petteri 
+			  Heikkinen, namely that if the base was negative 
+			  and the exponent odd, the result was positive! 
+			  This is manifestly a bug in the FFP mathtrans.library!! 
+			  Surely this has been observed before by others!? I am
+			  as surprised as ever about this one...
+
+ 			  Only in the event that mathieeesingtrans.library
+ 			  can't be opened will the FFP SPPow() function
+ 			  be used. Note that this should only happen on
+ 			  systems with an OS prior to Release 2.0. Note
+ 			  also that bogus results will be obtained via the
+ 			  FFP function if the base is negative. This doesn't
+ 			  seem to be worth producing a fix for since only old 
+			  systems will be affected.
+
+			  The following program ran in 5.4 seconds on my
+			  unaccelerated A1200 when the IEEE library was
+			  present and in 7.6 seconds when it was not:
+				
+				for i=1 to 10000
+  				  x = 2^3
+				next
+
+			  indicating an increase in performance with the
+			  IEEE function in use. This is despite the overhead
+			  involved in FFP <-> IEEE conversions.
+
+6/11/95			- Added GADGET OUTPUT command. See ref.doc for more.
+			  This uncovered a bug in which the default value of 
+			  a LongInt gadget was not being set at gadget creation
+			  time. It never showed up before because the only time
+			  the LongInt member of the StringInfo structure was
+			  examined was when a gadget event occurred by which time
+			  the LongInt structure member had been given a value.
+			  Since GADGET OUTPUT allows a LongInt gadget's value 
+			  to be queried at _any_ time, unless the gadget had 
+			  been modified (or the gadget selected), the LongInt
+			  field would still have been zero. This has been fixed
+			  by ensuring that the LongInt member is set when the
+			  gadget is created.
+
+7/11/95			- Added GADGET(4) which returns the address of the
+			  last gadget selected via a gadget event or a call
+			  to GADGET OUTPUT. This can then be used in conjunction
+			  with Intuition library functions such as ActivateGadget()
+			  and so GADGET(4) plays a similar role for gadgets as 
+			  WINDOW(7) and WINDOW(8) do for windows.
+
+4/12/95			- Changed maximum number of user-defined windows from
+			  9 to 16. The latter limit was imposed by the number
+			  of user task signals. Without employing a shared IDCMP
+			  for user-defined ACE windows, 16 would seem to be a 
+			  hard limit, and even this assumes that all 16 user
+			  signals are available.
+
+11/3/96 - 16/3/96	- Implemented random files after much thought about
+			  what was the best approach to take. ACE structures
+			  have been made central, such that far fewer commands
+			  and functions are necessary. See ace.doc and ref.doc 
+			  for details.
+
+11/6/96			- Added Common variables which behave identically to
+			  external variables except that they are defined 
+			  within the enclosing source module and are *exported*
+			  to other modules. So, one ACE module can contain a 
+			  common variable declaration, while another module can 
+			  externally reference this variable.
+
+			- Tightened up error checking for external variables
+			  and functions, ie. the compiler will now issue a warning
+			  if there's a duplicate identifer.
+
+22/6/96			- Added Global variables which behave identically to
+			  external variables except that they are defined 
+			  within the enclosing source module. Unlike Common 
+			  variables, Globals are *not* exported to other modules.
+			  Like Common and External variables, Globals are static
+			  BSS objects. Also like Commons, Globals are intended
+			  for use in conjunction with SUBmods which require
+			  global data where the scope of the data is across 
+			  a whole module from the point of declaration. Only
+			  simple variables are catered for, not arrays or
+			  structures, although Commons and Globals may be 
+			  of type Address.
+
+23/6/96			- Changed ((STRPTR)-1) to -1& for definition of NM_BARLABEL
+			  in libraries/gadtools.h.
+			- Added pad byte to NewMenu structure in libraries/gadtools.h
+			  since ACE makes no attempt to word-align structure members,
+			  only whole structures, which are longword-aligned.		
+
+19/7/96			- Added Menu(2) function to return menu subitem. This was
+			  put into place to support GadTools menus.
+
+4/9/96 - 9/9/96		- Added BLOCK..END BLOCK for true statement-blocks.
+
+*******************************************************************************
+
+9/10/96			- Fixed some problems with using workbench.library
+			  functions: wb.bmap should have been workbench.bmap,
+			  workbench/workbench.h wasn't including the file 
+			  workbench/startup.h, funcs/wb_funcs.h "LIBRARY wb"
+			  occurrences changed to "LIBRARY workbench". Thanks
+			  to Nils Sjoholm for the fixes and to John Mason for
+			  trying to write the code that showed up the problem.
+
+17/10/96		- Fixed the cause of enforcer hits in FONT command.
+			  Thanks to Herbert Breuer and Klaus Gessner for 
+			  pestering me so much about this one. It was a 
+			  pointer being dereferenced when it should not have
+			  been.
+
+			- Also fixed an internal string-comparison function's
+			  handling of null-pointers. Found this unrelated bug
+			  while fixing the FONT bug.
+
+4/10/98			- Prepared for final release under the Gnu Public 
+			  Lisence, including source code.

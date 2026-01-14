@@ -1,0 +1,35 @@
+#ifndef  FUNCS_MATHIEEESINGTRANS_FUNCS_H
+#define  FUNCS_MATHIEEESINGTRANS_FUNCS_H
+
+/*
+**
+** Function declarations for ACE Basic
+**
+** Note: Translated to ACE by Nils Sjoholm
+**
+** Date: 11-Oct-95 TO 14-Oct-95
+**
+*/              
+
+#ifndef  EXEC_TYPES_H
+#include <exec/types.h>
+#endif
+
+DECLARE FUNCTION SINGLE IEEESPAtan( SINGLE parm ) LIBRARY mathieeesingtrans
+DECLARE FUNCTION SINGLE IEEESPSin( SINGLE parm ) LIBRARY mathieeesingtrans
+DECLARE FUNCTION SINGLE IEEESPCos( SINGLE parm ) LIBRARY mathieeesingtrans
+DECLARE FUNCTION SINGLE IEEESPTan( SINGLE parm ) LIBRARY mathieeesingtrans
+DECLARE FUNCTION SINGLE IEEESPSincos( ADDRESS cosptr, SINGLE parm ) LIBRARY mathieeesingtrans
+DECLARE FUNCTION SINGLE IEEESPSinh( SINGLE parm ) LIBRARY mathieeesingtrans
+DECLARE FUNCTION SINGLE IEEESPCosh( SINGLE parm ) LIBRARY mathieeesingtrans
+DECLARE FUNCTION SINGLE IEEESPTanh( SINGLE parm ) LIBRARY mathieeesingtrans
+DECLARE FUNCTION SINGLE IEEESPExp( SINGLE parm ) LIBRARY mathieeesingtrans
+DECLARE FUNCTION SINGLE IEEESPLog( SINGLE parm ) LIBRARY mathieeesingtrans
+DECLARE FUNCTION SINGLE IEEESPPow( SINGLE _EXP, SINGLE arg ) LIBRARY mathieeesingtrans
+DECLARE FUNCTION SINGLE IEEESPSqrt( SINGLE parm ) LIBRARY mathieeesingtrans
+DECLARE FUNCTION SINGLE IEEESPTieee( SINGLE parm ) LIBRARY mathieeesingtrans
+DECLARE FUNCTION SINGLE IEEESPFieee( SINGLE parm ) LIBRARY mathieeesingtrans
+DECLARE FUNCTION SINGLE IEEESPAsin( SINGLE parm ) LIBRARY mathieeesingtrans
+DECLARE FUNCTION SINGLE IEEESPAcos( SINGLE parm ) LIBRARY mathieeesingtrans
+DECLARE FUNCTION SINGLE IEEESPLog10( SINGLE parm ) LIBRARY mathieeesingtrans
+#endif   /* FUNCS_MATHIEEESINGTRANS_FUNCS_H */

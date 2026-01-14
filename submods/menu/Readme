@@ -1,0 +1,13 @@
+
+Here's a SUBmod to give you easy access to GadTools menus, including submenus and
+menu item separator bars.
+
+Menu event trapping and menu waiting may be used as normal with this SUBmod, and
+calling ACE's MENU(2) function will return the submenu item if any.
+
+Copy Menu.h to ACEinclude:SUBmods, and type "make test" to compile the example
+program.
+
+Regards,
+
+David Benn, 9th August 1996

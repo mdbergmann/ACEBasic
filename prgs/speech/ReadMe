@@ -1,0 +1,3 @@
+SpeechTool.req is readable by ReqEd and contains the layout information 
+for SpeechTool.b. If you mess around with this file using ReqEd, be sure
+not to save the project as SpeechTool, otherwise you'll overwrite SpeechTool.b.

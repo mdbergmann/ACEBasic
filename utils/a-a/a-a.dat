@@ -1,0 +1,48 @@
+Set Buffer 50
+Inc HELLO
+Dec GOODBYE
+Add X,Y+7
+A=Free
+major:
+
+print : print
+
+K=Instr(A$,B$)
+L=Instr(A$,B$,val(mid$(c$,k$,5)))
+Print Upper$("hello")
+Print String$("a",7)
+If(A+H<K)
+End If 
+Do 
+Rem nothing
+Loop 
+Print Rnd(5)
+Fix(2)
+Say "hello",1
+Open In 1,"leven.comp"
+Open Out 2,"levee.txt"
+Append 7,"killer"
+Print Hex$(373,2)
+Print Hex$(222)
+Print Bin$(211,9)
+Print Bin$(2911111)
+Poke 55,92
+Doke 22110,474
+Loke 20,77
+Print Peek(332)
+Print Deek(5580)
+Print Leek(57000)
+Proc HELLO[STEVE,MARK]
+Proc MAKER
+Procedure MAKER
+End Proc
+Procedure HELLO[YUK,LKW]
+End Proc
+Rem ACEcommand(1)here! 
+Rem ACE command(2)here!
+Rem Begin AMOS 
+Rem *** This is junk that will be deleted when going 
+Rem *** through the processor! 
+Rem End AMOS 
+Rename "hello" To "goodbye"
+

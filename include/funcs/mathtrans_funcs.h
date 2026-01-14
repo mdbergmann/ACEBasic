@@ -1,0 +1,36 @@
+#ifndef  FUNCS_MATHTRANS_FUNCS_H
+#define  FUNCS_MATHTRANS_FUNCS_H
+
+/*
+**
+** Function declarations for ACE Basic
+**
+** Note: Translated to ACE by Nils Sjoholm
+**
+** Date: 11-Oct-95 TO 14-Oct-95
+**
+*/              
+
+#ifndef  EXEC_TYPES_H
+#include <exec/types.h>
+#endif
+
+DECLARE FUNCTION SINGLE SPAtan( SINGLE parm ) LIBRARY mathtrans
+DECLARE FUNCTION SINGLE SPSin( SINGLE parm ) LIBRARY mathtrans
+DECLARE FUNCTION SINGLE SPCos( SINGLE parm ) LIBRARY mathtrans
+DECLARE FUNCTION SINGLE SPTan( SINGLE parm ) LIBRARY mathtrans
+DECLARE FUNCTION SINGLE SPSincos( ADDRESS cosResult, SINGLE parm ) LIBRARY mathtrans
+DECLARE FUNCTION SINGLE SPSinh( SINGLE parm ) LIBRARY mathtrans
+DECLARE FUNCTION SINGLE SPCosh( SINGLE parm ) LIBRARY mathtrans
+DECLARE FUNCTION SINGLE SPTanh( SINGLE parm ) LIBRARY mathtrans
+DECLARE FUNCTION SINGLE SPExp( SINGLE parm ) LIBRARY mathtrans
+DECLARE FUNCTION SINGLE SPLog( SINGLE parm ) LIBRARY mathtrans
+DECLARE FUNCTION SINGLE SPPow( SINGLE power, SINGLE arg ) LIBRARY mathtrans
+DECLARE FUNCTION SINGLE SPSqrt( SINGLE parm ) LIBRARY mathtrans
+DECLARE FUNCTION SINGLE SPTieee( SINGLE parm ) LIBRARY mathtrans
+DECLARE FUNCTION SINGLE SPFieee( SINGLE parm ) LIBRARY mathtrans
+/*--- functions in V31 OR higher (Release 1.1) ---*/
+DECLARE FUNCTION SINGLE SPAsin( SINGLE parm ) LIBRARY mathtrans
+DECLARE FUNCTION SINGLE SPAcos( SINGLE parm ) LIBRARY mathtrans
+DECLARE FUNCTION SINGLE SPLog10( SINGLE parm ) LIBRARY mathtrans
+#endif   /* FUNCS_MATHTRANS_FUNCS_H */

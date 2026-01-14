@@ -1,0 +1,4 @@
+This directory contains the primary executables (and then some) for compiling 
+ACE programs. There are two preprocessors: APP and ACPP. The former is the 
+original ACE preprocessor, while the latter is a C-style preprocessor which 
+permits inclusion of more complex header files (see ACE:Include directory).

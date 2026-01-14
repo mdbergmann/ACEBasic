@@ -1,0 +1,34 @@
+
+ACE Message Ports
+-----------------
+
+The programs in this directory illustrate the use of ACE's new interprocess
+communication capability.
+
+They are the same as the programs in the ACEports directory with the
+exception that message ports are polled in order to read a message, rather
+than using the (nicer) message WAITing technique. This is typically used for
+processes which can't afford to block on a port until a message arrives.
+
+The easiest way to test them is to compile both programs from a shell and 
+then type:
+
+		run reader
+followed by:
+		writer
+
+Alternatively you can type:
+
+		run writer
+then:
+		reader
+
+Another way is to copy each program to the RAM: disk (for example), compiling
+both with the -i switch to create icons. Then open the RAM: disk and double
+click on each program's icon. Either program may be run first.
+
+See ace.doc and ref.doc for more information.
+
+Regards,
+David Benn
+23rd August 1994

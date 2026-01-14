@@ -1,0 +1,21 @@
+
+This SUBmod is an adaptation of ACE code written by Nils Sjoholm to provide an 
+alternative to ACE's limited MsgBox function/statement via an Intuition library 
+EasyRequester.
+
+To create an executable which incorporates this SUBmod's functionality, type:
+
+	bas -O YourPrgName EasyRequest.o
+
+or use the supplied Make file. See also the provided example program, test.b.
+
+Note that the code in EasyRequest.h is necessary when using this SUBmod as
+shown by the #include line in test.b. Place this file in your ACEinclude:
+directory.
+
+If you wish to change the SUBmod code (in EasyRequest.b) and recompile it, you 
+will need to have intuition.bmap in your ACEbmaps: directory.
+
+Thanks goes to Nisse for his code. Enjoy!
+ 
+David Benn, July 1995

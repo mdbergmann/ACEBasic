@@ -1,0 +1,43 @@
+
+Installation
+------------
+Installing ACE consists of:
+
+	- Unpacking the archive.
+
+	- Adding a few commands to your s:user-startup (Wb 2.x/3.x) or 
+	  s:startup-sequence (Wb 1.3) file.
+
+First create a new drawer (eg. ACE) on your hard disk, open a shell window, 
+change to the new directory, and unpack the archive into it with:
+
+	lha -a x <archive-name>
+
+eg.	lha -a x ace24.lha
+	
+The "-a" switch preserves file attributes (eg. the "s" bit on shell scripts) 
+in the archive.
+
+As you can see, it is *assumed* that you have a hard disk. If you don't, 
+unpack the ACE archive into the RAM disk and place the contents of the 
+distribution onto more than one floppy disk from there.
+
+Next, add the following lines to your user-startup or startup-sequence 
+script:
+
+	assign ACE: <volume or directory>
+	path ACE:bin add
+ 
+where <volume or directory> is the name of the disk or directory where
+the main ACE files now reside (eg: assign ACE: sys:ACE).
+
+In addition, you need to add three more statements to your startup-sequence
+or user-startup script:
+
+	assign ACElib:	   ACE:lib	 ; bas finds scanned libraries here.
+	assign ACEbmaps:   ACE:bmaps     ; ace looks here for .bmap files.
+	assign ACEinclude: ACE:include	 ; app uses this for include files.
+
+Now reboot your Amiga to let the above path and assign commands take effect.
+
+That's it!

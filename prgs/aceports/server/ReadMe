@@ -1,0 +1,19 @@
+
+
+ACE Message Ports: client/server example
+-----------------
+
+The programs in this directory illustrate the use of ACE's new interprocess
+communication capability. In particular they demonstrate the client/server
+principle.
+
+The easiest way to test them is to copy both programs to the RAM: disk and 
+compile both with the -i switch to create icons. Then open the RAM: disk and 
+double click on the server's icon. More than one client can then be run. Type 
+HELP in a client's window to find out what commands are recognised by the server.
+
+See ace.doc and ref.doc for more information about ACE message ports.
+
+Regards,
+David Benn
+2nd October 1994

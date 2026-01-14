@@ -1,0 +1,88 @@
+Well, it's finally happened. The ACE source code has been released under 
+the Gnu Public Lisence. In fact, the complete distribution has. This 
+represents version 2.4 of the compiler, and the later update to db.lib 
+(version 2.61). See docs/history for the details. The primary ACE document
+(ace.doc/ace.fmt/ace.guide) has been annotated with recent changes, e.g.
+re: contact information.
+
+I developed ACE between November 1991 and September 1996. In preparing the 
+archive I was reminded again of how much work I've put into this project.
+It was a labour of love, which was driven by my desire for simplicity and
+power in a programming language, but for a variety of reasons I moved on 
+to other things. If you want to know more about this, go to my web page to 
+see an interview with me a couple of years ago re: the state of ACE, the 
+Amiga, and me.
+
+ACE was the first large C project I worked on and I learned so much, but 
+made plenty of mistakes along the way.
+
+There are a number of things I feel I should apologise for.
+
+First, for the time it's taken me to make the ACE source code available.
+For a long time, I wasn't sure that I _would_ do so. But since I'm not 
+working on it any longer, I want others to have the chance to do this if 
+they wish, but not to exploit it by making money from ACE without sharing 
+the benefits with others. That's what the GPL gives us.
+
+Second, the source code is a mixture of C and assembler, mostly C. The
+bad news is that it's in K&R C rather than ANSI C. I developed ACE
+using an old but stable C compiler: Sozobon C v1.01. See the ZC directory.
+I had plans to convert it to ANSI C but never got around to it. I recall
+seeing at least one freeware utility for doing this conversion however.
+
+Third, my coding style has changed considerably over the last few years,
+and you'll notice the evolution in some of the ACE sources. My commenting
+tends to be more fanatical nowadays also, although it's adequate in most
+of the ACE sources.
+
+Fourth, there's no makefiles. I used a few scripts (see make directory) to
+generate the compiler and libraries. This works fine, but compared to
+what I'm used to now, it's primitive. It wouldn't be hard to write some
+makefiles for ACE though.
+
+Fifth, no source control system was used. I just kept each version in
+separate directories.
+
+Sixth, there's a single common header file for the whole compiler. These 
+days I generally use one header per C file and conditional compilation.
+
+Lastly, there's one small object module (src/lib/obj/LoadIFFToWindow.o) to
+which there is no source code. That's because it's a shared library stub
+for ilbm.lib (which ACE regenerates at run-time). It's used in one place 
+(src/lib/c/iff.c)
+
+That's all the negative stuff I can think of. The good news is that the 
+source code compiles and produces a compiler and libraries that work. I'm 
+not pretending that there are no bugs though. I didn't use bug tracking 
+software, so another task I should carry out is the conversion of my 
+paper-based problem logs to electronic format. I didn't want to delay 
+releasing the ACE source any longer in order to do this.
+
+I also have paper-based plans for how ACE could be improved and expanded,
+which I'm also willing to make available (after suitable conversion) if 
+there's demand for it.
+
+I am willing to make this kind of information available and to answer 
+questions about the ACE source code and about ACE in general.
+
+I need to thank Daniel Seifert for supplying the necessary guilt level to 
+release the ACE source code and I'd like to thank everyone who's been involved 
+with ACE since it came into being eight years ago. It was a wonderful 
+experience. I came to know many fine people in the Amiga Community during 
+the course of the project. I also want to thank my wife Karen, for putting
+up with me during those years when I lived, breathed, and ate ACE.
+
+There's nothing much left to say except that if anyone decides to keep 
+developing ACE, or use the source code for some other purpose, I hope 
+you spend more time thanking me than cursing me and that you send me 
+some mail letting me know what you're doing.
+
+Enjoy.
+
+Best regards
+
+David Benn, October 5 1998
+
+dbenn@camtech.net.au
+http://www.adelaide.net.au/~dbenn/  
+6 Stacey Crescent, Klemzig, South Australia, 5087

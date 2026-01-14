@@ -1,0 +1,20 @@
+Notes about some scripts in the "make" directory  (4/10/98)
+------------------------------------------------
+
+lcmake		- Compile a C library module
+
+lmake		- Assemble an assembly code library module or join all 
+	  	  library modules together to form db.lib
+
+makelib		- Assembles a single assembly code module to create a
+		  linked library file (used to create startup.lib).
+	 	  See also src/lib/startup/make.
+ 
+makedb		- Creates db.lib from the C and assembly source files in
+		  src/lib/c and src/lib/asm.
+
+cmake		- Compile an ACE compiler module or create the final ACE
+	  	  executable.
+
+makeace		- Compiles and links all ACE compiler modules to create the
+	  	  final ACE executable.

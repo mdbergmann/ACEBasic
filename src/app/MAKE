@@ -1,0 +1,2 @@
+; Make APP
+cc app.c app_alloc.c -o app

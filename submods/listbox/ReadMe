@@ -1,0 +1,34 @@
+
+        listbox:
+
+                This one is David's work. He put it up on
+                the list a long time ago.
+
+                I have made a few changes to this one.
+
+                It's font sensitive.
+                It adjusts its size after the longest string.
+                It opens where the mouse is.
+
+                Plus it's using my tagmacros and the new
+                function declarations.
+
+                Yeah it also use the new headers.
+
+
+                Nils Sjoholm
+
+
+Note
+----
+ListBox.o is a Subprogram Library Module (SUBmod), so compile 
+test.b as normal but also link with ListBox.o, ie.
+
+	bas -O test ListBox.o
+
+or use newbas (whichever uses ACPP, not APP)
+or whatever you're bas script is called.
+
+Make sure you have placed ListBox.h in ACE:include/SUBmods.
+
+David Benn, 17th October 1995

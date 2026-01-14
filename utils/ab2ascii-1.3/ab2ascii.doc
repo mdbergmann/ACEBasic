@@ -1,0 +1,79 @@
+
+     AmigaBASIC->ASCII                                        -*- Text -*-
+
+     NAME
+          ab2ascii - generate ASCII source from AmigaBASIC binaries
+
+     SYNOPSIS
+          ab2ascii [options] [-o|>] [outfile] [<] [infiles]
+
+     DESCRIPTION
+          ab2ascii reads binary AmigaBASIC sources, expands tokens and
+          symbols and generates ASCII output.  Today there is need for
+          ab2ascii since AmigaBASIC does not run anymore under versions
+          of Kickstart V37+.  ab2ascii should do exactly the same as
+          the AmigaBASIC equivalent
+
+                            SAVE "filename",A
+
+          In fact many interresting AmigaBASIC programs have been
+          published in the past and they should not be lost.
+
+          By default ab2ascii converts from the standard input stream
+          to the stdout, i.e. you can convert your binaries through
+          a pipe.  If any input filenames are given in the command line
+          these will be used instead of stdin.
+
+          Input and output filename can NOT be the same.  However the output
+          filename can be given relative to the input filename by using
+          one `%s' construct in the ouput filename specification.  The first
+          occurence of `%s' will be replaced by the input filename.
+          A constant output filename makes no sense with more than one input
+          file because ab2ascii would replace this file each time a new input
+          file is converted.  To join several input files to one output file
+          the standard output stream can be used.
+
+          White spaces between the option keywords and their values are
+          optional, i.e. `-ofile' and `-o file' are both legal, concatenation
+          of option keywords however is not:  -vh and -v -h result in a quite
+          different behaviour.
+
+
+          Further options are:
+
+          -d#      Sets the debugging level.  (currently -d1 only)
+                   ab2ascii must be compiled w/ a symbol DEBUG defined to use
+                   this option.
+
+          -E file  Directs error messages to `file' instead of the standard
+                   error stream 'stderr'.  Usefull for batchfiles
+
+          -h       Displays a short usage information and option overview.
+
+          -o fmt   Directs ASCII output to a file `fmt'.  The first `%s' in
+                   fmt (if any) will be replaced by the input filename.
+                   If the input is taken from stdin then `stdin' will be
+                   used to replace `%s'
+
+          -v       Displays short author and version information
+
+
+     NOTES
+          ab2ascii will not check the existance of the output file.
+          If it exists ab2ascii will blow it away without asking you.
+          ab2ascii also assumes the existance of all dircetories in the
+          output path.
+
+          For those who want to generate an ABASIC DOpus class:
+          AmigaBASIC binaries always start with a $F5 byte!
+
+     AUTHOR
+          Tobias Ferber, Goethestraße 32, 76135 Karlsruhe
+
+          Earn:      ukjg@dkauni2.bitnet
+          InterNet:  ukjg@ibm3090.rz.uni-karlsruhe.de
+
+          Initial revision by Stefan Reisner, sr@ph.cip.uni-koeln.de
+
+          Commodore Amiga BASIC Version 1.2 (Created  6 Oct 1986) is
+          Copyright (c) 1985, 1986 by Microsoft Corp.

@@ -1,0 +1,14 @@
+Short:    v2.12, an IDE for ACE
+Uploader: dseifert@hell1og.be.schule.de (Daniel Seifert)
+Author:   dseifert@hell1og.be.schule.de (Daniel Seifert)
+Type:     dev/basic
+Version:  2.12
+Requires: OS 2.x or higher
+
+This is AIDE,  ACE's Integrated Development Environment.  By
+help with this GUI you are able to compile your ACE programs
+easily and comfortable.
+
+ Changes since v2.07 : - some removed bugs
+                       - iconization ability
+                       - AmigaGuide documentation

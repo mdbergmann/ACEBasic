@@ -1,0 +1,41 @@
+
+Greetings ACE programmer!
+
+This is my first attempt at producing a non-toy ACE subprogram library module.
+
+The essential files are: WBarg.o and WBarg.h. Notice that WBarg.h here is NOT the same
+as ACEinclude:WBarg.h! Its basic purpose is to provide external declarations to the
+subprograms in WBarg.o. The latter is an object module that must be linked with a 
+program wishing to use any of the subprograms externally declared in WBarg.h. Use the
+simple "Make" shell script, eg. make test, for this purpose.
+
+WBarg.o contains subprograms to handle Workbench arguments (as documented in ace.doc) 
+and tooltypes (not provided before). There is also a function which returns true or
+false depending upon whether the program was Workbench-launched.
+
+The file WBarg.b contains the source code to WBarg.o.
+
+The test files consist of:
+
+	test		'..the executable (type: "Make" to get this file). 
+	test.b
+	test.info
+	arg1.info
+	arg2.info
+	arg3.info
+
+To see what the program does, create a temporary drawer from the Workbench, copy
+these files into it and experiment. See the comments at the top of test.b for more.
+
+After playing with the program, go take a look at the source files: WBarg.b, WBarg.h,
+test.b (probably in the reverse of that order).
+
+I'll admit that creating subprogram library modules is not as straightforward as
+it should be right now. I'm working on it though. At least _using_ them is fairly
+easy given the appropriate ".h" file.
+
+All comments are welcome.
+
+Regards,
+
+David Benn, 5th March 1994

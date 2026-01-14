@@ -1,0 +1,30 @@
+
+Greetings ACERs.
+
+This is a fairly complete double-precision floating point library suitable 
+for use with ACE and C. Note that the C source module dp_val.c was compiled with 
+Sozobon C to produce dp_val.o.
+
+The best way to get a handle on the library's functionality is to try out the
+test.b program (type "make test"), look through dp.h, and maybe even dp_main.s 
+and dp_val.c.
+
+The only important thing missing is a routine to output double-precision 
+floating point numbers. There is however a routine to extract them from
+strings.
+
+If you can lay your hands on C source code for taking an IEEE DP value
+and converting it to a printable string, I'd appreciate it if you'd pass
+it along to me. It would save me some time.
+
+This code will ultimately be used as the basis for the run-time side of 
+ACE DOUBLEs.
+
+Please test these routines and report any bugs to me at ace@vision.net.au.
+I've done minimal testing but it all looks okay.
+
+Enjoy!
+
+Regards,
+
+David Benn, 18th October 1996 
