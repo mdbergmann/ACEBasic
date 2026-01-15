@@ -1,0 +1,4 @@
+REM Test: FOR/NEXT with STEP
+FOR i% = 10 TO 2 STEP -2
+  PRINT i%
+NEXT
