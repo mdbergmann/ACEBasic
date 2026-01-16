@@ -60,7 +60,7 @@ The @{B}Menubar@{UB}, found at the top of the screen after pressing the right mo
 @{B}Our First Program@{UB}
 Now that you are familiar with the @{B}ACE@{UB} environment, we will go ahead and start programming in it.  As we just noted above, the editor is the place where we write our programs.  So let's go ahead and type the following line in the editor.
 
-@{"Hello, World program" alink "ACE:prgs/HelloWorld.b/main" 0}
+@{"Hello, World program" alink "ACE:examples/HelloWorld.b/main" 0}
 
 This is our first @{B}ACE@{UB} program.  And if you have typed it correctly, you should see something similar to the figure below.
 
@@ -97,7 +97,7 @@ A typical @{B}AmigaBASIC@{UB} program consists of a bunch of @{U}statements@{UU}
 @{B}Back to Our First Program@{UB}
 Here is the first program we wrote;
 
-@{"Hello, World program" alink "ACE:prgs/HelloWorld.b/main" 0}
+@{"Hello, World program" alink "ACE:examples/HelloWorld.b/main" 0}
 
 This is a very simple program that consists of one @{U}statement@{UU}.  That statement tells the computer to write a line of text which is @{B}Hello, World@{UB}, into the text window.
 
@@ -128,7 +128,7 @@ You might remember the window that appeared when we ran our first program.  That
 @{B}Using Variables in our program@{UB}
 Wouldn't it be nice if our program can actually say "Hello" with the user's name instead of saying the generic "Hello, World"?  In order to do that we must first ask the user for his/her name and then store it somewhere and then print out "Hello" with the user's name.  Let's see how we can do that.
 
-@{"Hello, Name program" alink "ACE:prgs/HelloName.b/main" 0}
+@{"Hello, Name program" alink "ACE:examples/HelloName.b/main" 0}
 
 When you type and execute this program, you'll see an output like the following:
 
@@ -155,7 +155,7 @@ This is the place where we use the value stored in our variable, @{B}name$@{UB}.
 
 Once a variable is set, you can reuse it any number of times.  For example, you can do the following:
 
-@{"Warm Hello" alink "ACE:prgs/WarmHello.b/main" 0}
+@{"Warm Hello" alink "ACE:examples/WarmHello.b/main" 0}
 
 And you'll see the following output:
 
@@ -171,7 +171,7 @@ Variables have names associated with them and that's how you identify them.  The
 @{B}Playing with Numbers@{UB}
 We've just seen how you can use variables to store the name of the user.  In the next few programs, we'll see how we can store and manipulate numbers in variables.  Let's start with a really smiple program:
 
-@{"Add Two Numbers" alink "ACE:prgs/Adding.b/main" 0}
+@{"Add Two Numbers" alink "ACE:examples/Adding.b/main" 0}
 
 When you run this program you'll get the following as output:
 
@@ -181,7 +181,7 @@ In the first line of the program, you're assigning the variable @{B}number1@{UB}
 
 Now, let's modify that program slightly and see the results:
 
-@{"Multiply Two Numbers" alink "ACE:prgs/Multiplying.b/main" 0}
+@{"Multiply Two Numbers" alink "ACE:examples/Multiplying.b/main" 0}
 
 The program above will multiply @{B}number1@{UB} with @{B}number2@{UB} and store the result in @{B}number3@{UB}.  And you can see the result of that program below:
 
@@ -200,7 +200,7 @@ And the result of this division would be:
 Figure 12 - Dividing Two Numbers
 
 @{B}A Simple Temperature Converter@{UB}
-For the next program we'll use the formula C° = 5(F°-32)/9 to convert Fahrenheit temperatures to Celsius temperatures.
+For the next program we'll use the formula Cï¿½ = 5(Fï¿½-32)/9 to convert Fahrenheit temperatures to Celsius temperatures.
 
 First, we'll get the temperature in Fahrenheit from the user and store it in a variable.
 
@@ -212,7 +212,7 @@ Once we have the Fahrenheit temperature stored in a variable, we can convert it 
 
 The parentheses tell the computer to calculate the @{B}fahr@{UB} - 32 part first and then process the rest.  Now all we have to do is print the result out to the user.  Putting it all together, we get this program:
 
-@{"Simple Temperature Converter" alink "ACE:prgs/TempConv.b/main" 0}
+@{"Simple Temperature Converter" alink "ACE:examples/TempConv.b/main" 0}
 
 And the result of this program would be:
 
@@ -231,7 +231,7 @@ Figure 13 - Temperature Conversion
 
 Going back to our first program, wouldn't it be cool that instead of saying the general @{I}Hello, World@{UI}, we could say @{I}Good Morning, World@{UI}, or @{I}Good Evening, World@{UI} depending on the time of day?  For our next program, we'll make the computer say @{I}Good Morning, World@{UI} if the time is earlier than 12PM; and @{I}Good Evening@{UI} if the time is later than 12PM.
 
-@{"Hello, Time" alink "ACE:prgs/Time.b/main" 0}
+@{"Hello, Time" alink "ACE:examples/Time.b/main" 0}
 
 Depending on when you run the program you'll see either of the following outputs:
 
@@ -253,7 +253,7 @@ In the program at the start of this chapter, you might have noticed that the sec
 
 If we were to rewrite that program using @{B}Else@{UB}, this is how it will look:
 
-@{"Hello, Time using Else" alink "ACE:prgs/TimeElse.b/main" 0}
+@{"Hello, Time using Else" alink "ACE:examples/TimeElse.b/main" 0}
 
 And this program will do exactly the same as the other one, which brings us to a very important lesson in computer programming:
 
@@ -265,7 +265,7 @@ In all the examples you can see how the statements between @{B}If@{UB}, @{B}Else
 @{B}Even or Odd@{UB}
 Now that we have the  @{B}If..Then..Else..EndIf@{UB} statement in our bag of tricks, let's write out a program that, given a number, will say if it's even or odd.
 
-@{"EvenOdd" alink "ACE:prgs/EvenOdd.b/main" 0}
+@{"EvenOdd" alink "ACE:examples/EvenOdd.b/main" 0}
 
 And when you run this program, you'll see an output like:
 
@@ -276,7 +276,7 @@ In this program, we've  introduced another new useful operation, @{B}Mod@{UB}.  
 @{B}Branching@{UB}
 Remember, in the second chapter you learned that the computer processes a program one statement at a time, in order from the top to bottom.  However, there's a special statement that can make the computer jump to another statement out of order.  Let's take a look at the next program.
 
-@{"Branching" alink "ACE:prgs/Branching.b/main" 0}
+@{"Branching" alink "ACE:examples/Branching.b/main" 0}
 
 Figure 17 - Using Goto
 
@@ -303,7 +303,7 @@ This is the part that tells the computer that if the value of @{B}i@{UB} is less
 @{B}Endless execution@{UB}
 Using the Goto statement you can make the computer repeat something any number of times.  For example, you can take the Even or Odd program and modify it like below, and the program will run for ever.  You can stop the program by clicking on the Close (X) button on the top left corner of the window.
 
-@{"Endless EvenOdd" alink "ACE:prgs/EndlessEvenOdd.b/main" 0}
+@{"Endless EvenOdd" alink "ACE:examples/EndlessEvenOdd.b/main" 0}
 
 Figure 18 - Even or Odd running endlessly
 
@@ -321,11 +321,11 @@ Figure 18 - Even or Odd running endlessly
 @{B}For Loop@{UB}
 Let's take a program we wrote in the previous chapter.
 
-@{"Branching" alink "ACE:prgs/Branching.b/main" 0}
+@{"Branching" alink "ACE:examples/Branching.b/main" 0}
 
 This program prints out numbers from 1 to 24 in order.  This process of incrementing a variable is so very common in programming that programming languages usually provide an easier method of doing this.  The above program is equivalent to the program below:
 
-@{"For loop" alink "ACE:prgs/for.b/main" 0}
+@{"For loop" alink "ACE:examples/for.b/main" 0}
 
 And the output is:
 
@@ -337,21 +337,21 @@ Notice that we've reduced the 8 line program to a 4 line program, and it still d
 
 But if you wanted the variable to be incremented by 2 instead of 1 -- like say, you wanted to print out all the odd numbers between 1 and 24, you can use the loop to do that too.
 
-@{"Odd Numbers" alink "ACE:prgs/OddNum.b/main" 0}
+@{"Odd Numbers" alink "ACE:examples/OddNum.b/main" 0}
 
 
 Figure 20 - Just the Odd Numbers
 
 The @{B}Step 2@{UB} part of the @{B}For@{UB} statement tells the computer to increment the value of @{B}i@{UB} by 2 instead of the usual 1.  By using @{B}Step@{UB} you can specify any increment that you want.  You can even specify a negative value for the step and make the computer count backwards, like in the example below:
 
-@{"Counting Backwards" alink "ACE:prgs/BackwardsCount.b/main" 0}
+@{"Counting Backwards" alink "ACE:examples/BackwardsCount.b/main" 0}
 
 Figure 21 - Counting Backwards
 
 @{B}While Loop@{UB}
 The @{B}While@{UB} loop is yet another looping method, that is useful especially when the loop count is not known ahead of time.  Whereas a @{B}For@{UB} loop runs for a pre-defined number of times, the @{B}While@{UB} loop runs until a give condition is true.  In the example below, we're halving a number until the result is greater than 1.
 
-@{"Halving" alink "ACE:prgs/Halving.b/main" 0}
+@{"Halving" alink "ACE:examples/Halving.b/main" 0}
 
 Figure 22 - Halving Loop
 
@@ -361,7 +361,7 @@ It'll be really hard to write this program using a @{B}For@{UB} loop, because we
 
 It'll be interesting to note that every while loop can be unwrapped into an @{B}If..Then@{UB} statement.  For instance, the program above can be rewritten as follows, without affecting the end result.
 
-@{"Halving with Goto" alink "ACE:prgs/HalvingGoto.b/main" 0}
+@{"Halving with Goto" alink "ACE:examples/HalvingGoto.b/main" 0}
 
 @{"Goto next Chapter 6 - Beginning Graphics" link Chapter6 0}
 @ENDNODE
@@ -379,7 +379,7 @@ So far in all of our examples, we've used the @{B}Console@{UB} to explain the fu
 @{B}Introducing GraphicsWindow@{UB}
 Just like we had a @{B}Console@{UB} window that allowed us to work with Text and Numbers, @{B}AmigaBASIC@{UB} also provides a @{B}GraphicsWindow@{UB} that we can use to draw things.  Let's begin by displaying the GraphicsWindow.
 
-@{"Simple Graphic Window" alink "ACE:prgs/window.b/main" 0}
+@{"Simple Graphic Window" alink "ACE:examples/window.b/main" 0}
 
 When you run this program, you'll notice that instead of the usual black text window, you get a white Window like the one shown below.  There's nothing much to do on this window yet.  But this will be the base window on which we'll work on in this chapter.  You can close this window by pressing any key on the keyboard.
 
@@ -388,7 +388,7 @@ Figure 23 - An empty Graphics Window
 @{B}Setting up the GraphicsWindow@{UB}
 The graphics window allows you to customize its appearance to your desire.  You can change the title, the background and its size.  Let's go ahead and modify it a bit, just to get familiar with the window.
 
-@{"Custom Graphic Window" alink "ACE:prgs/windowcustom.b/main" 0}
+@{"Custom Graphic Window" alink "ACE:examples/windowcustom.b/main" 0}
 
 Here's how the customized graphics window looks.  You can change the background color to one of the many values listed in Appendix B. Play with these properties to see how you can modify the window's appearance.
 
@@ -397,7 +397,7 @@ Figure 24 - A Custom Graphics Window
 @{B}Drawing Lines@{UB}
 Once we have the GraphicsWindow up, we can draw shapes, text, and even pictures on it.  Let's start by drawing some simple shapes.  Here's a program that draws a couple of lines on the GraphicsWindow.
 
-@{"CrissCross" alink "ACE:prgs/X.b/main" 0}
+@{"CrissCross" alink "ACE:examples/X.b/main" 0}
 
 Figure 25 - CrissCross
 
@@ -407,7 +407,7 @@ Figure 26 - The co-ordinate map
 
 If we go back to the line program, it's interesting to note that @{B}AmigaBASIC@{UB} allows you to modify the properties of the line, such as the color and its thickness.  First, let's modify the color of the lines as shown in the program below.
 
-@{"Color CrissCross" alink "ACE:prgs/XColor.b/main" 0}
+@{"Color CrissCross" alink "ACE:examples/XColor.b/main" 0}
 
 Figure 27 - Changing Line Color
 
@@ -430,7 +430,7 @@ Figure 27 - Changing Line Color
 @{B}Drawing and Filling Shapes@{UB}
 When it comes to drawing shapes, there are usually two types of operations for every shape.  They are @{U}Draw@{UU} operations and @{U}Fill@{UU} operations.  Draw operations draw the outlines of the shape using a pen, and Fill operations paint the shape using a brush.  For example, in the program below, there are two rectangles, one that is drawn using the Red pen and one that's filled using the Green Brush.
 
-@{"Drawing and Filling" alink "ACE:prgs/BoXes.b/main" 0}
+@{"Drawing and Filling" alink "ACE:examples/BoXes.b/main" 0}
 
 Figure 30 - Drawing and Filling
 
@@ -462,7 +462,7 @@ We're going to have some fun in this chapter with whatever we've learned so far.
 @{B}Rectangalore@{UB}
 Here we draw multiple rectangles in a loop, with increasing size.
 
-@{"Rectangalore" alink "ACE:prgs/XBoXes.b/main" 0}
+@{"Rectangalore" alink "ACE:examples/XBoXes.b/main" 0}
 
 Figure 33 - Rectangalore
 
@@ -476,7 +476,7 @@ Figure 34 - Circtacular
 @{B}Randomize@{UB}
 This program sets random colors for the brush and then randomly sets the x and y co-ordinates for the dots.  These two operations can be combined in interesting ways to create interesting programs that give different results each time they are run.
 
-@{"Randomize" alink "ACE:prgs/Dotty.b/main" 0}
+@{"Randomize" alink "ACE:examples/Dotty.b/main" 0}
 
 Figure 35 - Randomize
 
@@ -608,7 +608,7 @@ A subroutine is a portion of code within a larger program that usually does some
 
 Below is a program that includes the subroutine and calls it from various places.
 
-@{"Print Time subroutine" alink "ACE:prgs/PrintTime.b/main" 0}
+@{"Print Time subroutine" alink "ACE:examples/PrintTime.b/main" 0}
 
 Figure 44 - Calling a simple Subroutine
 
@@ -624,7 +624,7 @@ Subroutines can also aid in improving the readability of a program.  In other wo
 @{B}Using variables@{UB}
 You can access and use any variable that you have in a program from within a subroutine.  As an example, the following program accepts two numbers and prints out the larger of the two.  Notice that the variable max is used both inside and outside of the subroutine.
 
-@{"Two numbers Max" alink "ACE:prgs/Max.b/main" 0}
+@{"Two numbers Max" alink "ACE:examples/Max.b/main" 0}
 
 And the output of this program looks like this.
 
@@ -639,7 +639,7 @@ Figure 46 - Graphics Example for Subroutines
 @{B}Calling Subroutines inside Loops@{UB}
 Sometimes subroutines get called from inside a loop, during which time they execute the same set of statements but with different values in one or more of the variables.  For instance, say if you have a subroutine name @{U}PrimeCheck@{UU} and this subroutine  determines if a number is prime or not.  You can write a program that lets the user enter a value and you can then say if it is prime or not, using this subroutine.  The program below illustrates that.
 
-@{"Prime Check" alink "ACE:prgs/PrimeCheck.b/main" 0}
+@{"Prime Check" alink "ACE:examples/PrimeCheck.b/main" 0}
 
 The @{U}PrimeCheck@{UU} subroutine takes the value of @{B}i@{UB} and tries to divide it by smaller numbers.  If a number divides @{B}i@{UB} and leaves no remainder, then @{B}i@{UB} is not a prime number.  At that point the subroutine sets the value of @{U}isPrime@{UU} to "False" and exits.  If the number was indivisible by smaller numbers then the value of @{U}isPrime@{UU} remains as "True".
 
@@ -668,11 +668,11 @@ By now you must be well versed with how to use variables -- after all you have c
 
 Let's for a moment, revisit the first program we wrote with variables:
 
-@{"Hello Name" alink "ACE:prgs/HelloName.b/main" 0}
+@{"Hello Name" alink "ACE:examples/HelloName.b/main" 0}
 
 In this program, we received and stored the name of the user in a variable called name.  Then later we said "Hello" to the user.  Now, let's say there is more than one user - say, there are 5 users.  How would we store all their names?  One way of doing this is:
 
-@{"Non-Array Names" alink "ACE:prgs/NameNonArray.b/main" 0}
+@{"Non-Array Names" alink "ACE:examples/NameNonArray.b/main" 0}
 
 When you run this you'll get the following result:
 
@@ -687,7 +687,7 @@ Even though @{B}name[1]@{UB}, @{B}name[2]@{UB}, @{B}name[3]@{UB}, @{B}name[4]@{U
 
 Now, let's look at how we can put our new knowledge to use by rewriting our previous program with arrays.
 
-@{"Name array" alink "ACE:prgs/NameArray.b/main" 0}
+@{"Name array" alink "ACE:examples/NameArray.b/main" 0}
 
 Much easier to read, isn't it?  Notice the two bolded lines.  The first one stores a value in the array and the second one reads it from the array.  The value you store in @{B}name[1]@{UB} will not be affected by what you store in @{B}name[2]@{UB}.  Hence for most purposes you can treat @{B}name[1]@{UB} and @{B}name[2]@{UB} as two different variables with the same identity.
 
@@ -869,7 +869,7 @@ Here's a list of named colors supported by @{B}AmigaBASIC@{UB}, categorized by t
 (C) Copyright 2013   All rights reserved.
 
 Amiga Basic was developed by Microsoft Corporation.
-Microsoft® BASIC for the Amiga
+Microsoftï¿½ BASIC for the Amiga
 
 Microsoft is a registered trademark of Microsoft Corporation.
 Amiga is a trademark of Amiga, Inc.

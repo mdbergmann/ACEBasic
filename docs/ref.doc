@@ -2512,7 +2512,7 @@ STRUCT *	- Defines a new structure data type, thus:
 		- ACE structures cannot currently be array elements although
 		  there is nothing to stop you from storing structure start
 		  addresses in array elements. For an example of this, see  
-		  prgs/misc/array_of_structs.b.
+		  examples/misc/array_of_structs.b.
 		- See "Structures" section in ace.doc for more details.
 			
 --------------------------------------------------------------------------------

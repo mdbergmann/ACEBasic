@@ -1381,7 +1381,7 @@
 
 3/9/94 - 4/9/94		- The address of external functions and subprograms
 			  can now be determined with VARPTR or the @ operator
-			  (see prgs/misc/Task for an example).
+			  (see examples/misc/Task for an example).
 
 9/9/94			- ++ and -- were not always correctly handling
 			  *external* variables. They do now.

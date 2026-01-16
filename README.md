@@ -23,7 +23,7 @@ Released under the GNU General Public License (GPL v2) in 1998.
 | `src/ace/c/` | ACE compiler source (lexer, parser, code generator) |
 | `src/lib/` | Runtime library (db.lib) source |
 | `include/` | Amiga system header files |
-| `prgs/` | Example programs (30+ categories) |
+| `examples/` | Example programs (30+ categories) |
 | `utils/` | Utility programs (fd2bmap, convert2ace, etc.) |
 | `docs/` | Documentation files |
 | `make/` | Build scripts (ARexx) |
@@ -45,7 +45,7 @@ Released under the GNU General Public License (GPL v2) in 1998.
 
 ## Example Programs
 
-The `prgs/` directory contains extensive examples organized by category:
+The `examples/` directory contains extensive examples organized by category:
 
 - **Games** - Game implementations
 - **Graphics** - Graphics demonstrations

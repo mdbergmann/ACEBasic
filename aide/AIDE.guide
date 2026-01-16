@@ -1,7 +1,7 @@
 @DATABASE "AIDE Documentation 2.11"
 @MASTER "ace.doc"
 
-@NODE MAIN "AIDE - AmigaGuide® Documentation"
+@NODE MAIN "AIDE - AmigaGuideï¿½ Documentation"
 @TOC TOC
  A I D E  v 2.12                                    @{"Table of Contents" LINK TOC}
 
@@ -37,20 +37,20 @@
 
  Table of Contents
 
- · @{"System Requirements" LINK requirements}
- · @{"Setting Up (Installing)" LINK install}
+ ï¿½ @{"System Requirements" LINK requirements}
+ ï¿½ @{"Setting Up (Installing)" LINK install}
 
- · @{"Configuration" LINK configuration}
- · @{"SetUp" LINK setup}
- · @{"Tooltypes" LINK tooltypes}
+ ï¿½ @{"Configuration" LINK configuration}
+ ï¿½ @{"SetUp" LINK setup}
+ ï¿½ @{"Tooltypes" LINK tooltypes}
 
- · @{"AIDE's menus" LINK menu}
- · @{"Main Window" LINK mainwindow}
- · @{"AIDE's Make Process" LINK makeproc}
+ ï¿½ @{"AIDE's menus" LINK menu}
+ ï¿½ @{"Main Window" LINK mainwindow}
+ ï¿½ @{"AIDE's Make Process" LINK makeproc}
 
- · @{"Credits" LINK Credits}
- · @{"History" LINK History}
- · @{"Final Comments (Copyright, Author, ...)" LINK finalcomments}
+ ï¿½ @{"Credits" LINK Credits}
+ ï¿½ @{"History" LINK History}
+ ï¿½ @{"Final Comments (Copyright, Author, ...)" LINK finalcomments}
 @endnode
 
 @node requirements "System Requirements"
@@ -103,7 +103,7 @@
                         all  your modules into  ACE:Mods/,  otherwise
                         the modules will not be available.
 
-        ACE:prgs        where your source code resides
+        ACE:examples        where your source code resides
         ACE:run         where your executables are going
         ACE:temp        where your temporary files during compilation
                         are going
@@ -167,20 +167,20 @@
  assembler, linker and the ACE language.
 
  Project menu
-  · @{"Open ..." LINK open}
-  · @{"View ..." LINK view}
-  · @{"Rename ..." LINK rename}
-  · @{"Copy ..." LINK copy}
-  · @{"Delete ..." LINK delete}
-  · @{"Print ..." LINK print}
-  · @{"Execute ..." LINK execute}
-  · @{"Spawn Shell" LINK spawnshell}
-  · @{"AIDE setup" LINK SetUp}
-  · @{"Load Config File" LINK loadconf}
-  · @{"Save Config File" LINK loadconf}
-  · @{"About" LINK About}
-  · @{"Iconify" LINK Iconify}
-  · @{"Quit" LINK Quit}
+  ï¿½ @{"Open ..." LINK open}
+  ï¿½ @{"View ..." LINK view}
+  ï¿½ @{"Rename ..." LINK rename}
+  ï¿½ @{"Copy ..." LINK copy}
+  ï¿½ @{"Delete ..." LINK delete}
+  ï¿½ @{"Print ..." LINK print}
+  ï¿½ @{"Execute ..." LINK execute}
+  ï¿½ @{"Spawn Shell" LINK spawnshell}
+  ï¿½ @{"AIDE setup" LINK SetUp}
+  ï¿½ @{"Load Config File" LINK loadconf}
+  ï¿½ @{"Save Config File" LINK loadconf}
+  ï¿½ @{"About" LINK About}
+  ï¿½ @{"Iconify" LINK Iconify}
+  ï¿½ @{"Quit" LINK Quit}
 
  Utilities menu
   Here you find some useful utilities  (not within the AIDE package).
@@ -535,17 +535,17 @@
  different conditions in a comfortable way.
 
 
- · @{"The Source Section" LINK source}
- · @{"The Program Section" LINK program}
- · @{"The Make Section" LINK make}
- · @{"The Precompiler section" LINK precompiler}
- · @{"The ACE Options Section" LINK aceoptions}
- · @{"The SuperOptimizer Section" LINK superopt}
- · @{"The View Section" LINK viewsection}
- · @{"The Assembler Section" LINK assembler}
- · @{"The Linker Lib Section" LINK linkerlib}
- · @{"The Linker Section" LINK linker}
- · @{"The Module section" LINK module}
+ ï¿½ @{"The Source Section" LINK source}
+ ï¿½ @{"The Program Section" LINK program}
+ ï¿½ @{"The Make Section" LINK make}
+ ï¿½ @{"The Precompiler section" LINK precompiler}
+ ï¿½ @{"The ACE Options Section" LINK aceoptions}
+ ï¿½ @{"The SuperOptimizer Section" LINK superopt}
+ ï¿½ @{"The View Section" LINK viewsection}
+ ï¿½ @{"The Assembler Section" LINK assembler}
+ ï¿½ @{"The Linker Lib Section" LINK linkerlib}
+ ï¿½ @{"The Linker Section" LINK linker}
+ ï¿½ @{"The Module section" LINK module}
 @endnode
 
 @node source "The Source Section"

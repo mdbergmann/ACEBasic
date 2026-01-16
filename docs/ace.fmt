@@ -219,7 +219,7 @@ The latter is becoming more feasible as ACE matures.
 
 Here are some programs that have been written with ACE:
 
-	- Shell utilities, eg: basic calculator (see ACE:prgs/ShellUtils).
+	- Shell utilities, eg: basic calculator (see ACE:examples/ShellUtils).
 	- An 8SVX sound sample player.
 	- Fractal graphics programs.
 	- Neural networks.
@@ -924,14 +924,14 @@ function which returns the AmigaDOS handle of a file opened with ACE's OPEN
 command. You may also wish to use the ami.lib buffered file I/O functions 
 which also require this handle. If HANDLE returns 0, the file can't be opened.
 
-See prgs/IO/print.b for an example of opening a sequential file to a printer. 
+See examples/IO/print.b for an example of opening a sequential file to a printer. 
 
 Although SER: may be opened as a sequential file, it is not possible to 
 specify parameters for the serial port (baud rate etc) by this method as 
 is possible in AmigaBASIC.
 
 Instead, ACE provides a set of special serial I/O commands. See ref.doc for 
-details of SERIAL OPEN/CLOSE etc, and prgs/IO/aterm.b for a simple terminal 
+details of SERIAL OPEN/CLOSE etc, and examples/IO/aterm.b for a simple terminal 
 program.
  
 
@@ -1038,7 +1038,7 @@ is a 1:1 correspondence between a given structure and random file record.
 They are also simple for this reason and because few commands and functions
 are needed.
 
-See ACE:prgs/IO/rfile.b for an example program, and carefully read the
+See ACE:examples/IO/rfile.b for an example program, and carefully read the
 section on "Structures" below. See ref.doc for the details of CLOSE, GET,
 LOC, LOF, OPEN, and PUT. See also ERR for error codes relating to random
 files.
@@ -1402,11 +1402,11 @@ Since both forms of structure declaration result in an address being stored
 	PRINT mystruct->mins - 	prints the value of a member called mins.
   
 The SIZEOF function can be used to determine the size of a structure type
-if allocating memory for a structure (see prgs/misc/linkedlist.b).
+if allocating memory for a structure (see examples/misc/linkedlist.b).
 
 ACE structures are stand-alone data objects, and cannot be elements in an 
 array, although structure *addresses* _can_ be. For an example of the 
-latter, see prgs/misc/array_of_structs.b.
+latter, see examples/misc/array_of_structs.b.
 
 An ACE structure can be SHARED to allow its member's values to be modified, 
 or a structure's address can be passed to a subprogram, eg:
@@ -1595,7 +1595,7 @@ AmigaBASIC cannot handle functions which use address register a5. This is
 not true for ACE. Neither ACE nor AmigaBASIC allow the use of functions which
 use register a6 however.
 
-See the programs in prgs/Library for examples of how to use shared library 
+See the programs in examples/Library for examples of how to use shared library 
 functions in ACE.
 
   
@@ -1662,7 +1662,7 @@ is long-word aligned, use ALLOC (or AllocMem), eg:
 	CALL addr&
 
 The above examples assume the presence of appropriate DATA statements. See 
-the prgs/MC directory for examples.
+the examples/MC directory for examples.
 
 ACE also supports primitive inline assembly code inclusion. See ref.doc
 under ASSEM..END ASSEM for details.
@@ -1681,7 +1681,7 @@ syntax).
 When passing parameters, standard C parameter passing conventions
 are used. Although some C compilers seem to pass all parameters as
 4 bytes per parameter on the stack, ACE allows 2 (short words) or 4 
-byte parameters. Be aware of this! See prgs/ExternFunc for examples.
+byte parameters. Be aware of this! See examples/ExternFunc for examples.
 
 External variables can be assigned values like normal variables, eg:
 
@@ -2119,7 +2119,7 @@ GADGET WAIT 2	  '.."GADGET WAIT 0" waits for ANY gadget! -> BEST method!
 .
 .
 
-See the program prgs/GUI/ACEgadgets.b for an example of gadget programming
+See the program examples/GUI/ACEgadgets.b for an example of gadget programming
 in ACE.
 
 For boolean gadgets you can - if you need to - get information about the 
@@ -2150,7 +2150,7 @@ via preferences, some fonts may require you to pad your menu title/item
 names with blanks when using command keys to avoid overlaps, so it is a
 good idea to add a couple of spaces to the end of a menu item string.
  
-For an example of menu programming with ACE see prgs/ifs.b. For a better
+For an example of menu programming with ACE see examples/ifs.b. For a better
 example, see the source code for AIDE. Over time I will modify some of 
 the other example programs in the archive so that they are menu-driven.
 
@@ -2331,7 +2331,7 @@ $$Loading & displaying IFF pictures
 IFF graphics files can now be loaded and displayed with ACE by using 
 a few simple commands and functions.
 
-The short example program prgs/gfx/iff.b demonstrates typical usage.
+The short example program examples/gfx/iff.b demonstrates typical usage.
 
 IFF READ uses the freeware ILBM.library but you don't need to have this
 since it will be created by ACE automatically at run-time if need be. If
@@ -2348,7 +2348,7 @@ $$Sound
 ACE provides you with similar functionality as AmigaBASIC for sound
 generation. It also allows you to do some things that AmigaBASIC doesn't.
 
-See prgs/sound/sound.b for an example of how to use ACE's sound facilities 
+See examples/sound/sound.b for an example of how to use ACE's sound facilities 
 in general.
 
 How many times have you wished that AmigaBASIC would let you produce
@@ -2360,7 +2360,7 @@ have to do is allocate about 4000 or more bytes of Chip RAM (upwards of
 (between -128 and 127), call WAVE and you're set (see sound.b)!
 
 Moreover, you can actually play sound samples (IFF or otherwise) in the
-same way, using just the two commands WAVE and SOUND (see prgs/sound/play.b). 
+same way, using just the two commands WAVE and SOUND (see examples/sound/play.b). 
  
 As with AmigaBASIC, a sine waveform is the default, but through the WAVE
 statement you can create any waveform you wish including sawtooth, triangle, 
@@ -2558,7 +2558,7 @@ the name of which must be known in advance.
 Messages may be of any length (memory permitting) and are queued.
 
 Probably the best way to find out how the MESSAGE commands are used
-in ACE is to compile, run and study the programs in prgs/ACEports.
+in ACE is to compile, run and study the programs in examples/ACEports.
   
 ARexx capabilities are also planned for ACE at some stage.
 
