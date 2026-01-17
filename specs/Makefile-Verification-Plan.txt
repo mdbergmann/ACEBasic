@@ -1,0 +1,550 @@
+================================================================================
+  ACE Compiler Makefile Verification Plan
+================================================================================
+
+Version: 1.0
+Date: 2026-01-17
+Environment: fs-uae with AmigaOS 3.x
+Related: Makefile-Migration-Spec.txt
+
+================================================================================
+OVERVIEW
+================================================================================
+
+This document specifies the verification approach for validating the
+Makefile-ace migration using fs-uae emulation. The goal is to ensure that
+the new Makefile-based build system produces functionally identical results
+to the existing AmigaDOS script-based build system.
+
+================================================================================
+VERIFICATION ENVIRONMENT
+================================================================================
+
+1. Emulator Setup
+-----------------
+
+Platform: fs-uae (FS-UAE.app)
+Location: ~/Applications/Emu/Amiga/FS-UAE/FS-UAE.app/Contents/MacOS/fs-uae
+Configuration: /Users/mbergmann/Documents/FS-UAE/Configurations/sys3xdev.fs-uae
+
+Launch command:
+  ~/Applications/Emu/Amiga/FS-UAE/FS-UAE.app/Contents/MacOS/fs-uae \
+    /Users/mbergmann/Documents/FS-UAE/Configurations/sys3xdev.fs-uae
+
+2. AmigaOS Configuration
+------------------------
+
+OS Version: AmigaOS 3.x (WorkBench 3.x)
+ACE: assign mapped to: /Users/mbergmann/Development/MySources/amigasources/acec
+Mount type: Directory mounting (hard_drive_0)
+
+Required tools:
+  - GNU Make 3.80 (or compatible)
+  - gcc 2.95.3 (Amiga port)
+  - Standard AmigaDOS commands (copy, delete, etc.)
+
+3. Repository Access
+--------------------
+
+The ACE: assign provides direct access to the host filesystem, allowing:
+  - Real-time file updates from host
+  - No need to transfer files in/out of emulator
+  - Builds write directly to repository directories
+
+================================================================================
+VERIFICATION OBJECTIVES
+================================================================================
+
+Primary Goals:
+  1. Verify Makefile-ace builds successfully on AmigaOS
+  2. Confirm incremental build behavior works correctly
+  3. Validate that Makefile and script builds produce identical executables
+  4. Test all Makefile targets (all, clean, backup, help)
+  5. Verify verbose/quiet output modes
+  6. Ensure build times are comparable
+
+Secondary Goals:
+  7. Document any AmigaOS-specific issues discovered
+  8. Validate all success criteria from Makefile-Migration-Spec.txt section 9
+  9. Create regression test suite for future changes
+
+================================================================================
+VERIFICATION SCRIPTS
+================================================================================
+
+Location: ACE:scripts/verify/
+
+verify-makefile.rexx        - Main verification script (runs all tests)
+verify-build.rexx           - Build comparison tests
+verify-incremental.rexx     - Incremental build tests
+verify-targets.rexx         - Target validation tests
+compare-binaries.rexx       - Binary comparison utilities
+
+All scripts run inside the fs-uae environment via ARexx.
+
+================================================================================
+TEST SUITE SPECIFICATION
+================================================================================
+
+Test 1: Clean Build with Makefile
+----------------------------------
+
+Purpose: Verify Makefile-ace can build from clean state
+Success Criteria: [1] from spec section 9
+
+Steps:
+  1. cd ACE:make
+  2. make -f Makefile-ace clean
+  3. make -f Makefile-ace
+  4. Verify bin/ace exists
+  5. Verify no error messages
+  6. Record build time
+
+Expected Output:
+  - All 29 modules compile successfully
+  - Executable created at ACE:bin/ace
+  - No warnings or errors
+  - Exit code 0
+
+Test 2: No-Op Build (Timestamp Check)
+--------------------------------------
+
+Purpose: Verify Make skips rebuild when nothing changed
+Success Criteria: [2] from spec section 9
+
+Steps:
+  1. Run Test 1 first (ensure clean build)
+  2. Immediately run: make -f Makefile-ace
+  3. Check that no compilation occurs
+
+Expected Output:
+  - Message: "make: 'ACE:bin/ace' is up to date." (or similar)
+  - No gcc commands executed
+  - No object files recompiled
+  - Exit code 0
+
+Test 3: Incremental Build (Single File Change)
+-----------------------------------------------
+
+Purpose: Verify only changed files rebuild
+Success Criteria: [3] from spec section 9
+
+Steps:
+  1. Run Test 1 first (ensure clean build)
+  2. Backup a source file: copy ACE:src/ace/c/lex.c T:lex.c.bak CLONE
+  3. Touch the file: echo ; >>ACE:src/ace/c/lex.c
+  4. Run: make -f Makefile-ace
+  5. Verify only lex.o rebuilds
+  6. Verify executable relinks
+  7. Restore: copy T:lex.c.bak ACE:src/ace/c/lex.c CLONE
+
+Expected Output:
+  - Only "Compiling lex.c..." message appears
+  - Only lex.o is recompiled
+  - Linking step occurs (ace depends on all .o files)
+  - Other 28 object files NOT touched
+
+Test 4: Clean Target
+--------------------
+
+Purpose: Verify 'make clean' removes all artifacts
+Success Criteria: [4] from spec section 9
+
+Steps:
+  1. Run Test 1 first (ensure build exists)
+  2. Run: make -f Makefile-ace clean
+  3. Verify ACE:src/ace/obj/ is empty (no .o files)
+  4. Verify ACE:bin/ace is deleted
+
+Expected Output:
+  - All .o files removed from ACE:src/ace/obj/
+  - ACE:bin/ace deleted
+  - No error messages
+  - Exit code 0
+
+Test 5: Verbose Mode
+--------------------
+
+Purpose: Verify V=1 flag shows full commands
+Success Criteria: Testing requirement from spec section 4.4
+
+Steps:
+  1. Run: make -f Makefile-ace clean
+  2. Run: make -f Makefile-ace V=1 >T:verbose.log
+  3. Examine T:verbose.log for full gcc commands
+
+Expected Output:
+  - Full gcc command lines visible
+  - Includes all flags: -m68020 -c -s -O -pedantic -Wcast-qual -noixemul
+  - Shows cd commands
+  - No "Compiling..." messages (raw commands only)
+
+Test 6: Quiet Mode (Default)
+-----------------------------
+
+Purpose: Verify V=0 (default) shows minimal output
+
+Steps:
+  1. Run: make -f Makefile-ace clean
+  2. Run: make -f Makefile-ace >T:quiet.log
+  3. Examine T:quiet.log
+
+Expected Output:
+  - Only "Compiling <file>..." messages
+  - No raw gcc commands
+  - Clean, readable output
+
+Test 7: Script-Based Build (Baseline)
+--------------------------------------
+
+Purpose: Create baseline build with original scripts
+Success Criteria: [5] from spec section 9
+
+Steps:
+  1. cd ACE:make
+  2. Execute: makeace
+  3. Copy result: copy ACE:bin/ace ACE:bin/ace.script CLONE
+  4. Record build time
+  5. Record file size: list ACE:bin/ace.script
+
+Expected Output:
+  - ACE:bin/ace.script created
+  - Build succeeds
+  - Baseline for comparison
+
+Test 8: Makefile Build (Comparison)
+-----------------------------------
+
+Purpose: Build with Makefile and compare to script build
+Success Criteria: [5] from spec section 9
+
+Steps:
+  1. Run: make -f Makefile-ace clean
+  2. Run: make -f Makefile-ace
+  3. Copy result: copy ACE:bin/ace ACE:bin/ace.makefile CLONE
+  4. Record build time
+  5. Record file size: list ACE:bin/ace.makefile
+
+Expected Output:
+  - ACE:bin/ace.makefile created
+  - Build succeeds
+  - File size matches ace.script
+
+Test 9: Binary Comparison
+--------------------------
+
+Purpose: Verify script and Makefile produce identical executables
+Success Criteria: [5] from spec section 9
+
+Steps:
+  1. Ensure Test 7 and Test 8 completed
+  2. Compare file sizes
+  3. Compare timestamps (may differ)
+  4. (Optional) Checksum comparison if available
+
+Expected Output:
+  - File sizes match exactly
+  - Binaries are functionally identical
+  - Note: Timestamps will differ (expected)
+
+Test 10: Functional Equivalence
+--------------------------------
+
+Purpose: Verify both executables work identically
+Success Criteria: [5] from spec section 9
+
+Steps:
+  1. Compile a test program with ace.script:
+     ACE:bin/ace.script ACE:examples/hello.b -o T:hello.script
+  2. Compile same program with ace.makefile:
+     ACE:bin/ace.makefile ACE:examples/hello.b -o T:hello.makefile
+  3. Execute both: T:hello.script and T:hello.makefile
+  4. Compare outputs
+
+Expected Output:
+  - Both compilations succeed
+  - Both executables run without errors
+  - Output is identical
+
+Test 11: Backup Target
+----------------------
+
+Purpose: Verify 'make backup' works correctly
+
+Steps:
+  1. Ensure ACE:bin/ace exists (run Test 1 if needed)
+  2. Delete old backup: delete ACE:bin/ace.old QUIET
+  3. Run: make -f Makefile-ace backup
+  4. Verify ACE:bin/ace.old exists
+  5. Compare: cmp ACE:bin/ace ACE:bin/ace.old (should match)
+
+Expected Output:
+  - ACE:bin/ace.old created
+  - File is clone of ACE:bin/ace
+  - No errors
+
+Test 12: Help Target
+--------------------
+
+Purpose: Verify 'make help' displays usage
+
+Steps:
+  1. Run: make -f Makefile-ace help >T:help.log
+  2. Examine T:help.log
+
+Expected Output:
+  - Help text displays
+  - Lists all targets (all, clean, backup, help)
+  - Shows V=1 option
+  - Includes examples
+
+Test 13: Build Time Comparison
+-------------------------------
+
+Purpose: Ensure Makefile build is comparable in speed
+Success Criteria: [6] from spec section 9
+
+Steps:
+  1. Time script build (from Test 7)
+  2. Time Makefile build (from Test 8)
+  3. Compare timings
+
+Expected Output:
+  - Makefile build time within 10% of script build time
+  - (Make overhead minimal)
+
+Test 14: Error Handling (Invalid Source)
+-----------------------------------------
+
+Purpose: Verify build stops on compilation error
+
+Steps:
+  1. Backup: copy ACE:src/ace/c/ver.c T:ver.c.bak CLONE
+  2. Corrupt file: echo #error "test error" >ACE:src/ace/c/ver.c
+  3. Run: make -f Makefile-ace
+  4. Verify build stops
+  5. Restore: copy T:ver.c.bak ACE:src/ace/c/ver.c CLONE
+
+Expected Output:
+  - Build fails at ver.c compilation
+  - Error message displayed
+  - Make exits with non-zero code
+  - Subsequent modules NOT compiled
+
+Test 15: Full Test Suite (Regression)
+--------------------------------------
+
+Purpose: Verify compiled ACE passes all existing tests
+
+Steps:
+  1. Build with: make -f Makefile-ace
+  2. Run: cd ACE:tests
+  3. Execute: rx runner.rexx
+  4. Verify all tests pass
+
+Expected Output:
+  - All test categories pass
+  - Same results as script-built ACE
+  - No regressions
+
+================================================================================
+AUTOMATED TEST RUNNER
+================================================================================
+
+Script: ACE:scripts/verify/verify-makefile.rexx
+
+Runs all 15 tests sequentially and generates report.
+
+Usage:
+  cd ACE:scripts/verify
+  rx verify-makefile.rexx
+
+Output:
+  - Console output with pass/fail for each test
+  - Summary report at end
+  - Log file: T:makefile-verification.log
+
+Exit Codes:
+  0 - All tests passed
+  1 - One or more tests failed
+  2 - Script error
+
+Report Format:
+  ================================================================================
+  ACE Makefile Verification Report
+  ================================================================================
+  Date: <timestamp>
+
+  Test 1: Clean Build........................... PASS
+  Test 2: No-Op Build........................... PASS
+  Test 3: Incremental Build..................... PASS
+  ...
+  Test 15: Full Test Suite...................... PASS
+
+  ================================================================================
+  Summary: 15/15 tests passed
+  ================================================================================
+
+================================================================================
+SUCCESS CRITERIA MAPPING
+================================================================================
+
+This verification plan validates all success criteria from section 9 of
+Makefile-Migration-Spec.txt:
+
+  [1] Clean build → Test 1
+  [2] No-op build → Test 2
+  [3] Incremental build → Test 3
+  [4] Clean target → Test 4
+  [5] Identical executable → Tests 7, 8, 9, 10
+  [6] Comparable build time → Test 13
+  [7] Works on AmigaOS → All tests (run in fs-uae)
+  [8] Documentation → (Manual verification)
+
+Additional tests:
+  - Verbose/quiet modes → Tests 5, 6
+  - Error handling → Test 14
+  - Backup target → Test 11
+  - Help target → Test 12
+  - Regression testing → Test 15
+
+================================================================================
+MANUAL VERIFICATION STEPS
+================================================================================
+
+Some verifications require manual inspection:
+
+1. Documentation Review
+   - Read updated CLAUDE.md
+   - Verify Makefile-ace instructions present
+   - Check examples are correct
+
+2. Code Review
+   - Examine Makefile-ace source
+   - Verify variable definitions match spec
+   - Check rule syntax for AmigaOS compatibility
+
+3. Visual Inspection
+   - Run builds and observe output
+   - Check for warnings or suspicious messages
+   - Verify directory structure unchanged
+
+================================================================================
+TROUBLESHOOTING GUIDE
+================================================================================
+
+Issue: "make: command not found"
+Solution: Ensure GNU Make 3.80 is installed and in path
+
+Issue: "gcc: command not found"
+Solution: Verify gcc 2.95.3 is installed and in path
+
+Issue: "ACE: assign not found"
+Solution: Create assign with: assign ACE: <path>
+
+Issue: Builds succeed but binaries differ
+Solution:
+  - Check gcc version matches (2.95.3)
+  - Verify compiler flags identical
+  - Compare file sizes first (should match exactly)
+
+Issue: Incremental builds always recompile everything
+Solution:
+  - Check Make is tracking timestamps
+  - Verify .o files not being deleted
+  - Check clock/timestamp issues in fs-uae
+
+Issue: Tests fail due to timing
+Solution:
+  - Add 'wait 2' between operations
+  - fs-uae may need time to sync filesystem
+
+================================================================================
+REGRESSION TESTING
+================================================================================
+
+After Makefile-ace is verified and merged to master:
+
+1. Periodically re-run verification suite
+2. Test after any Makefile changes
+3. Test after compiler upgrades
+4. Test on different AmigaOS versions (if available)
+
+Create CI-like workflow:
+  - Before commits: Run quick tests (1, 2, 3, 4)
+  - Before merges: Run full suite (all 15 tests)
+  - After releases: Run regression test (Test 15)
+
+================================================================================
+KNOWN LIMITATIONS
+================================================================================
+
+1. Binary comparison may fail if:
+   - gcc produces different debug info
+   - Timestamps embedded in executable
+   - Build order affects output
+
+2. Filesystem sync delays in fs-uae:
+   - May need delays between operations
+   - File timestamps may be imprecise
+
+3. Performance timing:
+   - fs-uae emulation speed varies
+   - Host system load affects results
+   - Use relative comparisons, not absolute times
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+1. Review this verification plan
+2. Create ARexx scripts (ACE:scripts/verify/)
+3. Run initial test on feature branch
+4. Document any issues discovered
+5. Update plan based on findings
+6. Run full verification before merge to master
+
+================================================================================
+APPENDIX A: fs-uae Configuration Notes
+================================================================================
+
+Configuration file: sys3xdev.fs-uae
+Location: /Users/mbergmann/Documents/FS-UAE/Configurations/
+
+Key settings needed:
+  - ACE: assign mapping
+  - Sufficient memory for builds (8MB+ recommended)
+  - Stack size set appropriately (64KB+)
+
+Launch command:
+  ~/Applications/Emu/Amiga/FS-UAE/FS-UAE.app/Contents/MacOS/fs-uae \
+    /Users/mbergmann/Documents/FS-UAE/Configurations/sys3xdev.fs-uae
+
+================================================================================
+APPENDIX B: File Locations
+================================================================================
+
+Verification scripts:
+  ACE:scripts/verify/verify-makefile.rexx     - Main test runner
+  ACE:scripts/verify/verify-build.rexx        - Build tests
+  ACE:scripts/verify/verify-incremental.rexx  - Incremental tests
+  ACE:scripts/verify/verify-targets.rexx      - Target tests
+  ACE:scripts/verify/compare-binaries.rexx    - Comparison utils
+
+Test artifacts:
+  T:verbose.log                   - Verbose build output
+  T:quiet.log                     - Quiet build output
+  T:makefile-verification.log     - Full verification log
+  ACE:bin/ace.script              - Script-built executable
+  ACE:bin/ace.makefile            - Makefile-built executable
+  ACE:bin/ace.old                 - Backup executable
+
+Temporary files:
+  T:lex.c.bak                     - Source backup for tests
+  T:ver.c.bak                     - Source backup for tests
+  T:hello.script                  - Test executable (script)
+  T:hello.makefile                - Test executable (Makefile)
+
+================================================================================
+END OF VERIFICATION PLAN
+================================================================================

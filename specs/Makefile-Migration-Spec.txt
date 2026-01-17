@@ -274,10 +274,12 @@ Benefits:
 -----------------
 
 [X] Verify all source files exist in src/ace/c/ (29 modules confirmed)
+[X] Set up fs-uae verification environment (configured with ACE: assign)
+[X] Create verification scripts (ACE:scripts/verify/)
 [ ] Create feature branch (feature/makefile-migration)
 [ ] Verify GNU Make 3.80 features available on target Amiga
 [ ] Verify gcc 2.95.3 command-line compatibility
-[ ] Verify ACE: assign is properly configured
+[ ] Verify ACE: assign is properly configured in fs-uae
 
 4.3 Implementation Steps
 ------------------------
@@ -303,11 +305,16 @@ Step 4: Add utility targets
   - backup (copy exe to ace.old)
   - help (usage information)
 
-Step 5: Testing
-  - Clean build (make clean all)
-  - Incremental build (touch one file, make)
-  - Verify executable works (bin/ace --version or similar)
-  - Verbose mode (make V=1)
+Step 5: Testing (using fs-uae)
+  - Run quick tests: rx ACE:scripts/verify/quick-test.rexx
+  - Fix any issues discovered
+  - Run full verification: rx ACE:scripts/verify/verify-makefile.rexx
+  - Review verification log (T:makefile-verification.log)
+  - Manual tests:
+    - Clean build (make clean all)
+    - Incremental build (touch one file, make)
+    - Verify executable works (bin/ace --version or similar)
+    - Verbose mode (make V=1)
 
 Step 6: Documentation
   - Update CLAUDE.md with Makefile-ace instructions
@@ -316,6 +323,25 @@ Step 6: Documentation
 
 4.4 Testing Checklist
 ---------------------
+
+AUTOMATED TESTING (Preferred):
+
+Use fs-uae verification scripts for comprehensive testing:
+
+  Location: ACE:scripts/verify/
+  Documentation: specs/Makefile-Verification-Plan.txt
+
+  Quick Test (during development):
+    cd ACE:scripts/verify
+    rx quick-test.rexx
+
+  Full Verification (before commit):
+    cd ACE:scripts/verify
+    rx verify-makefile.rexx
+
+  See scripts/verify/README.txt for detailed instructions.
+
+MANUAL TESTING (if needed):
 
 All commands run from make/ directory or use -f flag:
 
@@ -449,39 +475,51 @@ The migration is successful when:
 
 After discussion and approval of this specification:
 
-1. Create feature branch
+1. Verification Environment Setup ✓
+   - fs-uae configured with ACE: assign
+   - Verification scripts created (ACE:scripts/verify/)
+   - See specs/Makefile-Verification-Plan.txt for details
+
+2. Create feature branch
    git checkout -b feature/makefile-migration
 
-2. Source file list verified ✓
+3. Source file list verified ✓
    - 29 modules confirmed (matches makeace script)
    - lexvar.c and symvar.c excluded (#included by other files)
 
-3. Create initial Makefile-ace (ACE:make/Makefile-ace)
+4. Create initial Makefile-ace (ACE:make/Makefile-ace)
    - Add header and configuration
    - Define source list and variables
    - Implement basic build rules
 
-4. Test basic compilation and linking
-   - Clean build (make -f Makefile-ace clean all)
-   - Incremental build (make -f Makefile-ace)
+5. Test basic compilation and linking (in fs-uae)
+   - Run quick-test.rexx for rapid iteration
+   - Fix any issues discovered
+   - Verify basic functionality works
 
-5. Iterate on verbose/quiet output modes (V=0/V=1)
+6. Iterate on verbose/quiet output modes (V=0/V=1)
 
-6. Add utility targets (clean, backup, help)
+7. Add utility targets (clean, backup, help)
 
-7. Full testing against checklist (section 4.4)
+8. Full verification testing (section 4.4)
+   - Run quick-test.rexx during development iterations
+   - Run verify-makefile.rexx for comprehensive testing
+   - Ensure all 15 tests pass
+   - Review T:makefile-verification.log
+   - Archive verification results
 
-8. Update CLAUDE.md documentation with Makefile-ace usage
+9. Update CLAUDE.md documentation with Makefile-ace usage
    - Document -f flag usage
    - Show example commands
+   - Reference verification scripts
 
-9. Commit changes with clear messages
+10. Commit changes with clear messages
 
-10. Create pull request for review
+11. Create pull request for review
 
-11. After approval, merge to master
+12. After approval, merge to master
 
-12. Consider deprecation timeline for AmigaDOS scripts
+13. Consider deprecation timeline for AmigaDOS scripts
 
 ================================================================================
 END OF SPECIFICATION
