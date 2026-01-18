@@ -46,6 +46,29 @@ CURRENT STATE
 - Test runner exists: tests/runner.rexx
 
 ================================================================================
+REQUIRED SETUP (user-startup)
+================================================================================
+
+The following must be configured in user-startup for ACE to work properly:
+
+Stack Size
+----------
+stack 65000
+
+ACE Assigns (from INSTALL file)
+-------------------------------
+assign ACElib: ACE:lib
+assign ACEbmaps: ACE:bmaps
+assign ACEinclude: ACE:include
+path ACE:bin add
+
+Test Runner Configuration
+-------------------------
+- runner.rexx must be run from ACE:tests directory (uses relative paths)
+- runner.rexx uses 'execute ACE:bin/bas' for full build pipeline
+- The bas script requires app, a68k, blink in path (via ACE:bin)
+
+================================================================================
 PHASE 1: PRE-FLIGHT CHECKS (Host-Side)
 ================================================================================
 
@@ -244,8 +267,12 @@ Commands:
   cd ACE:tests
   rx runner.rexx
 Expected: All tests pass
+Timeout: 2 minutes (with proper setup, all 35 tests complete quickly)
 
-Findings: See scripts/verify/results/phase5-findings.txt
+Findings: See scripts/verify/results/phase5.log
+
+STATUS: COMPLETED (2026-01-18)
+Results: TOTAL: Passed: 35, Failed: 0, Skipped: 0
 
 ================================================================================
 PHASE 6: AUTOMATED VERIFICATION (In fs-uae)
@@ -294,7 +321,7 @@ TESTING ORDER SUMMARY
 | 3.4  | Verbose mode              | Low        | 5 min      |
 | 4.1  | Makefile build            | Medium     | 5-10 min   |
 | 5.1  | Compile simple program    | Low        | 2 min      |
-| 5.2  | Full test suite           | High       | 15-20 min  |
+| 5.2  | Full test suite           | High       | 2 min      |
 | 6.1  | Create verification script| Medium     | 10 min     |
 | 6.2  | Run automated verification| Medium     | 5 min      |
 | 6.3  | Enable user-startup       | Low        | 2 min      |

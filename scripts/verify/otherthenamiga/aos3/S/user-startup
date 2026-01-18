@@ -40,6 +40,8 @@ if exists "Workbench:System/MUI"
 endif
 ;END MUI
 
+stack 65000
+
 ;BEGIN UnixDirs
 run >nil: C:UnixDirsII
 ;END UnixDirs
@@ -52,6 +54,12 @@ if exists SYS:Tools/ADE
 endif
 assign AmiTcp: sys:
 ;END ADE
+
+; ACE compiler setup (from INSTALL file)
+assign ACElib: ACE:lib
+assign ACEbmaps: ACE:bmaps
+assign ACEinclude: ACE:include
+path ACE:bin add
 
 ;BEGIN ACE Verification
 ; Automated Makefile verification for ACE compiler
@@ -79,19 +87,60 @@ assign AmiTcp: sys:
 
 ; --- Phase 4: Build and Executable Verification ---
 ; Tests Makefile build, executable loads and runs, functional test
-if exists ACE:scripts/verify/phase4-verify.script
-   echo ""
-   echo "Starting ACE Phase 4 Build verification..."
-   echo ""
-   execute ACE:scripts/verify/phase4-verify.script
-endif
+;if exists ACE:scripts/verify/phase4-verify.script
+;   echo ""
+;   echo "Starting ACE Phase 4 Build verification..."
+;   echo ""
+;   execute ACE:scripts/verify/phase4-verify.script
+;endif
 
 ; --- Phase 5: Functional Verification ---
 ; Tests compile simple program, runs full test suite
-;if exists ACE:scripts/verify/phase5-verify.script
+if exists ACE:scripts/verify/phase5-verify.script
+   echo ""
+   echo "Starting ACE Phase 5 Functional verification..."
+   echo ""
+   execute ACE:scripts/verify/phase5-verify.script
+endif
+
+; --- Runner Diagnosis ---
+;if exists ACE:scripts/verify/diagnose-runner.script
 ;   echo ""
-;   echo "Starting ACE Phase 5 Functional verification..."
+;   echo "Running runner crash diagnosis..."
 ;   echo ""
-;   execute ACE:scripts/verify/phase5-verify.script
+;   execute ACE:scripts/verify/diagnose-runner.script
+;endif
+
+; --- Simple Diagnosis ---
+;if exists ACE:scripts/verify/diagnose-simple.script
+;   echo ""
+;   echo "Running simple crash diagnosis..."
+;   echo ""
+;   execute ACE:scripts/verify/diagnose-simple.script
+;endif
+
+; --- Path Diagnosis ---
+;if exists ACE:scripts/verify/diagnose-path.script
+;   echo ""
+;   echo "Running path crash diagnosis..."
+;   echo ""
+;   execute ACE:scripts/verify/diagnose-path.script
+;endif
+
+; --- Crash Diagnosis ---
+; Diagnose string variable crash
+;if exists ACE:scripts/verify/diagnose-crash.script
+;   echo ""
+;   echo "Running ACE crash diagnosis..."
+;   echo ""
+;   execute ACE:scripts/verify/diagnose-crash.script
+;endif
+
+; --- Crash Diagnosis v2 (simplified) ---
+;if exists ACE:scripts/verify/diagnose-crash2.script
+;   echo ""
+;   echo "Running ACE crash diagnosis v2..."
+;   echo ""
+;   execute ACE:scripts/verify/diagnose-crash2.script
 ;endif
 ;END ACE Verification

@@ -18,10 +18,10 @@ IF category = '' THEN category = 'all'
 
 /* Configuration */
 aceDir = 'ACE:'
-basCmd = aceDir || 'bin/bas.vb'
+basCmd = 'execute ' || aceDir || 'bin/bas'
 aceCmd = aceDir || 'bin/ace'
-casesDir = 'tests/cases/'
-expectedDir = 'tests/expected/'
+casesDir = 'cases/'
+expectedDir = 'expected/'
 resultsDir = 'T:'
 
 /* Counters */

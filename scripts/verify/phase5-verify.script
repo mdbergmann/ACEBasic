@@ -1,0 +1,189 @@
+.KEY LOG/K
+.BRA {
+.KET }
+
+; Phase 5 Verification Script - Functional Verification
+; Run from within AmigaOS (fs-uae)
+;
+; Usage: execute ACE:scripts/verify/phase5-verify.script LOG=ACE:scripts/verify/results/phase5.log
+; Or just: execute ACE:scripts/verify/phase5-verify.script
+;
+; Purpose: Verify that the Makefile-built ACE compiler works correctly
+;          by compiling programs and running the full test suite
+
+; Set default log location
+IF "{LOG}" EQ ""
+   SET LOGFILE "ACE:scripts/verify/results/phase5.log"
+ELSE
+   SET LOGFILE "{LOG}"
+ENDIF
+
+echo "" >$LOGFILE
+echo "============================================================" >>$LOGFILE
+echo "Phase 5 Findings - `date`" >>$LOGFILE
+echo "============================================================" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Functional verification tests for Makefile-built ACE compiler." >>$LOGFILE
+echo "" >>$LOGFILE
+
+; ------------------------------------------------------------------
+; Step 0: Rebuild ACE compiler to ensure fresh binary
+; ------------------------------------------------------------------
+echo "============================================================" >>$LOGFILE
+echo "Step 0: Rebuilding ACE compiler" >>$LOGFILE
+echo "------------------------------------------------------------" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Purpose: Ensure we have a fresh, working binary" >>$LOGFILE
+echo "" >>$LOGFILE
+
+cd ACE:make
+echo "Running: make -f Makefile-ace clean" >>$LOGFILE
+make -f Makefile-ace clean >T:phase5_clean.out
+type T:phase5_clean.out >>$LOGFILE
+echo "" >>$LOGFILE
+
+echo "Running: make -f Makefile-ace" >>$LOGFILE
+make -f Makefile-ace >T:phase5_build.out
+SET BUILD_RC $RC
+type T:phase5_build.out >>$LOGFILE
+echo "" >>$LOGFILE
+
+IF NOT EXISTS ACE:bin/ace
+   echo "ERROR: Build failed - ACE:bin/ace not created!" >>$LOGFILE
+   echo "" >>$LOGFILE
+   echo "Phase 5 verification ABORTED" >>$LOGFILE
+   echo ""
+   echo "ERROR: Build failed. Check the log."
+   SKIP end
+ENDIF
+
+echo "Build successful. Compiler ready for testing." >>$LOGFILE
+list ACE:bin/ace >>$LOGFILE
+echo "" >>$LOGFILE
+
+; ------------------------------------------------------------------
+; Test 5.1: Compile a Simple Program
+; ------------------------------------------------------------------
+echo "============================================================" >>$LOGFILE
+echo "Test 5.1: Compile a Simple Program" >>$LOGFILE
+echo "------------------------------------------------------------" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Purpose: Verify ace can compile BASIC code" >>$LOGFILE
+echo "" >>$LOGFILE
+
+; Create a simple test file in T: (like phase 4 did)
+echo "PRINT *"Hello from Phase 5!*"" >T:test5.b
+echo "Test file: T:test5.b" >>$LOGFILE
+echo "Source code:" >>$LOGFILE
+type T:test5.b >>$LOGFILE
+echo "" >>$LOGFILE
+
+; Compile the test file
+echo "Compiling with: ACE:bin/ace T:test5.b" >>$LOGFILE
+ACE:bin/ace T:test5.b >T:phase5_compile.out
+SET COMPILE_RC $RC
+echo "Return code: $COMPILE_RC" >>$LOGFILE
+echo "" >>$LOGFILE
+
+IF EXISTS T:phase5_compile.out
+   echo "Compiler output:" >>$LOGFILE
+   type T:phase5_compile.out >>$LOGFILE
+   echo "" >>$LOGFILE
+ENDIF
+
+; Check if .s file was created
+IF EXISTS T:test5.s
+   echo "Test 5.1: PASS - Assembly file generated" >>$LOGFILE
+   echo "" >>$LOGFILE
+   echo "Assembly output (excerpt):" >>$LOGFILE
+   type T:test5.s >>$LOGFILE
+   echo "" >>$LOGFILE
+   ; Clean up generated files
+   delete T:test5.b QUIET
+   delete T:test5.s QUIET
+ELSE
+   echo "Test 5.1: FAIL - No assembly file generated" >>$LOGFILE
+   delete T:test5.b QUIET
+ENDIF
+echo "" >>$LOGFILE
+
+; ------------------------------------------------------------------
+; Test 5.2: Run Full Test Suite
+; ------------------------------------------------------------------
+LAB test52
+echo "============================================================" >>$LOGFILE
+echo "Test 5.2: Run Full Test Suite" >>$LOGFILE
+echo "------------------------------------------------------------" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Purpose: Verify all tests pass with Makefile-built compiler" >>$LOGFILE
+echo "" >>$LOGFILE
+
+; Change to ACE tests directory and run the test suite
+; (runner.rexx uses relative paths like cases/)
+echo "Running: cd ACE:tests && rx runner.rexx" >>$LOGFILE
+echo "" >>$LOGFILE
+
+cd ACE:tests
+rx runner.rexx >T:phase5_tests.out
+SET TEST_RC $RC
+
+echo "Test runner return code: $TEST_RC" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Test runner output:" >>$LOGFILE
+type T:phase5_tests.out >>$LOGFILE
+echo "" >>$LOGFILE
+
+IF $TEST_RC EQ 0
+   echo "Test 5.2: PASS - All tests passed" >>$LOGFILE
+ELSE
+   echo "Test 5.2: FAIL - Some tests failed (RC=$TEST_RC)" >>$LOGFILE
+ENDIF
+echo "" >>$LOGFILE
+
+; ------------------------------------------------------------------
+; Phase 5 Summary
+; ------------------------------------------------------------------
+echo "============================================================" >>$LOGFILE
+echo "Phase 5 Summary" >>$LOGFILE
+echo "============================================================" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Tests Executed: 2" >>$LOGFILE
+echo "  5.1 - Compile a simple program" >>$LOGFILE
+echo "  5.2 - Run full test suite" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Review the output above for PASS/FAIL status of each test." >>$LOGFILE
+echo "" >>$LOGFILE
+
+IF $TEST_RC EQ 0
+   echo "OVERALL: SUCCESS - ACE compiler functional verification passed" >>$LOGFILE
+ELSE
+   echo "OVERALL: PARTIAL - Some tests failed, review output" >>$LOGFILE
+ENDIF
+echo "" >>$LOGFILE
+
+echo "Next Steps:" >>$LOGFILE
+echo "  If all tests pass, Phase 5 is complete." >>$LOGFILE
+echo "  The Makefile-ace build system is fully verified." >>$LOGFILE
+echo "  Proceed to Phase 6 for automated verification setup." >>$LOGFILE
+echo "" >>$LOGFILE
+
+echo "============================================================" >>$LOGFILE
+echo "END OF PHASE 5 VERIFICATION" >>$LOGFILE
+echo "============================================================" >>$LOGFILE
+
+; Clean up temp files
+delete T:phase5#? QUIET
+delete T:test5#? QUIET
+
+; Show results on screen
+echo ""
+echo "Phase 5 verification complete!"
+echo "Results saved to: $LOGFILE"
+echo ""
+echo "Summary:"
+type $LOGFILE
+
+; Create completion marker for automated runs
+echo "Phase 5 complete" >ACE:scripts/verify/results/phase5-complete.marker
+
+LAB end
