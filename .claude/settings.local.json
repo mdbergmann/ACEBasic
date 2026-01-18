@@ -47,7 +47,14 @@
       "Bash(else echo \"Still running...\")",
       "Bash(if [ -f /Users/mbergmann/Development/MySources/amigasources/acec/scripts/verify/results/phase3.log ])",
       "Bash(else echo \"Log not created yet\")",
-      "Bash(then echo \"=== LOG ===\")"
+      "Bash(then echo \"=== LOG ===\")",
+      "Bash(while [ ! -f /Users/mbergmann/Development/MySources/amigasources/acec/scripts/verify/results/phase5-complete.marker ])",
+      "Bash(for dir in syntax arithmetic floats control errors)",
+      "Bash(do echo '=== $dir ===' ls -1 /Users/mbergmann/Development/MySources/amigasources/acec/tests/cases/$dir/*.b)",
+      "Bash(while [ ! -f /Users/mbergmann/Development/MySources/amigasources/acec/scripts/verify/results/crash-diagnosis.marker ])",
+      "Bash(do sleep 3)",
+      "Bash(git reset:*)",
+      "Bash(/Users/mbergmann/Development/MySources/amigasources/acec/scripts/verify/otherthenamiga/FS-UAE.app/Contents/MacOS/fs-uae:*)"
     ]
   }
 }
