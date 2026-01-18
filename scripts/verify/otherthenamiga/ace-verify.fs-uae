@@ -1,0 +1,25 @@
+# FS-UAE configuration saved by FS-UAE Launcher
+# Last saved: 2026-01-17 17:28:54
+
+[fs-uae]
+accelerator = 0
+accuracy = 0
+amiga_model = A3000
+bsdsocket_library = 1
+chip_memory = 2048
+cpu = 68040
+floppy_drive_speed = 800
+floppy_drive_volume = 0
+graphics_card = uaegfx
+graphics_memory = 8192
+hard_drive_0 = /Users/mbergmann/Development/MySources/amigasources/acec/scripts/verify/otherthenamiga/aos3
+hard_drive_0_label = Workbench
+hard_drive_1 = /Users/mbergmann/Development/MySources/amigasources/acec
+hard_drive_1_label = ACE
+joystick_port_1_mode = nothing
+keep_aspect = 1
+kickstart_file = /Users/mbergmann/Applications/Emu/Amiga/Kickstarts/amiga-os-310-a3000.rom
+motherboard_ram = 65536
+video_sync = off
+window_height = 1024
+window_width = 1248
