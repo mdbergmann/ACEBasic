@@ -1,20 +1,35 @@
-Notes about some scripts in the "make" directory  (4/10/98)
-------------------------------------------------
+Notes about scripts in the "make" directory  (Updated 2026-01-18)
+----------------------------------------------------------------
 
-lcmake		- Compile a C library module
+BUILD SYSTEM FOR ACE COMPILER
+-----------------------------
 
-lmake		- Assemble an assembly code library module or join all 
-	  	  library modules together to form db.lib
+Makefile-ace    - GNU Makefile for building the ACE compiler.
+                  Requires GNU Make 3.80+ and ADE shell environment.
+                  Usage: make -f Makefile-ace
+                         make -f Makefile-ace V=1    (verbose)
+                         make -f Makefile-ace clean  (clean build)
 
-makelib		- Assembles a single assembly code module to create a
-		  linked library file (used to create startup.lib).
-	 	  See also src/lib/startup/make.
- 
-makedb		- Creates db.lib from the C and assembly source files in
-		  src/lib/c and src/lib/asm.
 
-cmake		- Compile an ACE compiler module or create the final ACE
-	  	  executable.
+LIBRARY BUILD SCRIPTS
+---------------------
 
-makeace		- Compiles and links all ACE compiler modules to create the
-	  	  final ACE executable.
+lcmake          - Compile a C library module
+
+lmake           - Assemble an assembly code library module or join all
+                  library modules together to form db.lib
+
+makelib         - Assembles a single assembly code module to create a
+                  linked library file (used to create startup.lib).
+                  See also src/lib/startup/make.
+
+makedb          - Creates db.lib from the C and assembly source files in
+                  src/lib/c and src/lib/asm.
+
+
+OTHER SCRIPTS
+-------------
+
+asm             - Assemble a single assembly file
+
+cmakep          - Compile with profiling support

@@ -54,8 +54,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 FS_UAE_CONFIG="$SCRIPT_DIR/otherthenamiga/ace-verify.fs-uae"
 FS_UAE_BIN="$HOME/Applications/Emu/Amiga/FS-UAE/FS-UAE.app/Contents/MacOS/fs-uae"
-COMPLETION_MARKER="$PROJECT_ROOT/scripts/verify/results/phase3-complete.marker"
-RESULTS_LOG="$PROJECT_ROOT/scripts/verify/results/phase3.log"
+COMPLETION_MARKER="$PROJECT_ROOT/scripts/verify/results/phase4-complete.marker"
+RESULTS_LOG="$PROJECT_ROOT/scripts/verify/results/phase4.log"
 WAIT_MODE=false
 
 # Parse arguments

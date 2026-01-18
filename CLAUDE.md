@@ -67,31 +67,12 @@ ACE (Amiga BASIC Compiler) is a complete BASIC compiler for the Amiga platform t
 
 ## Build System
 
-The build system provides three options:
-1. **amake** (`make/Amakefile`) - Recommended for Amiga native builds
-2. **GNU Make** (`make/Makefile-ace`) - Alternative with advanced features
-3. **AmigaDOS scripts** (`make/cmake`, `make/makeace`) - Legacy build system
+The ACE compiler is built using GNU Make with the ADE (Amiga Developer Environment).
 
 ### Building the ACE Compiler
 
-#### Using amake (Recommended for Amiga)
-
 ```bash
-# Build with Amakefile (run from make/ directory or use -f flag)
-amake -f Amakefile           # Build ACE compiler
-amake -f Amakefile all       # Build ACE compiler (explicit)
-amake -f Amakefile clean     # Remove all build artifacts
-amake -f Amakefile clean all # Clean rebuild
-amake -f Amakefile backup    # Backup current executable to ace.old
-amake -f Amakefile help      # Show help
-```
-
-The Amakefile provides incremental builds (rebuilds only changed sources) and standard targets. Designed for amake V1.0, which is native to AmigaOS and handles Amiga path conventions better than GNU Make.
-
-#### Using GNU Make (Alternative)
-
-```bash
-# Build with Makefile-ace (run from make/ directory or use -f flag)
+# Build with Makefile-ace (run from make/ directory)
 make -f Makefile-ace           # Build ACE compiler (quiet mode)
 make -f Makefile-ace V=1       # Build with verbose output
 make -f Makefile-ace clean     # Remove all build artifacts
@@ -100,17 +81,7 @@ make -f Makefile-ace backup    # Backup current executable to ace.old
 make -f Makefile-ace help      # Show help
 ```
 
-The Makefile provides incremental builds, standard targets, and verbose/quiet modes. Requires GNU Make 3.80 or later. May have path handling issues on some Amiga configurations.
-
-#### Using AmigaDOS Scripts (Legacy)
-
-```bash
-# Build individual compiler modules (run from make/ directory)
-cmake <module_name>    # Compiles one module (e.g., cmake lex)
-makeace               # Builds entire ACE compiler
-```
-
-The `makeace` script compiles each module sequentially and links them into `bin/ace`.
+The Makefile provides incremental builds, standard targets, and verbose/quiet modes. Requires GNU Make 3.80 or later with ADE shell environment.
 
 ### Building the Runtime Library (db.lib)
 
@@ -238,14 +209,14 @@ The `examples/` directory contains 30+ categories of sample programs demonstrati
 - `parse.c` - Main parser entry point
 - `lex.c` - Lexical analyzer
 - `opt.c` - Peephole optimizer
-- `make/Makefile-ace` - GNU Makefile for building ACE compiler (recommended)
-- `make/makeace` - Legacy AmigaDOS build script
+- `make/Makefile-ace` - GNU Makefile for building ACE compiler
 - `bin/bas.vb` - Primary build script (modern vasm/vlink toolchain)
 - `tests/runner.rexx` - Test harness
 
 ## Development Notes
 
-- Build scripts in `make/` are AmigaDOS shell scripts (`.key` syntax)
+- Build system uses GNU Make with ADE shell environment
+- Library build scripts in `make/` use AmigaDOS shell syntax (`.key` directives)
 - Test runner (`tests/runner.rexx`) is an ARexx script
 - All scripts assume execution on Amiga (or emulator)
 - The ACE assign (logical device) must be set to the repository root

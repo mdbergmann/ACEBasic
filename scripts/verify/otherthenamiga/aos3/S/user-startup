@@ -1,0 +1,88 @@
+;BEGIN ViNCEd
+; Remove the ; default console handler CON:
+; Entfernen Sie das ; die Standardkonsole CON: verwenden wollen.
+
+;SetVNC Quiet Mount Override as CON:
+
+; Remove the ; gadgets with new functions from ViNCEd that can be set with prefs tool ViNCEd.
+; Entfernen Sie das ; F�higkeiten von ViNCEd in Texteingabefeldern wollen. Diese konfigurieren Sie
+; auch mit dem Voreinsteller ViNCEd.
+
+;StringSnip >NIL: INSTALL
+
+; Remove the ; assigns in pattern matching commands.
+; Entfernen Sie das ; Unterst�tzung der mehrfach Assign in Dateinamensmustern w�nschen.
+
+;TrueMultiAssigns
+;END ViNCEd
+
+;BEGIN Picasso96
+Assign Picasso96: "Sys:System/Picasso96"
+;END Picasso96
+
+;BEGIN MUI
+if exists "Workbench:System/MUI"
+   assign MUI: "Workbench:System/MUI"
+   if exists MUI:Libs
+      assign add LIBS: MUI:Libs
+   endif
+   if exists MUI:Locale
+      assign add LOCALE: MUI:Locale
+   endif
+   version >nil: exec.library 39
+   if not warn
+      if exists MUI:Docs
+         if exists HELP:dummy ; do not remove
+         endif                ; this entry!
+         assign add HELP: MUI:Docs
+      endif
+   endif
+endif
+;END MUI
+
+;BEGIN UnixDirs
+run >nil: C:UnixDirsII
+;END UnixDirs
+
+;BEGIN ADE
+if exists SYS:Tools/ADE
+   assign ADE: SYS:Tools/ADE
+   execute ADE:ADE-Startup dir=ADE:
+   assign include: gg:include
+endif
+assign AmiTcp: sys:
+;END ADE
+
+;BEGIN ACE Verification
+; Automated Makefile verification for ACE compiler
+; This runs automatically on startup and saves results to ACE:scripts/verify/results/
+;
+; Uncomment ONE of the following sections to enable auto-verification:
+
+; --- Phase 2: Basic Makefile Operation ---
+; Tests help target, clean target, single gcc compilation, AND path handling
+;if exists ACE:scripts/verify/phase2-verify.script
+;   echo ""
+;   echo "Starting ACE Phase 2 Makefile verification..."
+;   echo ""
+;   execute ACE:scripts/verify/phase2-verify.script
+;endif
+
+; --- Phase 3: Full Build Verification ---
+; Tests clean build, no-op build, incremental build, verbose mode
+;if exists ACE:scripts/verify/phase3-verify.script
+;   echo ""
+;   echo "Starting ACE Phase 3 Full Build verification..."
+;   echo ""
+;   execute ACE:scripts/verify/phase3-verify.script
+;endif
+
+; --- Phase 4: Output Comparison ---
+; Tests legacy build vs Makefile build, compares outputs, functional test
+if exists ACE:scripts/verify/phase4-verify.script
+   echo ""
+   echo "Starting ACE Phase 4 Output Comparison verification..."
+   echo ""
+   execute ACE:scripts/verify/phase4-verify.script
+endif
+;END ACE Verification

@@ -1,0 +1,153 @@
+.KEY LOG/K
+.BRA {
+.KET }
+
+; Phase 4 Verification Script - Makefile Build and Functional Test
+; Run from within AmigaOS (fs-uae)
+;
+; Usage: execute ACE:scripts/verify/phase4-verify.script LOG=ACE:scripts/verify/results/phase4.log
+; Or just: execute ACE:scripts/verify/phase4-verify.script
+;
+; Purpose: Verify that Makefile-ace builds correctly and produces working executable
+
+; Set default log location
+IF "{LOG}" EQ ""
+   SET LOGFILE "ACE:scripts/verify/results/phase4.log"
+ELSE
+   SET LOGFILE "{LOG}"
+ENDIF
+
+echo "" >$LOGFILE
+echo "============================================================" >>$LOGFILE
+echo "Phase 4 Findings - `date`" >>$LOGFILE
+echo "============================================================" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Makefile Build and Functional verification tests." >>$LOGFILE
+echo "" >>$LOGFILE
+
+; ------------------------------------------------------------------
+; Test 4.2: Build with Makefile
+; ------------------------------------------------------------------
+echo "============================================================" >>$LOGFILE
+echo "Test 4.2: Build with Makefile" >>$LOGFILE
+echo "------------------------------------------------------------" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Purpose: Build ACE with Makefile-ace" >>$LOGFILE
+echo "" >>$LOGFILE
+
+; Clean object files and executable
+echo "Step 1: Cleaning build artifacts..." >>$LOGFILE
+cd ACE:make
+make -f Makefile-ace clean >T:phase4_clean.out
+type T:phase4_clean.out >>$LOGFILE
+echo "" >>$LOGFILE
+
+; Build with Makefile
+echo "Step 2: Building with Makefile-ace..." >>$LOGFILE
+echo "Command: make -f Makefile-ace V=1" >>$LOGFILE
+echo "" >>$LOGFILE
+cd ACE:make
+make -f Makefile-ace V=1 >T:phase4_make.out
+SET MAKE_RC $RC
+echo "Return code: $MAKE_RC" >>$LOGFILE
+echo "" >>$LOGFILE
+
+echo "Makefile build output:" >>$LOGFILE
+type T:phase4_make.out >>$LOGFILE
+echo "" >>$LOGFILE
+
+; Verify executable was created
+IF EXISTS ACE:bin/ace
+   echo "Makefile build: SUCCESS" >>$LOGFILE
+   list ACE:bin/ace >T:phase4_make_exe.out
+   echo "Executable details:" >>$LOGFILE
+   type T:phase4_make_exe.out >>$LOGFILE
+   echo "" >>$LOGFILE
+   ; Get file size
+   list ACE:bin/ace LFORMAT="%l" >T:make_size.txt
+   echo "Executable size:" >>$LOGFILE
+   type T:make_size.txt >>$LOGFILE
+ELSE
+   echo "Makefile build: FAILED" >>$LOGFILE
+   echo "ACE:bin/ace was not created" >>$LOGFILE
+ENDIF
+echo "" >>$LOGFILE
+
+; ------------------------------------------------------------------
+; Test 4.4: Functional Verification
+; ------------------------------------------------------------------
+echo "============================================================" >>$LOGFILE
+echo "Test 4.4: Functional Verification" >>$LOGFILE
+echo "------------------------------------------------------------" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Purpose: Verify Makefile-built executable works correctly" >>$LOGFILE
+echo "" >>$LOGFILE
+
+; Create a simple test program
+echo "Creating test program..." >>$LOGFILE
+echo "PRINT *"Hello from ACE!*"" >T:test.b
+echo "Test program (T:test.b):" >>$LOGFILE
+type T:test.b >>$LOGFILE
+echo "" >>$LOGFILE
+
+; Try compiling with the built executable
+IF EXISTS ACE:bin/ace
+   echo "Compiling test program with ace..." >>$LOGFILE
+   ACE:bin/ace T:test.b >T:ace_output.txt
+   SET ACE_RC $RC
+   echo "Compiler return code: $ACE_RC" >>$LOGFILE
+ELSE
+   echo "No ACE executable available for functional test" >>$LOGFILE
+   SET ACE_RC 20
+ENDIF
+
+IF EXISTS T:ace_output.txt
+   echo "Compiler output:" >>$LOGFILE
+   type T:ace_output.txt >>$LOGFILE
+   echo "" >>$LOGFILE
+ENDIF
+
+IF EXISTS T:test.s
+   echo "Status: PASS - Compiler generated assembly output" >>$LOGFILE
+   echo "" >>$LOGFILE
+   echo "Generated assembly:" >>$LOGFILE
+   type T:test.s >>$LOGFILE
+ELSE
+   echo "Status: FAIL - Compiler did not generate assembly" >>$LOGFILE
+ENDIF
+echo "" >>$LOGFILE
+
+; ------------------------------------------------------------------
+; Phase 4 Summary
+; ------------------------------------------------------------------
+echo "============================================================" >>$LOGFILE
+echo "Phase 4 Summary" >>$LOGFILE
+echo "============================================================" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Tests Executed: 2" >>$LOGFILE
+echo "  4.2 - Build with Makefile-ace" >>$LOGFILE
+echo "  4.4 - Functional verification" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Review the output above for PASS/FAIL status of each test." >>$LOGFILE
+echo "" >>$LOGFILE
+echo "============================================================" >>$LOGFILE
+echo "END OF PHASE 4 VERIFICATION" >>$LOGFILE
+echo "============================================================" >>$LOGFILE
+
+; Clean up temp files
+delete T:phase4#? QUIET
+delete T:make_size.txt QUIET
+delete T:test.b QUIET
+delete T:test.s QUIET
+delete T:ace_output.txt QUIET
+
+; Show results on screen
+echo ""
+echo "Phase 4 verification complete!"
+echo "Results saved to: $LOGFILE"
+echo ""
+echo "Summary:"
+type $LOGFILE
+
+; Create completion marker for automated runs
+echo "Phase 4 complete" >ACE:scripts/verify/results/phase4-complete.marker
