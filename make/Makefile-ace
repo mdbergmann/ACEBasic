@@ -25,6 +25,7 @@
 #   - GNU Make 3.80 or later (AmigaOS)
 #   - gcc 2.95.3
 #   - ACE: assign must be configured
+#	- UnixDirsII package
 #
 # Author: Generated from Makefile-Migration-Spec.txt
 # Date: 2026-01-17
