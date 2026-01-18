@@ -201,6 +201,28 @@ Expected:
   - All 29 modules compile without errors
   - ACE:bin/ace created successfully
 
+Test 4.2: Executable Loads and Runs
+-----------------------------------
+Purpose: Verify the compiled executable can start without crashing
+Commands:
+  ACE:bin/ace
+  (run with no arguments - should display usage/error but not crash)
+Expected:
+  - Executable loads successfully
+  - Displays version or usage message
+  - Returns non-crash exit code (not guru meditation / address error)
+
+Test 4.3: Functional Verification
+---------------------------------
+Purpose: Verify Makefile-built executable can compile BASIC code
+Commands:
+  echo 'PRINT "Hello from ACE!"' >T:test.b
+  ACE:bin/ace T:test.b
+Expected:
+  - Compiler prints version info
+  - Compiles without errors
+  - Generates T:test.s assembly file
+
 Findings: See scripts/verify/results/phase4-findings.txt
 
 ================================================================================

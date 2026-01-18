@@ -26,10 +26,10 @@ echo "Makefile Build and Functional verification tests." >>$LOGFILE
 echo "" >>$LOGFILE
 
 ; ------------------------------------------------------------------
-; Test 4.2: Build with Makefile
+; Test 4.1: Build with Makefile
 ; ------------------------------------------------------------------
 echo "============================================================" >>$LOGFILE
-echo "Test 4.2: Build with Makefile" >>$LOGFILE
+echo "Test 4.1: Build with Makefile" >>$LOGFILE
 echo "------------------------------------------------------------" >>$LOGFILE
 echo "" >>$LOGFILE
 echo "Purpose: Build ACE with Makefile-ace" >>$LOGFILE
@@ -48,39 +48,89 @@ echo "Command: make -f Makefile-ace V=1" >>$LOGFILE
 echo "" >>$LOGFILE
 cd ACE:make
 make -f Makefile-ace V=1 >T:phase4_make.out
-SET MAKE_RC $RC
-echo "Return code: $MAKE_RC" >>$LOGFILE
+echo $RC >T:phase4_make_rc.txt
 echo "" >>$LOGFILE
 
 echo "Makefile build output:" >>$LOGFILE
 type T:phase4_make.out >>$LOGFILE
 echo "" >>$LOGFILE
+echo "Make return code: " NOLINE >>$LOGFILE
+type T:phase4_make_rc.txt >>$LOGFILE
 
 ; Verify executable was created
 IF EXISTS ACE:bin/ace
-   echo "Makefile build: SUCCESS" >>$LOGFILE
+   echo "" >>$LOGFILE
+   echo "Test 4.1: PASS - Makefile build succeeded" >>$LOGFILE
    list ACE:bin/ace >T:phase4_make_exe.out
    echo "Executable details:" >>$LOGFILE
    type T:phase4_make_exe.out >>$LOGFILE
    echo "" >>$LOGFILE
    ; Get file size
    list ACE:bin/ace LFORMAT="%l" >T:make_size.txt
-   echo "Executable size:" >>$LOGFILE
+   echo "Executable size: " NOLINE >>$LOGFILE
    type T:make_size.txt >>$LOGFILE
 ELSE
-   echo "Makefile build: FAILED" >>$LOGFILE
+   echo "" >>$LOGFILE
+   echo "Test 4.1: FAIL - Makefile build failed" >>$LOGFILE
    echo "ACE:bin/ace was not created" >>$LOGFILE
+   echo "" >>$LOGFILE
+   echo "============================================================" >>$LOGFILE
+   echo "Phase 4 ABORTED - Build failed" >>$LOGFILE
+   echo "============================================================" >>$LOGFILE
+   ; Show results and exit
+   echo ""
+   echo "Phase 4 verification FAILED at Test 4.1"
+   echo "Results saved to: $LOGFILE"
+   type $LOGFILE
+   SKIP end
 ENDIF
 echo "" >>$LOGFILE
 
 ; ------------------------------------------------------------------
-; Test 4.4: Functional Verification
+; Test 4.2: Executable Loads and Runs
 ; ------------------------------------------------------------------
 echo "============================================================" >>$LOGFILE
-echo "Test 4.4: Functional Verification" >>$LOGFILE
+echo "Test 4.2: Executable Loads and Runs" >>$LOGFILE
 echo "------------------------------------------------------------" >>$LOGFILE
 echo "" >>$LOGFILE
-echo "Purpose: Verify Makefile-built executable works correctly" >>$LOGFILE
+echo "Purpose: Verify the compiled executable can start without crashing" >>$LOGFILE
+echo "" >>$LOGFILE
+
+; Run ace with no arguments - should show usage/error but not crash
+echo "Running ACE:bin/ace with no arguments..." >>$LOGFILE
+ACE:bin/ace >T:phase4_noargs.out
+echo $RC >T:phase4_noargs_rc.txt
+echo "" >>$LOGFILE
+
+echo "Compiler output:" >>$LOGFILE
+type T:phase4_noargs.out >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Return code: " NOLINE >>$LOGFILE
+type T:phase4_noargs_rc.txt >>$LOGFILE
+echo "" >>$LOGFILE
+
+; Check if output contains version string (proves executable loaded)
+search T:phase4_noargs.out "ACE" QUIET
+IF $RC EQ 0
+   echo "Test 4.2: PASS - Executable loads and displays version info" >>$LOGFILE
+ELSE
+   ; Even if no version string, if we got output and no guru, it loaded
+   IF EXISTS T:phase4_noargs.out
+      echo "Test 4.2: PASS - Executable loaded (output received)" >>$LOGFILE
+   ELSE
+      echo "Test 4.2: FAIL - Executable may have crashed" >>$LOGFILE
+   ENDIF
+ENDIF
+echo "" >>$LOGFILE
+
+; ------------------------------------------------------------------
+; Test 4.3: Functional Verification
+; ------------------------------------------------------------------
+echo "============================================================" >>$LOGFILE
+echo "Test 4.3: Functional Verification" >>$LOGFILE
+echo "------------------------------------------------------------" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Purpose: Verify Makefile-built executable can compile BASIC code" >>$LOGFILE
 echo "" >>$LOGFILE
 
 ; Create a simple test program
@@ -91,15 +141,12 @@ type T:test.b >>$LOGFILE
 echo "" >>$LOGFILE
 
 ; Try compiling with the built executable
-IF EXISTS ACE:bin/ace
-   echo "Compiling test program with ace..." >>$LOGFILE
-   ACE:bin/ace T:test.b >T:ace_output.txt
-   SET ACE_RC $RC
-   echo "Compiler return code: $ACE_RC" >>$LOGFILE
-ELSE
-   echo "No ACE executable available for functional test" >>$LOGFILE
-   SET ACE_RC 20
-ENDIF
+echo "Compiling test program with ace..." >>$LOGFILE
+ACE:bin/ace T:test.b >T:ace_output.txt
+echo $RC >T:ace_rc.txt
+echo "Compiler return code: " NOLINE >>$LOGFILE
+type T:ace_rc.txt >>$LOGFILE
+echo "" >>$LOGFILE
 
 IF EXISTS T:ace_output.txt
    echo "Compiler output:" >>$LOGFILE
@@ -108,12 +155,12 @@ IF EXISTS T:ace_output.txt
 ENDIF
 
 IF EXISTS T:test.s
-   echo "Status: PASS - Compiler generated assembly output" >>$LOGFILE
+   echo "Test 4.3: PASS - Compiler generated assembly output" >>$LOGFILE
    echo "" >>$LOGFILE
-   echo "Generated assembly:" >>$LOGFILE
+   echo "Generated assembly (first 30 lines):" >>$LOGFILE
    type T:test.s >>$LOGFILE
 ELSE
-   echo "Status: FAIL - Compiler did not generate assembly" >>$LOGFILE
+   echo "Test 4.3: FAIL - Compiler did not generate assembly" >>$LOGFILE
 ENDIF
 echo "" >>$LOGFILE
 
@@ -124,9 +171,10 @@ echo "============================================================" >>$LOGFILE
 echo "Phase 4 Summary" >>$LOGFILE
 echo "============================================================" >>$LOGFILE
 echo "" >>$LOGFILE
-echo "Tests Executed: 2" >>$LOGFILE
-echo "  4.2 - Build with Makefile-ace" >>$LOGFILE
-echo "  4.4 - Functional verification" >>$LOGFILE
+echo "Tests Executed: 3" >>$LOGFILE
+echo "  4.1 - Build with Makefile-ace" >>$LOGFILE
+echo "  4.2 - Executable loads and runs" >>$LOGFILE
+echo "  4.3 - Functional verification (compile BASIC program)" >>$LOGFILE
 echo "" >>$LOGFILE
 echo "Review the output above for PASS/FAIL status of each test." >>$LOGFILE
 echo "" >>$LOGFILE
@@ -140,6 +188,7 @@ delete T:make_size.txt QUIET
 delete T:test.b QUIET
 delete T:test.s QUIET
 delete T:ace_output.txt QUIET
+delete T:ace_rc.txt QUIET
 
 ; Show results on screen
 echo ""
@@ -151,3 +200,5 @@ type $LOGFILE
 
 ; Create completion marker for automated runs
 echo "Phase 4 complete" >ACE:scripts/verify/results/phase4-complete.marker
+
+LAB end

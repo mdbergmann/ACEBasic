@@ -77,12 +77,21 @@ assign AmiTcp: sys:
 ;   execute ACE:scripts/verify/phase3-verify.script
 ;endif
 
-; --- Phase 4: Output Comparison ---
-; Tests legacy build vs Makefile build, compares outputs, functional test
+; --- Phase 4: Build and Executable Verification ---
+; Tests Makefile build, executable loads and runs, functional test
 if exists ACE:scripts/verify/phase4-verify.script
    echo ""
-   echo "Starting ACE Phase 4 Output Comparison verification..."
+   echo "Starting ACE Phase 4 Build verification..."
    echo ""
    execute ACE:scripts/verify/phase4-verify.script
 endif
+
+; --- Phase 5: Functional Verification ---
+; Tests compile simple program, runs full test suite
+;if exists ACE:scripts/verify/phase5-verify.script
+;   echo ""
+;   echo "Starting ACE Phase 5 Functional verification..."
+;   echo ""
+;   execute ACE:scripts/verify/phase5-verify.script
+;endif
 ;END ACE Verification
