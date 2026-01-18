@@ -1,0 +1,133 @@
+============================================================
+Phase 3 Findings - 2026-01-18
+============================================================
+
+Full Build Verification tests executed in AmigaOS (fs-uae).
+
+============================================================
+ALL TESTS PASS
+============================================================
+
+Test 3.1: Clean Build
+---------------------
+Status: PASS
+Purpose: Verify full build from clean state
+Commands:
+  make -f Makefile-ace clean
+  make -f Makefile-ace V=1
+Results:
+  - Clean target correctly removes all 29 object files
+  - Full build compiles all 29 modules
+  - Executable ACE:bin/ace created (153,884 bytes)
+  - Build time: approximately 45 seconds
+
+Test 3.2: No-Op Build (Timestamp Test)
+--------------------------------------
+Status: PASS
+Purpose: Verify Make skips rebuild when nothing changed
+Command: make -f Makefile-ace
+Results:
+  - Make correctly detects no changes needed
+  - Output: "Build complete: ../bin/ace" (no compilation)
+  - No object files recompiled
+
+Test 3.3: Incremental Build
+---------------------------
+Status: PASS
+Purpose: Verify only changed files rebuild
+Commands:
+  setdate ACE:src/ace/c/ver.c
+  make -f Makefile-ace V=1
+Results:
+  - After setdate updates ver.c timestamp, only ver.o recompiles
+  - Linking step runs to update executable
+  - Other 28 modules not recompiled
+
+Test 3.4: Verbose Mode
+----------------------
+Status: PASS
+Purpose: Verify V=1 shows full commands
+Command: make -f Makefile-ace V=1
+Results:
+  - All gcc command lines visible
+  - Shows full paths and all compiler flags
+  - Linking command visible
+
+============================================================
+Phase 3 Summary
+============================================================
+
+Tests Passed: 4
+Tests Failed: 0
+Tests Skipped: 0
+
+============================================================
+ISSUES DISCOVERED AND RESOLVED
+============================================================
+
+Issue 1: Pattern Rule Not Matching (Root-Relative Paths)
+---------------------------------------------------------
+Problem: GNU Make pattern rules didn't work with root-relative paths
+         like /src/ace/c/ on AmigaOS.
+Symptom: Make went directly to linking without compiling.
+Root Cause: Make's internal file stat checks don't resolve /path
+            the same way the shell does on AmigaOS.
+Solution: Changed to relative paths (../src/ace/c) which work
+          correctly for pattern matching.
+
+Issue 2: Clean Target Using AmigaDOS delete Command
+---------------------------------------------------
+Problem: Make uses sh (Unix shell) from ADE, not AmigaDOS shell.
+         The delete command is AmigaDOS-specific.
+Symptom: "delete: not found" errors, files not deleted.
+Root Cause: SHELL = sh in Makefile uses Unix shell, not AmigaDOS.
+Solution: Use rm -f (Unix) instead of delete (AmigaDOS).
+
+Issue 3: makedir Command Not Found
+----------------------------------
+Problem: Same as Issue 2 - makedir is AmigaDOS, not Unix.
+Symptom: "makedir: not found" errors.
+Solution: Use mkdir -p (Unix) instead of makedir (AmigaDOS).
+
+Issue 4: Touch Mechanism for Incremental Build Test
+---------------------------------------------------
+Problem: copy command preserves timestamps, filenote doesn't
+         update modification time.
+Symptom: File's modification time unchanged after "touch".
+Solution: Use setdate AmigaDOS command to update file timestamp.
+
+============================================================
+MAKEFILE COMPATIBILITY NOTES
+============================================================
+
+The Makefile (Makefile-ace) requires the ADE (Amiga Developer
+Environment) shell environment because:
+
+1. SHELL = sh - Uses Unix-style shell for command execution
+2. Uses Unix commands: rm, mkdir, cp, gcc
+3. Uses relative paths (../src) for pattern rule compatibility
+4. Wildcards: *.o (Unix) instead of #?.o (AmigaDOS)
+
+This is intentional - the ADE toolchain provides a consistent
+Unix-like environment for building software.
+
+Commands that run in ADE sh:
+- gcc (compiler)
+- rm -f (file deletion)
+- mkdir -p (directory creation)
+- cp (file copy)
+
+============================================================
+NEXT STEPS
+============================================================
+
+Phase 3 COMPLETE - Ready to proceed to Phase 4 (Output Comparison)
+
+Phase 4 will test:
+- Test 4.1: Build baseline with legacy script (makeace)
+- Test 4.2: Build with Makefile
+- Test 4.3: Compare file sizes for identical output
+
+============================================================
+END OF PHASE 3 FINDINGS
+============================================================

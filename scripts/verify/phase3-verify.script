@@ -1,0 +1,300 @@
+.KEY LOG/K
+.BRA {
+.KET }
+
+; Phase 3 Verification Script - Full Build Verification Tests
+; Run from within AmigaOS (fs-uae)
+;
+; Usage: execute ACE:scripts/verify/phase3-verify.script LOG=ACE:scripts/verify/results/phase3.log
+; Or just: execute ACE:scripts/verify/phase3-verify.script
+
+; Set default log location
+IF "{LOG}" EQ ""
+   SET LOGFILE "ACE:scripts/verify/results/phase3.log"
+ELSE
+   SET LOGFILE "{LOG}"
+ENDIF
+
+echo "" >$LOGFILE
+echo "============================================================" >>$LOGFILE
+echo "Phase 3 Findings - `date`" >>$LOGFILE
+echo "============================================================" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Full Build Verification tests executed in AmigaOS." >>$LOGFILE
+echo "" >>$LOGFILE
+
+; ------------------------------------------------------------------
+; Test 3.1: Clean Build
+; ------------------------------------------------------------------
+echo "============================================================" >>$LOGFILE
+echo "Test 3.1: Clean Build" >>$LOGFILE
+echo "------------------------------------------------------------" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Purpose: Verify full build from clean state" >>$LOGFILE
+echo "" >>$LOGFILE
+
+echo "Step 1: Running make clean..." >>$LOGFILE
+cd ACE:make
+make -f Makefile-ace clean >T:test31_clean.out
+IF WARN
+   echo "Clean step returned warning/error" >>$LOGFILE
+ENDIF
+type T:test31_clean.out >>$LOGFILE
+echo "" >>$LOGFILE
+
+; Verify clean actually deleted files - test BOTH path styles
+echo "Verifying object files deleted:" >>$LOGFILE
+echo "  Using /src/ace/obj/ path:" >>$LOGFILE
+list /src/ace/obj/ QUICK >T:objlist.out
+type T:objlist.out >>$LOGFILE
+echo "" >>$LOGFILE
+echo "  Using ACE:src/ace/obj/ path:" >>$LOGFILE
+list ACE:src/ace/obj/ QUICK >T:objlist2.out
+type T:objlist2.out >>$LOGFILE
+echo "" >>$LOGFILE
+echo "  Checking for .o files specifically:" >>$LOGFILE
+list ACE:src/ace/obj/#?.o QUICK >T:objlist3.out
+IF WARN
+   echo "    No .o files found (clean successful)" >>$LOGFILE
+ELSE
+   echo "    .o files found:" >>$LOGFILE
+   type T:objlist3.out >>$LOGFILE
+ENDIF
+echo "" >>$LOGFILE
+
+echo "Step 2: Running full build (with V=1 for diagnostics)..." >>$LOGFILE
+echo "Command: make -f Makefile-ace V=1" >>$LOGFILE
+echo "" >>$LOGFILE
+
+; Show current directory and Makefile presence
+echo "Current directory:" >>$LOGFILE
+cd >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Makefile-ace exists:" >>$LOGFILE
+list Makefile-ace >>$LOGFILE
+echo "" >>$LOGFILE
+
+; Run make with verbose mode - output goes to file
+make -f Makefile-ace V=1 >T:test31_build.out
+SET BUILDRESULT $RC
+
+echo "Build output:" >>$LOGFILE
+type T:test31_build.out >>$LOGFILE
+echo "" >>$LOGFILE
+
+; Check result
+IF $BUILDRESULT GT 0
+   echo "Status: FAIL" >>$LOGFILE
+   echo "make returned error code: $BUILDRESULT" >>$LOGFILE
+   echo "" >>$LOGFILE
+   ; Additional diagnostics
+   echo "Diagnostic info:" >>$LOGFILE
+   echo "  Checking gcc path:" >>$LOGFILE
+   which gcc >>$LOGFILE
+   echo "" >>$LOGFILE
+   echo "  Checking source directory:" >>$LOGFILE
+   list ACE:src/ace/c/#?.c QUICK >>$LOGFILE
+   echo "" >>$LOGFILE
+ELSE
+   ; Verify the executable was created
+   IF EXISTS ACE:bin/ace
+      ; Count object files created
+      list ACE:src/ace/obj/#?.o >T:objcount.out
+      echo "Status: PASS" >>$LOGFILE
+      echo "ACE:bin/ace created successfully" >>$LOGFILE
+      echo "" >>$LOGFILE
+      echo "Object files created:" >>$LOGFILE
+      type T:objcount.out >>$LOGFILE
+      echo "" >>$LOGFILE
+      echo "Executable details:" >>$LOGFILE
+      list ACE:bin/ace >>$LOGFILE
+   ELSE
+      echo "Status: FAIL" >>$LOGFILE
+      echo "Build reported success but ACE:bin/ace was not created" >>$LOGFILE
+   ENDIF
+ENDIF
+echo "" >>$LOGFILE
+
+; ------------------------------------------------------------------
+; Test 3.2: No-Op Build (Timestamp Test)
+; ------------------------------------------------------------------
+echo "============================================================" >>$LOGFILE
+echo "Test 3.2: No-Op Build (Timestamp Test)" >>$LOGFILE
+echo "------------------------------------------------------------" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Purpose: Verify Make skips rebuild when nothing changed" >>$LOGFILE
+echo "Command: make -f Makefile-ace" >>$LOGFILE
+echo "" >>$LOGFILE
+
+cd ACE:make
+make -f Makefile-ace >T:test32.out
+SET NOOP_RESULT $RC
+
+echo "Output:" >>$LOGFILE
+type T:test32.out >>$LOGFILE
+echo "" >>$LOGFILE
+
+; Check for expected behavior - should mention "nothing to be done" or just rebuild message
+; In GNU Make, if nothing changed, it will just say "Build complete" without compiling messages
+search T:test32.out "Compiling" >T:compiling_check.out
+IF NOT WARN
+   echo "Status: INFO - Build ran compilation steps" >>$LOGFILE
+   echo "Note: Expected no compilation if timestamps unchanged." >>$LOGFILE
+   echo "      This may indicate timestamp resolution issues." >>$LOGFILE
+ELSE
+   echo "Status: PASS" >>$LOGFILE
+   echo "No compilation steps were executed (files up to date)" >>$LOGFILE
+ENDIF
+echo "" >>$LOGFILE
+
+; ------------------------------------------------------------------
+; Test 3.3: Incremental Build
+; ------------------------------------------------------------------
+echo "============================================================" >>$LOGFILE
+echo "Test 3.3: Incremental Build" >>$LOGFILE
+echo "------------------------------------------------------------" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Purpose: Verify only changed files rebuild" >>$LOGFILE
+echo "" >>$LOGFILE
+
+; Record ver.o timestamp before
+echo "Before: ver.o timestamp" >>$LOGFILE
+list ACE:src/ace/obj/ver.o >>$LOGFILE
+echo "" >>$LOGFILE
+
+; Touch ver.c to force rebuild - use setdate AmigaDOS command
+echo "Touching ver.c to simulate change..." >>$LOGFILE
+wait SEC=3
+; Use setdate to update file's modification timestamp to current time
+setdate ACE:src/ace/c/ver.c
+echo "  ver.c datestamp after setdate:" >>$LOGFILE
+list ACE:src/ace/c/ver.c >>$LOGFILE
+echo "" >>$LOGFILE
+
+echo "Command: make -f Makefile-ace V=1" >>$LOGFILE
+cd ACE:make
+make -f Makefile-ace V=1 >T:test33.out
+SET INCR_RESULT $RC
+
+echo "Output:" >>$LOGFILE
+type T:test33.out >>$LOGFILE
+echo "" >>$LOGFILE
+
+; Check that ver.o was recompiled (should appear in output)
+search T:test33.out "ver" >T:ver_check.out
+IF NOT WARN
+   echo "Status: PASS" >>$LOGFILE
+   echo "ver.o was recompiled as expected" >>$LOGFILE
+ELSE
+   echo "Status: INFO" >>$LOGFILE
+   echo "ver.o may not have been recompiled - check output above" >>$LOGFILE
+ENDIF
+
+; Check that other files were NOT recompiled
+; Count compilation messages - should be 1 (just ver.c)
+search T:test33.out "Compiling" >T:compile_count.out
+echo "" >>$LOGFILE
+echo "Compilation messages found:" >>$LOGFILE
+type T:compile_count.out >>$LOGFILE
+
+echo "" >>$LOGFILE
+echo "After: ver.o timestamp" >>$LOGFILE
+list ACE:src/ace/obj/ver.o >>$LOGFILE
+echo "" >>$LOGFILE
+
+; ------------------------------------------------------------------
+; Test 3.4: Verbose Mode
+; ------------------------------------------------------------------
+echo "============================================================" >>$LOGFILE
+echo "Test 3.4: Verbose Mode" >>$LOGFILE
+echo "------------------------------------------------------------" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Purpose: Verify V=1 shows full commands" >>$LOGFILE
+echo "" >>$LOGFILE
+
+; First do a clean build to see full verbose output
+echo "Step 1: Clean before verbose build" >>$LOGFILE
+cd ACE:make
+make -f Makefile-ace clean >T:test34_clean.out
+type T:test34_clean.out >>$LOGFILE
+echo "" >>$LOGFILE
+
+; Verify clean actually deleted files
+echo "Verifying clean worked:" >>$LOGFILE
+list ACE:src/ace/obj/#?.o QUICK >T:test34_objcheck.out
+IF WARN
+   echo "  Object files deleted (clean successful)" >>$LOGFILE
+ELSE
+   echo "  WARNING: Object files still exist:" >>$LOGFILE
+   type T:test34_objcheck.out >>$LOGFILE
+ENDIF
+echo "" >>$LOGFILE
+
+echo "Step 2: Build with V=1" >>$LOGFILE
+echo "Command: make -f Makefile-ace V=1" >>$LOGFILE
+echo "" >>$LOGFILE
+
+make -f Makefile-ace V=1 >T:test34.out
+SET VERBOSE_RESULT $RC
+
+; Show output
+type T:test34.out >>$LOGFILE
+echo "" >>$LOGFILE
+
+; Check for verbose output - should show gcc command line
+search T:test34.out "gcc" >T:gcc_check.out
+IF NOT WARN
+   echo "Status: PASS" >>$LOGFILE
+   echo "Verbose mode shows gcc command lines" >>$LOGFILE
+ELSE
+   echo "Status: FAIL" >>$LOGFILE
+   echo "Verbose mode did not show gcc commands" >>$LOGFILE
+ENDIF
+echo "" >>$LOGFILE
+
+; ------------------------------------------------------------------
+; Phase 3 Summary
+; ------------------------------------------------------------------
+echo "============================================================" >>$LOGFILE
+echo "Phase 3 Summary" >>$LOGFILE
+echo "============================================================" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Tests Executed: 4" >>$LOGFILE
+echo "  3.1 - Clean Build (full build from scratch)" >>$LOGFILE
+echo "  3.2 - No-Op Build (nothing changed)" >>$LOGFILE
+echo "  3.3 - Incremental Build (single file changed)" >>$LOGFILE
+echo "  3.4 - Verbose Mode (V=1)" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Review the output above for PASS/FAIL status of each test." >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Next Steps:" >>$LOGFILE
+echo "  If all tests pass, proceed to Phase 4 (Output Comparison)." >>$LOGFILE
+echo "  If any test fails, investigate and fix before continuing." >>$LOGFILE
+echo "" >>$LOGFILE
+echo "============================================================" >>$LOGFILE
+echo "END OF PHASE 3 VERIFICATION" >>$LOGFILE
+echo "============================================================" >>$LOGFILE
+
+; Clean up temp files
+delete T:test31#? QUIET
+delete T:test32#? QUIET
+delete T:test33#? QUIET
+delete T:test34#? QUIET
+delete T:objcount.out QUIET
+delete T:objlist#?.out QUIET
+delete T:compiling_check.out QUIET
+delete T:ver_check.out QUIET
+delete T:compile_count.out QUIET
+delete T:gcc_check.out QUIET
+delete T:test34_objcheck.out QUIET
+
+; Show results on screen
+echo ""
+echo "Phase 3 verification complete!"
+echo "Results saved to: $LOGFILE"
+echo ""
+echo "Summary:"
+type $LOGFILE
+
+; Create completion marker for automated runs
+echo "Phase 3 complete" >ACE:scripts/verify/results/phase3-complete.marker

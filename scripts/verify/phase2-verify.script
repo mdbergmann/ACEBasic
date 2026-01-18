@@ -1,0 +1,353 @@
+.KEY LOG/K
+.BRA {
+.KET }
+
+; Phase 2 Verification Script - Makefile Basic Operation Tests
+; Run from within AmigaOS (fs-uae)
+;
+; Usage: execute ACE:scripts/verify/phase2-verify.script LOG=ACE:scripts/verify/results/phase2.log
+; Or just: execute ACE:scripts/verify/phase2-verify.script
+
+; Set default log location
+IF "{LOG}" EQ ""
+   SET LOGFILE "ACE:scripts/verify/results/phase2.log"
+ELSE
+   SET LOGFILE "{LOG}"
+ENDIF
+
+echo "" >$LOGFILE
+echo "============================================================" >>$LOGFILE
+echo "Phase 2 Findings - `date`" >>$LOGFILE
+echo "============================================================" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Basic Makefile operation tests executed in AmigaOS." >>$LOGFILE
+echo "" >>$LOGFILE
+
+; ------------------------------------------------------------------
+; Test 2.1: Help Target Works
+; ------------------------------------------------------------------
+echo "============================================================" >>$LOGFILE
+echo "Test 2.1: Help Target Works" >>$LOGFILE
+echo "------------------------------------------------------------" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Command: cd ACE:make && make -f Makefile-ace help" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Output:" >>$LOGFILE
+
+cd ACE:make
+make -f Makefile-ace help >T:test21.out
+IF WARN
+   echo "Status: FAIL" >>$LOGFILE
+   echo "Exit code indicates error" >>$LOGFILE
+ELSE
+   echo "Status: PASS" >>$LOGFILE
+ENDIF
+
+echo "" >>$LOGFILE
+type T:test21.out >>$LOGFILE
+echo "" >>$LOGFILE
+
+; ------------------------------------------------------------------
+; Test 2.2: Clean Target Works (Empty State)
+; ------------------------------------------------------------------
+echo "============================================================" >>$LOGFILE
+echo "Test 2.2: Clean Target Works (Empty State)" >>$LOGFILE
+echo "------------------------------------------------------------" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Command: make -f Makefile-ace clean" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Output:" >>$LOGFILE
+
+cd ACE:make
+make -f Makefile-ace clean >T:test22.out
+IF WARN
+   echo "Status: FAIL" >>$LOGFILE
+   echo "Exit code indicates error" >>$LOGFILE
+ELSE
+   echo "Status: PASS" >>$LOGFILE
+ENDIF
+
+echo "" >>$LOGFILE
+type T:test22.out >>$LOGFILE
+echo "" >>$LOGFILE
+
+; Verify no leftover objects (should be clean already but check)
+echo "Verifying clean state:" >>$LOGFILE
+list ACE:src/ace/obj/#?.o >T:objlist.out
+IF NOT WARN
+   echo "  Object files still present after clean:" >>$LOGFILE
+   type T:objlist.out >>$LOGFILE
+   echo "  Note: This may be expected if no build was done yet" >>$LOGFILE
+ELSE
+   echo "  Object directory is clean (no .o files)" >>$LOGFILE
+ENDIF
+echo "" >>$LOGFILE
+
+; ------------------------------------------------------------------
+; Test 2.3: Single Module Compilation (Manual gcc)
+; ------------------------------------------------------------------
+echo "============================================================" >>$LOGFILE
+echo "Test 2.3: Single Module Compilation (Manual)" >>$LOGFILE
+echo "------------------------------------------------------------" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Purpose: Verify gcc toolchain works before involving Make" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Command: gcc ver.c -m68020 -c -s -O -pedantic -Wcast-qual -noixemul -I. -o ACE:src/ace/obj/ver.o" >>$LOGFILE
+echo "" >>$LOGFILE
+
+; Clean any previous ver.o first
+delete ACE:src/ace/obj/ver.o QUIET
+
+cd ACE:src/ace/c
+gcc ver.c -m68020 -c -s -O -pedantic -Wcast-qual -noixemul -I. -o ACE:src/ace/obj/ver.o >T:test23.out
+SET GCCRESULT $RC
+
+IF $GCCRESULT GT 0
+   echo "Status: FAIL" >>$LOGFILE
+   echo "gcc returned error code: $GCCRESULT" >>$LOGFILE
+ELSE
+   ; Check if the file was created
+   IF EXISTS ACE:src/ace/obj/ver.o
+      echo "Status: PASS" >>$LOGFILE
+      echo "ver.o created successfully" >>$LOGFILE
+      list ACE:src/ace/obj/ver.o >>$LOGFILE
+   ELSE
+      echo "Status: FAIL" >>$LOGFILE
+      echo "gcc reported success but ver.o was not created" >>$LOGFILE
+   ENDIF
+ENDIF
+
+echo "" >>$LOGFILE
+IF EXISTS T:test23.out
+   echo "Compiler output:" >>$LOGFILE
+   type T:test23.out >>$LOGFILE
+ENDIF
+echo "" >>$LOGFILE
+
+; Clean up test artifact
+delete ACE:src/ace/obj/ver.o QUIET
+
+; ------------------------------------------------------------------
+; Test 2.4: Make Path Resolution (Source Directory)
+; ------------------------------------------------------------------
+echo "============================================================" >>$LOGFILE
+echo "Test 2.4: Make Path Resolution (Source Directory)" >>$LOGFILE
+echo "------------------------------------------------------------" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Purpose: Verify Make correctly resolves /src/ace/c paths" >>$LOGFILE
+echo "         GNU Make may not handle AmigaDOS paths correctly." >>$LOGFILE
+echo "" >>$LOGFILE
+
+cd ACE:make
+
+; Test: Ask Make to show the source path expansion
+; This uses make's 'info' function to print the SRC_DIR variable
+echo "Command: make -f Makefile-ace -p | search SRC_DIR" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Checking SRC_DIR path resolution:" >>$LOGFILE
+
+make -f Makefile-ace -p >T:test24_db.out
+search T:test24_db.out "SRC_DIR" >T:test24.out
+
+IF NOT WARN
+   echo "Make's SRC_DIR value:" >>$LOGFILE
+   type T:test24.out >>$LOGFILE
+   echo "" >>$LOGFILE
+
+   ; Verify the path actually exists when accessed from Make's perspective
+   echo "Verifying source directory is accessible:" >>$LOGFILE
+   IF EXISTS /src/ace/c/ver.c
+      echo "Status: PASS" >>$LOGFILE
+      echo "/src/ace/c/ver.c is accessible from root-relative path" >>$LOGFILE
+   ELSE
+      echo "Status: FAIL" >>$LOGFILE
+      echo "/src/ace/c/ver.c NOT accessible - path resolution issue" >>$LOGFILE
+   ENDIF
+ELSE
+   echo "Status: FAIL" >>$LOGFILE
+   echo "Could not extract SRC_DIR from Makefile database" >>$LOGFILE
+ENDIF
+echo "" >>$LOGFILE
+
+; ------------------------------------------------------------------
+; Test 2.5: Make Path Resolution (Object Directory)
+; ------------------------------------------------------------------
+echo "============================================================" >>$LOGFILE
+echo "Test 2.5: Make Path Resolution (Object Directory)" >>$LOGFILE
+echo "------------------------------------------------------------" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Purpose: Verify Make correctly resolves /src/ace/obj paths" >>$LOGFILE
+echo "" >>$LOGFILE
+
+cd ACE:make
+
+echo "Checking OBJ_DIR path resolution:" >>$LOGFILE
+search T:test24_db.out "OBJ_DIR" >T:test25.out
+
+IF NOT WARN
+   echo "Make's OBJ_DIR value:" >>$LOGFILE
+   type T:test25.out >>$LOGFILE
+   echo "" >>$LOGFILE
+
+   ; Verify the path actually exists when accessed from Make's perspective
+   echo "Verifying object directory is accessible:" >>$LOGFILE
+   IF EXISTS /src/ace/obj
+      echo "Status: PASS" >>$LOGFILE
+      echo "/src/ace/obj is accessible from root-relative path" >>$LOGFILE
+   ELSE
+      echo "Status: INFO" >>$LOGFILE
+      echo "/src/ace/obj does not exist yet (will be created during build)" >>$LOGFILE
+      ; Try to create it as a test
+      makedir /src/ace/obj >NIL:
+      IF EXISTS /src/ace/obj
+         echo "  Directory created successfully via root-relative path" >>$LOGFILE
+         echo "Status: PASS" >>$LOGFILE
+      ELSE
+         echo "  FAILED to create directory via root-relative path" >>$LOGFILE
+         echo "Status: FAIL" >>$LOGFILE
+      ENDIF
+   ENDIF
+ELSE
+   echo "Status: FAIL" >>$LOGFILE
+   echo "Could not extract OBJ_DIR from Makefile database" >>$LOGFILE
+ENDIF
+echo "" >>$LOGFILE
+
+; ------------------------------------------------------------------
+; Test 2.6: Make Can Invoke GCC
+; ------------------------------------------------------------------
+echo "============================================================" >>$LOGFILE
+echo "Test 2.6: Make Can Invoke GCC" >>$LOGFILE
+echo "------------------------------------------------------------" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Purpose: Verify Make can start a build and invoke gcc" >>$LOGFILE
+echo "         This is a quick sanity check before full build." >>$LOGFILE
+echo "" >>$LOGFILE
+
+cd ACE:make
+
+; Clean all objects first
+make -f Makefile-ace clean >NIL:
+
+; Start a build but interrupt after first compile
+; We'll just run make and check if ANY .o file gets created
+echo "Command: make -f Makefile-ace V=1 (partial, checking for first .o)" >>$LOGFILE
+echo "" >>$LOGFILE
+
+; Run make in background for just a few seconds
+run >NIL: make -f Makefile-ace V=1
+wait SEC=5
+
+; Check if any object file was created
+list ACE:src/ace/obj/#?.o >T:test26.out
+IF NOT WARN
+   echo "Status: PASS" >>$LOGFILE
+   echo "Make successfully invoked gcc and created object file(s):" >>$LOGFILE
+   type T:test26.out >>$LOGFILE
+ELSE
+   echo "Status: FAIL" >>$LOGFILE
+   echo "Make did not create any object files in 5 seconds" >>$LOGFILE
+   echo "Build may have path issues - check phase 3 for details" >>$LOGFILE
+ENDIF
+
+; Clean up
+make -f Makefile-ace clean >NIL:
+echo "" >>$LOGFILE
+
+; ------------------------------------------------------------------
+; Test 2.7: Cross-Volume Path Test
+; ------------------------------------------------------------------
+echo "============================================================" >>$LOGFILE
+echo "Test 2.7: Cross-Volume Path Test" >>$LOGFILE
+echo "------------------------------------------------------------" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Purpose: Verify root-relative paths work from ACE: volume" >>$LOGFILE
+echo "         The paths /src, /bin use leading slash which means" >>$LOGFILE
+echo "         'relative to root of current volume'." >>$LOGFILE
+echo "" >>$LOGFILE
+
+; First verify we're on ACE: volume
+cd ACE:make
+echo "Current location:" >>$LOGFILE
+cd >>$LOGFILE
+echo "" >>$LOGFILE
+
+; Check that / resolves to ACE:
+echo "Testing root-relative path resolution:" >>$LOGFILE
+echo "  ls / should list ACE: root contents" >>$LOGFILE
+list / QUICK >T:test27_root.out
+IF NOT WARN
+   ; Check for expected directories at root
+   search T:test27_root.out "src" >NIL:
+   IF NOT WARN
+      echo "Status: PASS" >>$LOGFILE
+      echo "Root (/) correctly resolves to ACE: volume" >>$LOGFILE
+      echo "" >>$LOGFILE
+      echo "Root directory contents:" >>$LOGFILE
+      type T:test27_root.out >>$LOGFILE
+   ELSE
+      echo "Status: FAIL" >>$LOGFILE
+      echo "Root (/) does not contain expected 'src' directory" >>$LOGFILE
+      echo "This may indicate Make runs from wrong volume" >>$LOGFILE
+      type T:test27_root.out >>$LOGFILE
+   ENDIF
+ELSE
+   echo "Status: FAIL" >>$LOGFILE
+   echo "Cannot list root directory" >>$LOGFILE
+ENDIF
+echo "" >>$LOGFILE
+
+; Clean up temp files from path tests
+delete T:test24#? QUIET
+delete T:test25#? QUIET
+delete T:test26#? QUIET
+delete T:test27#? QUIET
+delete T:path_check#? QUIET
+
+; ------------------------------------------------------------------
+; Phase 2 Summary
+; ------------------------------------------------------------------
+echo "============================================================" >>$LOGFILE
+echo "Phase 2 Summary" >>$LOGFILE
+echo "============================================================" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Tests Executed: 7" >>$LOGFILE
+echo "  2.1 - Help target" >>$LOGFILE
+echo "  2.2 - Clean target (empty state)" >>$LOGFILE
+echo "  2.3 - Single gcc compilation" >>$LOGFILE
+echo "  2.4 - Make path resolution (source directory)" >>$LOGFILE
+echo "  2.5 - Make path resolution (object directory)" >>$LOGFILE
+echo "  2.6 - Make can invoke gcc (partial build test)" >>$LOGFILE
+echo "  2.7 - Cross-volume path test (root-relative paths)" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "PATH HANDLING NOTES:" >>$LOGFILE
+echo "  The Makefile uses root-relative paths (/src, /bin) to avoid" >>$LOGFILE
+echo "  colon issues (ACE: is problematic for Make's rule syntax)." >>$LOGFILE
+echo "  Tests 2.4-2.7 verify Make resolves these paths correctly." >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Review the output above for PASS/FAIL status of each test." >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Next Steps:" >>$LOGFILE
+echo "  If all tests pass, proceed to Phase 3 (Full Build)." >>$LOGFILE
+echo "  If path tests fail, the Makefile may need path adjustments." >>$LOGFILE
+echo "" >>$LOGFILE
+echo "============================================================" >>$LOGFILE
+echo "END OF PHASE 2 VERIFICATION" >>$LOGFILE
+echo "============================================================" >>$LOGFILE
+
+; Clean up temp files
+delete T:test21.out QUIET
+delete T:test22.out QUIET
+delete T:test23.out QUIET
+delete T:objlist.out QUIET
+
+; Show results on screen
+echo ""
+echo "Phase 2 verification complete!"
+echo "Results saved to: $LOGFILE"
+echo ""
+echo "Summary:"
+type $LOGFILE
+
+; Create completion marker for automated runs
+echo "Phase 2 complete" >ACE:scripts/verify/results/phase2-complete.marker

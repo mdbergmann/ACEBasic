@@ -1,0 +1,164 @@
+============================================================
+Phase 1 Findings - 2026-01-18
+============================================================
+
+Pre-flight checks executed on macOS host before fs-uae testing.
+
+============================================================
+INITIAL RUN - Issues Found
+============================================================
+
+Test 1.1: Makefile Syntax Check (INITIAL)
+-----------------------------------------
+Status: FAIL
+Command: cd make && make -f Makefile-ace -n all 2>&1
+Output:
+  Makefile-ace:108: *** missing separator.  Stop.
+
+Root Cause:
+  The Makefile used SPACES instead of TABS for recipe indentation.
+  GNU Make requires TAB characters at the start of recipe lines.
+
+Fix Applied:
+  Rewrote Makefile-ace with proper TAB characters on all recipe lines.
+
+============================================================
+AFTER FIX - All Tests Pass
+============================================================
+
+Test 1.1: Makefile Syntax Check
+-------------------------------
+Status: PASS
+Command: cd make && make -f Makefile-ace -n all 2>&1
+Output:
+  makedir /src/ace/obj >NIL:
+  makedir /bin >NIL:
+  makedir /src/ace/obj >NIL:
+  echo "Linking ACE..."
+  gcc -m68020 -s -noixemul /src/ace/obj/alloc.o [...] -o /bin/ace
+  echo "Build complete: /bin/ace"
+
+Notes:
+  - Makefile parses correctly
+  - All 29 object files referenced in link command
+  - Paths use relative format (/src/ace/obj, /bin)
+
+
+Test 1.1a: Help Target Syntax
+-----------------------------
+Status: PASS
+Command: make -f Makefile-ace -n help 2>&1
+Output:
+  echo "ACE Compiler Makefile (Makefile-ace)"
+  echo ""
+  echo "Targets:"
+  [... full help text ...]
+
+Notes:
+  - All echo commands properly formatted
+  - Help target works correctly
+
+
+Test 1.1b: Clean Target Syntax
+------------------------------
+Status: PASS
+Command: make -f Makefile-ace -n clean 2>&1
+Output:
+  echo "Cleaning object files..."
+  delete /src/ace/obj/#?.o QUIET
+  echo "Cleaning executable..."
+  delete /bin/ace QUIET
+  echo "Clean complete"
+
+Notes:
+  - AmigaDOS delete command with QUIET flag
+  - Correct wildcard pattern (#?.o)
+
+
+Test 1.2: Source File List Verification
+---------------------------------------
+Status: PASS
+Command: ls -1 src/ace/c/*.c | wc -l
+Output: 31 files found
+
+Files:
+  alloc.c     assign.c    basfun.c    control.c   declare.c
+  event.c     expr.c      factor.c    file.c      gadget.c
+  gfx.c       iff.c       lex.c       lexvar.c*   libfunc.c
+  memory.c    menu.c      message.c   misc.c      opt.c
+  parse.c     parsevar.c  print.c     screen.c    serial.c
+  statement.c sub.c       sym.c       symvar.c*   ver.c
+  window.c
+
+  * = included via #include, not compiled separately
+
+  Count: 31 total (29 compiled + 2 included)
+  Expected: 31
+  Result: CORRECT
+
+
+Test 1.3: Object Directory Exists
+---------------------------------
+Status: PASS
+Command: ls -la src/ace/obj/
+Output: Directory exists (empty)
+
+Notes:
+  Directory is empty as expected - no previous build artifacts.
+  Ready for compilation output.
+
+
+Test 1.4: Bin Directory Exists
+------------------------------
+Status: PASS
+Command: ls -la bin/
+Output: Directory exists with 18 files
+
+Contents include:
+  - a68k (assembler)
+  - ace_original24 (reference ACE executable)
+  - acpp (C preprocessor)
+  - app (ACE preprocessor)
+  - bas, bas.phx, bas.vb (build scripts)
+  - blink (linker)
+  - fd2bmap (FD to BMAP converter)
+  - And other utilities
+
+Notes:
+  No 'ace' executable present yet - needs to be built.
+  The 'ace_original24' can serve as a reference for comparison.
+
+
+============================================================
+Phase 1 Summary
+============================================================
+
+Tests Passed: 4 (after fix)
+Tests Failed: 0
+Tests Skipped: 0
+
+Issues Found and Resolved:
+--------------------------
+1. FIXED: Makefile recipe lines used spaces instead of tabs.
+   Solution: Rewrote Makefile-ace with proper TAB indentation.
+
+Verified Working:
+-----------------
+- Makefile syntax is valid for GNU Make
+- All targets parse correctly (all, clean, help, backup)
+- All 31 source files present (29 compiled + 2 included)
+- Directory structure is correct and ready for builds
+- AmigaDOS commands in recipes are properly formatted
+
+Next Steps:
+-----------
+Phase 1 COMPLETE - Ready to proceed to Phase 2 (fs-uae testing)
+
+Phase 2 will test:
+- Test 2.1: Help target works in AmigaOS
+- Test 2.2: Clean target works (empty state)
+- Test 2.3: Single module compilation (manual gcc test)
+
+============================================================
+END OF PHASE 1 FINDINGS
+============================================================

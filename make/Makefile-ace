@@ -44,11 +44,12 @@ CFLAGS = -m68020 -c -s -O -pedantic -Wcast-qual -noixemul
 LDFLAGS = -m68020 -s -noixemul
 INCLUDES = -I.
 
-# Paths - Using relative paths from make/ directory to avoid ACE: colon issues
-# When run from ACE:make/, these paths work for both Make and AmigaDOS tools
-SRC_DIR = /src/ace/c
-OBJ_DIR = /src/ace/obj
-BIN_DIR = /bin
+# Paths - Using relative paths from make/ directory
+# Pattern rules require relative paths for Make to find source files correctly
+# The ../ prefix works when running from ACE:make/
+SRC_DIR = ../src/ace/c
+OBJ_DIR = ../src/ace/obj
+BIN_DIR = ../bin
 TARGET_NAME = ace
 TARGET = $(BIN_DIR)/$(TARGET_NAME)
 
@@ -109,19 +110,20 @@ $(TARGET): $(OBJECTS) | $(BIN_DIR)
 	$(Q)$(CC) $(LDFLAGS) $(OBJECTS) -o $@
 
 # Ensure directories exist before building
+# Using mkdir -p (Unix style, works with ADE's sh shell)
 .PHONY: dirs
 dirs:
-	-@makedir $(OBJ_DIR) >NIL:
-	-@makedir $(BIN_DIR) >NIL:
+	-@mkdir -p $(OBJ_DIR)
+	-@mkdir -p $(BIN_DIR)
 
 # Ensure directories exist (order-only prerequisites)
 $(OBJECTS): | $(OBJ_DIR)
 
 $(OBJ_DIR):
-	-@makedir $(OBJ_DIR) >NIL:
+	-@mkdir -p $(OBJ_DIR)
 
 $(BIN_DIR):
-	-@makedir $(BIN_DIR) >NIL:
+	-@mkdir -p $(BIN_DIR)
 
 # Compile source files to object files
 # Using explicit source path since VPATH doesn't work reliably on AmigaOS
@@ -134,17 +136,19 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 ################################################################################
 
 # Clean build artifacts
+# Using rm -f for Unix-style deletion (works with ADE's sh shell)
+# The wildcard *.o works in sh, unlike AmigaDOS #?.o
 clean:
 	$(ECHO) "Cleaning object files..."
-	-$(Q)delete $(OBJ_DIR)/#?.o QUIET
+	-$(Q)rm -f $(OBJ_DIR)/*.o
 	$(ECHO) "Cleaning executable..."
-	-$(Q)delete $(TARGET) QUIET
+	-$(Q)rm -f $(TARGET)
 	@echo "Clean complete"
 
 # Backup current executable
 backup:
 	$(ECHO) "Backing up ace..."
-	$(Q)copy $(TARGET) $(BIN_DIR)/ace.old CLONE QUIET
+	$(Q)cp $(TARGET) $(BIN_DIR)/ace.old
 
 # Help text
 help:
