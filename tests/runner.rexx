@@ -123,10 +123,12 @@ runTest: PROCEDURE EXPOSE basCmd aceCmd expectedDir resultsDir
         /* Error tests: compilation should fail */
         IF compileRC ~= 0 THEN DO
             SAY '[PASS]' category || '/' || testName '(expected failure)'
+            CALL cleanupFiles(asmFile, objFile, exeFile)
             RETURN 'PASS'
         END
         ELSE DO
             SAY '[FAIL]' category || '/' || testName '(should have failed)'
+            CALL cleanupFiles(asmFile, objFile, exeFile)
             RETURN 'FAIL'
         END
     END
@@ -134,12 +136,14 @@ runTest: PROCEDURE EXPOSE basCmd aceCmd expectedDir resultsDir
     /* Normal tests: compilation should succeed */
     IF compileRC ~= 0 THEN DO
         SAY '[FAIL]' category || '/' || testName '(compile error:' compileRC || ')'
+        CALL cleanupFiles(asmFile, objFile, exeFile)
         RETURN 'FAIL'
     END
 
     /* Check .s file was created */
     IF ~EXISTS(asmFile) THEN DO
         SAY '[FAIL]' category || '/' || testName '(no .s file)'
+        CALL cleanupFiles(asmFile, objFile, exeFile)
         RETURN 'FAIL'
     END
 
@@ -166,6 +170,7 @@ runTest: PROCEDURE EXPOSE basCmd aceCmd expectedDir resultsDir
         IF buildRC ~= 0 THEN DO
             CALL PRAGMA('D', curDir)
             SAY '[FAIL]' category || '/' || testName '(build error:' buildRC || ')'
+            CALL cleanupFiles(asmFile, objFile, exeFile)
             RETURN 'FAIL'
         END
 
@@ -176,6 +181,7 @@ runTest: PROCEDURE EXPOSE basCmd aceCmd expectedDir resultsDir
         IF ~EXISTS(testName) THEN DO
             CALL PRAGMA('D', curDir)
             SAY '[FAIL]' category || '/' || testName '(no executable created)'
+            CALL cleanupFiles(asmFile, objFile, exeFile)
             RETURN 'FAIL'
         END
 
@@ -191,6 +197,7 @@ runTest: PROCEDURE EXPOSE basCmd aceCmd expectedDir resultsDir
 
         IF match THEN DO
             SAY '[PASS]' category || '/' || testName '(output verified)'
+            CALL cleanupFiles(asmFile, objFile, exeFile)
             RETURN 'PASS'
         END
         ELSE DO
@@ -199,16 +206,31 @@ runTest: PROCEDURE EXPOSE basCmd aceCmd expectedDir resultsDir
             CALL showFile(expectedFile)
             SAY '  Got (' || outputFile || '):'
             CALL showFile(outputFile)
+            CALL cleanupFiles(asmFile, objFile, exeFile)
             RETURN 'FAIL'
         END
     END
     ELSE DO
         /* Compile-only test */
         SAY '[PASS]' category || '/' || testName '(compiled)'
+        CALL cleanupFiles(asmFile, objFile, exeFile)
         RETURN 'PASS'
     END
 
+    CALL cleanupFiles(asmFile, objFile, exeFile)
     RETURN 'SKIP'
+
+/*------------------------------------------------------------*/
+/* Clean up generated files (.s, .o, executable)              */
+/*------------------------------------------------------------*/
+cleanupFiles: PROCEDURE
+    PARSE ARG asmFile, objFile, exeFile
+
+    IF EXISTS(asmFile) THEN ADDRESS COMMAND 'delete >NIL:' asmFile
+    IF EXISTS(objFile) THEN ADDRESS COMMAND 'delete >NIL:' objFile
+    IF EXISTS(exeFile) THEN ADDRESS COMMAND 'delete >NIL:' exeFile
+
+    RETURN
 
 /*------------------------------------------------------------*/
 /* Compare two files, return 1 if identical, 0 if different   */
