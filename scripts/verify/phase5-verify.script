@@ -127,7 +127,8 @@ cd ACE:tests
 rx runner.rexx >T:phase5_tests.out
 SET TEST_RC $RC
 
-echo "Test runner return code: $TEST_RC" >>$LOGFILE
+echo "Test runner return code: " NOLINE >>$LOGFILE
+echo $TEST_RC >>$LOGFILE
 echo "" >>$LOGFILE
 echo "Test runner output:" >>$LOGFILE
 type T:phase5_tests.out >>$LOGFILE
@@ -136,7 +137,9 @@ echo "" >>$LOGFILE
 IF $TEST_RC EQ 0
    echo "Test 5.2: PASS - All tests passed" >>$LOGFILE
 ELSE
-   echo "Test 5.2: FAIL - Some tests failed (RC=$TEST_RC)" >>$LOGFILE
+   echo "Test 5.2: FAIL - Some tests failed (RC=" NOLINE >>$LOGFILE
+   echo $TEST_RC NOLINE >>$LOGFILE
+   echo ")" >>$LOGFILE
 ENDIF
 echo "" >>$LOGFILE
 
