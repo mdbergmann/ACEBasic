@@ -6,7 +6,7 @@ This test suite validates the ACE BASIC compiler functionality.
 Directory Structure
 -------------------
 
-tests/
+verify/tests/
   runner.rexx       - ARexx test runner script
   cases/            - Test source files
     syntax/         - Basic syntax tests
@@ -22,10 +22,10 @@ Running Tests
 
 On Amiga (or emulator):
 
-  rx tests/runner.rexx           ; Run all tests
-  rx tests/runner.rexx syntax    ; Run only syntax tests
-  rx tests/runner.rexx floats    ; Run only float tests
-  rx tests/runner.rexx errors    ; Run only error tests
+  rx verify/tests/runner.rexx           ; Run all tests
+  rx verify/tests/runner.rexx syntax    ; Run only syntax tests
+  rx verify/tests/runner.rexx floats    ; Run only float tests
+  rx verify/tests/runner.rexx errors    ; Run only error tests
 
 Test Levels
 -----------

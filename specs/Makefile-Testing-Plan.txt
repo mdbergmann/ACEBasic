@@ -31,8 +31,8 @@ Emulator Setup
 --------------
 
 Platform: fs-uae (FS-UAE.app)
-Location: scripts/verify/otherthenamiga/FS-UAE.app/Contents/MacOS/fs-uae
-Configuration: scripts/verify/otherthenamiga/ace-verify.fs-uae
+Location: verify/scripts/otherthenamiga/FS-UAE.app/Contents/MacOS/fs-uae
+Configuration: verify/scripts/otherthenamiga/ace-verify.fs-uae
 
 
 ================================================================================
@@ -40,10 +40,10 @@ CURRENT STATE
 ================================================================================
 
 - Makefile-ace exists at: ACE:make/Makefile-ace
-- fs-uae configured via: scripts/verify/otherthenamiga/ace-verify.fs-uae
+- fs-uae configured via: verify/scripts/otherthenamiga/ace-verify.fs-uae
 - ACE: assign maps to project as hard_drive_1
 - user-startup has ACE verification section (commented out)
-- Test runner exists: tests/runner.rexx
+- Test runner exists: verify/tests/runner.rexx
 
 ================================================================================
 REQUIRED SETUP (user-startup)
@@ -64,7 +64,7 @@ path ACE:bin add
 
 Test Runner Configuration
 -------------------------
-- runner.rexx must be run from ACE:tests directory (uses relative paths)
+- runner.rexx must be run from ACE:verify/tests directory (uses relative paths)
 - runner.rexx uses 'execute ACE:bin/bas' for full build pipeline
 - The bas script requires app, a68k, blink in path (via ACE:bin)
 
@@ -73,7 +73,7 @@ PHASE 1: PRE-FLIGHT CHECKS (Host-Side - macOS)
 ================================================================================
 
 Before launching fs-uae, verify setup from macOS host.
-Script: scripts/verify/phase1-verify.sh
+Script: verify/scripts/phase1-verify.sh
 
 Test 1.1: Makefile Syntax Check
 -------------------------------
@@ -100,11 +100,11 @@ Command: ls -d bin/
 Expected: Directory exists
 
 Script Output:
-  - Writes results to scripts/verify/results/phase1.log
-  - Creates scripts/verify/results/phase1-complete.marker on success
+  - Writes results to verify/scripts/results/phase1.log
+  - Creates verify/scripts/results/phase1-complete.marker on success
   - Returns non-zero exit code if any check fails
 
-Findings: See scripts/verify/results/phase1-findings.txt
+Findings: See verify/scripts/results/phase1-findings.txt
 
 ================================================================================
 PHASE 2: BASIC MAKEFILE OPERATION (In fs-uae)
@@ -169,7 +169,7 @@ Expected:
   - src directory visible at root
   - This confirms Make runs with ACE: as current volume
 
-Findings: See scripts/verify/results/phase2-findings.txt
+Findings: See verify/scripts/results/phase2-findings.txt
 
 ================================================================================
 PHASE 3: FULL BUILD VERIFICATION (In fs-uae)
@@ -211,7 +211,7 @@ Commands:
   make -f Makefile-ace V=1
 Expected: Full gcc command lines visible
 
-Findings: See scripts/verify/results/phase3-findings.txt
+Findings: See verify/scripts/results/phase3-findings.txt
 
 ================================================================================
 PHASE 4: MAKEFILE BUILD VERIFICATION (In fs-uae)
@@ -252,7 +252,7 @@ Expected:
   - Compiles without errors
   - Generates T:test.s assembly file
 
-Findings: See scripts/verify/results/phase4-findings.txt
+Findings: See verify/scripts/results/phase4-findings.txt
 
 ================================================================================
 PHASE 5: FUNCTIONAL VERIFICATION (In fs-uae)
@@ -263,19 +263,19 @@ Verify the compiled ACE compiler works correctly.
 Test 5.1: Compile a Simple Program
 ----------------------------------
 Purpose: Verify ace can compile BASIC code
-Command: ACE:bin/ace ACE:tests/cases/syntax/hello.b
+Command: ACE:bin/ace ACE:verify/tests/cases/syntax/hello.b
 Expected: Produces .s file without errors
 
 Test 5.2: Run Full Test Suite
 -----------------------------
 Purpose: Verify all tests pass with Makefile-built compiler
 Commands:
-  cd ACE:tests
+  cd ACE:verify/tests
   rx runner.rexx
 Expected: All tests pass
 Timeout: 2 minutes (with proper setup, all 35 tests complete quickly)
 
-Findings: See scripts/verify/results/phase5.log
+Findings: See verify/scripts/results/phase5.log
 
 STATUS: COMPLETED (2026-01-18)
 Results: TOTAL: Passed: 35, Failed: 0, Skipped: 0
@@ -291,20 +291,20 @@ Test 6.1: Full Verification Pipeline
 ------------------------------------
 Purpose: Run all phase scripts sequentially
 Scripts:
-  - scripts/verify/phase1-verify.sh (Host-side pre-flight checks - macOS)
-  - scripts/verify/phase2-verify.script (Basic Makefile operation - Amiga)
-  - scripts/verify/phase3-verify.script (Full build verification - Amiga)
-  - scripts/verify/phase4-verify.script (Makefile build verification - Amiga)
-  - scripts/verify/phase5-verify.script (Functional verification + test suite - Amiga)
+  - verify/scripts/phase1-verify.sh (Host-side pre-flight checks - macOS)
+  - verify/scripts/phase2-verify.script (Basic Makefile operation - Amiga)
+  - verify/scripts/phase3-verify.script (Full build verification - Amiga)
+  - verify/scripts/phase4-verify.script (Makefile build verification - Amiga)
+  - verify/scripts/phase5-verify.script (Functional verification + test suite - Amiga)
 
 Phase 1 runs on macOS before fs-uae launches.
 Phases 2-5 run inside fs-uae via user-startup.
-Each phase writes its results to scripts/verify/results/phaseN.log
-and creates a marker file scripts/verify/results/phaseN-complete.marker.
+Each phase writes its results to verify/scripts/results/phaseN.log
+and creates a marker file verify/scripts/results/phaseN-complete.marker.
 
 Test 6.2: Run Full Automated Verification
 -----------------------------------------
-Command (from host): ./scripts/verify/run-auto-verify.sh --wait
+Command (from host): ./verify/scripts/run-auto-verify.sh --wait
 What it does:
   1. Runs phase1-verify.sh (host-side pre-flight checks)
   2. Aborts if Phase 1 fails (no point launching emulator)
@@ -329,7 +329,7 @@ Expected:
 
 Test 6.3: user-startup Configuration
 ------------------------------------
-Location: scripts/verify/otherthenamiga/aos3/S/user-startup
+Location: verify/scripts/otherthenamiga/aos3/S/user-startup
 Purpose: Configure automatic phase execution on boot (phases 2-5)
 
 The user-startup should contain:
@@ -337,14 +337,14 @@ The user-startup should contain:
   - Execute commands for each phase script in sequence
   - Each phase script handles its own logging and marker creation
 
-Findings: See scripts/verify/results/phase6-findings.txt
+Findings: See verify/scripts/results/phase6-findings.txt
 
 Results: All phases should produce logs and completion markers:
-  - scripts/verify/results/phase1.log + phase1-complete.marker (host)
-  - scripts/verify/results/phase2.log + phase2-complete.marker (Amiga)
-  - scripts/verify/results/phase3.log + phase3-complete.marker (Amiga)
-  - scripts/verify/results/phase4.log + phase4-complete.marker (Amiga)
-  - scripts/verify/results/phase5.log + phase5-complete.marker (Amiga)
+  - verify/scripts/results/phase1.log + phase1-complete.marker (host)
+  - verify/scripts/results/phase2.log + phase2-complete.marker (Amiga)
+  - verify/scripts/results/phase3.log + phase3-complete.marker (Amiga)
+  - verify/scripts/results/phase4.log + phase4-complete.marker (Amiga)
+  - verify/scripts/results/phase5.log + phase5-complete.marker (Amiga)
 
 ================================================================================
 RUNNING PHASES INDIVIDUALLY
@@ -355,35 +355,35 @@ Phases can be run individually for debugging or incremental verification.
 Phase 1 (macOS Host)
 --------------------
 Run directly from terminal:
-  ./scripts/verify/phase1-verify.sh
+  ./verify/scripts/phase1-verify.sh
 
 Phases 2-5 (Amiga)
 ------------------
 Option A: Manual execution from Amiga shell
-  execute ACE:scripts/verify/phase2-verify.script
-  execute ACE:scripts/verify/phase3-verify.script
-  execute ACE:scripts/verify/phase4-verify.script
-  execute ACE:scripts/verify/phase5-verify.script
+  execute ACE:verify/scripts/phase2-verify.script
+  execute ACE:verify/scripts/phase3-verify.script
+  execute ACE:verify/scripts/phase4-verify.script
+  execute ACE:verify/scripts/phase5-verify.script
 
 Option B: Automated via user-startup
-  Edit: scripts/verify/otherthenamiga/aos3/S/user-startup
+  Edit: verify/scripts/otherthenamiga/aos3/S/user-startup
   Uncomment/comment the execute lines for desired phases.
 
   Example - run only Phase 5:
-    ; execute ACE:scripts/verify/phase2-verify.script
-    ; execute ACE:scripts/verify/phase3-verify.script
-    ; execute ACE:scripts/verify/phase4-verify.script
-    execute ACE:scripts/verify/phase5-verify.script
+    ; execute ACE:verify/scripts/phase2-verify.script
+    ; execute ACE:verify/scripts/phase3-verify.script
+    ; execute ACE:verify/scripts/phase4-verify.script
+    execute ACE:verify/scripts/phase5-verify.script
 
 Phase Scripts Reference
 -----------------------
 | Phase | Environment | Script                                  |
 |-------|-------------|-----------------------------------------|
-| 1     | macOS       | scripts/verify/phase1-verify.sh         |
-| 2     | Amiga       | scripts/verify/phase2-verify.script     |
-| 3     | Amiga       | scripts/verify/phase3-verify.script     |
-| 4     | Amiga       | scripts/verify/phase4-verify.script     |
-| 5     | Amiga       | scripts/verify/phase5-verify.script     |
+| 1     | macOS       | verify/scripts/phase1-verify.sh         |
+| 2     | Amiga       | verify/scripts/phase2-verify.script     |
+| 3     | Amiga       | verify/scripts/phase3-verify.script     |
+| 4     | Amiga       | verify/scripts/phase4-verify.script     |
+| 5     | Amiga       | verify/scripts/phase5-verify.script     |
 
 ================================================================================
 TESTING ORDER SUMMARY

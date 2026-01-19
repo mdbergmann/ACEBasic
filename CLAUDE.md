@@ -126,20 +126,20 @@ Source files use `.b` or `.bas` extensions.
 
 ```bash
 # Run all tests
-rx tests/runner.rexx
+rx verify/tests/runner.rexx
 
 # Run specific category
-rx tests/runner.rexx syntax
-rx tests/runner.rexx arithmetic
-rx tests/runner.rexx floats
-rx tests/runner.rexx control
-rx tests/runner.rexx errors
+rx verify/tests/runner.rexx syntax
+rx verify/tests/runner.rexx arithmetic
+rx verify/tests/runner.rexx floats
+rx verify/tests/runner.rexx control
+rx verify/tests/runner.rexx errors
 ```
 
 Test structure:
-- `tests/cases/<category>/` - Test source files (.b)
-- `tests/expected/` - Expected output files (.expected)
-- `tests/results/` - Runtime output (created during test runs)
+- `verify/tests/cases/<category>/` - Test source files (.b)
+- `verify/tests/expected/` - Expected output files (.expected)
+- `verify/tests/results/` - Runtime output (created during test runs)
 
 Tests in `cases/errors/` are expected to fail compilation.
 
@@ -211,13 +211,13 @@ The `examples/` directory contains 30+ categories of sample programs demonstrati
 - `opt.c` - Peephole optimizer
 - `make/Makefile-ace` - GNU Makefile for building ACE compiler
 - `bin/bas.vb` - Primary build script (modern vasm/vlink toolchain)
-- `tests/runner.rexx` - Test harness
+- `verify/tests/runner.rexx` - Test harness
 
 ## Development Notes
 
 - Build system uses GNU Make with ADE shell environment
 - Library build scripts in `make/` use AmigaDOS shell syntax (`.key` directives)
-- Test runner (`tests/runner.rexx`) is an ARexx script
+- Test runner (`verify/tests/runner.rexx`) is an ARexx script
 - All scripts assume execution on Amiga (or emulator)
 - The ACE assign (logical device) must be set to the repository root
 - Stack of 40000-65000 bytes required for compiler operations

@@ -275,7 +275,7 @@ Benefits:
 
 [X] Verify all source files exist in src/ace/c/ (29 modules confirmed)
 [X] Set up fs-uae verification environment (configured with ACE: assign)
-[X] Create verification scripts (ACE:scripts/verify/)
+[X] Create verification scripts (ACE:verify/scripts/)
 [ ] Create feature branch (feature/makefile-migration)
 [ ] Verify GNU Make 3.80 features available on target Amiga
 [ ] Verify gcc 2.95.3 command-line compatibility
@@ -306,9 +306,9 @@ Step 4: Add utility targets
   - help (usage information)
 
 Step 5: Testing (using fs-uae)
-  - Run quick tests: rx ACE:scripts/verify/quick-test.rexx
+  - Run quick tests: rx ACE:verify/scripts/quick-test.rexx
   - Fix any issues discovered
-  - Run full verification: rx ACE:scripts/verify/verify-makefile.rexx
+  - Run full verification: rx ACE:verify/scripts/verify-makefile.rexx
   - Review verification log (T:makefile-verification.log)
   - Manual tests:
     - Clean build (make clean all)
@@ -328,18 +328,18 @@ AUTOMATED TESTING (Preferred):
 
 Use fs-uae verification scripts for comprehensive testing:
 
-  Location: ACE:scripts/verify/
+  Location: ACE:verify/scripts/
   Documentation: specs/Makefile-Verification-Plan.txt
 
   Quick Test (during development):
-    cd ACE:scripts/verify
+    cd ACE:verify/scripts
     rx quick-test.rexx
 
   Full Verification (before commit):
-    cd ACE:scripts/verify
+    cd ACE:verify/scripts
     rx verify-makefile.rexx
 
-  See scripts/verify/README.txt for detailed instructions.
+  See verify/scripts/README.txt for detailed instructions.
 
 MANUAL TESTING (if needed):
 
@@ -477,7 +477,7 @@ After discussion and approval of this specification:
 
 1. Verification Environment Setup ✓
    - fs-uae configured with ACE: assign
-   - Verification scripts created (ACE:scripts/verify/)
+   - Verification scripts created (ACE:verify/scripts/)
    - See specs/Makefile-Verification-Plan.txt for details
 
 2. Create feature branch
