@@ -39,7 +39,7 @@ Configuration: verify/scripts/otherthenamiga/ace-verify.fs-uae
 CURRENT STATE
 ================================================================================
 
-- Makefile-ace exists at: ACE:make/Makefile-ace
+- Makefile-ace exists at: ACE:src/make/Makefile-ace
 - fs-uae configured via: verify/scripts/otherthenamiga/ace-verify.fs-uae
 - ACE: assign maps to project as hard_drive_1
 - user-startup has ACE verification section (commented out)
@@ -115,13 +115,13 @@ Launch fs-uae and test basic Makefile targets.
 Test 2.1: Help Target Works
 ---------------------------
 Purpose: Verify Makefile loads and help displays
-Command: cd ACE:make && make -f Makefile-ace help
+Command: cd ACE:src/make && make -f Makefile-ace help
 Expected: Help text displays without errors
 
 Test 2.2: Clean Target Works (Empty State)
 ------------------------------------------
 Purpose: Verify clean target handles missing files gracefully
-Command: cd ACE:make && make -f Makefile-ace clean
+Command: cd ACE:src/make && make -f Makefile-ace clean
 Expected: No errors (QUIET flag suppresses file-not-found)
 
 Test 2.3: Single Module Compilation (Manual)
@@ -163,7 +163,7 @@ Test 2.7: Cross-Volume Path Test
 Purpose: Verify root-relative paths work from ACE: volume
          The paths /src, /bin use leading slash meaning
          'relative to root of current volume'
-Command: list / QUICK (from ACE:make directory)
+Command: list / QUICK (from ACE:src/make directory)
 Expected:
   - Root (/) lists ACE: volume contents
   - src directory visible at root
@@ -181,7 +181,7 @@ Test 3.1: Clean Build
 ---------------------
 Purpose: Verify full build from clean state
 Commands:
-  cd ACE:make
+  cd ACE:src/make
   make -f Makefile-ace clean
   make -f Makefile-ace
 Expected:
@@ -223,7 +223,7 @@ Test 4.1: Build with Makefile
 -----------------------------
 Purpose: Build ACE with Makefile-ace and verify it succeeds
 Commands:
-  cd ACE:make
+  cd ACE:src/make
   make -f Makefile-ace clean
   make -f Makefile-ace V=1
 Expected:

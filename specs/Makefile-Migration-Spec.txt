@@ -10,7 +10,7 @@ Target: GNU Make 3.80 (AmigaOS native)
 KEY DECISIONS (Approved)
 ================================================================================
 
-1. Makefile Location: ACE:make/Makefile-ace (alongside existing scripts)
+1. Makefile Location: ACE:src/make/Makefile-ace (alongside existing scripts)
 2. Target Platform: AmigaOS native only (not cross-compilation)
 3. Make Version: GNU Make 3.80 (available on Amiga)
 4. Toolchain: gcc 2.95.3 (keep existing compiler)
@@ -31,7 +31,7 @@ KEY DECISIONS (Approved)
 1. OBJECTIVES
 ================================================================================
 
-Migrate ACE compiler build from AmigaDOS scripts (make/cmake, make/makeace)
+Migrate ACE compiler build from AmigaDOS scripts (src/make/cmake, src/make/makeace)
 to a GNU Makefile that provides:
 
   - Incremental builds (rebuild only changed sources)
@@ -53,8 +53,8 @@ Out of scope (for this phase):
 2.1 Current Scripts
 -------------------
 
-make/cmake <module>     - Compiles single C module to object file
-make/makeace           - Compiles all 32 modules and links executable
+src/make/cmake <module>     - Compiles single C module to object file
+src/make/makeace           - Compiles all 32 modules and links executable
 
 2.2 Build Process
 -----------------
@@ -98,7 +98,7 @@ Files to compile and link: 29
 ACE:src/ace/c/         - Source files (.c)
 ACE:src/ace/obj/       - Object files (.o)
 ACE:bin/               - Executable (ace)
-ACE:make/              - Build scripts (current location)
+ACE:src/make/              - Build scripts (current location)
 
 ================================================================================
 3. MAKEFILE DESIGN
@@ -107,13 +107,13 @@ ACE:make/              - Build scripts (current location)
 3.1 Location
 ------------
 
-Location: ACE:make/Makefile-ace (alongside existing build scripts)
+Location: ACE:src/make/Makefile-ace (alongside existing build scripts)
 
 Rationale:
   - Keeps all build-related files in one location
   - Specific naming allows future Makefiles for libraries (Makefile-db, etc.)
-  - Easier transition - developers already use make/ directory
-  - Can invoke as 'make -f make/Makefile-ace' from root if needed
+  - Easier transition - developers already use src/make/ directory
+  - Can invoke as 'make -f src/make/Makefile-ace' from root if needed
   - Preserves existing organization structure
 
 3.2 Structure
@@ -343,7 +343,7 @@ Use fs-uae verification scripts for comprehensive testing:
 
 MANUAL TESTING (if needed):
 
-All commands run from make/ directory or use -f flag:
+All commands run from src/make/ directory or use -f flag:
 
 [ ] make -f Makefile-ace (builds all from scratch)
 [ ] make -f Makefile-ace (second run - should skip if nothing changed)
@@ -403,7 +403,7 @@ Phase 3: Startup Library
   - Simple assembly to library rule
 
 Phase 4: Unified Build
-  - Top-level Makefile in make/ directory
+  - Top-level Makefile in src/make/ directory
   - Calls Makefile-ace, Makefile-db, Makefile-startup
   - Single 'make -f Makefile' builds compiler + libraries
 
@@ -441,8 +441,8 @@ A1: Not for phase 1 - keep ACE: assign dependency
 Q2: Should 'make install' copy executable somewhere?
 A2: Defer - ace already builds to bin/, no separate install needed
 
-Q3: Should we version-control the Makefile in make/ or root?
-A3: make/ directory (ACE:make/Makefile-ace) - keeps build files together
+Q3: Should we version-control the Makefile in src/make/ or root?
+A3: src/make/ directory (ACE:src/make/Makefile-ace) - keeps build files together
 
 Q6: Why Makefile-ace instead of just Makefile?
 A6: Specific naming allows future library Makefiles (Makefile-db for db.lib,
@@ -487,7 +487,7 @@ After discussion and approval of this specification:
    - 29 modules confirmed (matches makeace script)
    - lexvar.c and symvar.c excluded (#included by other files)
 
-4. Create initial Makefile-ace (ACE:make/Makefile-ace)
+4. Create initial Makefile-ace (ACE:src/make/Makefile-ace)
    - Add header and configuration
    - Define source list and variables
    - Implement basic build rules

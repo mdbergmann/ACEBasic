@@ -26,7 +26,7 @@ Released under the GNU General Public License (GPL v2) in 1998.
 | `examples/` | Example programs (30+ categories) |
 | `utils/` | Utility programs (fd2bmap, convert2ace, etc.) |
 | `docs/` | Documentation files |
-| `make/` | Build scripts (ARexx) |
+| `src/make/` | Build scripts (ARexx) |
 
 ## Technologies
 

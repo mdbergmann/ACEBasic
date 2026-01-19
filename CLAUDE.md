@@ -72,7 +72,7 @@ The ACE compiler is built using GNU Make with the ADE (Amiga Developer Environme
 ### Building the ACE Compiler
 
 ```bash
-# Build with Makefile-ace (run from make/ directory)
+# Build with Makefile-ace (run from src/make/ directory)
 make -f Makefile-ace           # Build ACE compiler (quiet mode)
 make -f Makefile-ace V=1       # Build with verbose output
 make -f Makefile-ace clean     # Remove all build artifacts
@@ -86,7 +86,7 @@ The Makefile provides incremental builds, standard targets, and verbose/quiet mo
 ### Building the Runtime Library (db.lib)
 
 ```bash
-# Build library (run from make/ directory)
+# Build library (run from src/make/ directory)
 lcmake <module>       # Compile a C library module
 lmake <module>        # Assemble an assembly library module
 makedb               # Build entire db.lib from sources
@@ -209,14 +209,14 @@ The `examples/` directory contains 30+ categories of sample programs demonstrati
 - `parse.c` - Main parser entry point
 - `lex.c` - Lexical analyzer
 - `opt.c` - Peephole optimizer
-- `make/Makefile-ace` - GNU Makefile for building ACE compiler
+- `src/make/Makefile-ace` - GNU Makefile for building ACE compiler
 - `bin/bas.vb` - Primary build script (modern vasm/vlink toolchain)
 - `verify/tests/runner.rexx` - Test harness
 
 ## Development Notes
 
 - Build system uses GNU Make with ADE shell environment
-- Library build scripts in `make/` use AmigaDOS shell syntax (`.key` directives)
+- Library build scripts in `src/make/` use AmigaDOS shell syntax (`.key` directives)
 - Test runner (`verify/tests/runner.rexx`) is an ARexx script
 - All scripts assume execution on Amiga (or emulator)
 - The ACE assign (logical device) must be set to the repository root

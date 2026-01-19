@@ -11,7 +11,7 @@ ALL TESTS PASS
 Test 2.1: Help Target Works
 ---------------------------
 Status: PASS
-Command: cd ACE:make && make -f Makefile-ace help
+Command: cd ACE:src/make && make -f Makefile-ace help
 Output: Help text displays correctly with all targets documented
 
 Test 2.2: Clean Target Works (Empty State)
@@ -56,7 +56,7 @@ Test 2.7: Cross-Volume Path Test
 --------------------------------
 Status: PASS
 Notes:
-  - Root (/) correctly resolves to ACE: volume when cd'd to ACE:make
+  - Root (/) correctly resolves to ACE: volume when cd'd to ACE:src/make
   - Root-relative paths work as expected on AmigaOS
   - This confirms the Makefile's path strategy is valid
 
@@ -76,11 +76,11 @@ verify that:
   1. Make correctly stores the path variables
   2. Paths are accessible from the AmigaDOS shell
   3. Pattern rules expand paths correctly
-  4. Root (/) resolves to the ACE: volume when running from ACE:make
+  4. Root (/) resolves to the ACE: volume when running from ACE:src/make
 
 This path strategy works because:
   - AmigaDOS treats / as "root of current volume"
-  - When running from ACE:make, / points to ACE:
+  - When running from ACE:src/make, / points to ACE:
   - Make's pattern rules can use these paths without colon conflicts
 
 Issues Resolved:
