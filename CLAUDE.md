@@ -1,6 +1,8 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code and other AI agents when working with this codebase.
+
+**For general project documentation, build instructions, and architecture details, see [README.md](README.md).**
 
 ## Development Workflow - CRITICAL
 
@@ -11,7 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 1. **Make ONE change at a time** - Don't bundle multiple changes together
 2. **Verify it works** - Test, build, or run verification before continuing
 3. **Only then proceed** - Move to the next change only after verification passes
-4. **Document what worked** - Update status files (e.g., laststep-problems.txt)
+4. **Document what worked** - Update status files or commit with clear messages
 
 ### Why This Matters
 
@@ -61,165 +63,161 @@ Because Amiga testing uses fs-uae emulation:
 
 **Remember: "Make it work, then make it better" - not "Make everything at once and hope."**
 
-## Project Overview
+## Critical Paths and Locations
 
-ACE (Amiga BASIC Compiler) is a complete BASIC compiler for the Amiga platform that generates native 68000 assembly code. Originally developed 1991-1996, released as GPL v2 in 1998.
+### Build System
+- **Makefile location**: `src/make/Makefile-ace` (must run from `src/make/` directory)
+- **Build scripts**: `src/make/` (lcmake, lmake, makedb)
+- **Output binaries**: `bin/ace` (compiler), `lib/db.lib` (runtime), `lib/startup.lib` (startup)
 
-## Build System
+### Source Code
+- **Compiler source**: `src/ace/c/` (all .c files)
+- **Compiler objects**: `src/ace/obj/` (build artifacts)
+- **Main header**: `src/ace/c/acedef.h` (central header for entire compiler)
+- **Library source**: `src/lib/c/` (C modules), `src/lib/asm/` (assembly modules)
 
-The ACE compiler is built using GNU Make with the ADE (Amiga Developer Environment).
+### Testing and Verification
+- **Test runner**: `verify/tests/runner.rexx` (ARexx script)
+- **Test cases**: `verify/tests/cases/<category>/` (syntax, arithmetic, floats, control, errors)
+- **Expected output**: `verify/tests/expected/` (.expected files)
+- **Test results**: `verify/tests/results/` (created during test runs)
+- **Verification scripts**: `verify/scripts/` (automated verification phases)
 
-### Building the ACE Compiler
+### Important Directories
+- **ACE assign must point to repository root** - All AmigaDOS scripts expect this
+- **Temporary files**: `ram:t/` or `T:` on Amiga
+- **Generated assembly**: `.s` files (not `.asm`)
+- **Object files**: `.o` files
+- **Executables**: No extension
+
+## Common Pitfalls and Gotchas
+
+### Path Handling
+- **Amiga uses `:` in paths** - `ACE:bin/ace` not `ACE/bin/ace`
+- **Case-sensitive on Unix, case-insensitive on Amiga** - Be consistent
+- **Relative paths in Makefile** - Must be correct from `src/make/` working directory
+- **Assigns are critical** - Scripts expect `ACE:`, `ACElib:`, `ACEbmaps:`, `ACEinclude:`
+
+### File Naming
+- **BASIC source**: Use `.b` or `.bas` extensions
+- **Assembly output**: `.s` extension (not `.asm`)
+- **Object files**: `.o` extension
+- **Executables**: No extension (Amiga convention)
+- **Test expected files**: `<testname>.expected` in `verify/tests/expected/`
+
+### Code Style
+- **K&R C style** - Parameters on separate lines in function definitions
+- **Amiga types everywhere** - `BYTE`, `SHORT`, `LONG`, `BOOL`, `BPTR` (not standard C types)
+- **No ANSI C** - Compiled with old Sozobon C v1.01 originally, now GCC but K&R style maintained
+- **Single header file** - `acedef.h` is included everywhere, contains everything
+
+### Build System
+- **Run make from src/make/** - Not from project root
+- **GNU Make 3.80+** - Requires specific make version
+- **ADE shell environment** - Amiga Developer Environment assumed
+- **Stack size matters** - Compiler needs 40000-65000 bytes stack
+
+### Testing
+- **Error tests should fail** - Tests in `cases/errors/` are expected to fail compilation
+- **Expected files optional** - Compile-only tests don't need `.expected` files
+- **Test results ignored** - `verify/tests/results/` should not be committed
+- **ARexx syntax** - Test runner uses ARexx, not standard shell scripting
+
+## How to Approach Different Tasks
+
+### Modifying the Compiler
+1. **Always read `acedef.h` first** - Understand types and structures
+2. **Find the relevant module** - See module list in README.md Architecture section
+3. **Make minimal changes** - K&R C style, no modern C features
+4. **Test immediately** - Build and run test suite after each change
+5. **Check generated assembly** - Verify `.s` output is correct
+
+### Modifying the Runtime Library
+1. **Identify if C or assembly** - `src/lib/c/` vs `src/lib/asm/`
+2. **Use appropriate build script** - `lcmake` for C, `lmake` for assembly
+3. **Rebuild entire library** - `makedb` to create `lib/db.lib`
+4. **Test with example programs** - Runtime changes affect all compiled programs
+
+### Modifying Build Scripts
+1. **AmigaDOS syntax** - Scripts use `.key` directives, not bash
+2. **Test on Amiga** - Scripts must run in AmigaDOS environment
+3. **Path handling critical** - Amiga paths use `:` separator
+4. **Verify assigns work** - Scripts depend on `ACE:`, `ACElib:`, etc.
+
+### Adding Tests
+1. **Choose correct category** - syntax, arithmetic, floats, control, errors
+2. **Use descriptive names** - `float_add.b` not `test1.b`
+3. **Add expected output if needed** - For runtime verification tests
+4. **Run test immediately** - `rx verify/tests/runner.rexx <category>`
+5. **Check results carefully** - Logs in `verify/tests/results/`
+
+### Modifying Documentation
+1. **README.md for users** - General project information, build instructions
+2. **CLAUDE.md for AI agents** - Workflow, gotchas, agent-specific guidance
+3. **Keep them separate** - Don't duplicate content between files
+4. **Update both if needed** - But focus content appropriately
+
+## Key Files to Know
+
+When working with specific areas:
+
+**Compiler Core:**
+- `src/ace/c/acedef.h` - Master header (types, enums, prototypes)
+- `src/ace/c/parse.c` - Main parser entry point
+- `src/ace/c/lex.c` - Lexical analyzer and tokenizer
+- `src/ace/c/expr.c` - Expression evaluation
+- `src/ace/c/misc.c` - Code generation routines
+
+**Build System:**
+- `src/make/Makefile-ace` - Compiler build makefile
+- `src/make/makedb` - Runtime library build script
+- `bin/bas.vb` - Modern toolchain compile/link wrapper (vasm/vlink)
+
+**Testing:**
+- `verify/tests/runner.rexx` - Test harness (ARexx)
+- `verify/scripts/run-auto-verify.sh` - Automated verification orchestrator
+- `verify/scripts/phase*.script` - Individual verification phases
+
+**Configuration:**
+- `verify/scripts/otherthenamiga/ace-verify.fs-uae` - FS-UAE emulator config
+- `verify/scripts/otherthenamiga/aos3/s/user-startup` - Amiga startup script (sets assigns)
+
+## Finding Information
+
+- **Build instructions** → README.md "Building" section
+- **Testing** → README.md "Testing" section
+- **Project structure** → README.md "Project Structure" section
+- **Architecture overview** → README.md "Documentation > Architecture Overview"
+- **Examples** → `examples/` directory (30+ categories)
+- **Language reference** → `docs/ace.guide` or `docs/ref.guide`
+- **Historical context** → `docs/HISTORY-1998-Release.txt`
+
+## Quick Reference Commands
 
 ```bash
-# Build with Makefile-ace (run from src/make/ directory)
-make -f Makefile-ace           # Build ACE compiler (quiet mode)
-make -f Makefile-ace V=1       # Build with verbose output
-make -f Makefile-ace clean     # Remove all build artifacts
-make -f Makefile-ace clean all # Clean rebuild
-make -f Makefile-ace backup    # Backup current executable to ace.old
-make -f Makefile-ace help      # Show help
-```
+# Build compiler (from src/make/)
+make -f Makefile-ace
 
-The Makefile provides incremental builds, standard targets, and verbose/quiet modes. Requires GNU Make 3.80 or later with ADE shell environment.
-
-### Building the Runtime Library (db.lib)
-
-```bash
-# Build library (run from src/make/ directory)
-lcmake <module>       # Compile a C library module
-lmake <module>        # Assemble an assembly library module
-makedb               # Build entire db.lib from sources
-```
-
-The `makedb` script compiles C sources from `src/lib/c/` and assembles sources from `src/lib/asm/`, then joins all objects into `lib/db.lib`.
-
-### Building the Startup Library
-
-```bash
-# From src/lib/startup/
-make                  # Creates startup.lib from startup.s
-```
-
-### Compiling BASIC Programs
-
-Three wrapper scripts in `bin/` orchestrate the full pipeline:
-
-```bash
-# Legacy toolchain (a68k + blink)
-bas <sourcefile>                    # Compile, assemble, link
-bas <options> <sourcefile> <libs>   # With compiler options and extra libraries
-
-# Modern toolchain (vasm + vlink)
-bas.vb <sourcefile>                 # Preferred: uses vasmm68k_mot + vlink
-bas.vb <options> <sourcefile> <libs>
-
-# Phoenix toolchain
-bas.phx <sourcefile>                # Uses PhxAss + PhxLnk
-```
-
-Pipeline: `app` (preprocess) → `ace` (compile) → `vasm` (assemble) → `vlink` (link)
-
-Source files use `.b` or `.bas` extensions.
-
-## Testing
-
-```bash
 # Run all tests
 rx verify/tests/runner.rexx
 
-# Run specific category
-rx verify/tests/runner.rexx syntax
-rx verify/tests/runner.rexx arithmetic
+# Run specific test category
 rx verify/tests/runner.rexx floats
-rx verify/tests/runner.rexx control
-rx verify/tests/runner.rexx errors
+
+# Compile BASIC program (modern toolchain)
+bas.vb myprogram.b
+
+# Rebuild runtime library (from src/make/)
+makedb
+
+# Git workflow
+git commit -m "message"
+git push
 ```
 
-Test structure:
-- `verify/tests/cases/<category>/` - Test source files (.b)
-- `verify/tests/expected/` - Expected output files (.expected)
-- `verify/tests/results/` - Runtime output (created during test runs)
+## Remember
 
-Tests in `cases/errors/` are expected to fail compilation.
-
-## Architecture
-
-### ACE Compiler (`src/ace/c/`)
-
-Multi-pass compiler that translates BASIC to 68000 assembly:
-
-1. **Lexical Analysis** (`lex.c`) - Tokenizes BASIC source, handles keywords (defined in `acedef.h` as enum)
-2. **Parsing** (`parse.c`, `parsevar.c`) - Recursive descent parser
-3. **Expression Evaluation** (`expr.c`, `factor.c`) - Expression trees and type checking
-4. **Statement Handling** (`statement.c`, `control.c`, `assign.c`) - Statement code generation
-5. **Symbol Management** (`sym.c`, `symvar.c`) - Symbol table for variables, functions, labels
-6. **Specialized Modules**:
-   - `gfx.c` - Graphics primitives (LINE, CIRCLE, AREA)
-   - `gadget.c`, `menu.c`, `window.c`, `screen.c` - Intuition GUI support
-   - `file.c` - File I/O (sequential and random access)
-   - `event.c` - Event traps and handlers
-   - `libfunc.c` - External library calls
-   - `serial.c` - Serial communication
-   - `iff.c` - IFF picture loading
-   - `basfun.c` - Built-in BASIC functions
-   - `print.c` - PRINT statement handling
-   - `sub.c` - SUB/FUNCTION procedures
-   - `declare.c` - Variable and type declarations
-6. **Code Generation** (`misc.c`) - Emits 68000 assembly
-7. **Optimization** (`opt.c`) - Peephole optimizer (push/pop elimination, redundant move removal)
-8. **Memory Management** (`alloc.c`, `memory.c`) - Dynamic allocation and code/data structures
-
-Main header: `acedef.h` - Contains enums for all BASIC reserved words, structure definitions, function prototypes.
-
-### Runtime Library (`src/lib/`)
-
-Provides runtime support for compiled programs:
-
-- **C modules** (`src/lib/c/`) - High-level library functions (file I/O, GUI, graphics, IFF, strings, text)
-- **Assembly modules** (`src/lib/asm/`) - Low-level routines (string ops, math, sound, turtle graphics, file handling, screen/window functions)
-- **Startup** (`src/lib/startup/startup.s`) - Program initialization and cleanup
-
-All compiled into `lib/db.lib` and linked with every ACE program along with `startup.lib`.
-
-### BMAP Files (`bmaps/`)
-
-Binary maps for Amiga OS 39 shared libraries. Map library function offsets for external library calls via `LIBRARY` and `DECLARE FUNCTION` statements. Used by the compiler to resolve library function calls.
-
-### Preprocessors
-
-- **APP** - Original ACE preprocessor for include directives
-- **ACPP** - C-style preprocessor for complex header files (see `include/` directory)
-
-### Examples
-
-The `examples/` directory contains 30+ categories of sample programs demonstrating all language features: games, graphics, GUI, fractals, turtle graphics, astronomy, benchmarks, file operations, networking.
-
-## Code Style
-
-- **K&R C style** - Original late-80s/early-90s C conventions
-- Function definitions use K&R style (parameters on separate lines)
-- Extensive use of Amiga-specific types: `BYTE`, `SHORT`, `LONG`, `BOOL`, `BPTR`
-- Direct Amiga API calls via exec, dos, graphics, intuition libraries
-- Manual memory management with Amiga AllocMem/FreeMem
-
-## Key Files
-
-- `acedef.h` - Central header with all type definitions, reserved word enums, function prototypes
-- `parse.c` - Main parser entry point
-- `lex.c` - Lexical analyzer
-- `opt.c` - Peephole optimizer
-- `src/make/Makefile-ace` - GNU Makefile for building ACE compiler
-- `bin/bas.vb` - Primary build script (modern vasm/vlink toolchain)
-- `verify/tests/runner.rexx` - Test harness
-
-## Development Notes
-
-- Build system uses GNU Make with ADE shell environment
-- Library build scripts in `src/make/` use AmigaDOS shell syntax (`.key` directives)
-- Test runner (`verify/tests/runner.rexx`) is an ARexx script
-- All scripts assume execution on Amiga (or emulator)
-- The ACE assign (logical device) must be set to the repository root
-- Stack of 40000-65000 bytes required for compiler operations
-- Generated assembly goes to `.s` files, objects to `.o`, executables have no extension
-- Temporary files typically go to `ram:t/` or `T:`
+1. **Small steps** - One change, verify, next change
+2. **Test immediately** - Don't batch changes before testing
+3. **Read README.md first** - For general project information
+4. **This file is for workflow** - Not general documentation
