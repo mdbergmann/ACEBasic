@@ -25,12 +25,16 @@
 #include <exec/types.h>
 #include <libraries/mathffp.h>
 
+extern long SPFix();
+extern long SPMul();
+extern long SPFlt();
+
 void	sleep_for_secs(seconds)
-float	seconds;
+long	seconds;    /* FFP format as raw 32-bit */
 {
 LONG	ticks;
 
-	ticks = SPFix(SPMul(seconds,50.0));
+	ticks = SPFix(SPMul(seconds, SPFlt(50)));
 
 	if (ticks <= 0) 
 		return;
