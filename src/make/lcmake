@@ -1,7 +1,0 @@
-.key src
-
-cd ace:src/lib/c
-cc -c <src>.c
-copy <src>.o /obj
-delete >NIL: <src>.o
-cd ace:

@@ -1,8 +1,8 @@
-Notes about scripts in the "make" directory  (Updated 2026-01-18)
-----------------------------------------------------------------
+Notes about build files in the "make" directory
+-----------------------------------------------
 
-BUILD SYSTEM FOR ACE COMPILER
------------------------------
+BUILD SYSTEM
+------------
 
 Makefile-ace    - GNU Makefile for building the ACE compiler.
                   Requires GNU Make 3.80+ and ADE shell environment.
@@ -10,26 +10,11 @@ Makefile-ace    - GNU Makefile for building the ACE compiler.
                          make -f Makefile-ace V=1    (verbose)
                          make -f Makefile-ace clean  (clean build)
 
+Makefile-lib    - GNU Makefile for building the runtime libraries.
+                  Builds db.lib and startup.lib using vbcc/vasm toolchain.
+                  Usage: make -f Makefile-lib
+                         make -f Makefile-lib V=1    (verbose)
+                         make -f Makefile-lib clean  (clean build)
+                         make -f Makefile-lib help   (show all targets)
 
-LIBRARY BUILD SCRIPTS
----------------------
-
-lcmake          - Compile a C library module
-
-lmake           - Assemble an assembly code library module or join all
-                  library modules together to form db.lib
-
-makelib         - Assembles a single assembly code module to create a
-                  linked library file (used to create startup.lib).
-                  See also src/lib/startup/make.
-
-makedb          - Creates db.lib from the C and assembly source files in
-                  src/lib/c and src/lib/asm.
-
-
-OTHER SCRIPTS
--------------
-
-asm             - Assemble a single assembly file
-
-cmakep          - Compile with profiling support
+See src/lib/README.md for details about the runtime libraries.
