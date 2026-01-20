@@ -119,7 +119,7 @@ Contents include:
   - ace_original24 (reference ACE executable)
   - acpp (C preprocessor)
   - app (ACE preprocessor)
-  - bas, bas.phx, bas.vb (build scripts)
+  - bas (build script using vasm/vlink)
   - blink (linker)
   - fd2bmap (FD to BMAP converter)
   - And other utilities

@@ -26,7 +26,7 @@ This modern version of ACE can be compiled with GCC (included in ADE, available 
 
 Key fixes in this version:
 - Single precision floating point now works correctly (fixed variable type for `singleval` from float to LONG to work with mathffp library)
-- Updated build scripts support modern toolchain (see `bin/bas.vb`)
+- Updated build scripts use modern toolchain (vasm/vlink)
 
 ### Traditional Amiga Installation
 
@@ -83,20 +83,15 @@ See `src/lib/README.md` for details about the libraries, including information a
 
 ### Compiling BASIC Programs
 
-Three wrapper scripts in `bin/` orchestrate the full pipeline:
+The `bas` wrapper script in `bin/` orchestrates the full pipeline:
 
 ```bash
-# Legacy toolchain (a68k + blink)
 bas <sourcefile>                    # Compile, assemble, link
 bas <options> <sourcefile> <libs>   # With compiler options and extra libraries
-
-# Modern toolchain (vasm + vlink) - RECOMMENDED
-bas.vb <sourcefile>                 # Uses vasmm68k_mot + vlink
-bas.vb <options> <sourcefile> <libs>
-
-# Phoenix toolchain
-bas.phx <sourcefile>                # Uses PhxAss + PhxLnk
 ```
+
+The script uses vasm (assembler) and vlink (linker). For Workbench 1.3
+compatibility, see `bin/1.3/ReadMe`.
 
 **Build Pipeline:**
 ```

@@ -152,7 +152,7 @@ runTest: PROCEDURE EXPOSE basCmd aceCmd expectedDir resultsDir
 
     IF EXISTS(expectedFile) THEN DO
         /* Full pipeline: compile, assemble, link, run */
-        /* bas.vb expects just the base name, run from source directory */
+        /* bas expects just the base name, run from source directory */
         lastSlash = LASTPOS('/', testFile)
         IF lastSlash > 0 THEN DO
             srcDir = LEFT(testFile, lastSlash)

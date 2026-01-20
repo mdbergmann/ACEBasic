@@ -171,7 +171,7 @@ When working with specific areas:
 **Build System:**
 - `src/make/Makefile-ace` - Compiler build makefile
 - `src/make/Makefile-lib` - Runtime library build (db.lib, startup.lib)
-- `bin/bas.vb` - Modern toolchain compile/link wrapper (vasm/vlink)
+- `bin/bas` - Compile/link wrapper script (vasm/vlink)
 
 **Testing:**
 - `verify/tests/runner.rexx` - Test harness (ARexx)
@@ -204,8 +204,8 @@ rx verify/tests/runner.rexx
 # Run specific test category
 rx verify/tests/runner.rexx floats
 
-# Compile BASIC program (modern toolchain)
-bas.vb myprogram.b
+# Compile BASIC program
+bas myprogram.b
 
 # Rebuild runtime libraries (from src/make/)
 make -f Makefile-lib

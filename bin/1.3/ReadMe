@@ -1,3 +1,40 @@
 
-The files in this directory are Workbench 1.3 compatible versions of ACE:bin files.
-If you are using Wb 1.3 copy these files to ACE:bin. 
+Workbench 1.3 Compatibility
+===========================
+
+The files in this directory are Workbench 1.3 compatible versions of ACE:bin
+files. If you are using Wb 1.3 copy these files to ACE:bin.
+
+The 1.3 version of 'bas' uses a68k and blink instead of vasm/vlink.
+
+
+Building 1.3-Compatible Libraries
+---------------------------------
+
+The default runtime libraries (db.lib, startup.lib) are built with vasm which
+produces hunk format symbols that are incompatible with the old blink linker
+used in Workbench 1.3.
+
+To build libraries compatible with a68k/blink for use on Workbench 1.3:
+
+1. Edit src/make/Makefile-lib
+
+2. Change the ASFLAGS to include -kick1hunks option for vasm:
+
+   ASFLAGS = -Fhunk -kick1hunks
+
+   Or alternatively, use a68k instead of vasm for assembly:
+
+   AS = a68k
+
+3. Rebuild the libraries:
+
+   cd ACE:src/make
+   make -f Makefile-lib clean
+   make -f Makefile-lib
+
+The -kick1hunks option restricts vasm output to symbol types valid in
+Kickstart 1.x, making the libraries compatible with blink.
+
+Note: The ami.lib library does not need rebuilding as it uses the original
+format that is compatible with both toolchains.

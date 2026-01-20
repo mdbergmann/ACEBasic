@@ -2,4 +2,4 @@
 a68k dp_main.s
 gcc -c dp_val.c -o dp_val.o
 join dp_main.o dp_val.o as dp.o
-bas.vb -O <arg> dp.o
+bas -O <arg> dp.o
