@@ -1,10 +1,10 @@
 # FS-UAE configuration saved by FS-UAE Launcher
-# Last saved: 2026-01-17 17:28:54
+# Last saved: 2026-01-20 13:54:41
 
 [fs-uae]
 accelerator = 0
 accuracy = 0
-amiga_model = A3000
+amiga_model = A4000/040
 bsdsocket_library = 1
 chip_memory = 2048
 cpu = 68040
@@ -18,7 +18,7 @@ hard_drive_1 = /Users/mbergmann/Development/MySources/amigasources/acec
 hard_drive_1_label = ACE
 joystick_port_1_mode = nothing
 keep_aspect = 1
-kickstart_file = /Users/mbergmann/Applications/Emu/Amiga/Kickstarts/amiga-os-310-a3000.rom
+kickstart_file = /Users/mbergmann/Applications/Emu/Amiga/Kickstarts/amiga-os-310-a4000.rom
 motherboard_ram = 65536
 video_sync = off
 window_height = 1024

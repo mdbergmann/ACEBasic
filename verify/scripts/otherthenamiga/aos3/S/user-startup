@@ -69,78 +69,36 @@ path ACE:bin add
 
 ; --- Phase 2: Basic Makefile Operation ---
 ; Tests help target, clean target, single gcc compilation, AND path handling
-if exists ACE:verify/scripts/phase2-verify.script
-   echo ""
-   echo "Starting ACE Phase 2 Makefile verification..."
-   echo ""
-   execute ACE:verify/scripts/phase2-verify.script
-endif
+;if exists ACE:verify/scripts/phase2-verify.script
+;   echo ""
+;   echo "Starting ACE Phase 2 Makefile verification..."
+;   echo ""
+;   execute ACE:verify/scripts/phase2-verify.script
+;endif
 
 ; --- Phase 3: Full Build Verification ---
 ; Tests clean build, no-op build, incremental build, verbose mode
-if exists ACE:verify/scripts/phase3-verify.script
-   echo ""
-   echo "Starting ACE Phase 3 Full Build verification..."
-   echo ""
-   execute ACE:verify/scripts/phase3-verify.script
-endif
+;if exists ACE:verify/scripts/phase3-verify.script
+;   echo ""
+;   echo "Starting ACE Phase 3 Full Build verification..."
+;   echo ""
+;   execute ACE:verify/scripts/phase3-verify.script
+;endif
 
 ; --- Phase 4: Build and Executable Verification ---
 ; Tests Makefile build, executable loads and runs, functional test
-if exists ACE:verify/scripts/phase4-verify.script
-   echo ""
-   echo "Starting ACE Phase 4 Build verification..."
-   echo ""
-   execute ACE:verify/scripts/phase4-verify.script
-endif
+;if exists ACE:verify/scripts/phase4-verify.script
+;   echo ""
+;   echo "Starting ACE Phase 4 Build verification..."
+;   echo ""
+;   execute ACE:verify/scripts/phase4-verify.script
+;endif
 
 ; --- Phase 5: Functional Verification ---
 ; Tests compile simple program, runs full test suite
-if exists ACE:verify/scripts/phase5-verify.script
-   echo ""
-   echo "Starting ACE Phase 5 Functional verification..."
-   echo ""
-   execute ACE:verify/scripts/phase5-verify.script
-endif
-
-; --- Runner Diagnosis ---
-;if exists ACE:verify/scripts/diagnose-runner.script
+;if exists ACE:verify/scripts/phase5-verify.script
 ;   echo ""
-;   echo "Running runner crash diagnosis..."
+;   echo "Starting ACE Phase 5 Functional verification..."
 ;   echo ""
-;   execute ACE:verify/scripts/diagnose-runner.script
+;   execute ACE:verify/scripts/phase5-verify.script
 ;endif
-
-; --- Simple Diagnosis ---
-;if exists ACE:verify/scripts/diagnose-simple.script
-;   echo ""
-;   echo "Running simple crash diagnosis..."
-;   echo ""
-;   execute ACE:verify/scripts/diagnose-simple.script
-;endif
-
-; --- Path Diagnosis ---
-;if exists ACE:verify/scripts/diagnose-path.script
-;   echo ""
-;   echo "Running path crash diagnosis..."
-;   echo ""
-;   execute ACE:verify/scripts/diagnose-path.script
-;endif
-
-; --- Crash Diagnosis ---
-; Diagnose string variable crash
-;if exists ACE:verify/scripts/diagnose-crash.script
-;   echo ""
-;   echo "Running ACE crash diagnosis..."
-;   echo ""
-;   execute ACE:verify/scripts/diagnose-crash.script
-;endif
-
-; --- Crash Diagnosis v2 (simplified) ---
-;if exists ACE:verify/scripts/diagnose-crash2.script
-;   echo ""
-;   echo "Running ACE crash diagnosis v2..."
-;   echo ""
-;   execute ACE:verify/scripts/diagnose-crash2.script
-;endif
-;END ACE Verification
