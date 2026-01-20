@@ -1,0 +1,308 @@
+================================================================================
+  IEEE 754 Float Migration - Potential Future Change
+================================================================================
+
+Status: RECOMMENDED
+Date: 2026-01-20
+Priority: Medium (significant benefits for modern Amiga systems)
+
+================================================================================
+OVERVIEW
+================================================================================
+
+This document assesses the feasibility of migrating the ACE compiler from
+Motorola Fast Floating Point (FFP) to IEEE 754 single-precision floats.
+
+Currently, ACE uses FFP format which requires conversion when interfacing
+with vbcc-compiled code (which uses IEEE). The recent FFP fix treats FFP
+values as opaque 32-bit longs to work around this mismatch.
+
+A full migration to IEEE would eliminate this mismatch entirely.
+
+================================================================================
+WHY SWITCH TO IEEE? - BENEFITS COMPARISON
+================================================================================
+
+Technical Comparison
+--------------------
+Aspect                  FFP                     IEEE 754 Single
+------                  ---                     ---------------
+Numeric Range           +/-9.2 x 10^18          +/-3.4 x 10^38
+Precision               ~7 decimal digits       ~7 decimal digits
+Format                  24-bit mantissa         23-bit + implicit bit
+                        7-bit exponent          8-bit exponent
+
+Performance by CPU
+------------------
+CPU/FPU Config          FFP                     IEEE                    Winner
+--------------          ---                     ----                    ------
+68000 (no FPU)          Software optimized      Software emulation      FFP
+68020/030 (no FPU)      Software                Software                FFP (slight)
+68020/030 + 68881/882   Software                Hardware accelerated    IEEE (10x+)
+68040 (built-in FPU)    Software                Hardware native         IEEE (50-100x)
+68060 (built-in FPU)    Software                Hardware native         IEEE (50-100x)
+UAE/Emulators           JIT possible            JIT + host FPU          IEEE
+
+Compatibility
+-------------
+Aspect                  FFP                     IEEE
+------                  ---                     ----
+AmigaOS Requirement     Kickstart 1.0+          Kickstart 2.0+
+vbcc/GCC Native         No (needs conversion)   Yes
+Industry Standard       Amiga-specific          Universal
+File Format Exchange    Non-standard            Standard
+Special Values          None                    NaN, +/-Inf, denormals
+
+Summary of Benefits
+-------------------
+IEEE Advantages:
+  + Dramatically faster on systems with FPU (68040/060, most emulators)
+  + Native compatibility with vbcc - no "opaque long" workaround needed
+  + Larger numeric range (10^38 vs 10^18)
+  + Industry standard format for data exchange
+  + Well-defined edge case behavior (NaN, Infinity)
+  + Future-proof for modern Amiga systems
+
+FFP Advantages:
+  + Works on Kickstart 1.3 and earlier
+  + Slightly faster on pure 68000 without FPU
+  + Historical compatibility with original ACE programs
+
+Practical Recommendation
+------------------------
+For modern Amiga development (AmigaOS 2.0+, emulators, 68040/060):
+  -> IEEE is the clear winner
+
+For Kickstart 1.3 compatibility or historical preservation:
+  -> Keep FFP
+
+Since most ACE users today run on:
+  - AmigaOS 3.x (Kickstart 2.0+)
+  - 68040/68060 accelerators
+  - FS-UAE or other emulators with FPU emulation
+
+IEEE migration would provide significant benefits with no practical downside.
+
+================================================================================
+CURRENT STATE
+================================================================================
+
+FFP Usage Summary:
+- Compiler source (src/ace/c/): 144 references in 18 files
+- Runtime library C (src/lib/c/): 50 references in 6 files
+- Runtime library ASM (src/lib/asm/): 101 references in 9 files
+- Total: ~295 FFP-related references
+
+Libraries Currently Used:
+- mathffp.library (basic FFP operations)
+- mathtrans.library (transcendental FFP functions)
+
+================================================================================
+EXISTING IEEE INFRASTRUCTURE
+================================================================================
+
+Good news: IEEE support already partially exists in the codebase.
+
+1. pow.c has hybrid IEEE/FFP code:
+
+   if (MathIeeeSingTransBase)
+       return SPFieee(IEEESPPow(SPTieee(y), SPTieee(x)));
+   else
+       return SPPow(y, x);  // FFP fallback
+
+2. Conversion functions exist:
+   - SPTieee() - FFP to IEEE conversion
+   - SPFieee() - IEEE to FFP conversion
+
+3. startup.s already declares IEEE library bases:
+
+   xdef _MathIeeeSingTransBase
+   xdef _MathIeeeDoubTransBase
+
+4. Complete double-precision IEEE implementation exists in src/dp/
+
+================================================================================
+REQUIRED CHANGES
+================================================================================
+
+Library Changes
+---------------
+Old                          New
+mathffp.library         ->   mathieeesingbas.library
+mathtrans.library       ->   mathieeesingtrans.library
+_MathBase               ->   _MathIeeeSingBasBase
+_MathTransBase          ->   _MathIeeeSingTransBase
+
+Function Name Changes
+---------------------
+All SP* functions become IEEESP* functions:
+
+_LVOSPFlt    ->   _LVOIEEESPFlt
+_LVOSPFix    ->   _LVOIEEESPFix
+_LVOSPAdd    ->   _LVOIEEESPAdd
+_LVOSPSub    ->   _LVOIEEESPSub
+_LVOSPMul    ->   _LVOIEEESPMul
+_LVOSPDiv    ->   _LVOIEEESPDiv
+_LVOSPNeg    ->   _LVOIEEESPNeg
+_LVOSPCmp    ->   _LVOIEEESPCmp
+_LVOSPTst    ->   _LVOIEEESPTst
+_LVOSPAbs    ->   _LVOIEEESPAbs
+_LVOSPCeil   ->   _LVOIEEESPCeil
+_LVOSPFloor  ->   _LVOIEEESPFloor
+_LVOSPSin    ->   _LVOIEEESPSin
+_LVOSPCos    ->   _LVOIEEESPCos
+_LVOSPTan    ->   _LVOIEEESPTan
+_LVOSPExp    ->   _LVOIEEESPExp
+_LVOSPLog    ->   _LVOIEEESPLog
+_LVOSPSqrt   ->   _LVOIEEESPSqrt
+_LVOSPPow    ->   _LVOIEEESPPow
+
+================================================================================
+FILES TO MODIFY
+================================================================================
+
+High Priority (Core Functionality)
+----------------------------------
+File                    Refs    Description
+src/ace/c/expr.c        36      Core expression evaluation, operator codegen
+src/ace/c/lex.c         20      Library init, float literal parsing
+src/ace/c/acedef.h      14      Header definitions, includes, prototypes
+src/ace/c/basfun.c      13      Transcendental functions (SIN, COS, etc.)
+src/ace/c/control.c     12      FOR loop float iteration
+src/ace/c/statement.c   13      Timer, sound, graphics float ops
+src/ace/c/parse.c       10      Library open/close code generation
+
+Medium Priority (Runtime Library)
+---------------------------------
+src/lib/c/val.c         24      VAL() string-to-float conversion
+src/lib/c/ffpstr.c      7       Float-to-string conversion (PRINT)
+src/lib/c/pow.c         6       Already has IEEE hybrid (update to pure IEEE)
+src/lib/c/sleep.c       2       Timer calculations
+
+Assembly Runtime
+----------------
+src/lib/asm/gfx.s       26      Graphics math (ellipse, rotation)
+src/lib/asm/turtle.s    15      Turtle graphics angle/distance
+src/lib/asm/ffp.s       15      Core float I/O, rounding, abs, mod
+src/lib/asm/time.s      14      Time calculations
+src/lib/asm/misc.s      8       Miscellaneous math
+src/lib/asm/scrwin.s    7       Screen/window RGB scaling
+src/lib/asm/file.s      7       File I/O with floats
+src/lib/asm/sound.s     5       Duration/frequency calculations
+src/lib/asm/string.s    4       String manipulation with floats
+
+Startup
+-------
+src/lib/startup/startup.s       Library opening sequence
+
+================================================================================
+IMPLEMENTATION PHASES
+================================================================================
+
+Phase 1: Infrastructure
+-----------------------
+- Create feature branch
+- Update startup.s to open IEEE libraries instead of FFP
+- Update acedef.h includes and declarations
+- Verify IEEE libraries are available on target system
+
+Phase 2: Compiler Code Generation
+---------------------------------
+- Update expr.c: Replace SP* calls with IEEESP*
+- Update basfun.c: Transcendental function calls
+- Update control.c: FOR loop float handling
+- Update statement.c: Timer/sound/graphics ops
+- Update parse.c: Library base references in generated code
+
+Phase 3: Runtime Library (C)
+----------------------------
+- Update val.c: VAL() function
+- Update ffpstr.c: Float-to-string (may need format adjustment)
+- Update pow.c: Remove hybrid, use pure IEEE
+- Update sleep.c: Timer calculations
+
+Phase 4: Runtime Library (Assembly)
+-----------------------------------
+- Update all .s files with new function names
+- Update library base references
+- Test each module individually
+
+Phase 5: Float Literal Handling
+-------------------------------
+- Update lex.c float parsing
+- Compiler currently uses FFP internally for parsing
+- May need to switch to IEEE format at compile time
+- This is the most complex change
+
+Phase 6: Testing
+----------------
+- Run full verification test suite
+- Test edge cases (very small/large numbers, negative zero, etc.)
+- Test all math functions
+- Test string conversion (VAL, STR$, PRINT)
+- Performance comparison (IEEE may be faster on 68040/060 with FPU)
+
+================================================================================
+COMPLEXITY ASSESSMENT
+================================================================================
+
+Mostly Mechanical:
+- Function name replacements (SP* -> IEEESP*)
+- Library base name replacements
+- Library open/close calls
+
+Requires Care:
+- Float literal parsing in lex.c (compiler internal representation)
+- String<->float conversion format differences
+- Thorough testing of all math operations
+
+Potential Benefits:
+- Native vbcc compatibility (no more opaque long workaround)
+- Better FPU support on 68040/060 (IEEE is native)
+- Standard format for external tool interoperability
+
+Potential Risks:
+- Subtle precision differences between FFP and IEEE
+- Compatibility with existing compiled programs (would need recompile)
+- Older Amiga systems (pre-2.0) may not have IEEE libraries
+
+================================================================================
+RECOMMENDATION
+================================================================================
+
+The current FFP fix (treating FFP as opaque 32-bit long) is working and
+provides a functional solution. However, IEEE migration is RECOMMENDED for
+the following reasons:
+
+Strong Case for IEEE Migration:
+1. Performance: 10-100x faster on 68040/060 and emulators with FPU
+2. Compatibility: Native vbcc support, no conversion workarounds needed
+3. Range: 20 orders of magnitude larger numeric range
+4. Standards: Industry-standard format for interoperability
+5. Infrastructure: IEEE support already partially exists in codebase
+
+When to Keep FFP:
+- Only if Kickstart 1.3 compatibility is required
+- Historical preservation of original ACE behavior
+
+Decision:
+  If targeting AmigaOS 2.0+ (typical modern use): Migrate to IEEE
+  If targeting Kickstart 1.x (rare): Keep FFP
+
+Estimated effort: 2-3 days of focused work plus testing
+
+The migration is mostly mechanical (function/library name changes) with
+the main complexity in float literal parsing (lex.c).
+
+================================================================================
+REFERENCES
+================================================================================
+
+- Amiga Developer Docs: IEEE Single-Precision Math Libraries
+- src/dp/dp_main.s: Existing IEEE DP implementation as reference
+- src/lib/c/pow.c: Hybrid FFP/IEEE example
+- specs/ffp-vbcc-fix.txt: Current FFP compatibility fix
+
+================================================================================
+END OF SPECIFICATION
+================================================================================
