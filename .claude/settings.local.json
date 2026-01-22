@@ -56,7 +56,13 @@
       "Bash(git reset:*)",
       "Bash(/Users/mbergmann/Development/MySources/amigasources/acec/scripts/verify/otherthenamiga/FS-UAE.app/Contents/MacOS/fs-uae:*)",
       "Bash(sort echo echo '=== ASM source files in src/lib/asm ===' ls -la src/lib/asm/*.s)",
-      "WebFetch(domain:sun.hasenbraten.de)"
+      "WebFetch(domain:sun.hasenbraten.de)",
+      "Bash(./verify/scripts/run-auto-verify.sh:*)",
+      "Bash(git rebase:*)",
+      "Bash(git stash:*)",
+      "Bash(~/Applications/Emu/Amiga/FS-UAE/FS-UAE.app/Contents/MacOS/fs-uae:*)",
+      "Bash(perl:*)",
+      "Bash(python3:*)"
     ]
   }
 }

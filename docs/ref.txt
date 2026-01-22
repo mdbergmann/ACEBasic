@@ -315,7 +315,23 @@ CHDIR		- syntax: CHDIR <dirname>
 CHR$		- syntax: CHR$(n)
 		- Returns a string consisting of a single character with the
 		  ASCII value n.
-  
+
+--------------------------------------------------------------------------------
+CHIPSET		- syntax: CHIPSET
+		- Returns a value indicating the Amiga's graphics chipset:
+
+		  0 = OCS (Original Chip Set, A500/A1000/A2000)
+		  1 = ECS (Enhanced Chip Set, A600/A3000)
+		  2 = AGA (Advanced Graphics Architecture, A1200/A4000/CD32)
+
+		- Use this function to detect AGA before using screen
+		  modes 7-12. Example:
+
+		  IF CHIPSET < 2 THEN PRINT "AGA required": END
+		  SCREEN 1,320,200,8,7
+
+		- See also SCREEN.
+
 --------------------------------------------------------------------------------
 CINT		- syntax: CINT(n)
 		- Converts n to a signed short integer by rounding the 
@@ -2073,8 +2089,25 @@ SCREEN		- The SCREEN statement syntax is the same as in AmigaBASIC:
 		  4 = hires,interlaced.
  		  5 = HAM (hold-and-modify)	[ACE only]
 		  6 = extra-halfbrite		[ACE only]
+		  7 = AGA lores,256 colors	[ACE only, AGA required]
+		  8 = AGA hires,256 colors	[ACE only, AGA required]
+		  9 = AGA super-hires		[ACE only, AGA required]
+		  10 = HAM8 lores		[ACE only, AGA required]
+		  11 = HAM8 hires		[ACE only, AGA required]
+		  12 = HAM8 super-hires		[ACE only, AGA required]
 
-		- See also ERR.
+		- Modes 7-12 require an AGA chipset (A1200, A4000, CD32).
+		  Use the CHIPSET function to detect AGA before using
+		  these modes. On non-AGA systems, these modes will fail
+		  to open (check ERR for error status).
+
+		- Maximum parameters by mode:
+		  Modes 1-6: width up to 640, depth up to 6 bitplanes
+		  Modes 7-8: width up to 640, depth up to 8 bitplanes
+		  Mode 9:    width up to 1280, depth up to 8 bitplanes
+		  Modes 10-12: HAM8 (262,144 colors from 256 palette)
+
+		- See also CHIPSET and ERR.
 
 
 		- The SCREEN function (ACE only) syntax is SCREEN(n), where:
@@ -2097,9 +2130,6 @@ SCREEN		- The SCREEN statement syntax is the same as in AmigaBASIC:
 
 		  SCREEN(6) - Returns the height of the screen's font.
 
-		- A future revision of ACE's SCREEN command will support
-		  AGA screen modes.
- 
 --------------------------------------------------------------------------------
 SCREEN BACK	- syntax: SCREEN BACK screen-id
 		- Sends the specified screen to the back of the display.

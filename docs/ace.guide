@@ -2737,7 +2737,7 @@ More graphics (eg: GET,PUT) commands and functions are planned and I also
 intend to fix any remaining differences between ACE and AmigaBASIC in this 
 area. 
 
-AGA screen modes will happen sometime.
+AGA screen modes (7-12) are now supported for 256-color and HAM8 modes.
 
 I may provide support for sprites at some stage. 
 

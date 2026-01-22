@@ -124,6 +124,17 @@ Each phase is self-contained and testable before proceeding to the next.
 
 ---
 
+#### Phase 1.3: Cleanup
+
+**Goal:** Remove test configurations and update progress.
+
+**Cleanup Checklist:**
+- [ ] Remove/comment out test calls from `user-startup`
+- [ ] Update `aga-progress.txt` with results
+- [ ] Commit changes if appropriate
+
+---
+
 ### Phase 2: Add Chipset Detection Function
 
 #### Phase 2.1: Implementation - Runtime Function
@@ -180,6 +191,17 @@ IF c = 2 THEN PRINT "AGA detected"
 - [ ] On A500 (OCS): returns 0
 - [ ] On A600 (ECS): returns 1
 - [ ] On A1200 (AGA): returns 2
+
+---
+
+#### Phase 2.4: Cleanup
+
+**Goal:** Remove test configurations and update progress.
+
+**Cleanup Checklist:**
+- [ ] Remove/comment out test calls from `user-startup`
+- [ ] Update `aga-progress.txt` with results
+- [ ] Commit changes if appropriate
 
 ---
 
@@ -245,6 +267,17 @@ SCREEN CLOSE 1
 
 ---
 
+#### Phase 3.4: Cleanup
+
+**Goal:** Remove test configurations and update progress.
+
+**Cleanup Checklist:**
+- [ ] Remove/comment out test calls from `user-startup`
+- [ ] Update `aga-progress.txt` with results
+- [ ] Commit changes if appropriate
+
+---
+
 ### Phase 4: Add Mode 8 (Hires AGA 256-color)
 
 #### Phase 4.1: Implementation
@@ -286,6 +319,17 @@ SCREEN CLOSE 1
 
 ---
 
+#### Phase 4.3: Cleanup
+
+**Goal:** Remove test configurations and update progress.
+
+**Cleanup Checklist:**
+- [ ] Remove/comment out test calls from `user-startup`
+- [ ] Update `aga-progress.txt` with results
+- [ ] Commit changes if appropriate
+
+---
+
 ### Phase 5: Add Mode 9 (Super-Hires AGA)
 
 #### Phase 5.1: Implementation
@@ -324,6 +368,17 @@ SCREEN CLOSE 1
 - [ ] Screen opens at 1280x256
 - [ ] Modes 7-8 still work
 - [ ] Modes 1-6 still work
+
+---
+
+#### Phase 5.3: Cleanup
+
+**Goal:** Remove test configurations and update progress.
+
+**Cleanup Checklist:**
+- [ ] Remove/comment out test calls from `user-startup`
+- [ ] Update `aga-progress.txt` with results
+- [ ] Commit changes if appropriate
 
 ---
 
@@ -375,6 +430,17 @@ SCREEN CLOSE 1
 
 ---
 
+#### Phase 6.3: Cleanup
+
+**Goal:** Remove test configurations and update progress.
+
+**Cleanup Checklist:**
+- [ ] Remove/comment out test calls from `user-startup`
+- [ ] Update `aga-progress.txt` with results
+- [ ] Commit changes if appropriate
+
+---
+
 ### Phase 7: Add HAM8 Modes (10-12) - Optional
 
 #### Phase 7.1: Implementation
@@ -416,6 +482,17 @@ SCREEN CLOSE 1
 - [ ] HAM8 screen opens with 8 bitplanes
 - [ ] Modes 7-9 still work
 - [ ] Modes 1-6 still work
+
+---
+
+#### Phase 7.3: Cleanup
+
+**Goal:** Remove test configurations and update progress.
+
+**Cleanup Checklist:**
+- [ ] Remove/comment out test calls from `user-startup`
+- [ ] Update `aga-progress.txt` with results
+- [ ] Commit changes if appropriate
 
 ---
 
@@ -461,6 +538,18 @@ SCREEN CLOSE 1
 - Verify graceful failure on OCS/ECS (A500 config)
 
 ---
+
+#### Phase 8.3: Cleanup
+
+**Goal:** Final cleanup and prepare for merge.
+
+**Cleanup Checklist:**
+- [ ] Remove/comment out test calls from `user-startup`
+- [ ] Update `aga-progress.txt` with final results
+- [ ] Ensure all test files are in proper locations
+- [ ] Review and finalize documentation
+- [ ] Merge feature branch to master
+
 
 ## Technical Details
 
@@ -543,6 +632,167 @@ _use_rgb32:
     move.l  _blue,d3        ; 32-bit blue
     jsr     _LVOSetRGB32(a6)
 ```
+
+## Verification Test Cases
+
+New test cases to add to `verify/tests/cases/screens/` for automated testing.
+
+### screen_chipset.b
+
+Tests the CHIPSET detection function.
+
+```basic
+REM Test: CHIPSET detection function
+REM Returns 0=OCS, 1=ECS, 2=AGA
+c = CHIPSET
+PRINT "Chipset detection test"
+IF c = 0 THEN PRINT "OCS detected (Original Chip Set)"
+IF c = 1 THEN PRINT "ECS detected (Enhanced Chip Set)"
+IF c = 2 THEN PRINT "AGA detected (Advanced Graphics Architecture)"
+PRINT "CHIPSET returned:"; c
+```
+
+### screen_aga_lores.b
+
+Tests Mode 7: AGA Lores 256-color screen.
+
+```basic
+REM Test: Open and close an AGA lores screen (320x200, 256 colors)
+REM AGA mode 7 requires AGA chipset
+IF CHIPSET < 2 THEN PRINT "AGA required - skipping test" : END
+SCREEN 1,320,200,8,7
+PRINT "AGA Lores screen opened"
+PRINT "320x200, 8 bitplanes (256 colors), mode 7"
+SLEEP FOR 5
+SCREEN CLOSE 1
+```
+
+### screen_aga_hires.b
+
+Tests Mode 8: AGA Hires 256-color screen.
+
+```basic
+REM Test: Open and close an AGA hires screen (640x256, 256 colors)
+REM AGA mode 8 requires AGA chipset
+IF CHIPSET < 2 THEN PRINT "AGA required - skipping test" : END
+SCREEN 1,640,256,8,8
+PRINT "AGA Hires screen opened"
+PRINT "640x256, 8 bitplanes (256 colors), mode 8"
+SLEEP FOR 5
+SCREEN CLOSE 1
+```
+
+### screen_aga_superhires.b
+
+Tests Mode 9: AGA Super-Hires 256-color screen.
+
+```basic
+REM Test: Open and close an AGA super-hires screen (1280x256, 16 colors)
+REM AGA mode 9 requires AGA chipset
+REM Note: 8 bitplanes at 1280 width requires significant chip RAM
+IF CHIPSET < 2 THEN PRINT "AGA required - skipping test" : END
+SCREEN 1,1280,256,4,9
+PRINT "AGA Super-Hires screen opened"
+PRINT "1280x256, 4 bitplanes (16 colors), mode 9"
+SLEEP FOR 5
+SCREEN CLOSE 1
+```
+
+### screen_aga_ham8_lores.b
+
+Tests Mode 10: HAM8 Lores screen.
+
+```basic
+REM Test: Open and close a HAM8 lores screen (320x200)
+REM HAM8 mode 10 requires AGA chipset for 262,144 colors
+IF CHIPSET < 2 THEN PRINT "AGA required - skipping test" : END
+SCREEN 1,320,200,8,10
+PRINT "HAM8 Lores screen opened"
+PRINT "320x200, 8 bitplanes, mode 10 (HAM8)"
+PRINT "262,144 colors from 256-color palette"
+SLEEP FOR 5
+SCREEN CLOSE 1
+```
+
+### screen_aga_ham8_hires.b
+
+Tests Mode 11: HAM8 Hires screen.
+
+```basic
+REM Test: Open and close a HAM8 hires screen (640x256)
+REM HAM8 mode 11 requires AGA chipset for 262,144 colors
+IF CHIPSET < 2 THEN PRINT "AGA required - skipping test" : END
+SCREEN 1,640,256,8,11
+PRINT "HAM8 Hires screen opened"
+PRINT "640x256, 8 bitplanes, mode 11 (HAM8)"
+PRINT "262,144 colors from 256-color palette"
+SLEEP FOR 5
+SCREEN CLOSE 1
+```
+
+### screen_aga_ham8_superhires.b
+
+Tests Mode 12: HAM8 Super-Hires screen.
+
+```basic
+REM Test: Open and close a HAM8 super-hires screen (1280x256)
+REM HAM8 mode 12 requires AGA chipset for 262,144 colors
+IF CHIPSET < 2 THEN PRINT "AGA required - skipping test" : END
+SCREEN 1,1280,256,8,12
+PRINT "HAM8 Super-Hires screen opened"
+PRINT "1280x256, 8 bitplanes, mode 12 (HAM8)"
+PRINT "262,144 colors from 256-color palette"
+SLEEP FOR 5
+SCREEN CLOSE 1
+```
+
+### screen_aga_palette.b
+
+Tests 256-color palette on AGA screen.
+
+```basic
+REM Test: 256-color palette on AGA screen
+REM Verifies PALETTE command works with colors 0-255
+IF CHIPSET < 2 THEN PRINT "AGA required - skipping test" : END
+SCREEN 1,320,200,8,7
+WINDOW 1,,(0,0)-(319,199),32,1
+PRINT "256-color palette test"
+REM Set up a gradient palette
+FOR i = 0 TO 255
+  PALETTE i, i/255, 0, (255-i)/255
+NEXT i
+REM Draw vertical lines using all 256 colors
+FOR i = 0 TO 255
+  COLOR i
+  LINE (i+32,50)-(i+32,150)
+NEXT i
+PRINT "Gradient drawn using 256 colors"
+SLEEP FOR 5
+WINDOW CLOSE 1
+SCREEN CLOSE 1
+```
+
+### Test Case Summary
+
+| Test File | Mode | Resolution | Depth | Description |
+|-----------|------|------------|-------|-------------|
+| screen_chipset.b | N/A | N/A | N/A | CHIPSET detection |
+| screen_aga_lores.b | 7 | 320x200 | 8 | AGA Lores 256 colors |
+| screen_aga_hires.b | 8 | 640x256 | 8 | AGA Hires 256 colors |
+| screen_aga_superhires.b | 9 | 1280x256 | 4 | AGA Super-Hires |
+| screen_aga_ham8_lores.b | 10 | 320x200 | 8 | HAM8 Lores |
+| screen_aga_ham8_hires.b | 11 | 640x256 | 8 | HAM8 Hires |
+| screen_aga_ham8_superhires.b | 12 | 1280x256 | 8 | HAM8 Super-Hires |
+| screen_aga_palette.b | 7 | 320x200 | 8 | 256-color palette |
+
+### Testing Notes
+
+1. **AGA tests require AGA chipset** - Tests check `CHIPSET >= 2` and skip gracefully on OCS/ECS
+2. **Visual verification** - These are visual tests; no `.expected` files needed
+3. **Run on A1200 config** - Use FS-UAE with A1200 (AGA) configuration
+4. **Backward compatibility** - Existing ECS screen tests must continue to pass
+
+---
 
 ## Risk Mitigation
 
