@@ -69,6 +69,10 @@ Code		equ 4		; member of IntuiInfo structure
 
 SCREEN_OPEN_ERR equ 600
 
+; LVOs for AGA support (not in ami.lib)
+_LVOOpenScreenTagList equ -612
+_LVOSetRGB32 equ -852
+
 
 	; window & screen routines
 	xdef	_openscreen
@@ -76,6 +80,7 @@ SCREEN_OPEN_ERR equ 600
 	xdef	_change_screen_depth
 	xdef	_changetextcolor
 	xdef	_palette
+	xdef	_chipset
 	xdef	_shortprints
 	xdef	_longprints
 	xdef	_singleprints
@@ -139,6 +144,11 @@ SCREEN_OPEN_ERR equ 600
 	xref	_wdth
 	xref	_hgt
 	xref	_horiz_pos
+
+	; AGA screen support
+	xref	_aga_modeid
+	xref	_aga_taglist
+	xref	_screen_depth_list
 	
 	xref	_putchar
 	xref	_sprintf
@@ -161,6 +171,7 @@ SCREEN_OPEN_ERR equ 600
 	xref	_LVOClearScreen
 	xref	_LVOScrollRaster
 	xref	_LVOOpenScreen
+	; _LVOOpenScreenTagList defined locally (not in ami.lib)
 	xref	_LVOCloseScreen
 	xref	_LVOOpenWindow
 	xref	_LVOCloseWindow
@@ -389,7 +400,7 @@ _openscreen:
 
 	cmpi.w	#1,d1		; width < 1?
 	blt	_quitopenscreen
-	cmpi.w	#640,d1		; width > 640?
+	cmpi.w	#1280,d1	; width > 1280? (AGA super-hires support)
 	bgt	_quitopenscreen
 
 	cmpi.w	#1,d2		; height < 1?
@@ -399,12 +410,12 @@ _openscreen:
 
 	cmpi.w	#1,d3		; depth < 1?
 	blt	_quitopenscreen
-	cmpi.w	#6,d3		; depth > 6?
+	cmpi.w	#8,d3		; depth > 8? (AGA 256-color support)
 	bgt	_quitopenscreen
 
 	cmpi.w	#1,d4		; mode < 1?
 	blt	_quitopenscreen
-	cmpi.w	#6,d4		; mode > 6?
+	cmpi.w	#12,d4		; mode > 12? (AGA modes 7-12)
 	bgt	_quitopenscreen
 
 	; calculate place in screen lists
@@ -443,41 +454,88 @@ _openscreen:
 	move.w	d1,4(a0)	; width
 	move.w	d2,6(a0)	; height
 	move.w	d3,8(a0)	; depth
-	
+
+	; store depth in depth list for palette function
+	move.w	_screen_id,d0
+	subq.w	#1,d0		; screen_id is 1-based, list is 0-based
+	mulu	#2,d0		; word offset
+	lea	_screen_depth_list,a1
+	move.w	d3,(a1,d0.w)	; store depth
+
 	; screen mode
 	cmpi.w	#1,d4
 	bne.s	_hires1
 	move.w	#0,12(a0)		; lo-res
 	move.l	#$f0000140,_tg_xy_ratio	; ratio = 0.9375
-	bra.s	_openthescreen
+	bra	_openthescreen
 _hires1:
 	cmpi.w	#2,d4
 	bne.s	_lores2
 	move.w	#$8000,12(a0)		; hi-res
 	move.l	#$f0000141,_tg_xy_ratio	; ratio = 1.875
-	bra.s	_openthescreen
+	bra	_openthescreen
 _lores2:
 	cmpi.w	#3,d4
 	bne.s	_hires2
 	move.w	#4,12(a0)		; lo-res, interlaced
 	move.l	#$f000013f,_tg_xy_ratio	; ratio = 0.46875
-	bra.s	_openthescreen	
+	bra	_openthescreen	
 _hires2:
 	cmpi.w	#4,d4
 	bne.s	_ham
 	move.w	#$8004,12(a0)		; hi-res, interlaced
 	move.l	#$f0000140,_tg_xy_ratio	; ratio = 0.9375
-	bra.s	_openthescreen
+	bra	_openthescreen
 _ham:
 	cmpi.w	#5,d4
 	bne.s	_halfbrite
 	move.w	#$800,12(a0)		; hold-and-modify
 	move.l	#$f0000140,_tg_xy_ratio	; ratio = 0.9375
-	bra.s	_openthescreen
+	bra	_openthescreen
 _halfbrite:
+	cmpi.w	#6,d4
+	bne.s	_lores_aga
 	move.w	#$80,12(a0)		; extra-halfbrite
 	move.l	#$f0000140,_tg_xy_ratio	; ratio = 0.9375
-	
+	bra	_openthescreen
+
+	; AGA modes (7-12) - use OpenScreenTagList for proper AGA support
+_lores_aga:
+	cmpi.w	#7,d4
+	bne.s	_hires_aga
+	move.l	#$00000000,_aga_modeid	; LORES_KEY
+	move.l	#$f0000140,_tg_xy_ratio	; ratio = 0.9375
+	bra	_openthescreen_aga
+_hires_aga:
+	cmpi.w	#8,d4
+	bne.s	_superhires_aga
+	move.l	#$00008000,_aga_modeid	; HIRES_KEY
+	move.l	#$f0000141,_tg_xy_ratio	; ratio = 1.875
+	bra	_openthescreen_aga
+_superhires_aga:
+	cmpi.w	#9,d4
+	bne.s	_ham8_lores
+	move.l	#$00008020,_aga_modeid	; SUPER_KEY
+	move.l	#$f0000142,_tg_xy_ratio	; ratio = 3.75
+	bra	_openthescreen_aga
+_ham8_lores:
+	cmpi.w	#10,d4
+	bne.s	_ham8_hires
+	move.l	#$00000800,_aga_modeid	; LORES + HAM
+	move.l	#$f0000140,_tg_xy_ratio	; ratio = 0.9375
+	bra	_openthescreen_aga
+_ham8_hires:
+	cmpi.w	#11,d4
+	bne.s	_ham8_superhires
+	move.l	#$00008800,_aga_modeid	; HIRES + HAM
+	move.l	#$f0000141,_tg_xy_ratio	; ratio = 1.875
+	bra	_openthescreen_aga
+_ham8_superhires:
+	; mode 12 - assume anything else is mode 12
+	move.l	#$00008820,_aga_modeid	; SUPER + HAM
+	move.l	#$f0000142,_tg_xy_ratio	; ratio = 3.75
+	bra	_openthescreen_aga
+
 _openthescreen:
 	; open the screen
 	movea.l	_IntuitionBase,a6
@@ -530,9 +588,105 @@ _openthescreen:
 	moveq	#1,d0
 	jsr	_LVOSetAPen(a6)
 	
-	rts		
+	rts
 
-_quitopenscreen:	
+;
+; Open an AGA screen using OpenScreenTagList for proper 256-color support.
+; Uses SA_DisplayID tag to specify the AGA mode ID.
+; _aga_modeid must be set before calling this routine.
+; _newwindow must have width/height set (done by caller at lines 439-441).
+;
+_openthescreen_aga:
+	; Build taglist for OpenScreenTagList
+	; Read width, height, depth from _newscreen structure
+	lea	_newscreen,a0
+	lea	_aga_taglist,a1
+
+	; SA_Width tag ($80000023)
+	move.l	#$80000023,(a1)+	; SA_Width
+	moveq	#0,d0
+	move.w	4(a0),d0		; width from _newscreen
+	move.l	d0,(a1)+
+
+	; SA_Height tag ($80000024)
+	move.l	#$80000024,(a1)+	; SA_Height
+	moveq	#0,d0
+	move.w	6(a0),d0		; height from _newscreen
+	move.l	d0,(a1)+
+
+	; SA_Depth tag ($80000025)
+	move.l	#$80000025,(a1)+	; SA_Depth
+	moveq	#0,d0
+	move.w	8(a0),d0		; depth from _newscreen
+	move.l	d0,(a1)+
+
+	; SA_DisplayID tag ($80000032)
+	move.l	#$80000032,(a1)+	; SA_DisplayID
+	move.l	_aga_modeid,(a1)+
+
+	; SA_Type tag ($8000002D)
+	move.l	#$8000002D,(a1)+	; SA_Type
+	move.l	#$000F,(a1)+		; CUSTOMSCREEN
+
+	; TAG_DONE
+	clr.l	(a1)+
+	clr.l	(a1)
+
+	; Open screen with OpenScreenTagList(NULL, taglist)
+	movea.l	_IntuitionBase,a6
+	sub.l	a0,a0			; NewScreen = NULL
+	lea	_aga_taglist,a1		; TagList
+	jsr	_LVOOpenScreenTagList(a6)
+	move.l	d0,_Scrn
+	cmpi.l	#0,d0
+	beq	_quitopenscreen		; quit if can't open screen!
+
+	; Open borderless window (same as _openthescreen)
+	movea.l	_IntuitionBase,a6
+	lea	_newwindow,a0
+	move.l	_Scrn,30(a0)		; link to screen just opened
+	jsr	_LVOOpenWindow(a6)
+	move.l	d0,_Wdw
+	cmpi.l	#0,d0
+	beq	_quitopenscreen		; quit if can't open window!
+
+	; Update lists and set screen mode
+	move.b	#1,_IntuiMode
+
+	; Store screen
+	movea.l	_screen_addr,a0
+	move.l	_Scrn,(a0)
+
+	; Store window
+	movea.l	_scr_wdw_addr,a0
+	move.l	_Wdw,(a0)
+
+	movea.l	_rport_addr,a0
+	movea.l	_Wdw,a1
+	move.l	50(a1),(a0)
+	move.l	50(a1),_RPort
+
+	; Store viewport
+	movea.l	_viewport_addr,a0
+	move.l	_Scrn,d0
+	add.l	#44,d0
+	move.l	d0,(a0)
+	move.l	d0,_ViewPort
+
+	; Set first PRINT position in screen's default window
+	moveq	#3,d0
+	moveq	#1,d1
+	jsr	_locate
+
+	; Set foreground pen in window
+	movea.l	_GfxBase,a6
+	movea.l	_RPort,a1
+	moveq	#1,d0
+	jsr	_LVOSetAPen(a6)
+
+	rts
+
+_quitopenscreen:
 	move.l	#SCREEN_OPEN_ERR,_error_code	; !! ERROR !!
 	rts
 
@@ -708,7 +862,8 @@ _quit_change_screen_depth:
 	rts
 
 ;
-; define palette for current viewport. d0=color-id,d1=red,d2=green,d3=blue. 
+; define palette for current viewport. d0=color-id,d1=red,d2=green,d3=blue.
+; Supports AGA 256-color modes (depth > 6) using SetRGB32.
 ;
 _palette:
 	; store color-id
@@ -717,20 +872,29 @@ _palette:
 	; check for legal color-id
 	cmpi.w	#0,d0
 	blt	_quitpalette	; color-id < 0?
-	
-	cmpi.w	#63,d0
-	bgt	_quitpalette	; color-id > 63?
+
+	cmpi.w	#255,d0
+	bgt	_quitpalette	; color-id > 255?
 
 	; store RGB values.
 	move.l	d1,_red
 	move.l	d2,_green
 	move.l	d3,_blue
 
+	; check current screen depth to decide SetRGB4 vs SetRGB32
+	move.w	_screen_id,d0
+	subq.w	#1,d0		; 0-based index
+	mulu	#2,d0		; word offset
+	lea	_screen_depth_list,a0
+	move.w	(a0,d0.w),d0	; get depth
+	cmpi.w	#6,d0
+	bgt	_use_rgb32	; depth > 6 -> use SetRGB32
+
+	; --- SetRGB4 path (depth <= 6, colors 0-63) ---
 	; Convert single-precision RGB values (0-1) to integers (0-15).
-	; Each FFP value must be multiplied by 15.
 
 	movea.l	_MathBase,a6
-		
+
 	move.l	_red,d0
 	move.l	#$f0000044,d1	; 15
 	jsr	_LVOSPMul(a6)
@@ -747,12 +911,12 @@ _palette:
 	move.l	#$f0000044,d1	; 15
 	jsr	_LVOSPMul(a6)
 	jsr	_LVOSPFix(a6)
-	move.l	d0,_blue	
+	move.l	d0,_blue
 
 	; change colormap values with SetRGB4
 	movea.l	_GfxBase,a6
 	movea.l	_ViewPort,a0
-	move.w	_color_id,d0		
+	move.w	_color_id,d0
 	move.l	_red,d1
 	and.b	#$ff,d1
 	move.l	_green,d2
@@ -760,6 +924,64 @@ _palette:
 	move.l	_blue,d3
 	and.b	#$ff,d3
 	jsr	_LVOSetRGB4(a6)
+	bra	_quitpalette
+
+_use_rgb32:
+	; --- SetRGB32 path (depth > 6, colors 0-255) ---
+	; Convert single-precision RGB values (0-1) to 32-bit values.
+	; SetRGB32 expects color in upper 8 bits, replicated.
+
+	movea.l	_MathBase,a6
+
+	move.l	_red,d0
+	move.l	#$ff000048,d1	; 255 in FFP
+	jsr	_LVOSPMul(a6)
+	jsr	_LVOSPFix(a6)
+	; shift left 24 bits and replicate for SetRGB32
+	move.l	d0,d1
+	lsl.l	#8,d0
+	or.l	d1,d0
+	lsl.l	#8,d0
+	or.l	d1,d0
+	lsl.l	#8,d0
+	or.l	d1,d0
+	move.l	d0,_red
+
+	move.l	_green,d0
+	move.l	#$ff000048,d1	; 255 in FFP
+	jsr	_LVOSPMul(a6)
+	jsr	_LVOSPFix(a6)
+	move.l	d0,d1
+	lsl.l	#8,d0
+	or.l	d1,d0
+	lsl.l	#8,d0
+	or.l	d1,d0
+	lsl.l	#8,d0
+	or.l	d1,d0
+	move.l	d0,_green
+
+	move.l	_blue,d0
+	move.l	#$ff000048,d1	; 255 in FFP
+	jsr	_LVOSPMul(a6)
+	jsr	_LVOSPFix(a6)
+	move.l	d0,d1
+	lsl.l	#8,d0
+	or.l	d1,d0
+	lsl.l	#8,d0
+	or.l	d1,d0
+	lsl.l	#8,d0
+	or.l	d1,d0
+	move.l	d0,_blue
+
+	; change colormap values with SetRGB32
+	movea.l	_GfxBase,a6
+	movea.l	_ViewPort,a0
+	move.w	_color_id,d0
+	ext.l	d0		; extend to long for SetRGB32
+	move.l	_red,d1
+	move.l	_green,d2
+	move.l	_blue,d3
+	jsr	_LVOSetRGB32(a6)
 		
 _quitpalette:
 	rts
@@ -915,5 +1137,38 @@ _get_vanilla_key:
 				
 _exit_ctrl_c_test:
 	rts
-	
+
+;
+; _chipset - detect Amiga chipset type.
+;          - returns: 0=OCS, 1=ECS, 2=AGA in d0.
+;          - queries GfxBase->ChipRevBits0 (offset 236 / $ec)
+;
+_chipset:
+	movea.l	_GfxBase,a0
+	move.b	$ec(a0),d0	; GfxBase->ChipRevBits0
+
+	; Check for AGA (GFXB_AA_ALICE = bit 2, GFXB_AA_LISA = bit 3)
+	btst	#2,d0		; AA_ALICE?
+	bne.s	_is_aga
+	btst	#3,d0		; AA_LISA?
+	bne.s	_is_aga
+
+	; Check for ECS (GFXB_HR_AGNUS = bit 0, GFXB_HR_DENISE = bit 1)
+	btst	#0,d0		; HR_AGNUS?
+	bne.s	_is_ecs
+	btst	#1,d0		; HR_DENISE?
+	bne.s	_is_ecs
+
+	; OCS
+	moveq	#0,d0
+	rts
+
+_is_ecs:
+	moveq	#1,d0
+	rts
+
+_is_aga:
+	moveq	#2,d0
+	rts
+
 	END

@@ -83,6 +83,7 @@ BOOL factorfunc()
   switch(sym)
   {
     	case argcountsym	: return(TRUE);
+	case chipsetsym		: return(TRUE);
     	case csrlinsym		: return(TRUE);
 	case datestrsym		: return(TRUE);
 	case daysym		: return(TRUE);
@@ -408,6 +409,15 @@ BOOL need_symbol;
 		     insymbol();
 		     return(ftype);
 		     break;
+
+  case chipsetsym : gen("jsr","_chipset","  ");
+		    gen("move.w","d0","-(sp)");
+		    enter_XREF("_chipset");
+		    enter_XREF("_GfxBase");
+		    ftype=shorttype;
+		    insymbol();
+		    return(ftype);
+		    break;
 
   case csrlinsym  : gen("jsr","_csrlin","  ");
 		    gen("move.w","d0","-(sp)");

@@ -1,1 +1,294 @@
-Phase 1.1
+================================================================================
+AGA Screen Support Implementation Progress
+================================================================================
+
+================================================================================
+Phase 1: Expand Validation Limits - COMPLETED
+================================================================================
+
+Phase 1.1: Implementation - COMPLETED (2026-01-22)
+--------------------------------------------------
+
+Changes made to src/lib/asm/scrwin.s:
+
+1. Line 392: Changed max width from 640 to 1280
+   - cmpi.w #1280,d1  ; width > 1280? (AGA super-hires support)
+
+2. Line 402: Changed max depth from 6 to 8
+   - cmpi.w #8,d3     ; depth > 8? (AGA 256-color support)
+
+3. Line 407: Changed max mode from 6 to 12
+   - cmpi.w #12,d4    ; mode > 12? (AGA modes 7-12)
+
+Phase 1.2: Testing - COMPLETED (2026-01-22)
+-------------------------------------------
+
+Library rebuilt with Makefile-lib (vbcc/vasm toolchain):
+- db.lib: 105,220 bytes
+- startup.lib: 5,108 bytes
+- All 53 object files rebuilt including scrwin.o
+
+Backward compatibility verified - all 8 ECS screen tests passed:
+- screen_lores.b        (mode 1) - Lores 320px
+- screen_hires.b        (mode 2) - Hires 640px
+- screen_lores_lace.b   (mode 3) - Lores Interlaced
+- screen_hires_lace.b   (mode 4) - Hires Interlaced
+- screen_ham.b          (mode 5) - HAM6
+- screen_ehb.b          (mode 6) - Extra-Halfbrite
+- screen_32colors.b     - 32 colors (5 bitplanes)
+- screen_back_forward.b - Screen switching
+
+================================================================================
+Phase 2: Add Chipset Detection Function - COMPLETED
+================================================================================
+
+Phase 2.1: Implementation - Runtime Function - COMPLETED (2026-01-22)
+----------------------------------------------------------------------
+
+Changes made to src/lib/asm/scrwin.s:
+
+1. Added xdef for _chipset (line 79)
+2. Added _chipset function implementation (lines 920-951):
+   - Queries GfxBase->ChipRevBits0 (offset $ec / 236)
+   - Checks bit 2 (AA_ALICE) and bit 3 (AA_LISA) for AGA detection
+   - Checks bit 0 (HR_AGNUS) and bit 1 (HR_DENISE) for ECS detection
+   - Returns: 0=OCS, 1=ECS, 2=AGA in d0
+
+Phase 2.2: Implementation - Compiler Support - COMPLETED (2026-01-22)
+----------------------------------------------------------------------
+
+Changes made to compiler source files:
+
+1. src/ace/c/acedef.h (line 301):
+   - Added chipsetsym to ACE-specific reserved words enum
+   - Position: after casesym, before constsym (alphabetical order)
+
+2. src/ace/c/lexvar.c (line 99):
+   - Added "CHIPSET" to keyword table in ACE-specific section
+   - Position: after "CASE", before "CONST" (alphabetical order)
+
+3. src/ace/c/factor.c:
+   - Added chipsetsym to factorfunc() switch (line 86)
+   - Added CHIPSET case in factor() parameterless functions section (lines 413-420)
+   - Returns shorttype (0, 1, or 2)
+   - References _chipset and _GfxBase externals
+
+Phase 2.3: Testing - COMPLETED (2026-01-22)
+-------------------------------------------
+
+Library and compiler rebuilt on A4000 (AGA) emulator:
+- Library rebuilt with: make -f Makefile-lib
+- Compiler rebuilt with: make -f Makefile-ace
+
+Test program screen_chipset.b verified on A4000/040 (AGA):
+- CHIPSET returned 2 (AGA detected)
+- Output: "AGA detected (Advanced Graphics Architecture)"
+
+Test file location: verify/tests/cases/screens/screen_chipset.b
+
+Phase 2.4: Cleanup - COMPLETED (2026-01-22)
+-------------------------------------------
+
+- Removed test calls from user-startup script
+- Updated progress file
+
+================================================================================
+Phase 3: Add AGA Screen Modes (7-12) - IN PROGRESS
+================================================================================
+
+Phase 3.1: Implementation - Data Structures - COMPLETED (2026-01-22)
+--------------------------------------------------------------------
+
+Changes made to src/lib/asm/scrwin_data.s:
+
+1. Added xdef for _aga_modeid and _aga_taglist (lines 76-77)
+2. Added BSS storage for AGA support (lines 199-201):
+   - _aga_modeid: ds.l 1   ; AGA display mode ID
+   - _aga_taglist: ds.l 16 ; TagList for OpenScreenTagList (8 tags max)
+
+Phase 3.2: Implementation - Mode Handlers - COMPLETED (2026-01-22)
+------------------------------------------------------------------
+
+Changes made to src/lib/asm/scrwin.s:
+
+1. Added xref for _aga_modeid and _aga_taglist (lines 143-146)
+2. Added xref for _LVOOpenScreenTagList (line 165)
+
+3. Modified _halfbrite handler to check for mode 6 specifically (lines 483-488)
+   - Added bne.s _lores_aga to chain to AGA mode handlers
+
+4. Added AGA mode handlers (lines 490-525):
+   - _lores_aga (mode 7): ModeID $00000000, ratio 0.9375
+   - _hires_aga (mode 8): ModeID $00008000, ratio 1.875
+   - _superhires_aga (mode 9): ModeID $00008020, ratio 3.75
+   - _ham8_lores (mode 10): ModeID $00000800, ratio 0.9375
+   - _ham8_hires (mode 11): ModeID $00008800, ratio 1.875
+   - _ham8_superhires (mode 12): ModeID $00008820, ratio 3.75
+
+5. Added _openthescreen_aga routine (lines 581-675):
+   - Builds taglist for OpenScreenTagList with:
+     - SA_Width ($80000023)
+     - SA_Height ($80000024)
+     - SA_Depth ($80000025)
+     - SA_DisplayID ($80000032)
+     - SA_Type ($8000002D) = CUSTOMSCREEN ($000F)
+     - TAG_DONE
+   - Calls OpenScreenTagList(NULL, taglist)
+   - Opens borderless window linked to AGA screen
+   - Updates screen lists and sets IntuiMode
+
+Test file created: verify/tests/cases/screens/screen_aga_lores.b
+
+Phase 3.3: Testing - COMPLETED (2026-01-22)
+-------------------------------------------
+
+Issues found and fixed during testing:
+
+1. Branch out of range errors:
+   - Changed `bra.s _openthescreen` to `bra _openthescreen` (6 occurrences)
+   - AGA handler code increased distance beyond short branch limit (±128 bytes)
+
+2. Missing LVO symbol:
+   - `_LVOOpenScreenTagList` not in ami.lib (original library predates this function)
+   - Added local definition: `_LVOOpenScreenTagList equ -612`
+
+Test results on A4000/040 (AGA):
+- [x] Library rebuilt successfully (db.lib: 106,252 bytes)
+- [x] All 8 ECS screen tests (modes 1-6) still work - backward compatibility verified
+- [x] screen_chipset.b: Returns 2 (AGA detected)
+- [x] screen_aga_lores.b: Mode 7 screen opens successfully (320x200, 8 bitplanes)
+
+Phase 3.4: Cleanup - COMPLETED (2026-01-22)
+-------------------------------------------
+
+- [x] Test verified working
+- [x] Progress file updated
+- [x] Ready to proceed to Phase 4 (Mode 8: Hires AGA)
+
+================================================================================
+Phase 4: Add Mode 8 (Hires AGA 256-color) - COMPLETED
+================================================================================
+
+Phase 4.1: Implementation - COMPLETED (2026-01-22)
+--------------------------------------------------
+
+Mode 8 handler was already implemented in Phase 3.2 along with all AGA modes.
+- _hires_aga (mode 8): ModeID $00008000, ratio 1.875
+
+Phase 4.2: Testing - COMPLETED (2026-01-22)
+-------------------------------------------
+
+Test file created: verify/tests/cases/screens/screen_aga_hires.b
+
+Test results on A4000/040 (AGA):
+- [x] screen_aga_hires.b compiles successfully
+- [x] Mode 8 screen opens correctly (640x256, 8 bitplanes, 256 colors)
+- [x] Screen displays and closes properly after 3 seconds
+
+Phase 4.3: Cleanup - COMPLETED (2026-01-22)
+-------------------------------------------
+
+- [x] Test verified working
+- [x] Progress file updated
+- [x] Ready to proceed to Phase 5 (Mode 9: Super-Hires AGA)
+
+================================================================================
+Phase 5: Add Mode 9 (Super-Hires AGA) - COMPLETED
+================================================================================
+
+Phase 5.1: Implementation - COMPLETED (2026-01-22)
+--------------------------------------------------
+
+Mode 9 handler was already implemented in Phase 3.2 along with all AGA modes.
+- _superhires_aga (mode 9): ModeID $00008020, ratio 3.75
+
+Phase 5.2: Testing - COMPLETED (2026-01-22)
+-------------------------------------------
+
+Test file created: verify/tests/cases/screens/screen_aga_superhires.b
+
+Test results on A4000/040 (AGA):
+- [x] screen_aga_superhires.b compiles successfully
+- [x] Mode 9 screen opens correctly (1280x256, 4 bitplanes, 16 colors)
+- [x] Screen displays and closes properly after 3 seconds
+- Note: Font appears small/compressed at 1280 width - this is expected behavior
+
+Phase 5.3: Cleanup - COMPLETED (2026-01-22)
+-------------------------------------------
+
+- [x] Test verified working
+- [x] Progress file updated
+- [x] Ready to proceed to Phase 6 (Palette for 256 colors)
+
+================================================================================
+Phase 6: Update Palette for 256 Colors - COMPLETED
+================================================================================
+
+Phase 6.1: Implementation - COMPLETED (2026-01-22)
+--------------------------------------------------
+
+Changes made to src/lib/asm/scrwin_data.s:
+1. Added _screen_depth_list (ds.w 10) to track depth for each screen
+2. Added xdef for _screen_depth_list
+
+Changes made to src/lib/asm/scrwin.s:
+1. Added _LVOSetRGB32 equ -852 (LVO for SetRGB32)
+2. Added xref for _screen_depth_list
+3. Modified _openscreen to store depth in _screen_depth_list when opening screens
+4. Rewrote _palette function to:
+   - Expand color-id limit from 63 to 255
+   - Check current screen depth
+   - If depth > 6: use SetRGB32 with 32-bit RGB values
+   - If depth <= 6: use SetRGB4 with 4-bit RGB values (existing behavior)
+
+Phase 6.2: Testing - COMPLETED (2026-01-22)
+-------------------------------------------
+
+Test file created: verify/tests/cases/screens/screen_aga_palette.b
+
+Test results on A4000/040 (AGA):
+- [x] Library rebuilt successfully with new palette code
+- [x] screen_aga_palette.b compiles successfully
+- [x] 256-color gradient displayed correctly (red to blue)
+- [x] SetRGB32 working properly for AGA 8-bitplane screens
+
+Phase 6.3: Cleanup - COMPLETED (2026-01-22)
+-------------------------------------------
+
+- [x] Test verified working
+- [x] Progress file updated
+- [x] Ready to proceed to Phase 7 (HAM8 modes 10-12)
+
+================================================================================
+Phase 7: Add HAM8 Modes (10-12) - COMPLETED
+================================================================================
+
+Phase 7.1: Implementation - COMPLETED (2026-01-22)
+--------------------------------------------------
+
+HAM8 mode handlers were already implemented in Phase 3.2:
+- _ham8_lores (mode 10): ModeID $00000800, ratio 0.9375
+- _ham8_hires (mode 11): ModeID $00008800, ratio 1.875
+- _ham8_superhires (mode 12): ModeID $00008820, ratio 3.75
+
+Phase 7.2: Testing - COMPLETED (2026-01-22)
+-------------------------------------------
+
+Test files created:
+- verify/tests/cases/screens/screen_aga_ham8_lores.b
+- verify/tests/cases/screens/screen_aga_ham8_hires.b
+- verify/tests/cases/screens/screen_aga_ham8_superhires.b
+
+Test results on A4000/040 (AGA):
+- [x] screen_aga_ham8_lores.b: Mode 10 screen opens (320x200, 8 bitplanes)
+- [x] screen_aga_ham8_hires.b: Mode 11 screen opens (640x256, 8 bitplanes)
+- [x] screen_aga_ham8_superhires.b: Mode 12 screen opens (1280x256, 8 bitplanes)
+
+Phase 7.3: Cleanup - COMPLETED (2026-01-22)
+-------------------------------------------
+
+- [x] All HAM8 tests verified working
+- [x] Progress file updated
+- [x] Ready to proceed to Phase 8 (Documentation and Final Testing)
+
+================================================================================

@@ -72,6 +72,11 @@ MAXSTRINGSIZE equ 1024
 	xdef	_hgt
 	xdef	_horiz_pos
 
+	; AGA screen support
+	xdef	_aga_modeid
+	xdef	_aga_taglist
+	xdef	_screen_depth_list
+
 	SECTION scrwin_data,DATA
 
 ; * general *
@@ -191,5 +196,10 @@ _hgt:			ds.w 1
 
 ;* tab *
 _horiz_pos:		ds.w 1
+
+; * AGA screen support *
+_aga_modeid:		ds.l 1		; AGA display mode ID
+_aga_taglist:		ds.l 16		; TagList for OpenScreenTagList (8 tags max)
+_screen_depth_list:	ds.w 10		; Depth for each screen (10 screens max)
 
 	END
