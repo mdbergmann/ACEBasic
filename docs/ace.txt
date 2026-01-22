@@ -1,6 +1,6 @@
  
 			    +----------+
-			    | ACE v2.4 |
+			    | ACE v2.5 |
 			    +----------+
  
  
@@ -140,10 +140,10 @@ The following files constitute a complete ACE package:
 	bas		- A shell script which automates
 		  	  the production of ACE executables
 			  (1.3 and 2.x/3.x versions).
-	app		- A simple preprocessor.
+	acpp	- A simple preprocessor.
 	ace		- The BASIC compiler.
-	a68k		- Charlie Gibbs' 68000 assembler.
-	blink		- The Software Distillery's linker.
+	vasmm68k_mot	- Charlie Gibbs' 68000 assembler.
+	vlink		- The Software Distillery's linker.
 	muchmore	- The file viewer by Fridtjof Siebert & 
 			  Christian Stiens (1.3 and 2.x/3.x versions).
  
@@ -153,8 +153,6 @@ The following files constitute a complete ACE package:
 	ref.txt/guide 	- A command and function reference for ACE.
 	example.guide	- Examples of ACE command and function usage.
 	history		- A history of ACE's development.
-	a68k.txt	- Documentation for the assembler.
-	blink.txt	- Documentation for the linker.
  
 	scanned libraries (NOT shared libraries)
 	-----------------
@@ -181,14 +179,13 @@ Amiga shared libraries in your LIBS: directory. The three ".lib" files
 mentioned above are scanned libraries and code from these is included at 
 link time.
  
-ACE is written in C (Sozobon's ZC v1.01), while db.lib and startup.lib are 
-written in assembler (~50%) and C. I may eventually switch to SAS C.
+ACE is originally written in C (Sozobon's ZC v1.01), while db.lib and startup.lib are
+written in assembler (~50%) and C.
+The current makefiles use gcc 2.95.3 for the basic compiler and vbcc for db.lib.
  
-A68K and Blink are used to assemble and link the code produced by ACE.
+vasm and vlink are used to assemble and link the code produced by ACE.
  
-The MicroEmacs (v1.3 & v2.1) editor has been used throughout every stage 
-of ACE's development. It works for me.
- 
+
                                   - page 3 -
  
  
@@ -571,15 +568,14 @@ APP will be improved as time goes by.
  
 Note that if you wish to use the new ACE include files (created by Nils
 Sjoholm), you will need to use an actual C preprocessor instead of APP,
-and one has been provided (acpp), along with alternate bas scripts (see
+and one has been provided (acpp).
  
                                   - page 9 -
- 
-bas2 and bas3) for exactly this purpose.
  
 NOTE: For compiling programs which use the new include files in 
       ACEinclude: you should use a better preprocessor, eg. ACPP or NAP.
       Be aware however that ACPP assumes that ACEinclude: = ACE:include.
+      Since v2.5 APP has been removed.
   
  
 Data types, expressions and constants

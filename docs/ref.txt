@@ -1,5 +1,5 @@
 			 	 +----------+
-		  		 | ACE v2.4 |
+		  		 | ACE v2.5 |
 				 +----------+
 
 		       +--------------------------------+
@@ -2092,8 +2092,8 @@ SCREEN		- The SCREEN statement syntax is the same as in AmigaBASIC:
 		  7 = AGA lores,256 colors	[ACE only, AGA required]
 		  8 = AGA hires,256 colors	[ACE only, AGA required]
 		  9 = AGA super-hires		[ACE only, AGA required]
-		  10 = HAM8 lores		[ACE only, AGA required]
-		  11 = HAM8 hires		[ACE only, AGA required]
+		  10 = HAM8 lores			[ACE only, AGA required]
+		  11 = HAM8 hires			[ACE only, AGA required]
 		  12 = HAM8 super-hires		[ACE only, AGA required]
 
 		- Modes 7-12 require an AGA chipset (A1200, A4000, CD32).

@@ -10,7 +10,7 @@ DEFLNG a-z
 IF CHIPSET < 2 THEN
   PRINT "This demo requires AGA chipset."
   PRINT "Please run on A1200, A4000, or CD32."
-  END
+  STOP
 END IF
 
 '..Open 256-color AGA lores screen
