@@ -196,8 +196,6 @@ Use descriptive names without spaces: `float_add.b`, not `float add.b`
 ### Developer Documentation
 
 - `CLAUDE.md` - Development workflow guide (for Claude Code)
-- `docs/a68k.txt` - a68k assembler documentation
-- `docs/blink.txt` - blink linker documentation
 - `docs/SuperOptimizer.guide` - Optimization techniques
 
 ### Architecture Overview
