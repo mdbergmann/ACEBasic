@@ -1,0 +1,11 @@
+REM Test: SCREEN BACK and SCREEN FORWARD commands
+SCREEN 1,320,200,2,1
+PRINT "Screen 1 opened"
+SLEEP FOR 2
+SCREEN BACK 1
+PRINT "Screen sent to back (2 sec)"
+SLEEP FOR 2
+SCREEN FORWARD 1
+PRINT "Screen brought forward (2 sec)"
+SLEEP FOR 2
+SCREEN CLOSE 1

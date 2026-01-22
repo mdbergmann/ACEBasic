@@ -104,6 +104,20 @@ protect ACE:bin/bas +s
 ;   execute ACE:verify/scripts/phase5-verify.script
 ;endif
 
+; --- Screen Tests: Visual Verification ---
+;if exists ACE:verify/tests/run-screens.rexx
+;   echo ""
+;   echo "Running screen tests for visual verification..."
+;   echo ""
+;   cd ACE:verify/tests
+;   rx run-screens.rexx
+;   echo ""
+;   echo "Screen tests complete."
+;   echo "Screen tests complete" >ACE:verify/scripts/results/phase5-complete.marker
+;   wait 2
+;   C:UAEquit >NIL:
+;endif
+
 ; ============================================================================
 ; LIBRARY MAKEFILE VERIFICATION
 ; ============================================================================
@@ -120,12 +134,12 @@ protect ACE:bin/bas +s
 
 ; --- FFP Fix Test ---
 ; Tests the FFP/vbcc compatibility fix by running SimpleHelloFloat.b
-if exists ACE:verify/scripts/ffp-test.script
-   echo ""
-   echo "Starting FFP Fix verification..."
-   echo ""
-   execute ACE:verify/scripts/ffp-test.script
-endif
+;if exists ACE:verify/scripts/ffp-test.script
+;   echo ""
+;   echo "Starting FFP Fix verification..."
+;   echo ""
+;   execute ACE:verify/scripts/ffp-test.script
+;endif
 
 ; --- Lib Phase 3: Functional Test ---
 ; Tests compile/link/run a BASIC program with new libraries
