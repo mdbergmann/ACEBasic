@@ -55,10 +55,14 @@ After each change, verify by:
 
 ### When Testing on Amiga
 
+- emulator is in the project: verify/scripts/otherthenamiga/FS-UAE
+- emulator config (for Amiga 4000/AGA): verify/scripts/otherthenamiga/ace-verify.fs-uae
+- an installed Amiga system is located under verify/scripts/otherthenamiga/aos3
+
 Because Amiga testing uses fs-uae emulation:
-- **Each verification run takes 5-10 minutes** - Don't batch changes
+- **Each verification run takes 5-10 minutes (when ace compiler or libs have to be recompiled, otherwise it's quick, < 1 minute)** - Don't batch changes
 - **Test early, test often** - Catch issues immediately
-- **Use user-startup integration** - Automatic testing on boot
+- **Use user-startup integration** - Automatic testing on boot, user-startup should be adapted to run the test on startup of the emulator. This should write a log file that cen be checked/verified on the host system.
 - **Check logs carefully** - Detailed logs in T: and project root
 
 **Remember: "Make it work, then make it better" - not "Make everything at once and hope."**
