@@ -176,6 +176,7 @@ runTest: PROCEDURE EXPOSE basCmd aceCmd expectedDir resultsDir
 
         /* Run and capture output */
         outputFile = resultsDir || testName || '.output'
+        logFile = 'RAM:' || testName || '.log'
 
         /* Check if executable was created in source directory */
         IF ~EXISTS(testName) THEN DO
@@ -192,8 +193,19 @@ runTest: PROCEDURE EXPOSE basCmd aceCmd expectedDir resultsDir
         /* Return to original directory */
         CALL PRAGMA('D', curDir)
 
+        /* Check for log file (convention: RAM:<testname>.log) */
+        /* Log-file tests write results there instead of stdout */
+        IF EXISTS(logFile) THEN
+            actualFile = logFile
+        ELSE
+            actualFile = outputFile
+
         /* Compare output using native ARexx */
-        match = compareFiles(expectedFile, outputFile)
+        match = compareFiles(expectedFile, actualFile)
+
+        /* Clean up log file if it exists */
+        IF EXISTS(logFile) THEN
+            ADDRESS COMMAND 'delete >NIL:' logFile
 
         IF match THEN DO
             SAY '[PASS]' category || '/' || testName '(output verified)'
@@ -204,8 +216,8 @@ runTest: PROCEDURE EXPOSE basCmd aceCmd expectedDir resultsDir
             SAY '[FAIL]' category || '/' || testName '(output mismatch)'
             SAY '  Expected (' || expectedFile || '):'
             CALL showFile(expectedFile)
-            SAY '  Got (' || outputFile || '):'
-            CALL showFile(outputFile)
+            SAY '  Got (' || actualFile || '):'
+            CALL showFile(actualFile)
             CALL cleanupFiles(asmFile, objFile, exeFile)
             RETURN 'FAIL'
         END

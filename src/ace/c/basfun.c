@@ -67,6 +67,36 @@ extern	char	strstorelabel[80];
 extern	BOOL 	cli_args;
 extern	BOOL 	break_opt;
 extern	BOOL	have_lparen;
+extern	BOOL	gadtoolsused;
+extern	unsigned long gt_tag_lookup();
+
+/* helper: GADGET GETATTR(id, TAG) */
+static int gadget_getattr()
+{
+char vbuf[40];
+unsigned long tag_id;
+
+    insymbol();  /* eat GETATTR */
+    if (sym != lparen) { _error(14); return(undefined); }
+    insymbol();
+    make_sure_long(expr());  /* id */
+    if (sym != comma) { _error(16); return(undefined); }
+    insymbol();
+    if (sym != ident) { _error(25); return(undefined); }
+    tag_id = gt_tag_lookup(id);
+    if (tag_id == 0) { _error(25); return(undefined); }
+    sprintf(vbuf, "#$%lx", tag_id);
+    gen("move.l", vbuf, "-(sp)");
+    insymbol();
+    if (sym != rparen) { _error(9); return(undefined); }
+    insymbol();
+
+    gen("jsr","_GetGTGadgetAttr","  ");
+    gen("addq","#8","sp");
+    gen("move.l","d0","-(sp)");
+    enter_XREF("_GetGTGadgetAttr");
+    return(longtype);
+}
 
 /* string functions */
 BOOL strfunc()
@@ -790,12 +820,17 @@ char varptr_obj_name[MAXIDSIZE];
  {
   func=sym;
   insymbol();
+  if (func == gadgetsym && sym == getattrsym)
+  {
+   nftype = gadget_getattr();
+   return(nftype);
+  }
   if (sym != lparen) _error(14);
   else
   {
    insymbol();
    if ((func != varptrsym) && (func != sizeofsym)) nftype=expr();
-    
+
    switch(func)
       {
        /* ABS */
@@ -966,10 +1001,20 @@ char varptr_obj_name[MAXIDSIZE];
 	 /* GADGET */
 	 case gadgetsym : nftype = make_integer(nftype);
 			  if (nftype == shorttype) make_long();
-			  gen("jsr","_GadFunc","  ");
-			  gen("addq","#4","sp");
-			  gen("move.l","d0","-(sp)");
-			  enter_XREF("_GadFunc");
+			  if (gadtoolsused)
+			  {
+			    gen("jsr","_GadFuncGT","  ");
+			    gen("addq","#4","sp");
+			    gen("move.l","d0","-(sp)");
+			    enter_XREF("_GadFuncGT");
+			  }
+			  else
+			  {
+			    gen("jsr","_GadFunc","  ");
+			    gen("addq","#4","sp");
+			    gen("move.l","d0","-(sp)");
+			    enter_XREF("_GadFunc");
+			  }
 			  nftype=longtype;
 			  break;
 

@@ -1,0 +1,604 @@
+GadTools Integration Spec
+=========================
+
+Goal: Provide a higher-level BASIC syntax for GadTools gadgets that
+eliminates the boilerplate of the current DECLARE FUNCTION...LIBRARY
+approach while reusing the existing GADGET infrastructure.
+
+Requires AmigaOS 2.0+ (V36 intuition.library, gadtools.library).
+
+
+Current State
+-------------
+
+GadTools already works via low-level library calls:
+- Headers: include/libraries/gadtools.h
+- Function decls: include/funcs/gadtools_funcs.h
+- Binary map: bmaps/gadtools.bmap
+- Working example: examples/library/GTools.b
+
+Problem: ~230 lines of boilerplate for 3 gadgets (manual VisualInfo,
+CreateContext, tag allocation, AddGList, GT_GetIMsg, FreeGadgets, etc.)
+
+
+Proposed Syntax
+---------------
+
+Extend the existing GADGET statement to accept GadTools gadget kinds
+and inline tag attributes:
+
+  GADGET id, status, label$, (x1,y1)-(x2,y2), kind [, TAG=value ...]
+  GADGET SETATTR id, TAG=value [, TAG=value ...]
+  value& = GADGET GETATTR(id, TAG)
+  GADGET CLOSE id
+  GADGET WAIT id
+
+Examples:
+
+  GADGET 1, 1, "Speed:", (100,20)-(300,32), SLIDER_KIND, _
+      GTSL_Min=1, GTSL_Max=20, GTSL_Level=5
+
+  GADGET 2, 1, "Name:", (100,40)-(300,54), STRING_KIND, _
+      GTST_String="Hello", GTST_MaxChars=50
+
+  GADGET 3, 1, "OK", (200,60)-(300,72), BUTTON_KIND
+
+  GADGET 4, 1, "Agree", (100,80)-(120,92), CHECKBOX_KIND, _
+      GTCB_Checked=1
+
+  GADGET 5, 1, "Choice", (100,100)-(250,112), CYCLE_KIND, _
+      GTCY_Labels=choices$()
+
+  ' Event handling (same as existing)
+  GADGET WAIT 0
+  id = GADGET(1)
+
+  ' Or event trapping
+  ON GADGET GOSUB handler
+  GADGET ON
+
+Supported GadTools kinds:
+  BUTTON_KIND, CHECKBOX_KIND, INTEGER_KIND, LISTVIEW_KIND,
+  MX_KIND, NUMBER_KIND, CYCLE_KIND, PALETTE_KIND,
+  SCROLLER_KIND, SLIDER_KIND, STRING_KIND, TEXT_KIND
+
+
+Architecture
+------------
+
+The implementation is largely self-contained:
+
+1. New runtime module: src/lib/c/gtgadget.c
+2. Parser extensions: src/ace/c/gadget.c
+3. Minimal startup change: src/lib/startup/startup.s
+4. Compiler flag: gadtoolsused in parse.c/acedef.h
+
+Coupling points to existing code:
+- Parser routing (branch on gadget kind in gadget.c)
+- gadtoolsused flag for startup code generation
+- Shared gadget ID slots (1-255) and event path
+
+
+New Files
+---------
+
+src/lib/c/gtgadget.c:
+  Runtime wrapper managing GadTools lifecycle.
+
+  Internal state:
+    - ADDRESS vi              (VisualInfo, obtained once)
+    - STRUCT _Gadget *glist   (gadget list head)
+    - STRUCT _Gadget *prevgad (last created gadget for chaining)
+    - BOOL gt_initialized     (one-time init flag)
+
+  Functions:
+    _InitGadTools()
+      - Gets VisualInfo from current screen: GetVisualInfoA(screen, NULL)
+      - Creates context: CreateContext(&glist)
+      - Called automatically on first gadget creation
+
+    _CreateGTGadget(id, status, label, x1, y1, x2, y2, kind, tagarray)
+      - Calls InitGadTools if not initialized
+      - Fills NewGadget struct from parameters
+      - Calls CreateGadgetA(kind, prevgad, &ng, tagarray)
+      - Stores gadget pointer in shared ID array
+      - If window already open: AddGList + RefreshGadgets + GT_RefreshWindow
+
+    _SetGTGadgetAttrs(id, tagarray)
+      - Calls GT_SetGadgetAttrsA(gad, win, NULL, tagarray)
+
+    _GetGTGadgetAttr(id, tag)
+      - Calls GT_GetGadgetAttrsA(gad, win, NULL, tag, &result, TAG_DONE)
+      - Returns result
+
+    _CloseGTGadget(id)
+      - RemoveGadget from window
+      - Marks ID slot as unused
+
+    _CleanupGadTools()
+      - FreeGadgets(glist)
+      - FreeVisualInfo(vi)
+      - Called at program exit
+
+  Event integration:
+    _GetGTIntuiEvent()
+      - Replaces GetMsg/ReplyMsg with GT_GetIMsg/GT_ReplyIMsg
+      - Handles IDCMP_REFRESHWINDOW internally
+        (GT_BeginRefresh/GT_EndRefresh)
+      - Otherwise same behavior as existing GetIntuiEvent()
+
+
+Parser Changes (src/ace/c/gadget.c)
+------------------------------------
+
+1. Recognize GadTools kind keywords after rectangle:
+   - BUTTON_KIND, SLIDER_KIND, STRING_KIND, etc.
+   - If a _KIND token is found, route to GadTools code generation
+   - Otherwise, fall through to existing gadget types (BUTTON, STRING, etc.)
+
+2. Parse TAG=value pairs:
+   - After the kind, parse comma-separated TAG=value pairs
+   - TAG names resolved to integer constants at compile time
+     (lookup table from gadtools.h definitions)
+   - Values: integer literals, string expressions, or array addresses
+   - Generate a TagItem array in BSS/data, terminated with TAG_DONE
+   - Push array address as parameter to _CreateGTGadget
+
+3. GADGET SETATTR id, TAG=value:
+   - Build TagItem array from pairs
+   - Generate: jsr _SetGTGadgetAttrs
+
+4. GADGET GETATTR(id, TAG):
+   - Resolve TAG name to constant
+   - Generate: jsr _GetGTGadgetAttr
+   - Result in d0
+
+5. Set gadtoolsused = TRUE when any _KIND gadget is parsed
+
+
+Compiler Flag (src/ace/c/acedef.h, parse.c)
+--------------------------------------------
+
+Add: BOOL gadtoolsused;
+
+In parse.c cleanup/startup generation:
+  if (gadtoolsused) {
+    gen("jsr", "_opengadtools", "  ");
+    // ... at exit:
+    gen("jsr", "_closegadtools", "  ");
+  }
+
+
+Startup Changes (src/lib/startup/startup.s)
+--------------------------------------------
+
+Add _opengadtools / _closegadtools following existing pattern:
+
+  _opengadtools:
+      move.b  #0,_starterr
+      movea.l #_gadtoolslib,a1
+      move.l  #36,d0              ; Requires V36+ (OS 2.0)
+      movea.l _AbsExecBase,a6
+      jsr     _LVOOpenLibrary(a6)
+      move.l  d0,_GadToolsBase
+      cmpi.l  #0,d0
+      bne.s   _gadtools_ok
+      move.b  #1,_starterr
+  _gadtools_ok:
+      rts
+
+  _closegadtools:
+      move.l  _GadToolsBase,d0
+      cmpi.l  #0,d0
+      beq.s   _gadtools_closed
+      movea.l d0,a1
+      movea.l _AbsExecBase,a6
+      jsr     _LVOCloseLibrary(a6)
+  _gadtools_closed:
+      rts
+
+  _gadtoolslib: dc.b 'gadtools.library',0
+  _GadToolsBase: dc.l 0
+
+
+Tag Name Resolution
+-------------------
+
+The compiler needs a lookup table mapping tag name strings to their
+integer values. These come from include/libraries/gadtools.h:
+
+  GT_TagBase = 0x80080000 (TAG_USER + 0x80000)
+
+  GTSL_Min        = GT_TagBase + 38
+  GTSL_Max        = GT_TagBase + 39
+  GTSL_Level      = GT_TagBase + 40
+  GTSL_LevelFormat = GT_TagBase + 42
+  GTSL_MaxLevelLen = GT_TagBase + 43
+  GTST_String     = GT_TagBase + 44
+  GTST_MaxChars   = GT_TagBase + 45
+  GTCB_Checked    = GT_TagBase + 46
+  GTCY_Labels     = GT_TagBase + 50
+  ...etc
+
+Hardcoded table in the compiler covering the standard GadTools tags.
+This is a fixed API (AmigaOS 3.x is the final version).
+
+
+Event Handling Integration
+--------------------------
+
+When gadtoolsused is true, the event path changes:
+
+  Existing path:
+    GetMsg(window->UserPort) -> check Class -> ReplyMsg()
+
+  GadTools path:
+    GT_GetIMsg(window->UserPort) -> check Class -> GT_ReplyIMsg()
+    + auto-handle IDCMP_REFRESHWINDOW
+
+The GADGET() function return values remain the same:
+  GADGET(0) = event occurred flag
+  GADGET(1) = gadget ID
+  GADGET(2) = string/integer value (from SpecialInfo or Code)
+  GADGET(3) = slider/scroller position (from Code field)
+  GADGET(4) = struct Gadget * address
+
+
+Backward Compatibility
+----------------------
+
+- Existing GADGET statements (BUTTON, STRING, LONGINT, POTX, POTY)
+  continue to work unchanged using old Intuition gadgets.
+- Mixing old-style and GadTools gadgets in the same program is
+  not supported (GadTools requires owning the gadget list).
+  The compiler emits an error when both styles are detected.
+- The _KIND suffix distinguishes GadTools types from old types
+  at parse time.
+
+
+Dependencies
+------------
+
+Libraries required at runtime:
+  - gadtools.library (V36+)
+  - intuition.library (V36+, already used)
+  - utility.library (for tag processing, may already be opened)
+
+Build:
+  - gtgadget.c compiled and added to ACE runtime library (ace.lib)
+  - No new external dependencies
+
+
+Design Decisions
+----------------
+
+1. GADGET SETATTR and label changes:
+   Deferred. GA_Text is Intuition-level, not GadTools-specific.
+   May revisit later if needed.
+
+2. String arrays for Listview/MX/Cycle:
+   Use array syntax: GTCY_Labels=choices$(), GTLV_Labels=mylist$(),
+   GTMX_Labels=options$(). Compiler emits address-of-array.
+
+3. Refresh handling:
+   Automatic only. The runtime's _GetGTIntuiEvent intercepts
+   IDCMP_REFRESHWINDOW and calls GT_BeginRefresh/GT_EndRefresh
+   internally. The BASIC programmer never sees refresh events.
+   An explicit GADGET REFRESH could be added later if needed.
+
+4. Palette gadget color count:
+   GTPA_NumColors=numcolors -- natural tag syntax, no special case.
+
+5. Mixing warning:
+   The compiler emits an error (not just a warning) when old-style
+   and GadTools gadgets are used in the same program.
+
+
+Implementation Phases (Test-Driven)
+------------------------------------
+
+Each phase: write a failing test first, then implement until it passes.
+After completing each phase, update the sync file (specs/gadtools-sync.txt)
+with: phase completed, brief recap of what was done, and what's next.
+Then STOP. Do not proceed to the next phase without user confirmation.
+
+Tests live in verify/tests/cases/gadgets/ (new category) and error
+tests in verify/tests/cases/errors/ (existing category). Expected
+outputs go in verify/tests/expected/. The test runner (runner.rexx)
+picks up the new category automatically: rx runner.rexx gadgets
+
+Build requirements per phase:
+  [C] = Recompile ACE compiler (make -f Makefile from src/make/)
+  [L] = Recompile runtime library (make -f Makefile-lib from src/make/)
+
+Emulator testing:
+  See AGENT.md "Amiga Emulator Testing" section. In brief:
+  - Emulator: verify/scripts/otherthenamiga/FS-UAE
+  - Config: verify/scripts/otherthenamiga/ace-verify.fs-uae
+  - The ACE project is mounted as a hard drive (DH1:)
+  - Adapt user-startup to run the test on boot
+  - Check log files on the host after the run completes
+
+Log-based verification for emulator tests:
+  Tests that run in the emulator write results to a log file rather
+  than relying on visual verification. Pattern:
+
+    OPEN "RAM:testname.log" FOR OUTPUT AS #1
+    PRINT #1, "PASS: gadget created"
+    ...
+    PRINT #1, "DONE"
+    CLOSE #1
+
+  The log file is then checked on the host after the emulator exits.
+  A test passes when the log contains "DONE" and no "FAIL:" lines.
+  Expected output files (verify/tests/expected/testname.expected)
+  can also be used for exact matching where appropriate.
+
+Dependency order:
+
+  Phase 1 -> Phase 2 -> Phase 3 -> Phase 4 -> Phase 5
+                                      |
+                              Phase 6, 7, 8 (parallel-ish)
+  Phase 2 -> Phase 9 (can start once parser routing exists)
+
+Phases 1-5 form the critical path to a working demo.
+Phases 6-9 are incremental additions once the foundation works.
+Phase 10 (test review) ensures all tests are runnable with log output.
+Phase 11 (documentation) should be written after all syntax is stable.
+
+
+Phase 1: Compiler Flag + Startup Code [C]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Test (verify/tests/cases/gadgets/gt_startup.b):
+  A .b file containing a _KIND gadget compiles, and the generated .s
+  contains "jsr _opengadtools" and "jsr _closegadtools".
+
+Implementation:
+  - Add gadtoolsused flag to acedef.h
+  - Add startup/cleanup generation in parse.c
+  - Add _opengadtools / _closegadtools routines in startup.s
+
+Verification:
+  - Recompile ACE compiler
+  - Compile the test .b file
+  - Grep the generated .s for the expected jsr calls
+
+
+Phase 2: Parser Recognizes _KIND (No Tags) [C]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Test (verify/tests/cases/gadgets/gt_button.b):
+  GADGET 1, 1, "OK", (10,10)-(80,24), BUTTON_KIND
+  Compiles without error. Generated .s contains jsr _CreateGTGadget.
+
+Error test (verify/tests/cases/errors/gt_bad_kind.b):
+  GADGET 1, 1, "X", (0,0)-(10,10), BOGUS_KIND
+  Produces a compile error.
+
+Implementation:
+  - Token recognition for all 12 _KIND keywords in gadget.c
+  - Route to GadTools codegen path
+  - Push parameters and generate call to _CreateGTGadget
+
+Verification:
+  - Recompile ACE compiler
+  - Compile test, grep .s for _CreateGTGadget call
+  - Compile error test, verify non-zero exit code
+
+
+Phase 3: Tag Parsing [C]
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Test (verify/tests/cases/gadgets/gt_slider_tags.b):
+  GADGET 1, 1, "Vol:", (10,10)-(100,22), SLIDER_KIND, _
+      GTSL_Min=0, GTSL_Max=100
+  Compiles. Generated .s has TagItem array with correct constants
+  and TAG_DONE terminator.
+
+Error test (verify/tests/cases/errors/gt_bad_tag.b):
+  GADGET 1, 1, "X", (0,0)-(10,10), SLIDER_KIND, BOGUS_Tag=5
+  Produces a compile error.
+
+Implementation:
+  - Hardcoded tag name -> integer lookup table in compiler
+  - Parse comma-separated TAG=value pairs after kind
+  - Generate TagItem array in data section
+  - Pass array address to _CreateGTGadget
+
+Verification:
+  - Recompile ACE compiler
+  - Compile test, inspect .s for tag constant values
+  - Compile error test, verify non-zero exit code
+
+
+Phase 4: Runtime - Gadget Creation [L]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Test (emulator, verify/tests/cases/gadgets/gt_create_run.b):
+  Program opens a window, creates a BUTTON_KIND gadget, writes
+  "PASS: gadget created" to RAM:gt_create_run.log, waits 2 seconds,
+  writes "DONE", exits cleanly.
+
+Implementation:
+  - gtgadget.c: _InitGadTools(), _CreateGTGadget(), _CleanupGadTools()
+  - Link into ace.lib
+
+Verification:
+  - Recompile runtime library
+  - Build test program, run in emulator
+  - Check RAM:gt_create_run.log contains "PASS" and "DONE"
+
+
+Phase 5: Event Handling [C][L]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Test (emulator, verify/tests/cases/gadgets/gt_events.b):
+  Program creates a button, uses GADGET WAIT 0, receives a click
+  event, writes gadget ID to RAM:gt_events.log, exits.
+
+Implementation:
+  - _GetGTIntuiEvent() using GT_GetIMsg/GT_ReplyIMsg
+  - Automatic IDCMP_REFRESHWINDOW handling
+  - Wire into existing GADGET WAIT / GADGET() function paths
+
+Verification:
+  - Recompile compiler and runtime library
+  - Run in emulator, simulate click (or use auto-timeout)
+  - Check RAM:gt_events.log for expected gadget ID
+
+
+Phase 6: SETATTR / GETATTR [C][L]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Test (verify/tests/cases/gadgets/gt_setattr.b):
+  GADGET SETATTR 1, GTSL_Level=50
+  x& = GADGET GETATTR(1, GTSL_Level)
+  Both compile correctly, generating jsr _SetGTGadgetAttrs and
+  jsr _GetGTGadgetAttr respectively.
+
+Test (emulator, verify/tests/cases/gadgets/gt_setget_run.b):
+  Create slider, set level to 42, get level, write value to
+  RAM:gt_setget_run.log. Expected: "42" and "DONE".
+
+Implementation:
+  - Parser for SETATTR and GETATTR forms
+  - _SetGTGadgetAttrs() and _GetGTGadgetAttr() in runtime
+
+Verification:
+  - Recompile compiler and runtime library
+  - Compile tests, check .s output
+  - Run in emulator, check log for "42"
+
+
+Phase 7: GADGET CLOSE [L]
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Test (emulator, verify/tests/cases/gadgets/gt_close.b):
+  Create two gadgets, close one. Write status to RAM:gt_close.log
+  at each step. Exit cleanly. Expected: "PASS: created 2",
+  "PASS: closed 1", "DONE".
+
+Implementation:
+  - _CloseGTGadget(): RemoveGadget + mark slot free
+
+Verification:
+  - Recompile runtime library
+  - Run in emulator, check log for all PASS lines and DONE
+
+
+Phase 8: String Array Tags (Cycle, MX, Listview) [C][L]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Test (verify/tests/cases/gadgets/gt_cycle.b):
+  DIM opts$(3)
+  opts$(0) = "Red" : opts$(1) = "Green" : opts$(2) = "Blue"
+  GADGET 1, 1, "Color:", (10,10)-(100,22), CYCLE_KIND, _
+      GTCY_Labels=opts$()
+  Compiles. Generated code passes array address.
+
+Test (emulator, verify/tests/cases/gadgets/gt_cycle_run.b):
+  Create cycle gadget, write "PASS: cycle created with 3 labels"
+  to RAM:gt_cycle_run.log. Use GETATTR to read active index,
+  write value. Expected: "0" (first label selected), "DONE".
+
+Implementation:
+  - Detect array-type tag values in parser
+  - Emit address-of-array rather than scalar value
+
+Verification:
+  - Recompile compiler and runtime library
+  - Compile test, check .s for array address reference
+  - Run in emulator, check log
+
+
+Phase 9: Mixing Error [C]
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Test (verify/tests/cases/errors/gt_mix_error.b):
+  GADGET 1, 1, "Old", (0,0)-(10,10), BUTTON
+  GADGET 2, 1, "New", (0,20)-(10,30), BUTTON_KIND
+  Produces a compiler error about mixing gadget styles.
+
+Implementation:
+  - Track whether old-style or GadTools gadgets have been seen
+  - Error on detecting the second style
+
+Verification:
+  - Recompile ACE compiler
+  - Compile test, verify error message and non-zero exit code
+
+
+Phase 10: Test Suite Review
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Review all test cases in verify/tests/cases/gadgets/. Ensure every
+test is actually runnable in the emulator and writes results to a
+log file from which success or failure can be determined. Tests must
+clean up their log files before exiting.
+
+Requirements for each test:
+  - Opens a log file (e.g. OPEN "O",#1,"RAM:testname.log")
+  - Writes "PASS: <what>" for each successful checkpoint
+  - Writes "FAIL: <what>" if something goes wrong
+  - Writes "DONE" as the final line
+  - Closes and deletes the log file before exit:
+      CLOSE #1
+      KILL "RAM:testname.log"
+    (The test runner copies/checks the log before cleanup,
+     or the test only deletes on success.)
+  - Exits cleanly (no hanging, no crash)
+
+Also ensure expected/ files exist for compile-only tests so
+the runner can verify them without the emulator.
+
+Implementation:
+  - Audit each .b file in verify/tests/cases/gadgets/
+  - Fix or rewrite tests that are compile-only stubs
+  - Add log writes and cleanup to emulator tests
+  - Add/update verify/tests/expected/ files where needed
+
+Verification:
+  - Run rx runner.rexx gadgets (compile-only tests pass)
+  - Run emulator tests, confirm logs show PASS + DONE
+  - Confirm no leftover log files in RAM: after test exits
+
+
+Phase 11: Documentation
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Update the user-facing docs for all new syntax forms:
+
+- docs/ref.txt: Command/function reference (alphabetical entries).
+  Add entries for GADGET with _KIND syntax, GADGET SETATTR, and
+  GADGET GETATTR alongside existing GADGET entries (~line 942).
+  Include supported kinds, tag list, and examples.
+
+- docs/ace.txt: User guide, "Gadgets" section (~line 2120).
+  Add a subsection explaining GadTools gadgets, the _KIND syntax,
+  supported kinds, tag attributes, and a usage example.
+
+Implementation:
+  - Write ref.txt entries following existing format (syntax, description,
+    notes, examples)
+  - Write ace.txt subsection following existing prose style
+
+Verification:
+  - Review entries for completeness against implemented syntax
+  - Ensure all 12 _KIND types and all supported tags are listed
+
+
+Sync File
+---------
+
+After completing each phase, update specs/gadtools-sync.txt with:
+
+  Phase N: <title>
+  Status: DONE
+  Date: <date>
+  Summary: <1-3 sentences of what was implemented>
+  Files changed: <list>
+  Next: Phase M - <brief description of what's next>
+
+This provides a running log of progress for resuming work across
+sessions.

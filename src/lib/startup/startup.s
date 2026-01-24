@@ -105,6 +105,9 @@ wa_Lock		equ	0
 	xdef	_closeintuition
 	xdef	_opentranslator
 	xdef	_closetranslator
+	xdef	_opengadtools
+	xdef	_closegadtools
+	xdef	_GadToolsBase
 	xdef	_fgdpen
 	xdef	_bgpen
 
@@ -124,6 +127,7 @@ wa_Lock		equ	0
        	xref	_LVOWrite
 	xref	_LVOCurrentDir
 
+	xref	_CleanupGadTools
 	xref	_RPort_list
 	xref	_Wdw_list
 	xref	_Wdw_width_list
@@ -465,7 +469,41 @@ _quitclosetranslator:
 	rts
 
 ;
-; Startup code for all ACE programs. 
+; open gadtools library (V36+)
+;
+_opengadtools:
+	move.b	#0,_starterr
+
+	movea.l	#_gadtoolslib,a1
+	move.l	#36,d0
+	movea.l	_AbsExecBase,a6
+	jsr	_LVOOpenLibrary(a6)
+	move.l	d0,_GadToolsBase
+	cmpi.l	#0,d0
+	bne.s	_gadtools_ok
+	move.b	#1,_starterr
+
+_gadtools_ok:
+	rts
+
+;
+; close gadtools library
+;
+_closegadtools:
+	tst.l	_GadToolsBase
+	beq.s	_quitclosegadtools
+
+	jsr	_CleanupGadTools
+
+	move.l	_GadToolsBase,a1
+	movea.l	_AbsExecBase,a6
+	jsr	_LVOCloseLibrary(a6)
+
+_quitclosegadtools:
+	rts
+
+;
+; Startup code for all ACE programs.
 ;
 _startup:
 	; save d0 & a0 in case CLI
@@ -586,6 +624,7 @@ _mathieeedoubtranslib:	dc.b	'mathieeedoubtrans.library',0
 _gfxlib:		dc.b	'graphics.library',0
 _intuitionlib:		dc.b	'intuition.library',0
 _translatorlib: 	dc.b	'translator.library',0
+_gadtoolslib:		dc.b	'gadtools.library',0
 
 _IntuiMode:	dc.b 	0
 
@@ -611,6 +650,7 @@ _GfxBase:		ds.l 1
 _IntuitionBase: 	ds.l 1
 _TransBase:		ds.l 1
 _SysBase:		ds.l 1
+_GadToolsBase:		ds.l 1
 
 _RPort:		ds.l 1
 _Wdw:		ds.l 1

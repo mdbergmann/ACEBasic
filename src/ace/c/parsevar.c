@@ -100,6 +100,7 @@ int  templongcount=0;		/* temporary long store counter */
 int  labelcount=0;              /* label counter */
 int  arraycount=0;    		/* array counter */
 int  structcount=0;		/* structure counter */
+int  gttagcount=0;		/* GadTools tag array counter */
  	
 char strstorename[80],strstorelabel[80];
 char tempstrname[80],tempstrlabel[80];
@@ -118,6 +119,8 @@ BOOL translateused=FALSE;
 BOOL narratorused=FALSE;
 
 BOOL iffused=FALSE;		/* create+delete ILBM.library? */
+BOOL gadtoolsused=FALSE;	/* GadTools gadgets used? */
+BOOL oldgadgetused=FALSE;	/* old-style gadgets used? */
 
 BOOL basdatapresent=FALSE;	/* DATA statement(s)? */
 BOOL readpresent=FALSE;		/* READ statement(s)? */

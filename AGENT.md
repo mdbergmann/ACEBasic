@@ -6,9 +6,10 @@ AI agent guidance for this codebase. For project docs, build instructions, and a
 
 **Work in small, incremental steps. Only proceed when the previous step is verified working.**
 
-1. Make ONE change at a time
-2. Verify it works (build, test, or run)
-3. Only then proceed to the next change
+1. Think test-driven, a test should be first created that specifies the implementation (see Testing below)
+2. Make ONE change at a time
+3. Verify it works (build, test, or run)
+4. Only then proceed to the next change
 
 Why: The Amiga environment is fragile - path handling, toolchain differences, and AmigaOS quirks mean changes interact unexpectedly. Small steps make debugging and rollback feasible.
 
@@ -17,17 +18,26 @@ Why: The Amiga environment is fragile - path handling, toolchain differences, an
 - **Build changes**: Run a build, check executable exists
 - **Script changes**: Execute the script, check output
 - **Test changes**: Run the test suite
-- **Compiler/library changes**: Build and run relevant tests
+- **Compiler/library changes**: Build and run relevant tests (must be on emu, check next section)
 
 ### Amiga Emulator Testing
 
-- Emulator: `verify/scripts/otherthenamiga/FS-UAE`
+- Emulator: `verify/scripts/otherthenamiga/FS-UAE.app`
 - Config (A4000/AGA): `verify/scripts/otherthenamiga/ace-verify.fs-uae`
 - Amiga system: `verify/scripts/otherthenamiga/aos3`
 - Runs take 5-10 min when recompiling, <1 min otherwise
 - Adapt `user-startup` to run tests on boot; check log files on host after
+- Running the emulator should periodically (30 secs) check for a result (if some log file is generated)
+
+## ACE Basic syntax
+
+Check docs/ref.txt
 
 ## Pitfalls for AI Agents
+
+### AmigaDOS 
+
+- stderr redirection (2>&1) on AmigaDOS doesn't work.
 
 ### Amiga Path Handling
 - Amiga uses `:` not `/` for device paths: `ACE:bin/ace` not `ACE/bin/ace`
