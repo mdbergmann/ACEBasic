@@ -154,7 +154,29 @@ ASSEM *		- syntax: ASSEM
 		- For correct handling of the assembly source lines,
 		  do not place ASSEM or END ASSEM on the same line as
 		  any of the code you wish to include.
-		
+
+--------------------------------------------------------------------------------
+ASSERT *	- syntax: ASSERT <condition> [, <message>]
+		- Tests the condition and halts program execution if false.
+		- If condition is true (non-zero), execution continues normally.
+		- If condition is false (zero), prints an error message and
+		  terminates the program cleanly.
+		- The optional message parameter is a string that will be
+		  included in the error output.
+		- Output format:
+		    Without message: "ASSERT FAILED"
+		    With message:    "ASSERT FAILED: <message>"
+		- Useful for:
+		    - Debugging: verify assumptions about program state
+		    - Testing: ensure functions return expected values
+		    - Defensive programming: catch impossible conditions
+		- Examples:
+		    ASSERT x > 0                    ' x must be positive
+		    ASSERT ptr <> 0, "null pointer" ' ptr must not be null
+		    ASSERT a = b, "values differ"   ' a and b must be equal
+		- Note: ASSERT exits cleanly (like END), closing all open
+		  resources and libraries properly.
+
 --------------------------------------------------------------------------------
 ATN		- syntax: ATN(n)
 		- Returns the arctangent of n.
