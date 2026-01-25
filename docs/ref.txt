@@ -1046,10 +1046,20 @@ GADGET CLOSE *	- syntax: GADGET CLOSE id
 		- This command removes the specified gadget from the
 		  current output window and should always be called
 		  when you are finished with a gadget.
-		- Make sure that the window belonging to the gadget 
-		  you wish to close is the current output window 
+		- Make sure that the window belonging to the gadget
+		  you wish to close is the current output window
 		  (see WINDOW OUTPUT command below).
- 
+
+--------------------------------------------------------------------------------
+GADGET FONT *	- syntax: GADGET FONT name$, size
+		- Sets the font to be used for subsequent GadTools gadgets.
+		- name$ is the font name (e.g., "topaz.font").
+		- size is the font size in points (e.g., 8).
+		- This must be called before creating gadgets that should
+		  use the specified font.
+		- Only applies to GadTools gadgets, not legacy gadgets.
+		- See also GADGET (GadTools).
+
 --------------------------------------------------------------------------------
 GADGET MOD *	- syntax: GADGET MOD id,knob-position[,max-positions]
 		- This command modifies the specified proportional
