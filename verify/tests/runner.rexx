@@ -31,7 +31,7 @@ totalSkip = 0
 
 /* Categories to test */
 IF category = 'all' THEN
-    categories = 'syntax arithmetic floats control errors screens'
+    categories = 'syntax arithmetic floats control errors screens gtgadgets legacygadgets'
 ELSE
     categories = category
 

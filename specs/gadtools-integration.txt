@@ -302,10 +302,10 @@ After completing each phase, update the sync file (specs/gadtools-sync.txt)
 with: phase completed, brief recap of what was done, and what's next.
 Then STOP. Do not proceed to the next phase without user confirmation.
 
-Tests live in verify/tests/cases/gadgets/ (new category) and error
+Tests live in verify/tests/cases/gtgadgets/ (new category) and error
 tests in verify/tests/cases/errors/ (existing category). Expected
 outputs go in verify/tests/expected/. The test runner (runner.rexx)
-picks up the new category automatically: rx runner.rexx gadgets
+picks up the new category automatically: rx runner.rexx gtgadgets
 
 Build requirements per phase:
   [C] = Recompile ACE compiler (make -f Makefile from src/make/)
@@ -350,7 +350,7 @@ Phase 11 (documentation) should be written after all syntax is stable.
 Phase 1: Compiler Flag + Startup Code [C]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Test (verify/tests/cases/gadgets/gt_startup.b):
+Test (verify/tests/cases/gtgadgets/gt_startup.b):
   A .b file containing a _KIND gadget compiles, and the generated .s
   contains "jsr _opengadtools" and "jsr _closegadtools".
 
@@ -368,7 +368,7 @@ Verification:
 Phase 2: Parser Recognizes _KIND (No Tags) [C]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Test (verify/tests/cases/gadgets/gt_button.b):
+Test (verify/tests/cases/gtgadgets/gt_button.b):
   GADGET 1, 1, "OK", (10,10)-(80,24), BUTTON_KIND
   Compiles without error. Generated .s contains jsr _CreateGTGadget.
 
@@ -390,7 +390,7 @@ Verification:
 Phase 3: Tag Parsing [C]
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Test (verify/tests/cases/gadgets/gt_slider_tags.b):
+Test (verify/tests/cases/gtgadgets/gt_slider_tags.b):
   GADGET 1, 1, "Vol:", (10,10)-(100,22), SLIDER_KIND, _
       GTSL_Min=0, GTSL_Max=100
   Compiles. Generated .s has TagItem array with correct constants
@@ -415,7 +415,7 @@ Verification:
 Phase 4: Runtime - Gadget Creation [L]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Test (emulator, verify/tests/cases/gadgets/gt_create_run.b):
+Test (emulator, verify/tests/cases/gtgadgets/gt_create_run.b):
   Program opens a window, creates a BUTTON_KIND gadget, writes
   "PASS: gadget created" to RAM:gt_create_run.log, waits 2 seconds,
   writes "DONE", exits cleanly.
@@ -433,7 +433,7 @@ Verification:
 Phase 5: Event Handling [C][L]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Test (emulator, verify/tests/cases/gadgets/gt_events.b):
+Test (emulator, verify/tests/cases/gtgadgets/gt_events.b):
   Program creates a button, uses GADGET WAIT 0, receives a click
   event, writes gadget ID to RAM:gt_events.log, exits.
 
@@ -451,13 +451,13 @@ Verification:
 Phase 6: SETATTR / GETATTR [C][L]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Test (verify/tests/cases/gadgets/gt_setattr.b):
+Test (verify/tests/cases/gtgadgets/gt_setattr.b):
   GADGET SETATTR 1, GTSL_Level=50
   x& = GADGET GETATTR(1, GTSL_Level)
   Both compile correctly, generating jsr _SetGTGadgetAttrs and
   jsr _GetGTGadgetAttr respectively.
 
-Test (emulator, verify/tests/cases/gadgets/gt_setget_run.b):
+Test (emulator, verify/tests/cases/gtgadgets/gt_setget_run.b):
   Create slider, set level to 42, get level, write value to
   RAM:gt_setget_run.log. Expected: "42" and "DONE".
 
@@ -474,7 +474,7 @@ Verification:
 Phase 7: GADGET CLOSE [L]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Test (emulator, verify/tests/cases/gadgets/gt_close.b):
+Test (emulator, verify/tests/cases/gtgadgets/gt_close.b):
   Create two gadgets, close one. Write status to RAM:gt_close.log
   at each step. Exit cleanly. Expected: "PASS: created 2",
   "PASS: closed 1", "DONE".
@@ -490,14 +490,14 @@ Verification:
 Phase 8: String Array Tags (Cycle, MX, Listview) [C][L]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Test (verify/tests/cases/gadgets/gt_cycle.b):
+Test (verify/tests/cases/gtgadgets/gt_cycle.b):
   DIM opts$(3)
   opts$(0) = "Red" : opts$(1) = "Green" : opts$(2) = "Blue"
   GADGET 1, 1, "Color:", (10,10)-(100,22), CYCLE_KIND, _
       GTCY_Labels=opts$()
   Compiles. Generated code passes array address.
 
-Test (emulator, verify/tests/cases/gadgets/gt_cycle_run.b):
+Test (emulator, verify/tests/cases/gtgadgets/gt_cycle_run.b):
   Create cycle gadget, write "PASS: cycle created with 3 labels"
   to RAM:gt_cycle_run.log. Use GETATTR to read active index,
   write value. Expected: "0" (first label selected), "DONE".
@@ -532,7 +532,7 @@ Verification:
 Phase 10: Test Suite Review
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Review all test cases in verify/tests/cases/gadgets/. Ensure every
+Review all test cases in verify/tests/cases/gtgadgets/. Ensure every
 test is actually runnable in the emulator and writes results to a
 log file from which success or failure can be determined. Tests must
 clean up their log files before exiting.
@@ -553,13 +553,13 @@ Also ensure expected/ files exist for compile-only tests so
 the runner can verify them without the emulator.
 
 Implementation:
-  - Audit each .b file in verify/tests/cases/gadgets/
+  - Audit each .b file in verify/tests/cases/gtgadgets/
   - Fix or rewrite tests that are compile-only stubs
   - Add log writes and cleanup to emulator tests
   - Add/update verify/tests/expected/ files where needed
 
 Verification:
-  - Run rx runner.rexx gadgets (compile-only tests pass)
+  - Run rx runner.rexx gtgadgets (compile-only tests pass)
   - Run emulator tests, confirm logs show PASS + DONE
   - Confirm no leftover log files in RAM: after test exits
 
