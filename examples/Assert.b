@@ -1,5 +1,7 @@
 ' Assert.b - Demonstrates the ASSERT statement for debugging and validation
 '
+' Syntax: ASSERT <condition> [, <message>]
+'
 ' ASSERT checks a condition and halts the program if it's false.
 ' This is useful for catching bugs early and validating assumptions.
 
@@ -125,7 +127,7 @@ sum = x + y
 
 ' Verify the result is what we expect
 ASSERT sum = 30, "Sum calculation failed"
-ASSERT sum > 0, "Sum should be positive"
+ASSERT sum > 0                              ' Simple form without message
 
 PRINT "x ="; x; ", y ="; y; ", sum ="; sum
 PRINT "Postconditions verified"
