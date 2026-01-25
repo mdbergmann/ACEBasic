@@ -26,7 +26,7 @@ SUB StackPush(SHORTINT value)
 END SUB
 
 ' Pop a value from the stack
-FUNCTION StackPop
+SUB SHORTINT StackPop
   SHARED stackData(), stackTop
 
   ' Validate: stack must not be empty
@@ -34,20 +34,20 @@ FUNCTION StackPop
 
   stackTop = stackTop - 1
   StackPop = stackData(stackTop)
-END FUNCTION
+END SUB
 
 ' Return the current stack size
-FUNCTION StackSize
+SUB SHORTINT StackSize
   SHARED stackTop
   StackSize = stackTop
-END FUNCTION
+END SUB
 
 ' ============================================================================
 ' Mathematical functions with precondition checking
 ' ============================================================================
 
 ' Calculate factorial (n must be non-negative)
-FUNCTION Factorial(SHORTINT n)
+SUB LONGINT Factorial(SHORTINT n)
   ASSERT n >= 0, "Factorial requires non-negative input"
 
   IF n <= 1 THEN
@@ -59,13 +59,13 @@ FUNCTION Factorial(SHORTINT n)
     NEXT i
     Factorial = result&
   END IF
-END FUNCTION
+END SUB
 
 ' Integer division (divisor must not be zero)
-FUNCTION SafeDivide(SHORTINT dividend, SHORTINT divisor)
+SUB SHORTINT SafeDivide(SHORTINT dividend, SHORTINT divisor)
   ASSERT divisor <> 0, "Division by zero"
   SafeDivide = dividend / divisor
-END FUNCTION
+END SUB
 
 ' ============================================================================
 ' Main program - demonstrate ASSERT usage
