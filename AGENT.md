@@ -27,6 +27,7 @@ Why: The Amiga environment is fragile - path handling, toolchain differences, an
 - Amiga system: `verify/scripts/otherthenamiga/aos3`
 - Runs take 5-10 min when recompiling, <1 min otherwise
 - Adapt `user-startup` to run tests on boot; check log files on host after
+- run emulator using 'open' command.
 - Running the emulator should periodically (30 secs) check for a result (if some log file is generated)
 
 ## ACE Basic syntax
@@ -38,6 +39,7 @@ Check docs/ref.txt
 ### AmigaDOS 
 
 - stderr redirection (2>&1) on AmigaDOS doesn't work.
+- call bin/bas script without .b extension.
 
 ### Amiga Path Handling
 - Amiga uses `:` not `/` for device paths: `ACE:bin/ace` not `ACE/bin/ace`
@@ -54,6 +56,7 @@ Check docs/ref.txt
 ### Build System
 - Run make from `src/make/`, not project root
 - AmigaDOS scripts use `.key` directives, not bash syntax
+- call the makefiles with 'clean' to rebuild completely
 
 ### Testing
 - Error tests (`cases/errors/`) are expected to FAIL compilation

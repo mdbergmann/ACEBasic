@@ -363,6 +363,27 @@ SHORT popcount;
   insymbol();
  }  
  else
+ /* assert */
+ if (sym == assertsym)
+ {
+  insymbol();
+  make_integer(expr());
+  gen("move.l","(sp)+","d0");         /* condition in d0 */
+
+  if (sym == comma) {
+    /* optional message provided */
+    insymbol();
+    if (expr() != stringtype) _error(4);
+    gen("move.l","(sp)+","a0");       /* string addr in a0 */
+  } else {
+    /* no message - pass NULL */
+    gen("move.l","#0","a0");
+  }
+
+  gen("jsr","_assert","  ");
+  enter_XREF("_assert");
+ }
+ else
  /* bevelbox */
  if (sym == bevelboxsym) bevel_box();
  else

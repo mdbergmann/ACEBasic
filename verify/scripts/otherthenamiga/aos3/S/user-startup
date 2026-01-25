@@ -62,4 +62,56 @@ path ACE:bin add
 ; Set script flag on bas script (needed for fs-uae shared folder)
 protect ACE:bin/bas +s
 
+; ============================================================
+; ASSERT feature verification
+; ============================================================
+
+; Library already rebuilt - skip for faster testing
+; cd ACE:src/make
+; make -f Makefile-lib clean >ACE:verify/tests/results/lib_clean.log
+; make -f Makefile-lib >ACE:verify/tests/results/lib_build.log
+
+echo "Running ASSERT tests..."
+cd ACE:verify/tests/cases/assert
+
+echo "Compiling fail_test.b manually to keep .s file..."
+; Preprocess
+acpp fail_test.b T:fail_test.beta
+removeline T:fail_test.beta T:fail_test.b
+; Compile to assembly only
+ace T:fail_test
+; Copy .s file for analysis
+copy T:fail_test.s ACE:verify/tests/results/
+; Assemble and link
+vasmm68k_mot -Fhunk -o T:fail_test.o T:fail_test.s
+vlink -bamigahunk -x -Bstatic -nostdlib -mrel -s -o fail_test T:fail_test.o ACElib:startup.lib ACElib:db.lib ACElib:ami.lib
+delete >NIL: T:fail_test#?
+
+list >ACE:verify/tests/results/files_after_compile.log
+
+if exists fail_test
+  echo "Running fail_test (should show ASSERT FAILED and halt)..."
+  echo "--- fail_test output ---" >ACE:verify/tests/results/assert_run.log
+  fail_test >>ACE:verify/tests/results/assert_run.log
+  echo "--- fail_test exit code:" NOLINE >>ACE:verify/tests/results/assert_run.log
+  echo $RC >>ACE:verify/tests/results/assert_run.log
+else
+  echo "ERROR: fail_test compilation failed" >ACE:verify/tests/results/assert_run.log
+endif
+
+; Test simple_test (ASSERT with passing condition)
+echo "Compiling simple_test.b..."
+bas simple_test >ACE:verify/tests/results/simple_compile.log
+
+if exists simple_test
+  echo "Running simple_test (should pass through ASSERT)..."
+  echo "--- simple_test output ---" >ACE:verify/tests/results/simple_run.log
+  simple_test >>ACE:verify/tests/results/simple_run.log
+  echo "--- simple_test exit code:" NOLINE >>ACE:verify/tests/results/simple_run.log
+  echo $RC >>ACE:verify/tests/results/simple_run.log
+else
+  echo "ERROR: simple_test compilation failed" >ACE:verify/tests/results/simple_run.log
+endif
+
+echo "DONE" >ACE:verify/tests/results/done.flag
 

@@ -1,10 +1,9 @@
 # FS-UAE configuration saved by FS-UAE Launcher
-# Last saved: 2026-01-20 13:54:41
+# Last saved: 2026-01-25 19:44:05
 
 [fs-uae]
-accelerator = 0
 accuracy = 0
-amiga_model = A4000/040
+amiga_model = A4000
 bsdsocket_library = 1
 chip_memory = 2048
 cpu = 68040

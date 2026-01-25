@@ -95,7 +95,7 @@ char *rword[] =
     "WIDTH","WINDOW","WRITE","XOR",
 
     /* ACE-specific reserved words */
-    "ADDRESS","ALLOC","ARG$","ARGCOUNT","ASSEM","BACK","BEVELBOX","BIN$",
+    "ADDRESS","ALLOC","ARG$","ARGCOUNT","ASSEM","ASSERT","BACK","BEVELBOX","BIN$",
     "BLOCK","BUTTON","BUTTON_KIND","BYTE",
     "CASE","CHECKBOX_KIND","CHIPSET","CONST","CSTR","CYCLE_KIND",
     "DAY","EXTERNAL","FILEBOX$",

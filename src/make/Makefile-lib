@@ -79,8 +79,8 @@ C_SOURCES = aceports.c alloc.c arg.c base.c bevel.c c_string.c ffpstr.c \
             menu.c pow.c print.c rfiles.c say.c scrfunc.c ser.c sleep.c \
             sysreq.c system.c text.c val.c window.c
 
-# Assembly source files (23 modules)
-ASM_SOURCES = common_data.s csrpos.s ffp.s file.s file_data.s gfx.s \
+# Assembly source files (24 modules)
+ASM_SOURCES = assert.s common_data.s csrpos.s ffp.s file.s file_data.s gfx.s \
               lmath.s locate.s logic.s misc.s scroll.s scrwin.s \
               scrwin_data.s simple_str.s sound.s sound_data.s string.s \
               string_data.s time.s turtle.s turtle_data.s ver.s windowfunc.s
