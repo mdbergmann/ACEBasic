@@ -288,7 +288,7 @@ class AceConverter
     output << '@NODE MAIN "Main Menu"'
     output << ''
     output << '			       +----------+'
-    output << '			       | ACE v2.5 |'
+    output << '			       | ACE v2.6 |'
     output << '			       +----------+'
     output << ''
 
