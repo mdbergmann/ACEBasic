@@ -57,6 +57,10 @@ static struct Gadget *gt_gadgets[MAXGADGET+1];
 static ULONG gt_gadnum = 0;
 static ULONG gt_lastcode = 0;
 
+/* Font for GadTools gadgets */
+static struct TextAttr gt_font = { NULL, 0, 0, 0 };
+static BOOL gt_font_set = FALSE;
+
 /* Label array tracking for cleanup */
 static struct {
     APTR ptr;
@@ -92,6 +96,21 @@ static void InitGadTools()
 }
 
 /* public functions */
+
+void SetGTGadgetFont(size, name)
+LONG size;
+UBYTE *name;
+{
+/*
+** Set the font to use for subsequent GadTools gadgets.
+** GADGET FONT "fontname", size
+*/
+    gt_font.ta_Name = name;
+    gt_font.ta_YSize = (UWORD)size;
+    gt_font.ta_Style = 0;
+    gt_font.ta_Flags = 0;
+    gt_font_set = TRUE;
+}
 
 APTR BuildGTLabels(element_size, num_elements, array_addr)
 LONG element_size;
@@ -163,7 +182,7 @@ struct Gadget *gad;
     ng.ng_Width = (WORD)(x2 - x1);
     ng.ng_Height = (WORD)(y2 - y1);
     ng.ng_GadgetText = label;
-    ng.ng_TextAttr = NULL;
+    ng.ng_TextAttr = gt_font_set ? &gt_font : NULL;
     ng.ng_GadgetID = (UWORD)id;
     ng.ng_Flags = 0;
     ng.ng_VisualInfo = vi;

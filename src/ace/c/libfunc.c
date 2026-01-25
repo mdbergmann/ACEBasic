@@ -451,7 +451,19 @@ BOOL found;
    insymbol();
   }
 
-  if (sym != ident) _error(7);
+  /* Accept keywords GETATTR/SETATTR as function names (for Intuition funcs) */
+  if (sym == getattrsym)
+  {
+   strcpy(id,"getattr");
+   strcpy(ut_id,"GetAttr");
+  }
+  else if (sym == setattrsym)
+  {
+   strcpy(id,"setattr");
+   strcpy(ut_id,"SetAttr");
+  }
+
+  if (sym != ident && sym != getattrsym && sym != setattrsym) _error(7);
   else
   {
    /* get the function's name */

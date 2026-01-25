@@ -1,4 +1,4 @@
-/*
+{*
 ** GadTools gadgets using the built-in _KIND syntax.
 **
 ** This is the simplified equivalent of GTools.b, which
@@ -6,7 +6,7 @@
 **
 ** Creates a slider, string gadget, and button, then
 ** handles events from each.
-*/
+*}
 
 CONST GAD_SLIDER = 1
 CONST GAD_STRING = 2
@@ -14,10 +14,10 @@ CONST GAD_BUTTON = 3
 
 WINDOW 1,"GadTools Gadget Demo",(0,0)-(400,100),30
 
-GADGET GAD_SLIDER, 1, "Speed:   ", (100,20)-(300,32), SLIDER_KIND, GTSL_Min=1, GTSL_Max=20, GTSL_Level=5, GTSL_MaxLevelLen=2
+GADGET FONT "topaz.font", 8
 
+GADGET GAD_SLIDER, 1, "Speed:   ", (100,20)-(300,32), SLIDER_KIND, GTSL_Min=1, GTSL_Max=20, GTSL_Level=5, GTSL_LevelFormat="%2ld", GTSL_MaxLevelLen=2
 GADGET GAD_STRING, 1, "Type Here:", (100,40)-(300,54), STRING_KIND, GTST_String="Hello World!", GTST_MaxChars=50
-
 GADGET GAD_BUTTON, 1, "Click Here", (150,60)-(250,72), BUTTON_KIND
 
 SHORTINT terminated

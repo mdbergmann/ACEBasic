@@ -82,9 +82,9 @@ unsigned long tag_id;
     make_sure_long(expr());  /* id */
     if (sym != comma) { _error(16); return(undefined); }
     insymbol();
-    if (sym != ident) { _error(25); return(undefined); }
+    if (sym != ident) { _error(82); return(undefined); }
     tag_id = gt_tag_lookup(id);
-    if (tag_id == 0) { _error(25); return(undefined); }
+    if (tag_id == 0) { _error(82); return(undefined); }
     sprintf(vbuf, "#$%lx", tag_id);
     gen("move.l", vbuf, "-(sp)");
     insymbol();

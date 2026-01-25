@@ -37,6 +37,7 @@ extern	BOOL	oldgadgetused;
 extern	char	id[MAXIDSIZE];
 extern	SHORT	shortval;
 extern	LONG	longval;
+extern	char	stringval[MAXSTRLEN];
 extern	int	gttagcount;
 extern	int	lev;
 extern	SYM	*curr_item;
@@ -239,16 +240,43 @@ void wait_gadget()
 	}
 }
 
+void gadget_font()
+{
+/* GADGET FONT "fontname", size */
+
+	insymbol();
+	if (expr() != stringtype)
+	{
+		_error(4);  /* Type mismatch - expected string */
+		return;
+	}
+
+	if (sym != comma)
+	{
+		_error(16);  /* ',' expected */
+		return;
+	}
+
+	insymbol();
+	make_sure_long(expr());  /* size */
+
+	gen("jsr","_SetGTGadgetFont","  ");
+	gen("addq","#8","sp");
+	enter_XREF("_SetGTGadgetFont");
+	gadtoolsused = TRUE;
+}
+
 void setattr_gadget()
 {
 /* GADGET SETATTR id, TAG=value [, TAG=value ...] */
 char datalabel[80], dataname[80];
 char literal[1024];
-char vbuf[40];
+char vbuf[80];
 int ntags;
 unsigned long tag_id;
 long tag_val;
 BOOL negate;
+static int gtstrcount = 0;
 
 	insymbol();
 	make_sure_long(expr());	/* gadget-id */
@@ -263,45 +291,64 @@ BOOL negate;
 	    insymbol();
 	    if (sym != ident)
 	    {
-		_error(25);
+		_error(82);
 		break;
 	    }
 	    tag_id = gt_tag_lookup(id);
 	    if (tag_id == 0)
 	    {
-		_error(25);
+		_error(82);
 		break;
 	    }
 	    insymbol();
 	    if (sym != equal)
 	    {
-		_error(25);
+		_error(82);
 		break;
 	    }
-	    insymbol();
-	    negate = FALSE;
-	    if (sym == minus)
-	    {
-		negate = TRUE;
-		insymbol();
-	    }
-	    if (sym == shortconst)
-		tag_val = (long)shortval;
-	    else if (sym == longconst)
-		tag_val = longval;
-	    else
-	    {
-		_error(25);
-		break;
-	    }
-	    if (negate) tag_val = -tag_val;
 	    insymbol();
 
-	    /* Append tag_id,value to literal */
+	    /* Append tag_id first */
 	    if (ntags > 0)
 		strcat(literal, ",");
-	    sprintf(vbuf, "$%lx,%ld", tag_id, tag_val);
+	    sprintf(vbuf, "$%lx,", tag_id);
 	    strcat(literal, vbuf);
+
+	    /* Handle different value types */
+	    if (sym == stringconst)
+	    {
+		/* String constant - create data entry and reference it */
+		char strlabel[40], strdata[256];
+		sprintf(strlabel, "_gtstr%d:", gtstrcount);
+		sprintf(strdata, "dc.b '%s',0", stringval);
+		enter_DATA(strlabel, strdata);
+		sprintf(vbuf, "_gtstr%d", gtstrcount);
+		strcat(literal, vbuf);
+		gtstrcount++;
+		insymbol();
+	    }
+	    else
+	    {
+		negate = FALSE;
+		if (sym == minus)
+		{
+		    negate = TRUE;
+		    insymbol();
+		}
+		if (sym == shortconst)
+		    tag_val = (long)shortval;
+		else if (sym == longconst)
+		    tag_val = longval;
+		else
+		{
+		    _error(82);
+		    break;
+		}
+		if (negate) tag_val = -tag_val;
+		sprintf(vbuf, "%ld", tag_val);
+		strcat(literal, vbuf);
+		insymbol();
+	    }
 	    ntags++;
 	} while (sym == comma);
 
@@ -364,6 +411,8 @@ void gadget()
    GADGET MOD gadget-id,knob-pos[,max-notches]
    GADGET WAIT gadget-id
    GADGET CLOSE gadget-id
+   GADGET FONT "fontname",size  (for GadTools gadgets)
+   GADGET SETATTR id, TAG=value [, TAG=value ...]
    GADGET ON | OFF | STOP
 */
 int  gtype;
@@ -387,6 +436,9 @@ int  gtype;
 	else
 	if (sym == setattrsym)
 		setattr_gadget();
+	else
+	if (sym == fontsym)
+		gadget_font();
 	else
 	{
     		make_sure_long(expr());	/* gadget-id */
@@ -471,11 +523,13 @@ int  gtype;
 					  /* Parse TAG=value pairs */
 					  char datalabel[80], dataname[80];
 					  char literal[1024];
-					  char vbuf[40];
+					  char vbuf[80];
 					  int ntags;
 					  unsigned long tag_id;
 					  long tag_val;
 					  BOOL negate;
+					  BOOL is_strtag;
+					  static int gtstrcount = 0;
 					  /* Array tag patch tracking */
 					  struct {
 					    int tag_index;
@@ -491,22 +545,24 @@ int  gtype;
 					    insymbol();
 					    if (sym != ident)
 					    {
-					      _error(25);
+					      _error(82);
 					      break;
 					    }
 					    tag_id = gt_tag_lookup(id);
 					    if (tag_id == 0)
 					    {
-					      _error(25);
+					      _error(82);
 					      break;
 					    }
 					    insymbol();
 					    if (sym != equal)
 					    {
-					      _error(25);
+					      _error(82);
 					      break;
 					    }
 					    insymbol();
+
+					    is_strtag = FALSE;
 
 					    if (is_array_tag(tag_id)
 						&& sym == ident
@@ -530,6 +586,18 @@ int  gtype;
 						  insymbol();
 					      }
 					    }
+					    else if (sym == stringconst)
+					    {
+					      /* String constant tag value */
+					      char strlabel[40], strdata[256];
+					      sprintf(strlabel, "_gtstr%d:",
+						      gtstrcount);
+					      sprintf(strdata, "dc.b '%s',0",
+						      stringval);
+					      enter_DATA(strlabel, strdata);
+					      is_strtag = TRUE;
+					      insymbol();
+					    }
 					    else
 					    {
 					      negate = FALSE;
@@ -544,7 +612,7 @@ int  gtype;
 						tag_val = longval;
 					      else
 					      {
-						_error(25);
+						_error(82);
 						break;
 					      }
 					      if (negate) tag_val = -tag_val;
@@ -554,8 +622,17 @@ int  gtype;
 					    /* Append tag_id,value */
 					    if (ntags > 0)
 					      strcat(literal, ",");
-					    sprintf(vbuf, "$%lx,%ld",
-						    tag_id, tag_val);
+					    if (is_strtag)
+					    {
+					      sprintf(vbuf, "$%lx,_gtstr%d",
+						      tag_id, gtstrcount);
+					      gtstrcount++;
+					    }
+					    else
+					    {
+					      sprintf(vbuf, "$%lx,%ld",
+						      tag_id, tag_val);
+					    }
 					    strcat(literal, vbuf);
 					    ntags++;
 					  } while (sym == comma);
