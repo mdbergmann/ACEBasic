@@ -62,10 +62,4 @@ path ACE:bin add
 ; Set script flag on bas script (needed for fs-uae shared folder)
 protect ACE:bin/bas +s
 
-; Run GadTools test suite
-cd ACE:verify/tests
-rx runner.rexx gadgets >RAM:gadgets_results.log
-rx runner.rexx errors >RAM:errors_results.log
-copy RAM:gadgets_results.log ACE:verify/tests/results/gadgets_results.log
-copy RAM:errors_results.log ACE:verify/tests/results/errors_results.log
 
