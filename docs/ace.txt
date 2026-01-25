@@ -1,6 +1,6 @@
  
 			    +----------+
-			    | ACE v2.5 |
+			    | ACE v2.6 |
 			    +----------+
  
  
@@ -2228,8 +2228,62 @@ library TextLength or TextExtent (v36) function.
 String and LongInt gadgets now have associated with them a 1K buffer.
  
 For more details about the GADGET commands and function, see ref.txt.
- 
- 
+
+
+GadTools Gadgets
+----------------
+ACE also supports GadTools gadgets, providing the standard 3D look of
+AmigaOS 2.0+ (Workbench 2.x/3.x) applications. GadTools gadgets are
+created using the GADGET command with a _KIND type suffix and optional
+TAG=value attribute pairs.
+
+GadTools gadgets require AmigaOS 2.0 or later (gadtools.library V36).
+The runtime automatically opens gadtools.library at program start and
+closes it at exit when GadTools gadgets are used.
+
+Supported gadget kinds: BUTTON_KIND, CHECKBOX_KIND, CYCLE_KIND,
+INTEGER_KIND, LISTVIEW_KIND, MX_KIND, NUMBER_KIND, PALETTE_KIND,
+SCROLLER_KIND, SLIDER_KIND, STRING_KIND, TEXT_KIND.
+
+Example: a window with a slider and button using GadTools gadgets:
+
+WINDOW 1,"GadTools Demo",(0,0)-(320,100),24
+
+GADGET 1, 1, "Volume:", (10,20)-(250,34), SLIDER_KIND, GTSL_Min=0, GTSL_Max=100, GTSL_Level=50
+
+GADGET 2, 1, "OK", (120,50)-(200,66), BUTTON_KIND
+
+GADGET WAIT 0
+gad = GADGET(1)
+
+IF gad = 1 THEN
+  level& = GADGET GETATTR(1, GTSL_Level)
+  PRINT "Slider level:"; level&
+END IF
+
+GADGET CLOSE 2
+GADGET CLOSE 1
+WINDOW CLOSE 1
+END
+
+Gadget attributes can be modified after creation with GADGET SETATTR:
+
+  GADGET SETATTR 1, GTSL_Level=75
+
+For Cycle and MX gadgets, labels are provided via a string array:
+
+DIM choices$(3)
+choices$(0) = "Red" : choices$(1) = "Green" : choices$(2) = "Blue"
+GADGET 1, 1, "Color:", (10,10)-(150,24), CYCLE_KIND, GTCY_Labels=choices$()
+
+Note: GadTools gadgets cannot be mixed with old-style Intuition gadgets
+(BUTTON, STRING, LONGINT, POTX, POTY) in the same program. The compiler
+will report an error if both styles are used.
+
+For the full list of supported tags, see the GADGET (GadTools) entry in
+ref.txt.
+
+
 Menus
 -----
  

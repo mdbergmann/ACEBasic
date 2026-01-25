@@ -89,6 +89,7 @@ extern	BOOL 	translateused;
 extern	BOOL 	narratorused;
 extern	BOOL	ontimerused;
 extern	BOOL	iffused;
+extern	BOOL	gadtoolsused;
 extern	BOOL 	basdatapresent;
 extern	BOOL 	readpresent;
 
@@ -342,6 +343,12 @@ int  cc;
     enter_XREF("_remove_ILBMLib");
    }
 
+   if (gadtoolsused)
+   {
+    enter_XREF("_opengadtools");
+    enter_XREF("_closegadtools");
+   }
+
    enter_XREF("_starterr");
 
    /*
@@ -468,6 +475,16 @@ int  cc;
    /* get timer event trapping start time */
    if (ontimerused) fprintf(dest,"\tjsr\t_ontimerstart\n");
 
+   /* open gadtools.library */
+   if (gadtoolsused)
+   {
+    fprintf(dest,"\tjsr\t_opengadtools\n");
+    fprintf(dest,"\tcmpi.b\t#1,_starterr\n");
+    fprintf(dest,"\tbne.s\t_gadtools_ok\n");
+    fprintf(dest,"\tjmp\t_ABORT_PROG\n");
+    fprintf(dest,"_gadtools_ok:\n");
+   }
+
    /* size of stack frame */ 
    if (addr[lev] == 0)
       strcpy(bytes,"#\0");
@@ -498,7 +515,7 @@ int  cc;
    ** and possibly reply to a Wb startup message. 
    */
    if (intuitionused || gfxused || mathffpused || mathtransused ||
-       translateused) 
+       translateused || gadtoolsused)
       fprintf(dest,"_ABORT_PROG:\n");
 
    /* Free memory allocated via ALLOC and db.lib calls to alloc(). */
@@ -515,6 +532,7 @@ int  cc;
    if (mathtransused) fprintf(dest,"\tjsr\t_closemathtrans\n");
    if (mathffpused) fprintf(dest,"\tjsr\t_closemathffp\n");
    if (translateused) fprintf(dest,"\tjsr\t_closetranslator\n");
+   if (gadtoolsused) fprintf(dest,"\tjsr\t_closegadtools\n");
 
    /* delete temporary ILBM.library */
    if (iffused) fprintf(dest,"\tjsr\t_remove_ILBMLib\n");

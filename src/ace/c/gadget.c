@@ -32,8 +32,106 @@
 /* externals */
 extern	int	sym;
 extern	int	lastsym;
+extern	BOOL	gadtoolsused;
+extern	BOOL	oldgadgetused;
+extern	char	id[MAXIDSIZE];
+extern	SHORT	shortval;
+extern	LONG	longval;
+extern	char	stringval[MAXSTRLEN];
+extern	int	gttagcount;
+extern	int	lev;
+extern	SYM	*curr_item;
+
+/* frame address registers (a4 for main, a5 for subs) */
+static	char	*gt_addreg[] = { "a4","a5" };
+
+/* GadTools tag lookup table */
+#define GT_TAGBASE 0x80080000UL
+
+static struct { char *name; unsigned long value; } gt_tags[] = {
+    {"GTBB_RECESSED",	GT_TAGBASE+51},
+    {"GTCB_CHECKED",	GT_TAGBASE+4},
+    {"GTCY_ACTIVE",	GT_TAGBASE+15},
+    {"GTCY_LABELS",	GT_TAGBASE+14},
+    {"GTIN_MAXCHARS",	GT_TAGBASE+48},
+    {"GTIN_NUMBER",	GT_TAGBASE+47},
+    {"GTLV_LABELS",	GT_TAGBASE+6},
+    {"GTLV_READONLY",	GT_TAGBASE+7},
+    {"GTLV_SCROLLWIDTH",GT_TAGBASE+8},
+    {"GTLV_SELECTED",	GT_TAGBASE+54},
+    {"GTLV_SHOWSELECTED",GT_TAGBASE+53},
+    {"GTLV_TOP",	GT_TAGBASE+5},
+    {"GTMX_ACTIVE",	GT_TAGBASE+10},
+    {"GTMX_LABELS",	GT_TAGBASE+9},
+    {"GTMX_SPACING",	GT_TAGBASE+61},
+    {"GTNM_BORDER",	GT_TAGBASE+58},
+    {"GTNM_NUMBER",	GT_TAGBASE+13},
+    {"GTPA_COLOR",	GT_TAGBASE+17},
+    {"GTPA_COLOROFFSET",GT_TAGBASE+18},
+    {"GTPA_DEPTH",	GT_TAGBASE+16},
+    {"GTPA_INDICATORHEIGHT",GT_TAGBASE+20},
+    {"GTPA_INDICATORWIDTH",GT_TAGBASE+19},
+    {"GTPA_NUMCOLORS",	GT_TAGBASE+70},
+    {"GTSC_ARROWS",	GT_TAGBASE+59},
+    {"GTSC_OVERLAP",	GT_TAGBASE+24},
+    {"GTSC_TOP",	GT_TAGBASE+21},
+    {"GTSC_TOTAL",	GT_TAGBASE+22},
+    {"GTSC_VISIBLE",	GT_TAGBASE+23},
+    {"GTSL_DISPFUNC",	GT_TAGBASE+44},
+    {"GTSL_LEVEL",	GT_TAGBASE+40},
+    {"GTSL_LEVELFORMAT",GT_TAGBASE+42},
+    {"GTSL_LEVELPLACE",	GT_TAGBASE+43},
+    {"GTSL_MAX",	GT_TAGBASE+39},
+    {"GTSL_MAXLEVELLEN",GT_TAGBASE+41},
+    {"GTSL_MIN",	GT_TAGBASE+38},
+    {"GTST_MAXCHARS",	GT_TAGBASE+46},
+    {"GTST_STRING",	GT_TAGBASE+45},
+    {"GTTX_BORDER",	GT_TAGBASE+57},
+    {"GTTX_COPYTEXT",	GT_TAGBASE+12},
+    {"GTTX_TEXT",	GT_TAGBASE+11},
+    {NULL, 0}
+};
+
+unsigned long gt_tag_lookup(name)
+char *name;
+{
+/* Look up a GadTools tag name, return its value or 0 if not found */
+int i;
+    for (i = 0; gt_tags[i].name != NULL; i++)
+    {
+	if (strcmp(name, gt_tags[i].name) == 0)
+	    return gt_tags[i].value;
+    }
+    return 0;
+}
+
+static BOOL is_array_tag(tag_id)
+unsigned long tag_id;
+{
+/* Returns TRUE if this tag expects a STRPTR* (array of string pointers) */
+    return (tag_id == (GT_TAGBASE + 14) ||  /* GTCY_Labels */
+	    tag_id == (GT_TAGBASE + 9));    /* GTMX_Labels */
+}
 
 /* functions */
+int gt_kind_value()
+{
+/* Return GadTools kind value for current sym, or -1 if not a _KIND token */
+    if (sym == buttonkindsym)   return 1;
+    if (sym == checkboxkindsym) return 2;
+    if (sym == integerkindsym)  return 3;
+    if (sym == listviewkindsym) return 4;
+    if (sym == mxkindsym)       return 5;
+    if (sym == numberkindsym)   return 6;
+    if (sym == cyclekindsym)    return 7;
+    if (sym == palettekindsym)  return 8;
+    if (sym == scrollerkindsym) return 9;
+    if (sym == sliderkindsym)   return 11;
+    if (sym == stringkindsym)   return 12;
+    if (sym == textkindsym)     return 13;
+    return -1;
+}
+
 void gadget_rectangle()
 {
 /* (x1,y1)-(x2,y2) */
@@ -87,9 +185,18 @@ void close_gadget()
 	insymbol();
      	make_sure_long(expr());	/* gadget-id */
 
-	gen("jsr","_CloseGadget","  ");
-	gen("addq","#4","sp");
-	enter_XREF("_CloseGadget");
+	if (gadtoolsused)
+	{
+		gen("jsr","_CloseGTGadget","  ");
+		gen("addq","#4","sp");
+		enter_XREF("_CloseGTGadget");
+	}
+	else
+	{
+		gen("jsr","_CloseGadget","  ");
+		gen("addq","#4","sp");
+		enter_XREF("_CloseGadget");
+	}
 }
 
 void gadget_output()
@@ -118,10 +225,151 @@ void wait_gadget()
 
 	insymbol();
      	make_sure_long(expr());	/* gadget-id */
-	
-	gen("jsr","_WaitGadget","  ");
-	gen("addq","#4","sp");
-	enter_XREF("_WaitGadget");
+
+	if (gadtoolsused)
+	{
+		gen("jsr","_WaitGTGadget","  ");
+		gen("addq","#4","sp");
+		enter_XREF("_WaitGTGadget");
+	}
+	else
+	{
+		gen("jsr","_WaitGadget","  ");
+		gen("addq","#4","sp");
+		enter_XREF("_WaitGadget");
+	}
+}
+
+void gadget_font()
+{
+/* GADGET FONT "fontname", size */
+
+	insymbol();
+	if (expr() != stringtype)
+	{
+		_error(4);  /* Type mismatch - expected string */
+		return;
+	}
+
+	if (sym != comma)
+	{
+		_error(16);  /* ',' expected */
+		return;
+	}
+
+	insymbol();
+	make_sure_long(expr());  /* size */
+
+	gen("jsr","_SetGTGadgetFont","  ");
+	gen("addq","#8","sp");
+	enter_XREF("_SetGTGadgetFont");
+	gadtoolsused = TRUE;
+}
+
+void setattr_gadget()
+{
+/* GADGET SETATTR id, TAG=value [, TAG=value ...] */
+char datalabel[80], dataname[80];
+char literal[1024];
+char vbuf[80];
+int ntags;
+unsigned long tag_id;
+long tag_val;
+BOOL negate;
+static int gtstrcount = 0;
+
+	insymbol();
+	make_sure_long(expr());	/* gadget-id */
+
+	if (sym != comma) { _error(16); return; }
+
+	/* Parse TAG=value pairs */
+	strcpy(literal, "dc.l ");
+	ntags = 0;
+
+	do {
+	    insymbol();
+	    if (sym != ident)
+	    {
+		_error(82);
+		break;
+	    }
+	    tag_id = gt_tag_lookup(id);
+	    if (tag_id == 0)
+	    {
+		_error(82);
+		break;
+	    }
+	    insymbol();
+	    if (sym != equal)
+	    {
+		_error(82);
+		break;
+	    }
+	    insymbol();
+
+	    /* Append tag_id first */
+	    if (ntags > 0)
+		strcat(literal, ",");
+	    sprintf(vbuf, "$%lx,", tag_id);
+	    strcat(literal, vbuf);
+
+	    /* Handle different value types */
+	    if (sym == stringconst)
+	    {
+		/* String constant - create data entry and reference it */
+		char strlabel[40], strdata[256];
+		sprintf(strlabel, "_gtstr%d:", gtstrcount);
+		sprintf(strdata, "dc.b '%s',0", stringval);
+		enter_DATA(strlabel, strdata);
+		sprintf(vbuf, "_gtstr%d", gtstrcount);
+		strcat(literal, vbuf);
+		gtstrcount++;
+		insymbol();
+	    }
+	    else
+	    {
+		negate = FALSE;
+		if (sym == minus)
+		{
+		    negate = TRUE;
+		    insymbol();
+		}
+		if (sym == shortconst)
+		    tag_val = (long)shortval;
+		else if (sym == longconst)
+		    tag_val = longval;
+		else
+		{
+		    _error(82);
+		    break;
+		}
+		if (negate) tag_val = -tag_val;
+		sprintf(vbuf, "%ld", tag_val);
+		strcat(literal, vbuf);
+		insymbol();
+	    }
+	    ntags++;
+	} while (sym == comma);
+
+	/* Append TAG_DONE terminator */
+	strcat(literal, ",0,0");
+
+	/* Generate DATA entry */
+	sprintf(dataname, "_gttags%d", gttagcount);
+	sprintf(datalabel, "_gttags%d:", gttagcount);
+	gttagcount++;
+	/* Add alignment directive before tag array */
+	enter_DATA("", "cnop 0,2");
+	enter_DATA(datalabel, literal);
+
+	/* Push tag array address */
+	gen("pea", dataname, "  ");
+
+	gen("jsr","_SetGTGadgetAttrs","  ");
+	gen("addq","#8","sp");
+	enter_XREF("_SetGTGadgetAttrs");
+	gadtoolsused = TRUE;
 }
 
 void modify_gadget()
@@ -165,6 +413,8 @@ void gadget()
    GADGET MOD gadget-id,knob-pos[,max-notches]
    GADGET WAIT gadget-id
    GADGET CLOSE gadget-id
+   GADGET FONT "fontname",size  (for GadTools gadgets)
+   GADGET SETATTR id, TAG=value [, TAG=value ...]
    GADGET ON | OFF | STOP
 */
 int  gtype;
@@ -185,6 +435,12 @@ int  gtype;
 	else
 	if (sym == modsym)
 		modify_gadget();
+	else
+	if (sym == setattrsym)
+		setattr_gadget();
+	else
+	if (sym == fontsym)
+		gadget_font();
 	else
 	{
     		make_sure_long(expr());	/* gadget-id */
@@ -243,10 +499,240 @@ int  gtype;
 			if (sym != comma) _error(16);
 			else
 			{
-				/* 
+				/*
 				** Gadget Type.
 				*/
 	 			insymbol();
+
+				/*
+				** GadTools gadget kind?
+				*/
+				{
+				int kind;
+				kind = gt_kind_value();
+				if (kind >= 0)
+				{
+					static char *kv[] = {
+					  "#0","#1","#2","#3","#4",
+					  "#5","#6","#7","#8","#9",
+					  "#10","#11","#12","#13"
+					};
+					gen("move.l",kv[kind],"-(sp)");
+					insymbol();
+
+					if (sym == comma)
+					{
+					  /* Parse TAG=value pairs */
+					  char datalabel[80], dataname[80];
+					  char literal[1024];
+					  char vbuf[80];
+					  int ntags;
+					  unsigned long tag_id;
+					  long tag_val;
+					  BOOL negate;
+					  BOOL is_strtag;
+					  static int gtstrcount = 0;
+					  /* Array tag patch tracking */
+					  struct {
+					    int tag_index;
+					    SYM *array_sym;
+					  } arr_patches[10];
+					  int num_patches = 0;
+					  int pi;
+
+					  strcpy(literal, "dc.l ");
+					  ntags = 0;
+
+					  do {
+					    insymbol();
+					    if (sym != ident)
+					    {
+					      _error(82);
+					      break;
+					    }
+					    tag_id = gt_tag_lookup(id);
+					    if (tag_id == 0)
+					    {
+					      _error(82);
+					      break;
+					    }
+					    insymbol();
+					    if (sym != equal)
+					    {
+					      _error(82);
+					      break;
+					    }
+					    insymbol();
+
+					    is_strtag = FALSE;
+
+					    if (is_array_tag(tag_id)
+						&& sym == ident
+						&& exist(id, array)
+						&& curr_item->type
+						   == stringtype)
+					    {
+					      /* String array tag value */
+					      arr_patches[num_patches]
+						.tag_index = ntags;
+					      arr_patches[num_patches]
+						.array_sym = curr_item;
+					      num_patches++;
+					      tag_val = 0;
+					      insymbol();
+					      /* Skip () */
+					      if (sym == lparen)
+					      {
+						insymbol();
+						if (sym == rparen)
+						  insymbol();
+					      }
+					    }
+					    else if (sym == stringconst)
+					    {
+					      /* String constant tag value */
+					      char strlabel[40], strdata[256];
+					      sprintf(strlabel, "_gtstr%d:",
+						      gtstrcount);
+					      sprintf(strdata, "dc.b '%s',0",
+						      stringval);
+					      enter_DATA(strlabel, strdata);
+					      is_strtag = TRUE;
+					      insymbol();
+					    }
+					    else
+					    {
+					      negate = FALSE;
+					      if (sym == minus)
+					      {
+						negate = TRUE;
+						insymbol();
+					      }
+					      if (sym == shortconst)
+						tag_val = (long)shortval;
+					      else if (sym == longconst)
+						tag_val = longval;
+					      else
+					      {
+						_error(82);
+						break;
+					      }
+					      if (negate) tag_val = -tag_val;
+					      insymbol();
+					    }
+
+					    /* Append tag_id,value */
+					    if (ntags > 0)
+					      strcat(literal, ",");
+					    if (is_strtag)
+					    {
+					      sprintf(vbuf, "$%lx,_gtstr%d",
+						      tag_id, gtstrcount);
+					      gtstrcount++;
+					    }
+					    else
+					    {
+					      sprintf(vbuf, "$%lx,%ld",
+						      tag_id, tag_val);
+					    }
+					    strcat(literal, vbuf);
+					    ntags++;
+					  } while (sym == comma);
+
+					  /* Append TAG_DONE terminator */
+					  strcat(literal, ",0,0");
+
+					  /* Generate DATA entry */
+					  sprintf(dataname, "_gttags%d",
+						  gttagcount);
+					  sprintf(datalabel, "_gttags%d:",
+						  gttagcount);
+					  gttagcount++;
+					  /* Add alignment directive before
+					     tag array to avoid unaligned
+					     relocation warnings */
+					  enter_DATA("", "cnop 0,2");
+					  enter_DATA(datalabel, literal);
+
+					  /* Patch array tag values */
+					  for (pi = 0; pi < num_patches;
+					       pi++)
+					  {
+					    SYM *asym;
+					    char numbuf[40];
+					    char patchdst[80];
+					    LONG nelem, elemsz;
+					    int voff;
+
+					    asym = arr_patches[pi]
+						   .array_sym;
+					    nelem = max_array_ndx(asym);
+					    elemsz = asym->numconst
+							 .longnum;
+					    /* value offset in tag array:
+					       each TagItem is 8 bytes,
+					       value is at +4 */
+					    voff = arr_patches[pi]
+						   .tag_index * 8 + 4;
+
+					    /* Push array base addr */
+					    sprintf(numbuf, "#%ld",
+						    asym->address);
+					    gen("move.l",
+						gt_addreg[lev], "d0");
+					    gen("sub.l", numbuf, "d0");
+					    gen("movea.l", "d0", "a0");
+					    gen("move.l", "(a0)",
+						"-(sp)");
+					    /* Push num_elements */
+					    sprintf(numbuf, "#%ld",
+						    nelem);
+					    gen("move.l", numbuf,
+						"-(sp)");
+					    /* Push element_size */
+					    sprintf(numbuf, "#%ld",
+						    elemsz);
+					    gen("move.l", numbuf,
+						"-(sp)");
+					    gen("jsr",
+						"_BuildGTLabels", "  ");
+					    gen("add.l", "#12", "sp");
+					    /* Patch tag value in DATA */
+					    sprintf(patchdst, "%s+%d",
+						    dataname, voff);
+					    gen("move.l", "d0",
+						patchdst);
+					    enter_XREF(
+						"_BuildGTLabels");
+					  }
+
+					  /* Push tag array address */
+					  gen("pea", dataname, "  ");
+					}
+					else
+					{
+					  gen("move.l","#0","-(sp)");
+					}
+
+					if (oldgadgetused)
+					{
+					  _error(81);
+					  return;
+					}
+					gen("jsr","_CreateGTGadget","  ");
+					gen("add.l","#36","sp");
+					gadtoolsused = TRUE;
+					enter_XREF("_CreateGTGadget");
+					return;
+				}
+				}
+
+				if (gadtoolsused)
+				{
+					_error(81);
+					return;
+				}
+				oldgadgetused = TRUE;
 
 				if (sym == buttonsym)
 				{

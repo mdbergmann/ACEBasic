@@ -315,6 +315,8 @@ char *msg;
   case 78 : msg="An event trapping SUB may not have a parameter list"; break;
   case 79 : msg="Structure variable expected"; break;
   case 80 : msg="BLOCK without END BLOCK"; break;
+  case 81 : msg="Cannot mix old-style and GadTools gadgets"; break;
+  case 82 : msg="Invalid GadTools tag or value"; break;
  }
 
  /* show the error */

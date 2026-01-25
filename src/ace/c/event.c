@@ -68,6 +68,7 @@ extern	BOOL 	wdw_event_label_exists;
 extern	BOOL 	gad_event_label_exists;
 
 extern	BOOL  	ontimerused;
+extern	BOOL	gadtoolsused;
 
 extern	BOOL 	break_opt;
 extern	BOOL 	wdw_close_opt;
@@ -603,15 +604,18 @@ void gad_event_test()
 {
 char lab[80],lablabel[80];
 
-/* Test for user-defined gadget selection 
-   in current output window and transfer 
-   control to a user-defined subroutine 
+/* Test for user-defined gadget selection
+   in current output window and transfer
+   control to a user-defined subroutine
    if a gadget click is detected.
 */
    make_label(lab,lablabel);
 
    gen("move.l","#0","-(sp)");
-   gen("jsr","_gadget_event_test","  ");
+   if (gadtoolsused)
+      gen("jsr","_gt_gadget_event_test","  ");
+   else
+      gen("jsr","_gadget_event_test","  ");
    gen("addq","#4","sp");
    gen("tst.l","d0","  ");
    gen("beq.s",lab,"  ");
@@ -619,11 +623,14 @@ char lab[80],lablabel[80];
    if (gad_event_branch == callsym)
 	gen("jsr",gad_event_label,"  ");
    else
-   if (gad_event_branch == gosubsym) 
+   if (gad_event_branch == gosubsym)
       	gen_branch("jsr",gad_event_label);
    else
     	gen_branch("jmp",gad_event_label);
    gen(lablabel,"  ","  ");
 
-   enter_XREF("_gadget_event_test");
+   if (gadtoolsused)
+      enter_XREF("_gt_gadget_event_test");
+   else
+      enter_XREF("_gadget_event_test");
 }

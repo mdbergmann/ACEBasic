@@ -1,5 +1,5 @@
 			 	 +----------+
-		  		 | ACE v2.5 |
+		  		 | ACE v2.6 |
 				 +----------+
 
 		       +--------------------------------+
@@ -1046,10 +1046,20 @@ GADGET CLOSE *	- syntax: GADGET CLOSE id
 		- This command removes the specified gadget from the
 		  current output window and should always be called
 		  when you are finished with a gadget.
-		- Make sure that the window belonging to the gadget 
-		  you wish to close is the current output window 
+		- Make sure that the window belonging to the gadget
+		  you wish to close is the current output window
 		  (see WINDOW OUTPUT command below).
- 
+
+--------------------------------------------------------------------------------
+GADGET FONT *	- syntax: GADGET FONT name$, size
+		- Sets the font to be used for subsequent GadTools gadgets.
+		- name$ is the font name (e.g., "topaz.font").
+		- size is the font size in points (e.g., 8).
+		- This must be called before creating gadgets that should
+		  use the specified font.
+		- Only applies to GadTools gadgets, not legacy gadgets.
+		- See also GADGET (GadTools).
+
 --------------------------------------------------------------------------------
 GADGET MOD *	- syntax: GADGET MOD id,knob-position[,max-positions]
 		- This command modifies the specified proportional
@@ -1084,10 +1094,131 @@ GADGET OUTPUT *	- syntax: GADGET OUTPUT id
 GADGET WAIT *	- syntax: GADGET WAIT id
 		- This command puts the program to sleep until it receives
 		  a message that the specified gadget has been selected.
-		- If id=0 the program will wake up when ANY gadget is 
-		  selected. A call to GADGET(1) can then be used to 
+		- If id=0 the program will wake up when ANY gadget is
+		  selected. A call to GADGET(1) can then be used to
 		  determine the number of the gadget.
- 
+
+--------------------------------------------------------------------------------
+GADGET (GadTools) *
+		- syntax: GADGET id, status, label$, (x1,y1)-(x2,y2),
+				kind [, TAG=value ...]
+
+		- Creates a GadTools gadget. Requires AmigaOS 2.0+ (V36).
+
+		- id is a unique gadget ID from 1 to 255.
+		- status is 1 (ON) or 0 (OFF) to enable or disable.
+		- label$ is the gadget label text.
+		- (x1,y1)-(x2,y2) defines the gadget rectangle.
+		- kind specifies the GadTools gadget type (see below).
+
+		- After the kind, optional TAG=value pairs set gadget
+		  attributes. Multiple tags are separated by commas.
+
+		- Supported kinds:
+
+		  Kind		Description
+		  ----		-----------
+		  BUTTON_KIND	Push button
+		  CHECKBOX_KIND	Toggle checkbox
+		  CYCLE_KIND	Cycle (popup choice)
+		  INTEGER_KIND	Integer input field
+		  LISTVIEW_KIND	Scrolling list
+		  MX_KIND	Mutual exclusion (radio buttons)
+		  NUMBER_KIND	Read-only number display
+		  PALETTE_KIND	Color palette selector
+		  SCROLLER_KIND	Scroll bar
+		  SLIDER_KIND	Slider bar
+		  STRING_KIND	Text input field
+		  TEXT_KIND	Read-only text display
+
+		- Supported tags:
+
+		  Tag			Kind		Description
+		  ---			----		-----------
+		  GTSL_Min		SLIDER		Minimum value
+		  GTSL_Max		SLIDER		Maximum value
+		  GTSL_Level		SLIDER		Current level
+		  GTSL_MaxLevelLen	SLIDER		Max level display length
+		  GTSL_LevelFormat	SLIDER		Printf format for level
+		  GTSL_LevelPlace	SLIDER		Level text placement
+		  GTST_String		STRING		Default string
+		  GTST_MaxChars		STRING		Max input characters
+		  GTCB_Checked		CHECKBOX	Initial checked state
+		  GTCY_Labels		CYCLE		String array for labels
+		  GTCY_Active		CYCLE		Active label index
+		  GTMX_Labels		MX		String array for labels
+		  GTMX_Active		MX		Active label index
+		  GTMX_Spacing		MX		Spacing between buttons
+		  GTIN_Number		INTEGER		Default number
+		  GTIN_MaxChars		INTEGER		Max input characters
+		  GTNM_Number		NUMBER		Displayed number
+		  GTNM_Border		NUMBER		Draw border if non-zero
+		  GTTX_Text		TEXT		Displayed text
+		  GTTX_CopyText		TEXT		Copy text if non-zero
+		  GTTX_Border		TEXT		Draw border if non-zero
+		  GTPA_Depth		PALETTE		Number of bit planes
+		  GTPA_Color		PALETTE		Selected color
+		  GTPA_ColorOffset	PALETTE		First color index
+		  GTPA_IndicatorWidth	PALETTE		Indicator width
+		  GTPA_IndicatorHeight	PALETTE		Indicator height
+		  GTPA_NumColors	PALETTE		Number of colors
+		  GTSC_Top		SCROLLER	Top visible position
+		  GTSC_Total		SCROLLER	Total number of items
+		  GTSC_Visible		SCROLLER	Number of visible items
+		  GTSC_Overlap		SCROLLER	Arrow scroll overlap
+		  GTSC_Arrows		SCROLLER	Arrow button size
+		  GTLV_Top		LISTVIEW	Top visible item
+		  GTLV_Labels		LISTVIEW	List of items
+		  GTLV_ReadOnly		LISTVIEW	Read-only if non-zero
+		  GTLV_ScrollWidth	LISTVIEW	Scroller width
+		  GTLV_ShowSelected	LISTVIEW	Show selected item
+		  GTLV_Selected		LISTVIEW	Selected item index
+		  GTBB_Recessed		(any)		Recessed bevel box
+
+		- For GTCY_Labels and GTMX_Labels, the value must be a
+		  string array name followed by (): e.g. GTCY_Labels=opts$()
+
+		- GadTools gadgets cannot be mixed with old-style gadgets
+		  (BUTTON, STRING, LONGINT, POTX, POTY) in the same program.
+
+		- Examples:
+
+		  GADGET 1, 1, "Speed:", (10,10)-(200,22), SLIDER_KIND, GTSL_Min=0, GTSL_Max=100, GTSL_Level=50
+
+		  GADGET 2, 1, "Name:", (10,30)-(200,44), STRING_KIND, GTST_String="Hello", GTST_MaxChars=50
+
+		  GADGET 3, 1, "OK", (10,50)-(80,64), BUTTON_KIND
+
+		- The GADGET(n) function works with GadTools gadgets using
+		  the same return values as for old-style gadgets.
+
+		- See also GADGET SETATTR, GADGET GETATTR.
+
+--------------------------------------------------------------------------------
+GADGET SETATTR *
+		- syntax: GADGET SETATTR id, TAG=value [, TAG=value ...]
+
+		- Modifies attributes of an existing GadTools gadget.
+		- id is the gadget ID (1-255) of a previously created
+		  GadTools gadget.
+		- TAG=value pairs specify which attributes to change.
+		  See GADGET (GadTools) for the list of supported tags.
+
+		- Example:
+		  GADGET SETATTR 1, GTSL_Level=75
+
+--------------------------------------------------------------------------------
+GADGET GETATTR *
+		- syntax: value& = GADGET GETATTR(id, TAG)
+
+		- Returns the current value of a GadTools gadget attribute.
+		- id is the gadget ID (1-255).
+		- TAG is the attribute to query (see tag list above).
+		- Returns a long integer value.
+
+		- Example:
+		  level& = GADGET GETATTR(1, GTSL_Level)
+
 --------------------------------------------------------------------------------
 GET		- syntax: GET [#]<fileNum>,<structVar>[,<recordNum>]
 		- Retrieves the next or specified record from a random file
