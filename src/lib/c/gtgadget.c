@@ -47,6 +47,13 @@ struct NewGadget {
 #define CLOSEGAD  256L
 #define MAX_LABEL_ARRAYS 16
 
+/* GadTools gadget kinds */
+#define SLIDER_KIND   11
+#define SCROLLER_KIND 9
+
+/* IDCMP flags for slider/scroller events */
+#define SLIDERIDCMP   (GADGETUP | GADGETDOWN | MOUSEMOVE)
+
 /* module state */
 static BOOL gt_initialized = FALSE;
 static BOOL gadgets_in_window = FALSE;
@@ -203,11 +210,20 @@ struct Gadget *gad;
     /* Add gadgets to window if open */
     if (Wdw)
     {
+	ULONG idcmp_flags;
+
 	AddGList(Wdw, glist, -1, -1, NULL);
 	RefreshGList(glist, Wdw, NULL, -1);
 	GT_RefreshWindow(Wdw, NULL);
-	/* Ensure REFRESHWINDOW is in IDCMP for GadTools refresh handling */
-	ModifyIDCMP(Wdw, Wdw->IDCMPFlags | REFRESHWINDOW);
+
+	/* Build IDCMP flags: always need REFRESHWINDOW and CLOSEWINDOW */
+	idcmp_flags = Wdw->IDCMPFlags | REFRESHWINDOW | CLOSEWINDOW;
+
+	/* Add slider/scroller IDCMP if creating those gadget types */
+	if (kind == SLIDER_KIND || kind == SCROLLER_KIND)
+	    idcmp_flags |= SLIDERIDCMP;
+
+	ModifyIDCMP(Wdw, idcmp_flags);
 	gadgets_in_window = TRUE;
     }
 }
@@ -322,7 +338,8 @@ ULONG gt_gadget_event_test()
 /* Non-blocking test for a GadTools gadget event.
 ** Uses GT_GetIMsg/GT_ReplyIMsg.
 ** Handles REFRESHWINDOW automatically.
-** Returns 1 if a gadget event occurred, 0 otherwise.
+** Handles CLOSEWINDOW and slider MOUSEMOVE events.
+** Returns -1 if a gadget event occurred, 0 otherwise.
 */
 struct IntuiMessage *msg;
 struct Gadget *GadPtr;
@@ -345,21 +362,33 @@ ULONG MsgClass;
 	return 0L;
     }
 
-    if (MsgClass & GADGETUP)
+    /* Handle CLOSEWINDOW */
+    if (MsgClass & CLOSEWINDOW)
+    {
+	GT_ReplyIMsg(msg);
+	set_wdw_close_num();
+	gt_gadnum = CLOSEGAD;
+	return -1L;
+    }
+
+    /* Handle gadget events: GADGETUP, GADGETDOWN, MOUSEMOVE */
+    GadNum = 0;
+    if (MsgClass & (GADGETUP | GADGETDOWN | MOUSEMOVE))
     {
 	GadPtr = (struct Gadget *)msg->IAddress;
-	GadNum = GadPtr->GadgetID;
-	gt_lastcode = (ULONG)msg->Code;
+	if (GadPtr != NULL)
+	{
+	    GadNum = GadPtr->GadgetID;
+	    gt_lastcode = (ULONG)msg->Code;
+	}
     }
-    else
-	GadNum = 0;
 
     GT_ReplyIMsg(msg);
 
-    if ((MsgClass & GADGETUP) && GadNum >= 1 && GadNum <= MAXGADGET)
+    if (GadNum >= 1 && GadNum <= MAXGADGET)
     {
 	gt_gadnum = (ULONG)GadNum;
-	return 1L;
+	return -1L;
     }
 
     return 0L;
@@ -371,11 +400,13 @@ ULONG id;
 /* Wait on a specific gadget (id), or any gadget if id=0.
 ** Uses GT_GetIMsg/GT_ReplyIMsg.
 ** Handles REFRESHWINDOW automatically.
+** Handles slider/scroller MOUSEMOVE events for real-time feedback.
 */
 struct IntuiMessage *msg;
 struct Gadget *GadPtr;
 USHORT GadNum;
 ULONG MsgClass;
+BOOL got_gadget_event;
 
     if (Wdw == NULL) return;
     if (id > MAXGADGET) return;
@@ -391,6 +422,8 @@ ULONG MsgClass;
 	}
 
 	MsgClass = msg->Class;
+	GadNum = 0;
+	got_gadget_event = FALSE;
 
 	/* Handle REFRESHWINDOW internally */
 	if (MsgClass & REFRESHWINDOW)
@@ -401,29 +434,39 @@ ULONG MsgClass;
 	    continue;
 	}
 
-	if (MsgClass & GADGETUP)
-	{
-	    GadPtr = (struct Gadget *)msg->IAddress;
-	    GadNum = GadPtr->GadgetID;
-	    gt_lastcode = (ULONG)msg->Code;
-	}
-	else
-	    GadNum = 0;
-
-	GT_ReplyIMsg(msg);
-
 	/* Handle CLOSEWINDOW */
 	if (MsgClass & CLOSEWINDOW)
 	{
+	    GT_ReplyIMsg(msg);
 	    set_wdw_close_num();
 	    gt_gadnum = CLOSEGAD;
 	    return;
 	}
 
-	/* Any gadget will do? */
-	if (id == 0 && (MsgClass & GADGETUP)) break;
+	/* Handle gadget events: GADGETUP, GADGETDOWN, MOUSEMOVE */
+	if (MsgClass & (GADGETUP | GADGETDOWN | MOUSEMOVE))
+	{
+	    GadPtr = (struct Gadget *)msg->IAddress;
+	    if (GadPtr != NULL)
+	    {
+		GadNum = GadPtr->GadgetID;
+		gt_lastcode = (ULONG)msg->Code;
+		got_gadget_event = TRUE;
+	    }
+	}
+
+	GT_ReplyIMsg(msg);
+
+	/* Check if we got the gadget event we were waiting for */
+	if (got_gadget_event)
+	{
+	    /* Any gadget will do? */
+	    if (id == 0) break;
+	    /* Specific gadget? */
+	    if (GadNum == id) break;
+	}
     }
-    while (!(MsgClass & GADGETUP) || GadNum != id);
+    while (1);
 
     gt_gadnum = (ULONG)GadNum;
 }

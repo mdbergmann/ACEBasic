@@ -359,6 +359,8 @@ static int gtstrcount = 0;
 	sprintf(dataname, "_gttags%d", gttagcount);
 	sprintf(datalabel, "_gttags%d:", gttagcount);
 	gttagcount++;
+	/* Add alignment directive before tag array */
+	enter_DATA("", "cnop 0,2");
 	enter_DATA(datalabel, literal);
 
 	/* Push tag array address */
@@ -646,6 +648,10 @@ int  gtype;
 					  sprintf(datalabel, "_gttags%d:",
 						  gttagcount);
 					  gttagcount++;
+					  /* Add alignment directive before
+					     tag array to avoid unaligned
+					     relocation warnings */
+					  enter_DATA("", "cnop 0,2");
 					  enter_DATA(datalabel, literal);
 
 					  /* Patch array tag values */
