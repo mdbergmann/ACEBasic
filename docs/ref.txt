@@ -1875,10 +1875,14 @@ OPTION *	- syntax: OPTION <switch>+|-[,<switch>+|-..]
 		- Each switch must be followed by a "+" or "-" with
 		  the former activating the directive and the latter
 		  neutralising it.
-		- Switches currently implemented are: b,c,E,i,l,m,O,w
+		- Switches currently implemented are: 2,b,c,E,i,l,m,O,w
  		- See ace.txt, "Compiler options" for details of each
-		  switch. Notice that for switches i and O, activation 
+		  switch. Notice that for switches i and O, activation
 		  or deactivation takes effect at the end of compilation.
+		- The "2" switch enables 68020+ native code generation
+		  for long integer multiply, divide, and modulo. Programs
+		  compiled with this switch require a 68020 or higher CPU.
+		  Example: OPTION 2+
  
 --------------------------------------------------------------------------------
 OR		- Boolean operator: X OR Y.

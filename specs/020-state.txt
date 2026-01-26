@@ -1,4 +1,4 @@
-Last completed: Phase 7 - All phases complete and verified
+Last completed: Phase 8 - Documentation updated
 Next step:      None - implementation complete
 Notes:          All phases verified on Amiga emulator (A4000/68040):
                 - Phase 1: cpu020_opt flag infrastructure (parsevar.c, misc.c, parse.c)
@@ -19,3 +19,4 @@ Notes:          All phases verified on Amiga emulator (A4000/68040):
                 - Execution: All 16 test values match expected output
                 - CLI flag -2 works correctly
                 - OPTION 2+ source directive works correctly
+                - Phase 8: Documentation updated (ace.txt and ref.txt)
