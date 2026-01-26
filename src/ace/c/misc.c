@@ -74,6 +74,7 @@ extern	BOOL	list_source;
 extern	BOOL	optimise_opt;
 extern	BOOL	wdw_close_opt;
 extern	BOOL	module_opt;
+extern	BOOL	cpu020_opt;
 extern	FILE	*err_log;
 extern	int	idtype[31];
 extern	int  	strconstcount;
@@ -496,9 +497,13 @@ BOOL activate;
   {
    insymbol();
 
-   if (sym == ident && strlen(ut_id) == 1) 
+   if ((sym == ident && strlen(ut_id) == 1) ||
+       (sym == shortconst && shortval >= 0 && shortval <= 9))
    {
-    letter=ut_id[0];
+    if (sym == ident)
+       letter=ut_id[0];
+    else
+       letter='0'+(char)shortval;
 
     insymbol();
     if (sym == plus || sym == minus)
@@ -539,6 +544,7 @@ BOOL activate;
       case 'm' : module_opt=activate; break;
       case 'O' : optimise_opt=activate; break;
       case 'w' : wdw_close_opt=activate; break;
+      case '2' : cpu020_opt=activate; break;
 
       default  : _error(74); break;
      }

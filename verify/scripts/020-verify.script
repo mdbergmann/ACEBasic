@@ -1,0 +1,279 @@
+.KEY LOG/K
+.BRA {
+.KET }
+
+; 68020 Code Generation Verification Script
+; Run from within AmigaOS (fs-uae)
+;
+; Usage: execute ACE:verify/scripts/020-verify.script
+;
+; Purpose: Build ACE compiler with 020 support, then compile and run
+;          the opt020 test to verify native 68020 instructions work.
+
+; Set default log location
+IF "{LOG}" EQ ""
+   SET LOGFILE "ACE:verify/tests/results/020-verify.log"
+ELSE
+   SET LOGFILE "{LOG}"
+ENDIF
+
+echo "" >$LOGFILE
+echo "============================================================" >>$LOGFILE
+echo "68020 Code Generation Verification - `date`" >>$LOGFILE
+echo "============================================================" >>$LOGFILE
+echo "" >>$LOGFILE
+
+; ------------------------------------------------------------------
+; Step 0: Rebuild ACE compiler
+; ------------------------------------------------------------------
+echo "============================================================" >>$LOGFILE
+echo "Step 0: Rebuilding ACE compiler" >>$LOGFILE
+echo "------------------------------------------------------------" >>$LOGFILE
+echo "" >>$LOGFILE
+
+cd ACE:src/make
+echo "Running: make -f Makefile-ace clean" >>$LOGFILE
+make -f Makefile-ace clean >T:020_clean.out
+type T:020_clean.out >>$LOGFILE
+echo "" >>$LOGFILE
+
+echo "Running: make -f Makefile-ace" >>$LOGFILE
+make -f Makefile-ace >T:020_build.out
+type T:020_build.out >>$LOGFILE
+echo "" >>$LOGFILE
+
+IF NOT EXISTS ACE:bin/ace
+   echo "ERROR: Build failed - ACE:bin/ace not created!" >>$LOGFILE
+   echo "" >>$LOGFILE
+   echo "68020 verification ABORTED" >>$LOGFILE
+   echo ""
+   echo "ERROR: Build failed. Check the log."
+   SKIP end
+ENDIF
+
+echo "Build successful. Compiler ready for testing." >>$LOGFILE
+list ACE:bin/ace >>$LOGFILE
+echo "" >>$LOGFILE
+
+; ------------------------------------------------------------------
+; Test 1: Compile opt020.b with ace directly (to inspect .s file)
+; ------------------------------------------------------------------
+echo "============================================================" >>$LOGFILE
+echo "Test 1: Compile opt020.b with ace (assembly inspection)" >>$LOGFILE
+echo "------------------------------------------------------------" >>$LOGFILE
+echo "" >>$LOGFILE
+
+; Copy source to T: and compile there (ace puts .s next to source)
+copy ACE:verify/tests/cases/arithmetic/opt020.b T:opt020.b QUIET
+cd T:
+
+echo "Compiling: ace T:opt020" >>$LOGFILE
+ace T:opt020 >T:020_compile.out
+echo "Compiler output:" >>$LOGFILE
+IF EXISTS T:020_compile.out
+   type T:020_compile.out >>$LOGFILE
+ENDIF
+echo "" >>$LOGFILE
+
+; Check if assembly file was created
+IF EXISTS T:opt020.s
+   echo "Test 1: PASS - Assembly file generated" >>$LOGFILE
+   echo "" >>$LOGFILE
+
+   ; Check for machine 68020 directive
+   search T:opt020.s "machine 68020" >NIL:
+   IF NOT WARN
+      echo "Test 1a: PASS - 'machine 68020' directive found" >>$LOGFILE
+   ELSE
+      echo "Test 1a: FAIL - 'machine 68020' directive NOT found" >>$LOGFILE
+   ENDIF
+
+   ; Check for muls.l instruction
+   search T:opt020.s "muls.l" >NIL:
+   IF NOT WARN
+      echo "Test 1b: PASS - 'muls.l' instruction found" >>$LOGFILE
+   ELSE
+      echo "Test 1b: FAIL - 'muls.l' instruction NOT found" >>$LOGFILE
+   ENDIF
+
+   ; Check for divs.l instruction
+   search T:opt020.s "divs.l" >NIL:
+   IF NOT WARN
+      echo "Test 1c: PASS - 'divs.l' instruction found" >>$LOGFILE
+   ELSE
+      echo "Test 1c: FAIL - 'divs.l' instruction NOT found" >>$LOGFILE
+   ENDIF
+
+   ; Check for divsl.l instruction
+   search T:opt020.s "divsl.l" >NIL:
+   IF NOT WARN
+      echo "Test 1d: PASS - 'divsl.l' instruction found" >>$LOGFILE
+   ELSE
+      echo "Test 1d: FAIL - 'divsl.l' instruction NOT found" >>$LOGFILE
+   ENDIF
+
+   ; Check that lmul is NOT referenced (should use native instructions)
+   search T:opt020.s "lmul" >NIL:
+   IF NOT WARN
+      echo "Test 1e: FAIL - 'lmul' still referenced (should use native muls.l)" >>$LOGFILE
+   ELSE
+      echo "Test 1e: PASS - 'lmul' NOT referenced (using native instructions)" >>$LOGFILE
+   ENDIF
+
+   ; Check that ace_ldiv is NOT referenced
+   search T:opt020.s "ace_ldiv" >NIL:
+   IF NOT WARN
+      echo "Test 1f: FAIL - 'ace_ldiv' still referenced (should use native divs.l)" >>$LOGFILE
+   ELSE
+      echo "Test 1f: PASS - 'ace_ldiv' NOT referenced (using native instructions)" >>$LOGFILE
+   ENDIF
+
+   ; Check that ace_lrem is NOT referenced
+   search T:opt020.s "ace_lrem" >NIL:
+   IF NOT WARN
+      echo "Test 1g: FAIL - 'ace_lrem' still referenced (should use native divsl.l)" >>$LOGFILE
+   ELSE
+      echo "Test 1g: PASS - 'ace_lrem' NOT referenced (using native instructions)" >>$LOGFILE
+   ENDIF
+
+   ; Save assembly file to results for host-side inspection
+   copy T:opt020.s ACE:verify/tests/results/opt020.s QUIET
+
+   echo "" >>$LOGFILE
+   echo "Full assembly output:" >>$LOGFILE
+   type T:opt020.s >>$LOGFILE
+   echo "" >>$LOGFILE
+ELSE
+   echo "Test 1: FAIL - No assembly file generated" >>$LOGFILE
+ENDIF
+echo "" >>$LOGFILE
+
+; ------------------------------------------------------------------
+; Test 2: Build and run opt020 using bas script
+; ------------------------------------------------------------------
+echo "============================================================" >>$LOGFILE
+echo "Test 2: Build and run opt020 (full compile+link+run)" >>$LOGFILE
+echo "------------------------------------------------------------" >>$LOGFILE
+echo "" >>$LOGFILE
+
+cd ACE:verify/tests/cases/arithmetic
+
+echo "Building: bas opt020" >>$LOGFILE
+bas opt020 >T:020_bas.out
+echo "bas output:" >>$LOGFILE
+IF EXISTS T:020_bas.out
+   type T:020_bas.out >>$LOGFILE
+ENDIF
+echo "" >>$LOGFILE
+
+IF EXISTS opt020
+   echo "Test 2a: PASS - Executable created" >>$LOGFILE
+   echo "" >>$LOGFILE
+   echo "Running opt020..." >>$LOGFILE
+   opt020 >T:020_run.out
+   echo "Program output:" >>$LOGFILE
+   type T:020_run.out >>$LOGFILE
+   echo "" >>$LOGFILE
+
+   ; Copy output to results for host-side checking
+   copy T:020_run.out ACE:verify/tests/results/opt020_output.log QUIET
+
+   echo "Test 2b: Program executed - check output above" >>$LOGFILE
+ELSE
+   echo "Test 2: FAIL - Executable not created by bas" >>$LOGFILE
+ENDIF
+echo "" >>$LOGFILE
+
+; ------------------------------------------------------------------
+; Test 3: Verify -2 CLI flag generates machine directive
+; ------------------------------------------------------------------
+echo "============================================================" >>$LOGFILE
+echo "Test 3: Verify -2 CLI flag" >>$LOGFILE
+echo "------------------------------------------------------------" >>$LOGFILE
+echo "" >>$LOGFILE
+
+; Create test file - use ** for literal asterisk in AmigaDOS echo
+echo "a& = 100000" >T:test020cli.b
+echo "b& = 50" >>T:test020cli.b
+echo "PRINT a& ** b&" >>T:test020cli.b
+
+echo "Source file:" >>$LOGFILE
+type T:test020cli.b >>$LOGFILE
+echo "" >>$LOGFILE
+
+cd T:
+echo "Compiling: ace -2 T:test020cli" >>$LOGFILE
+ace -2 T:test020cli >T:020_cli_compile.out
+echo "Compiler output:" >>$LOGFILE
+IF EXISTS T:020_cli_compile.out
+   type T:020_cli_compile.out >>$LOGFILE
+ENDIF
+echo "" >>$LOGFILE
+
+IF EXISTS T:test020cli.s
+   ; Save for host inspection
+   copy T:test020cli.s ACE:verify/tests/results/test020cli.s QUIET
+
+   search T:test020cli.s "machine 68020" >NIL:
+   IF NOT WARN
+      echo "Test 3a: PASS - 'machine 68020' found with -2 CLI flag" >>$LOGFILE
+   ELSE
+      echo "Test 3a: FAIL - 'machine 68020' NOT found with -2 CLI flag" >>$LOGFILE
+   ENDIF
+
+   search T:test020cli.s "muls.l" >NIL:
+   IF NOT WARN
+      echo "Test 3b: PASS - 'muls.l' found with -2 CLI flag" >>$LOGFILE
+   ELSE
+      echo "Test 3b: FAIL - 'muls.l' NOT found with -2 CLI flag" >>$LOGFILE
+   ENDIF
+
+   echo "" >>$LOGFILE
+   echo "CLI test assembly:" >>$LOGFILE
+   type T:test020cli.s >>$LOGFILE
+   echo "" >>$LOGFILE
+ELSE
+   echo "Test 3: FAIL - No assembly file generated with -2 flag" >>$LOGFILE
+ENDIF
+echo "" >>$LOGFILE
+
+; ------------------------------------------------------------------
+; Summary
+; ------------------------------------------------------------------
+echo "============================================================" >>$LOGFILE
+echo "Summary" >>$LOGFILE
+echo "============================================================" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "Review the output above for PASS/FAIL status." >>$LOGFILE
+echo "Key checks:" >>$LOGFILE
+echo "  - Build succeeded" >>$LOGFILE
+echo "  - machine 68020 directive in .s output" >>$LOGFILE
+echo "  - muls.l, divs.l, divsl.l instructions generated" >>$LOGFILE
+echo "  - No lmul/ace_ldiv/ace_lrem library references" >>$LOGFILE
+echo "  - Program runs and produces correct output" >>$LOGFILE
+echo "  - -2 CLI flag works same as OPTION 2+" >>$LOGFILE
+echo "" >>$LOGFILE
+echo "============================================================" >>$LOGFILE
+echo "END OF 68020 VERIFICATION" >>$LOGFILE
+echo "============================================================" >>$LOGFILE
+
+; Clean up temp files
+delete T:020_#? QUIET
+delete T:test020cli#? QUIET
+delete T:opt020#? QUIET
+
+; Show results on screen
+echo ""
+echo "68020 verification complete!"
+echo "Results saved to: $LOGFILE"
+echo ""
+type $LOGFILE
+
+; Create completion marker
+echo "020 verify complete" >ACE:verify/tests/results/020-complete.marker
+
+; Quit emulator
+wait 2
+C:UAEquit >NIL:
+
+LAB end

@@ -51,6 +51,7 @@ extern	int	andtype;
 extern	int	ortype;
 extern	int	eqvtype;
 extern	CODE	*curr_code;
+extern	BOOL	cpu020_opt;
 extern	int	labelcount;
 extern	char	tempstrname[80];
 
@@ -323,9 +324,18 @@ CODE *cx[5];
 					break;
 			
 		     case longtype   :	/* args on stack */
-					gen("jsr","lmul","  "); 
-					gen("add.l","#8","sp");
-					enter_XREF("lmul");
+					if (cpu020_opt)
+					{
+					    gen("move.l","(sp)+","d1");
+					    gen("move.l","(sp)+","d0");
+					    gen("muls.l","d1","d0");
+					}
+					else
+					{
+					    gen("jsr","lmul","  ");
+					    gen("add.l","#8","sp");
+					    enter_XREF("lmul");
+					}
 					localtype=longtype;
 					break;
 
@@ -398,10 +408,20 @@ CODE *cx[5];
    localtype=prodtype;
 
    /* integer division - args on stack */
-   gen("jsr","ace_ldiv","  ");
-   gen("add.l","#8","sp");
-   gen("move.l","d0","-(sp)");
-   enter_XREF("ace_ldiv");
+   if (cpu020_opt)
+   {
+       gen("move.l","(sp)+","d1");
+       gen("move.l","(sp)+","d0");
+       gen("divs.l","d1","d0");
+       gen("move.l","d0","-(sp)");
+   }
+   else
+   {
+       gen("jsr","ace_ldiv","  ");
+       gen("add.l","#8","sp");
+       gen("move.l","d0","-(sp)");
+       enter_XREF("ace_ldiv");
+   }
   }
   else _error(4); /* notype -> type mismatch */
   firsttype=localtype;  /* moving record of last sub-expression type */
@@ -467,10 +487,20 @@ CODE *cx[5];
    if (localtype == longtype)
    {
     /* integer MOD - args on stack */
-    gen("jsr","ace_lrem","  ");
-    gen("add.l","#8","sp");
-    gen("move.l","d0","-(sp)");
-    enter_XREF("ace_lrem");
+    if (cpu020_opt)
+    {
+        gen("move.l","(sp)+","d1");
+        gen("move.l","(sp)+","d0");
+        gen("divsl.l","d1","d1:d0");
+        gen("move.l","d1","-(sp)");
+    }
+    else
+    {
+        gen("jsr","ace_lrem","  ");
+        gen("add.l","#8","sp");
+        gen("move.l","d0","-(sp)");
+        enter_XREF("ace_lrem");
+    }
    }
    else
    {
