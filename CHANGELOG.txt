@@ -1,7 +1,7 @@
                                   CHANGELOG
                                   =========
 
-v2.6 (2026-01-25)
+v2.6 (2026-01-26)
 -----------------
 
 New Features:
@@ -20,6 +20,18 @@ New Features:
   - GADGET SETATTR/GETATTR: Runtime modification and querying of gadget
     attributes via tags.
 
+  - ASSERT statement: Runtime assertion checking for defensive programming.
+    Syntax: ASSERT expression [, "message"]
+    Prints "ASSERT FAILED: <message>" and exits on failure; passes through
+    silently when the condition is true. Implemented as an assembly-level
+    runtime library function (assert.s in db.lib).
+
+  - 68020 native code generation: When compiling with the -2 flag or
+    OPTION 2+ in source, the compiler emits native 68020 instructions
+    (muls.l, divs.l, divsl.l) for long multiply, divide, and modulo
+    instead of calling library routines (lmul, ace_ldiv, ace_lrem).
+    Emits "machine 68020" assembler directive for vasm.
+
 Documentation:
 
   - txt2guide.rb: Ruby script to auto-generate AmigaGuide documentation
@@ -27,9 +39,12 @@ Documentation:
 
 Testing:
 
-  - GadTools test suite: New gtgadgets test category for GadTools gadgets.
-  - Legacy gadgets tests: Separate legacygadgets category for original
+  - GadTools test suite: New 'gtgadgets' test category for GadTools gadgets.
+  - Legacy gadgets tests: Separate 'legacygadgets' category for original
     BOOPSI gadgets.
+  - Assert test suite: New 'assert' test category with ok and fail cases.
+  - 68020 arithmetic test: opt020 test case validating native 68020 code
+    generation for multiply, divide, and modulo operations.
 
 ------------------------------------------------------------------------------
 
@@ -44,23 +59,26 @@ New Features:
 Toolchain Changes:
 
   - vasm/vlink replaces legacy assembler/linker: Uses vasm and vlink as
-    the standard toolchain.
+    the standard toolchain instead of a68k/blink.
 
 Bug Fixes:
 
   - FFP/vbcc floating-point compatibility fix: Fixed FFP handling in
-    runtime library for vbcc compatibility.
+    runtime library (sleep_for_secs and float routines) for vbcc
+    compatibility.
 
 Build System:
 
   - GNU Makefile build system: New Makefile-ace and Makefile-lib in
-    src/make/.
-  - Rebuilt runtime libraries: Fresh db.lib and startup.lib.
+    src/make/ replacing legacy AmigaDOS build scripts.
+  - Rebuilt runtime libraries: Fresh db.lib and startup.lib compiled
+    with the new toolchain.
 
 Project Housekeeping:
 
-  - Directory restructured: prgs/ renamed to examples/, organized verify/
-    for tests.
+  - Directory restructured: prgs/ renamed to examples/, build scripts
+    moved to src/make/, test infrastructure organized under verify/.
   - Test suite added: 35 test cases covering syntax, arithmetic, floats,
-    control flow.
-  - Documentation consolidated: Single README.md.
+    and control flow, run via ARexx runner on emulated Amiga.
+  - Documentation consolidated: Single README.md, .doc files renamed
+    to .txt.
