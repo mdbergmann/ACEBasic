@@ -79,6 +79,7 @@ extern	BOOL	asm_comments;
 extern	BOOL	list_source;
 extern	BOOL 	wdw_close_opt;
 extern	BOOL 	module_opt;
+extern	BOOL	cpu020_opt;
 extern	BOOL	cli_args;
 extern	BOOL 	mathffpused;
 extern	BOOL 	mathtransused;
@@ -392,6 +393,7 @@ int  cc;
  if (!early_exit) write_xrefs();
 
  /* startup code */
+ if (cpu020_opt) fprintf(dest,"\n\tmachine 68020\n");
  fprintf(dest,"\n\tSECTION code,CODE\n\n");
 
  if (!module_opt)
@@ -610,7 +612,7 @@ void show_title()
 
 void usage()
 {
- printf("usage: ACE [words | -bcEilmOw] <sourcefile>[.b[as]]\n");
+ printf("usage: ACE [words | -2bcEilmOw] <sourcefile>[.b[as]]\n");
 }
 
 BOOL check_options(opt)
@@ -641,6 +643,8 @@ BOOL legalopt=TRUE;
   if (*opt == 'm') module_opt=TRUE;
   else
   if (*opt == 'w') wdw_close_opt=TRUE;
+  else
+  if (*opt == '2') cpu020_opt=TRUE;
   else
      legalopt=FALSE;
   opt++;

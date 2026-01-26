@@ -347,9 +347,9 @@ Compiler options
 ----------------
 The full command line syntax for ACE is:
  
-	ace [words | -bcEilmOw] <sourcefile>[.b[as]]
+	ace [words | -2bcEilmOw] <sourcefile>[.b[as]]
  
-which indicates that there are currently eight optional compiler switches. 
+which indicates that there are currently nine optional compiler switches.
  
 Before giving a description of these switches however, let me say something
 about the optional "words" parameter. If the command:
@@ -368,7 +368,16 @@ AmigaBASIC and ACE keywords are differentiated.
 The switches can appear in any combination (eg: -bO, -clb, -O, -ObE) but 
 they *are* case sensitive (so -b does not equal -B).
  
-The "b" switch tells the compiler to include code to check for ctrl-c breaks 
+The "2" switch enables 68020+ native code generation. When active, the
+compiler emits native 68020 instructions for long integer (32-bit) multiply,
+divide, and modulo operations instead of calling the runtime library routines
+(lmul, ace_ldiv, ace_lrem). This produces faster and smaller code on systems
+with a 68020 or higher CPU (68030, 68040, 68060). Programs compiled with this
+switch will not run on a plain 68000. The assembler output will include a
+"machine 68020" directive so that the assembler accepts the 68020 instructions.
+This switch can also be activated from source code with OPTION 2+.
+
+The "b" switch tells the compiler to include code to check for ctrl-c breaks
 by the user. The inclusion of this code can result in noticeably larger
 assembly source files, but execution speed doesn't seem to suffer appreciably.
 When a ctrl-c is detected, the program will clean up and exit but user-defined
@@ -418,7 +427,7 @@ See also the OPTION command in ref.txt.
  
 The syntax for the bas script is:
  
-	bas [-bcEilmOw] <sourcefile> [<objectfile>]
+	bas [-2bcEilmOw] <sourcefile> [<objectfile>]
  
 where <sourcefile> is the program to be compiled (without the .b[as] 
 extension) and <objectfile> is a C, assembly or ACE module which has been 

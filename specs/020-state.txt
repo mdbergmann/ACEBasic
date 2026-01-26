@@ -1,0 +1,22 @@
+Last completed: Phase 8 - Documentation updated
+Next step:      None - implementation complete
+Notes:          All phases verified on Amiga emulator (A4000/68040):
+                - Phase 1: cpu020_opt flag infrastructure (parsevar.c, misc.c, parse.c)
+                - Phase 2: "machine 68020" assembler directive emitted before SECTION
+                - Phase 3: muls.l codegen for long multiply in expr.c prodterm()
+                - Phase 4: divs.l codegen for long division in expr.c idivterm()
+                - Phase 5: divsl.l codegen for long modulo in expr.c modterm()
+                - Phase 6: Test file opt020.b and opt020.expected created
+                - Phase 7: Benchmark020.b created
+                Additional fix: parse_option_list() in misc.c now accepts
+                numeric option letters (shortconst) so OPTION 2+ works.
+                The original code only accepted ident tokens.
+                Verification results (020-verify.log):
+                - Build: SUCCESS (no errors)
+                - Assembly: muls.l, divs.l, divsl.l all generated correctly
+                - No library calls (lmul, ace_ldiv, ace_lrem) when 020 enabled
+                - Short multiply (muls d1,d0) still works for short types
+                - Execution: All 16 test values match expected output
+                - CLI flag -2 works correctly
+                - OPTION 2+ source directive works correctly
+                - Phase 8: Documentation updated (ace.txt and ref.txt)

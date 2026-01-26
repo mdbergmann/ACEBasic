@@ -1,0 +1,216 @@
+68020/68040 Code Generation for ACE Compiler
+============================================
+
+Overview
+--------
+This document analyzes what would be required to add 68020 or 68040 code
+generation support to the ACE BASIC compiler, which currently targets
+only the Motorola 68000.
+
+
+Current Architecture
+--------------------
+The compiler generates 68000 assembly with NO abstraction layer -
+instructions are hardcoded as strings throughout the codebase.
+
+Key files involved in code generation:
+
+  src/ace/c/sym.c:376-398    - gen() function, core code generation
+  src/ace/c/expr.c           - Arithmetic operations
+  src/ace/c/assign.c         - Memory access patterns
+  src/ace/c/control.c        - Branch instructions
+  src/ace/c/factor.c         - Factor parsing, immediate values
+  src/ace/c/opt.c            - Peephole optimizer
+
+The gen() function signature (sym.c):
+
+  void gen(opcode, srcopr, destopr)
+  char *opcode;
+  char *srcopr;
+  char *destopr;
+
+Example usage throughout codebase:
+
+  gen("move.w","(sp)+","d0");
+  gen("add.l","d1","d0");
+  gen("jsr","_LVOSPAdd(a6)","  ");
+
+
+68020/68040 Instruction Set Improvements
+----------------------------------------
+
+Feature              68000                 68020+              Benefit
+---------------------------------------------------------------------------
+32-bit multiply      muls (16x16->32)      muls.l (32x32)      No library call
+32-bit divide        Library (ace_ldiv)    divs.l              Native division
+Bit field ops        Shift sequences       bfextu, bfins       Faster bit ops
+Addressing modes     Limited               Scaled index,       Better arrays
+                                           memory indirect
+Barrel shifter       -                     Faster shifts       Performance
+Cache                None                  I/D cache (040)     Automatic gain
+
+
+Implementation Options
+----------------------
+
+OPTION 1: Minimal Changes (Low Effort)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Add a compiler flag and replace library calls for long multiply/divide
+with native 68020+ instructions.
+
+Files to modify:
+  - parse.c      Add -020 or -040 command line flag
+  - acedef.h     Add global cpu_target variable
+  - expr.c       Conditional code for multiply/divide
+
+Changes required: ~50-100 lines
+
+Current code in expr.c (~lines 280-300):
+
+  gen("jsr","lmul","  ");       /* Library call for long multiply */
+  gen("jsr","ace_ldiv","  ");   /* Library call for long divide */
+  gen("jsr","ace_lrem","  ");   /* Library call for long modulo */
+
+68020+ replacement:
+
+  gen("muls.l","d1","d0");      /* Native 32-bit multiply */
+  gen("divs.l","d1","d0");      /* Native 32-bit divide */
+  gen("divsl.l","d1","d0:d1");  /* Divide with remainder */
+
+
+OPTION 2: Instruction Selection Layer (Medium Effort)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Create a CPU abstraction with instruction variants.
+
+Changes:
+  - Add cpu_target enum in acedef.h (CPU_68000, CPU_68020, CPU_68040)
+  - Create gen_mul(), gen_div() wrapper functions
+  - Modify gen() or add gen_cpu() for CPU-specific selection
+
+Files to modify:
+  - acedef.h     CPU target enum and declarations
+  - sym.c        Enhanced gen() or new wrapper functions
+  - expr.c       Use new generation functions
+  - parse.c      Command line flag handling
+
+Changes required: ~500-1000 lines
+
+
+OPTION 3: Full 68020+ Optimization (High Effort)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Leverage all 68020+ features for maximum performance.
+
+Additional optimizations:
+  - Scaled index addressing for arrays: (a0,d0.l*4)
+  - 32-bit displacements for large data structures
+  - Bit field instructions for boolean operations
+  - Memory indirect addressing modes
+  - EXTB.L instruction (extend byte to long directly)
+
+Files requiring significant changes:
+  - assign.c     Array access patterns
+  - expr.c       All arithmetic operations
+  - factor.c     Immediate value handling
+  - control.c    Branch optimization (32-bit displacements)
+  - opt.c        New optimization patterns
+
+Changes required: Major refactoring, 2000+ lines
+
+
+Specific Instruction Replacements
+---------------------------------
+
+Long Multiplication (expr.c)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+68000:
+  move.l  (sp)+,d1
+  move.l  (sp)+,d0
+  jsr     lmul
+  move.l  d0,-(sp)
+
+68020+:
+  move.l  (sp)+,d1
+  move.l  (sp)+,d0
+  muls.l  d1,d0
+  move.l  d0,-(sp)
+
+
+Long Division (expr.c)
+~~~~~~~~~~~~~~~~~~~~~~
+68000:
+  move.l  (sp)+,d1
+  move.l  (sp)+,d0
+  jsr     ace_ldiv
+  move.l  d0,-(sp)
+
+68020+:
+  move.l  (sp)+,d1
+  move.l  (sp)+,d0
+  divs.l  d1,d0
+  move.l  d0,-(sp)
+
+
+Sign Extension (expr.c)
+~~~~~~~~~~~~~~~~~~~~~~~
+68000 (byte to long):
+  ext.w   d0
+  ext.l   d0
+
+68020+:
+  extb.l  d0
+
+
+Array Indexing (assign.c)
+~~~~~~~~~~~~~~~~~~~~~~~~~
+68000 (long array element):
+  move.l  d0,d7
+  asl.l   #2,d7
+  move.l  base,a0
+  move.l  0(a0,d7.l),result
+
+68020+ (scaled index):
+  move.l  base,a0
+  move.l  0(a0,d0.l*4),result
+
+
+Recommended Approach
+--------------------
+Start with Option 1 for quick wins:
+
+1. Add -020 flag to parse.c
+2. Add cpu_target global to acedef.h
+3. Modify expr.c to use native muls.l/divs.l when cpu_target >= 68020
+4. Test with existing test suite
+5. Benchmark improvement
+
+This provides measurable performance gains with minimal risk and sets
+the foundation for further 68020+ optimizations.
+
+
+Compatibility Considerations
+----------------------------
+- Programs compiled with -020 will NOT run on 68000 systems
+- A4000, A3000, A1200 (with 68020+) would benefit
+- Original A500/A2000 users need 68000 code
+- Consider making 68000 remain the default target
+
+
+Testing Strategy
+----------------
+1. Create test cases exercising long multiply/divide
+2. Compare output assembly between 68000 and 68020 modes
+3. Run on emulator configured for 68020+ CPU
+4. Verify results match 68000 library implementations
+5. Benchmark performance difference
+
+
+Files Reference
+---------------
+Key source files for implementation:
+
+  src/ace/c/acedef.h    - Add CPU target enum/variable
+  src/ace/c/parse.c     - Add command line flag (lines 616-650)
+  src/ace/c/sym.c       - gen() function (lines 376-398)
+  src/ace/c/expr.c      - Arithmetic code generation
+  src/lib/asm/lmul.s    - Current long multiply library
+  src/lib/asm/ldiv.s    - Current long divide library

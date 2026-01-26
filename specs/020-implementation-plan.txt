@@ -1,0 +1,410 @@
+68020 Code Generation - Implementation Plan
+============================================
+
+Overview
+--------
+Add OPTION 2+ directive and -2 command-line flag to enable 68020 native
+instructions for long multiply, divide, and modulo -- replacing library
+calls (lmul, ace_ldiv, ace_lrem) with native muls.l, divs.l, divsl.l.
+
+The compiler must be rebuilt on the Amiga emulator after source changes.
+
+
+Progress Tracking
+-----------------
+After completing each phase, update the state file:
+
+  specs/020-state.txt
+
+with the following format:
+
+  Last completed: Phase N - <short description>
+  Next step:      Phase N+1 - <short description>
+  Notes:          <any observations, issues, or deviations from plan>
+
+This allows resuming work across sessions and keeps a log of progress.
+The state file should be created at the start of Phase 1 and updated
+after each phase is verified.
+
+
+Files to Modify
+---------------
+  src/ace/c/parsevar.c  - Declare cpu020_opt variable
+  src/ace/c/misc.c      - Add extern + case '2' in parse_option_list()
+  src/ace/c/parse.c     - Add extern + -2 flag in check_options()
+                          + usage string + emit "machine 68020" directive
+  src/ace/c/expr.c      - Add extern + conditional 68020 codegen in
+                          prodterm(), idivterm(), modterm()
+
+Files to Create
+---------------
+  verify/tests/cases/arithmetic/opt020.b   - Comprehensive test
+  verify/tests/expected/opt020.expected    - Expected output
+  examples/Benchmark020.b                 - Benchmark program
+
+
+======================================================================
+Phase 1: Add the cpu020_opt flag infrastructure
+======================================================================
+
+Step 1.1 -- src/ace/c/parsevar.c (after line 191, after module_opt)
+
+  Add variable declaration:
+
+    BOOL cpu020_opt=FALSE;      /* 68020+ code generation */
+
+
+Step 1.2 -- src/ace/c/misc.c
+
+  Add extern (after line 76, after module_opt extern):
+
+    extern  BOOL  cpu020_opt;
+
+  Add case in parse_option_list() switch (line 541, before default):
+
+    case '2' : cpu020_opt=activate; break;
+
+
+Step 1.3 -- src/ace/c/parse.c
+
+  Add extern in the extern block:
+
+    extern  BOOL  cpu020_opt;
+
+  Add flag handling in check_options() (line 643, before legalopt=FALSE):
+
+    else
+    if (*opt == '2') cpu020_opt=TRUE;
+
+  Update usage string (line 613):
+
+    printf("usage: ACE [words | -2bcEilmOw] <sourcefile>[.b[as]]\n");
+
+
+Step 1.4 -- Build & verify
+
+  Build compiler on Amiga emulator from src/make/, confirm no errors.
+
+Step 1.5 -- Update specs/020-state.txt
+
+
+======================================================================
+Phase 2: Emit "machine 68020" assembler directive
+======================================================================
+
+Step 2.1 -- src/ace/c/parse.c (before line 395)
+
+  When cpu020_opt is true, emit the vasm machine directive before the
+  first SECTION declaration so vasm accepts 68020 instructions:
+
+    if (cpu020_opt) fprintf(dest,"\n\tmachine 68020\n");
+    fprintf(dest,"\n\tSECTION code,CODE\n\n");
+
+Step 2.2 -- Verify
+
+  Compile a trivial program with OPTION 2+, inspect the .s file
+  for "machine 68020" before the CODE section.
+
+Step 2.3 -- Update specs/020-state.txt
+
+
+======================================================================
+Phase 3: Replace long multiply -- src/ace/c/expr.c
+======================================================================
+
+Step 3.1 -- Add extern (after line 55)
+
+    extern  BOOL  cpu020_opt;
+
+Step 3.2 -- Modify prodterm(), longtype case (lines 325-330)
+
+  Current code:
+
+    case longtype :  /* args on stack */
+        gen("jsr","lmul","  ");
+        gen("add.l","#8","sp");
+        enter_XREF("lmul");
+        localtype=longtype;
+        break;
+
+  Replace with:
+
+    case longtype :  /* args on stack */
+        if (cpu020_opt)
+        {
+            gen("move.l","(sp)+","d1");
+            gen("move.l","(sp)+","d0");
+            gen("muls.l","d1","d0");
+        }
+        else
+        {
+            gen("jsr","lmul","  ");
+            gen("add.l","#8","sp");
+            enter_XREF("lmul");
+        }
+        localtype=longtype;
+        break;
+
+  68020 muls.l d1,d0 does 32x32->32 signed multiply, result in d0.
+
+Step 3.3 -- Build on emulator & verify
+
+  Compile a program with PRINT 100000& * 50& using OPTION 2+.
+  Check .s file shows muls.l instead of jsr lmul.
+
+Step 3.4 -- Update specs/020-state.txt
+
+
+======================================================================
+Phase 4: Replace long integer division -- src/ace/c/expr.c
+======================================================================
+
+Step 4.1 -- Modify idivterm() (lines 400-404)
+
+  Current code:
+
+    gen("jsr","ace_ldiv","  ");
+    gen("add.l","#8","sp");
+    gen("move.l","d0","-(sp)");
+    enter_XREF("ace_ldiv");
+
+  Replace with:
+
+    if (cpu020_opt)
+    {
+        gen("move.l","(sp)+","d1");
+        gen("move.l","(sp)+","d0");
+        gen("divs.l","d1","d0");
+        gen("move.l","d0","-(sp)");
+    }
+    else
+    {
+        gen("jsr","ace_ldiv","  ");
+        gen("add.l","#8","sp");
+        gen("move.l","d0","-(sp)");
+        enter_XREF("ace_ldiv");
+    }
+
+  68020 divs.l d1,d0 does 32/32->32 signed divide, quotient in d0.
+
+Step 4.2 -- Build on emulator & verify
+
+Step 4.3 -- Update specs/020-state.txt
+
+
+======================================================================
+Phase 5: Replace long modulo -- src/ace/c/expr.c
+======================================================================
+
+Step 5.1 -- Modify modterm() (lines 469-473)
+
+  Current code:
+
+    gen("jsr","ace_lrem","  ");
+    gen("add.l","#8","sp");
+    gen("move.l","d0","-(sp)");
+    enter_XREF("ace_lrem");
+
+  Replace with:
+
+    if (cpu020_opt)
+    {
+        gen("move.l","(sp)+","d1");
+        gen("move.l","(sp)+","d0");
+        gen("divsl.l","d1","d1:d0");
+        gen("move.l","d1","-(sp)");
+    }
+    else
+    {
+        gen("jsr","ace_lrem","  ");
+        gen("add.l","#8","sp");
+        gen("move.l","d0","-(sp)");
+        enter_XREF("ace_lrem");
+    }
+
+  68020 divsl.l d1,d1:d0 does 32/32 -> quotient in d0, remainder in d1.
+  We push d1 (remainder) as the result.
+
+Step 5.2 -- Build on emulator & verify
+
+Step 5.3 -- Update specs/020-state.txt
+
+
+======================================================================
+Phase 6: Test file
+======================================================================
+
+Step 6.1 -- verify/tests/cases/arithmetic/opt020.b
+
+    OPTION 2+
+    REM Test: 68020 native long multiply, divide, modulo
+
+    REM === Long Multiplication ===
+    a& = 100000
+    b& = 50
+    PRINT a& * b&
+
+    a& = -3
+    b& = 7
+    PRINT a& * b&
+
+    a& = -4
+    b& = -5
+    PRINT a& * b&
+
+    a& = 0
+    b& = 99999
+    PRINT a& * b&
+
+    a& = 1
+    b& = 77777
+    PRINT a& * b&
+
+    REM === Long Integer Division ===
+    a& = 100000
+    b& = 3
+    PRINT a& \ b&
+
+    a& = -21
+    b& = 7
+    PRINT a& \ b&
+
+    a& = 0
+    b& = 5
+    PRINT a& \ b&
+
+    a& = 77777
+    b& = 1
+    PRINT a& \ b&
+
+    REM === Long Modulo ===
+    a& = 17
+    b& = 5
+    PRINT a& MOD b&
+
+    a& = 100
+    b& = 7
+    PRINT a& MOD b&
+
+    a& = 100000
+    b& = 3
+    PRINT a& MOD b&
+
+    a& = 21
+    b& = 7
+    PRINT a& MOD b&
+
+    REM === Short multiply still works (sanity) ===
+    x% = 6
+    y% = 7
+    PRINT x% * y%
+
+    REM === Combined expressions ===
+    a& = 10000
+    b& = 3
+    c& = 7
+    PRINT (a& * b&) \ c&
+
+    a& = 100
+    b& = 7
+    c& = 3
+    PRINT (a& MOD b&) * c&
+
+
+Step 6.2 -- verify/tests/expected/opt020.expected
+
+     5000000
+    -21
+     20
+     0
+     77777
+     33333
+    -3
+     0
+     77777
+     2
+     2
+     1
+     0
+     42
+     4285
+     6
+
+  Note: Leading space for positive numbers, minus sign for negatives.
+  These values should be verified against the 68000 library output first
+  to ensure the expected file is correct.
+
+Step 6.3 -- Update specs/020-state.txt
+
+
+======================================================================
+Phase 7: Benchmark
+======================================================================
+
+Step 7.1 -- examples/Benchmark020.b
+
+    REM Benchmark: 68020 native vs 68000 library long arithmetic
+    REM Run twice: once with OPTION 2+ uncommented, once commented out
+    REM Compare elapsed times
+
+    OPTION 2+
+
+    DEFLNG a-z
+
+    t1! = TIMER
+
+    s = 0
+    FOR i = 1 TO 100000
+      a = i * 7
+      b = a \ 3
+      c = b MOD 5
+      s = s + c
+    NEXT
+
+    t2! = TIMER
+
+    PRINT "Iterations: 100000"
+    PRINT "Checksum:"; s
+    PRINT "Elapsed:"; t2! - t1!; "seconds"
+
+  User comments/uncomments OPTION 2+ line and compares elapsed times.
+  The checksum ensures both paths compute identical results.
+
+Step 7.2 -- Update specs/020-state.txt
+
+
+======================================================================
+Verification Strategy
+======================================================================
+
+  1. Build compiler on Amiga emulator: make clean && make from src/make/
+  2. Assembly inspection: compile opt020.b, inspect .s file for
+     muls.l, divs.l, divsl.l instructions
+  3. Test suite: run "rx verify/tests/runner.rexx arithmetic" on emulator
+  4. Cross-check: compile opt020.b WITHOUT OPTION 2+, verify identical
+     output to confirm 68020 instructions produce same results as
+     68000 library calls
+  5. Benchmark: run Benchmark020.b on emulator with and without OPTION 2+
+
+
+======================================================================
+Risk: Negative modulo sign
+======================================================================
+
+  The 68020 divsl.l remainder sign follows the dividend sign (same as
+  C % operator). The ace_lrem library should behave identically, but
+  this should be verified. The test includes only non-negative modulo
+  cases to avoid ambiguity in the initial implementation.
+
+
+======================================================================
+Future Expansion
+======================================================================
+
+  The OPTION letter scheme supports future CPU targets:
+    OPTION 2+  ->  68020 (this implementation)
+    OPTION 4+  ->  68040 (future: FPU instructions, etc.)
+    OPTION 6+  ->  68060 (future)
+    OPTION 8+  ->  68080 (future)
+
+  Each higher CPU level would imply the features of lower levels.

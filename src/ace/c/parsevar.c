@@ -185,10 +185,12 @@ BOOL list_source=FALSE;		/*
 
 BOOL wdw_close_opt=FALSE;	/* window close trapping */
 
-BOOL module_opt=FALSE;		/* 
-				** Determines whether A68K source file 
+BOOL module_opt=FALSE;		/*
+				** Determines whether A68K source file
 				** is a code module or a complete ACE program.
 				*/
+
+BOOL cpu020_opt=FALSE;		/* 68020+ code generation */
 
 /* misc. flags */
 BOOL have_lparen=FALSE;
