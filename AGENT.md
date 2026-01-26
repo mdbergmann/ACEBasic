@@ -26,7 +26,7 @@ Why: The Amiga environment is fragile - path handling, toolchain differences, an
 - Config (A4000/AGA): `verify/scripts/otherthenamiga/ace-verify.fs-uae`
 - Amiga system: `verify/scripts/otherthenamiga/aos3`
 - Runs take 5-10 min when recompiling, <1 min otherwise
-- Adapt `user-startup` to run tests on boot; check log files on host after
+- Adapt `aos3/S/user-startup` to run/execute a script or manual commands on boot. Whatever it is, in order to be able to verify, what has been added should write log to ace: where it can be checked on the host system
 - run emulator using 'open' command.
 - Running the emulator should periodically (30 secs) check for a result (if some log file is generated)
 

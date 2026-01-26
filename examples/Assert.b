@@ -16,7 +16,7 @@ stackTop = 0
 
 ' Push a value onto the stack
 SUB StackPush(SHORTINT value)
-  SHARED stackData(), stackTop
+  SHARED stackData, stackTop
 
   ' Validate: stack must not be full
   ASSERT stackTop < STACK_SIZE, "Stack overflow - cannot push"
@@ -27,7 +27,7 @@ END SUB
 
 ' Pop a value from the stack
 SUB SHORTINT StackPop
-  SHARED stackData(), stackTop
+  SHARED stackData, stackTop
 
   ' Validate: stack must not be empty
   ASSERT stackTop > 0, "Stack underflow - cannot pop from empty stack"
