@@ -69,6 +69,7 @@ extern	ACELIBS	acelib[NUMACELIBS];
 extern	BOOL 	restore_a4;
 extern	BOOL	restore_a5;
 extern 	BOOL 	cli_args;
+extern	SYM	*last_addr_sub_sym;
 
 /* functions */
 BOOL factorfunc()
@@ -110,9 +111,13 @@ char *strbuf;
 int  ftype=undefined;
 int  arraytype=undefined;
 SYM  *fact_item;
+SYM  *invoke_item;
+SYM  *invoke_sub;
 int  oldlevel;
 BYTE libnum;
 BOOL need_symbol;
+int  i;
+SHORT popcount;
 
  ftype=stringfunction();
  if (ftype != undefined) return(ftype);
@@ -393,11 +398,105 @@ BOOL need_symbol;
 		   strcpy(buf,id);
 		   ftype=address_of_object();
 		   /* structure and array code returns next symbol */
-		   if (!exist(buf,structure) && !exist(buf,array)) 
+		   if (!exist(buf,structure) && !exist(buf,array))
 		      insymbol();
 		  }
 	          return(ftype);
 		  break;
+
+  /* INVOKE -- indirect function call through a variable (expression context) */
+  case invokesym :
+	insymbol();
+	if (sym != ident) { _error(7); ftype=undefined; insymbol(); }
+	else
+	{
+	 if (!exist(id,variable) || curr_item->type != longtype)
+	    { _error(4); ftype=undefined; }
+	 else
+	 {
+	  invoke_item = curr_item;
+	  insymbol();
+
+	  if (invoke_item->other != NULL &&
+	      invoke_item->other->object == subprogram)
+	  {
+	   /* SUB calling convention */
+	   invoke_sub = invoke_item->other;
+
+	   if (invoke_sub->no_of_params > 0) load_params(invoke_sub);
+
+	   itoa(-1*invoke_item->address,buf,10);
+	   strcat(buf,frame_ptr[lev]);
+	   gen("move.l",buf,"a0");
+	   gen("jsr","(a0)","  ");
+
+	   /* push return value from SUB's frame variable */
+	   if (invoke_sub->address != extfunc)
+	   {
+	    oldlevel=lev; lev=ZERO;
+	    itoa(-1*invoke_sub->address,srcbuf,10);
+	    strcat(srcbuf,frame_ptr[ZERO]);
+	    lev=oldlevel;
+	    if (invoke_sub->type == shorttype)
+	       gen("move.w",srcbuf,"-(sp)");
+	    else
+	       gen("move.l",srcbuf,"-(sp)");
+	   }
+	   else
+	   {
+	    if (invoke_sub->type == shorttype)
+	       gen("move.w","d0","-(sp)");
+	    else
+	       gen("move.l","d0","-(sp)");
+	   }
+	   ftype = invoke_sub->type;
+
+	   if (invoke_sub->no_of_params > 0) insymbol();
+	  }
+	  else
+	  {
+	   /* MC/C calling convention */
+	   if (sym == lparen)
+	   {
+	    load_mc_params(invoke_item);
+
+	    itoa(-1*invoke_item->address,buf,10);
+	    strcat(buf,frame_ptr[lev]);
+	    gen("move.l",buf,"a0");
+	    gen("jsr","(a0)","  ");
+
+	    if (invoke_item->no_of_params != 0)
+	    {
+	     popcount=0;
+	     for (i=0;i<invoke_item->no_of_params;i++)
+	     {
+	      if (invoke_item->p_type[i] == shorttype) popcount += 2;
+	      else popcount += 4;
+	     }
+	     strcpy(buf,"#\0");
+	     itoa(popcount,srcbuf,10);
+	     strcat(buf,srcbuf);
+	     gen("add.l",buf,"sp");
+	    }
+	    insymbol();
+	   }
+	   else
+	   {
+	    /* no parameters */
+	    itoa(-1*invoke_item->address,buf,10);
+	    strcat(buf,frame_ptr[lev]);
+	    gen("move.l",buf,"a0");
+	    gen("jsr","(a0)","  ");
+	   }
+
+	   /* return value via d0 */
+	   gen("move.l","d0","-(sp)");
+	   ftype = longtype;
+	  }
+	 }
+	}
+	return(ftype);
+	break;
 
   /* parameterless functions */
 

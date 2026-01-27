@@ -82,6 +82,7 @@ extern	BOOL 	restore_a5;
 extern	BOOL	narratorused;
 extern	BOOL	end_of_source;
 extern	char 	exit_sub_name[80];
+extern	SYM	*last_addr_sub_sym;
 
 /* ------*/
 /* sound */
@@ -176,7 +177,7 @@ int   commandsym;
 int   oldobj,oldtyp,stype;
 int   statetype;
 int   oldlevel;
-SYM   *func_item,*sub_item,*mc_item,*inc_item,*dec_item;
+SYM   *func_item,*sub_item,*mc_item,*inc_item,*dec_item,*invoke_item;
 BYTE  libnum;
 BOOL  need_symbol=TRUE;
 int   i;
@@ -699,6 +700,72 @@ SHORT popcount;
  else
  /* IFF */
  if (sym == iffsym) iff();
+ else
+ /* INVOKE -- indirect function call through a variable */
+ if (sym == invokesym)
+ {
+  insymbol();
+  if (sym != ident) _error(7);
+  else
+  {
+   if (!exist(id,variable) || curr_item->type != longtype) _error(4);
+   else
+   {
+    invoke_item = curr_item;
+    insymbol();
+
+    if (invoke_item->other != NULL &&
+        invoke_item->other->object == subprogram)
+    {
+     /* SUB calling convention (load_params) */
+     if (invoke_item->other->no_of_params > 0) load_params(invoke_item->other);
+
+     itoa(-1*invoke_item->address,addrbuf,10);
+     strcat(addrbuf,frame_ptr[lev]);
+     gen("move.l",addrbuf,"a0");
+     gen("jsr","(a0)","  ");
+
+     if (invoke_item->other->no_of_params > 0) insymbol();
+    }
+    else
+    {
+     /* MC/C calling convention */
+     if (sym == lparen)
+     {
+      load_mc_params(invoke_item);
+
+      itoa(-1*invoke_item->address,addrbuf,10);
+      strcat(addrbuf,frame_ptr[lev]);
+      gen("move.l",addrbuf,"a0");
+      gen("jsr","(a0)","  ");
+
+      if (invoke_item->no_of_params != 0)
+      {
+       popcount=0;
+       for (i=0;i<invoke_item->no_of_params;i++)
+       {
+        if (invoke_item->p_type[i] == shorttype) popcount += 2;
+        else popcount += 4;
+       }
+       strcpy(buf,"#\0");
+       itoa(popcount,numbuf,10);
+       strcat(buf,numbuf);
+       gen("add.l",buf,"sp");
+      }
+      insymbol();
+     }
+     else
+     {
+      /* no parameters */
+      itoa(-1*invoke_item->address,addrbuf,10);
+      strcat(addrbuf,frame_ptr[lev]);
+      gen("move.l",addrbuf,"a0");
+      gen("jsr","(a0)","  ");
+     }
+    }
+   }
+  }
+ }
  else
  /* kill */
  if (sym == killsym) kill();

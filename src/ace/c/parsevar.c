@@ -197,3 +197,6 @@ BOOL have_lparen=FALSE;
 BOOL have_equal=FALSE;	        /* see assign() & push_indices() */
 
 BOOL early_exit=FALSE;		/* set to TRUE if ctrl-c break detected */
+
+/* function pointer linkage: set by @SubName, consumed by assign() */
+SYM  *last_addr_sub_sym=NULL;

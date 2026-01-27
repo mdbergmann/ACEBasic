@@ -68,6 +68,7 @@ extern	BOOL 	cli_args;
 extern	BOOL 	break_opt;
 extern	BOOL	have_lparen;
 extern	BOOL	gadtoolsused;
+extern	SYM	*last_addr_sub_sym;
 extern	unsigned long gt_tag_lookup();
 
 /* helper: GADGET GETATTR(id, TAG) */
@@ -1573,6 +1574,7 @@ BOOL   found;
 			   else
 			   if (exist(subname,subprogram))
 			   {
+				last_addr_sub_sym = curr_item;
 				gen("pea",subname,"  ");
 				return(longtype);
 			   }
