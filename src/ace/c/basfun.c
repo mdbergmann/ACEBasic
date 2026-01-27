@@ -68,6 +68,9 @@ extern	BOOL 	cli_args;
 extern	BOOL 	break_opt;
 extern	BOOL	have_lparen;
 extern	BOOL	gadtoolsused;
+extern	SYM	*last_addr_sub_sym;
+extern	int	last_bind_bound_count;
+extern	int	addr[];
 extern	unsigned long gt_tag_lookup();
 
 /* helper: GADGET GETATTR(id, TAG) */
@@ -763,6 +766,7 @@ BOOL numfunc()
  {
   case abssym    	: return(TRUE);
   case allocsym	 	: return(TRUE);
+  case bindsym		: return(TRUE);
   case atnsym    	: return(TRUE);
   case cintsym   	: return(TRUE);
   case clngsym   	: return(TRUE);
@@ -895,7 +899,110 @@ char varptr_obj_name[MAXIDSIZE];
 			}
 			else { _error(4); nftype=undefined; }
 			break;
-  	 
+
+	 /* BIND */
+	 case bindsym :
+	  {
+	   /* BIND(@SubName, expr1, expr2, ...)
+	      First arg (nftype) was already evaluated by expr() --
+	      it should be the address from @SubName (longtype).
+	      last_addr_sub_sym should be set by address_of_object(). */
+	   SYM *bind_sub;
+	   int bound_count = 0;
+	   int record_size;
+	   char boundtemps[MAXPARAMS][80];
+	   char functemp[80];
+	   char offsetbuf[40];
+	   char nbuf[80];
+	   int argtype;
+	   int bi;
+
+	   if (nftype != longtype || last_addr_sub_sym == NULL ||
+	       last_addr_sub_sym->object != subprogram)
+	   {
+	     _error(4); nftype = undefined; break;
+	   }
+
+	   bind_sub = last_addr_sub_sym;
+
+	   /* Store function address in a temp */
+	   addr[lev] += 4;
+	   itoa(-1*addr[lev], functemp, 10);
+	   strcat(functemp, lev == 0 ? "(a4)" : "(a5)");
+	   gen("move.l", "(sp)+", functemp);
+
+	   /* Parse and evaluate bound arguments */
+	   while (sym == comma && bound_count < bind_sub->no_of_params) {
+	     insymbol();
+	     argtype = expr();
+
+	     /* Coerce to expected type */
+	     switch(bind_sub->p_type[bound_count]) {
+	       case shorttype:
+	         make_sure_short(argtype);
+	         /* Extend to long for uniform 4-byte storage */
+	         gen("move.w", "(sp)+", "d0");
+	         gen("ext.l", "d0", "  ");
+	         gen("move.l", "d0", "-(sp)");
+	         break;
+	       case longtype:
+	         if ((argtype = make_integer(argtype)) == shorttype) make_long();
+	         else if (argtype == notype) _error(4);
+	         break;
+	       case singletype:
+	         gen_Flt(argtype);
+	         break;
+	       case stringtype:
+	         if (argtype != stringtype) _error(4);
+	         break;
+	     }
+
+	     /* Store in temp */
+	     addr[lev] += 4;
+	     itoa(-1*addr[lev], boundtemps[bound_count], 10);
+	     strcat(boundtemps[bound_count],
+	            lev == 0 ? "(a4)" : "(a5)");
+	     gen("move.l", "(sp)+", boundtemps[bound_count]);
+
+	     bound_count++;
+	   }
+
+	   if (bound_count == 0) { _error(16); nftype = undefined; break; }
+
+	   /* Allocate closure record: 12 + bound_count * 4 bytes */
+	   record_size = 12 + bound_count * 4;
+	   sprintf(nbuf, "#%d", record_size);
+	   gen("move.l", nbuf, "-(sp)");     /* size */
+	   gen("move.l", "#9", "-(sp)");     /* memory type */
+	   gen("jsr", "_ACEalloc", "  ");
+	   gen("addq", "#8", "sp");
+	   gen("move.l", "d0", "a2");
+	   enter_XREF("_ACEalloc");
+	   enter_XREF("_IntuitionBase");
+
+	   /* Fill closure record */
+	   gen("move.l", "#$434C5352", "(a2)");    /* magic "CLSR" */
+	   gen("move.l", functemp, "4(a2)");       /* func ptr */
+	   sprintf(nbuf, "#%d", bind_sub->no_of_params);
+	   gen("move.w", nbuf, "8(a2)");           /* total param count */
+	   sprintf(nbuf, "#%d", bound_count);
+	   gen("move.w", nbuf, "10(a2)");          /* bound count */
+
+	   /* Store bound arg values */
+	   for (bi = 0; bi < bound_count; bi++) {
+	     sprintf(offsetbuf, "%d(a2)", 12 + bi * 4);
+	     gen("move.l", boundtemps[bi], offsetbuf);
+	   }
+
+	   /* Push record address as result */
+	   gen("move.l", "a2", "-(sp)");
+	   nftype = longtype;
+
+	   /* Set bound count for assign.c to pick up */
+	   last_bind_bound_count = bound_count;
+	  }
+	  break;
+
 	 /* ATN */
          case atnsym  : nftype = gen_single_func("_LVOSPAtan",nftype);
 		        break;
@@ -1573,6 +1680,7 @@ BOOL   found;
 			   else
 			   if (exist(subname,subprogram))
 			   {
+				last_addr_sub_sym = curr_item;
 				gen("pea",subname,"  ");
 				return(longtype);
 			   }

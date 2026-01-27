@@ -82,6 +82,8 @@ extern	BOOL 	restore_a5;
 extern	BOOL	narratorused;
 extern	BOOL	end_of_source;
 extern	char 	exit_sub_name[80];
+extern	SYM	*last_addr_sub_sym;
+extern	int	addr[];
 
 /* ------*/
 /* sound */
@@ -176,7 +178,7 @@ int   commandsym;
 int   oldobj,oldtyp,stype;
 int   statetype;
 int   oldlevel;
-SYM   *func_item,*sub_item,*mc_item,*inc_item,*dec_item;
+SYM   *func_item,*sub_item,*mc_item,*inc_item,*dec_item,*invoke_item;
 BYTE  libnum;
 BOOL  need_symbol=TRUE;
 int   i;
@@ -699,6 +701,216 @@ SHORT popcount;
  else
  /* IFF */
  if (sym == iffsym) iff();
+ else
+ /* INVOKE -- indirect function call through a variable */
+ if (sym == invokesym)
+ {
+  insymbol();
+  if (sym != ident) _error(7);
+  else
+  {
+   if (!exist(id,variable) || curr_item->type != longtype) _error(4);
+   else
+   {
+    invoke_item = curr_item;
+    insymbol();
+
+    if (invoke_item->other != NULL &&
+        invoke_item->other->object == subprogram &&
+        invoke_item->dims > 0)
+    {
+     /* Closure dispatch: bound args from record, free args from source */
+     {
+      SYM *invoke_sub = invoke_item->other;
+      int bound_count = invoke_item->dims;
+      int free_count = invoke_sub->no_of_params - bound_count;
+      int ci, formal_type;
+      SHORT par_addr;
+      char formaltemp[MAXPARAMS][80];
+      int formaltype[MAXPARAMS];
+      char addrtmp[80], offsettmp[40];
+      BOOL had_parens = FALSE;
+
+      /* Parse free args from source into temps */
+      if (free_count > 0)
+      {
+       if (sym != lparen) { _error(14); }
+       else
+       {
+        had_parens = TRUE;
+        for (ci=0; ci<free_count; ci++)
+        {
+         insymbol();
+         formal_type = expr();
+
+         switch(invoke_sub->p_type[bound_count + ci])
+         {
+          case shorttype: make_sure_short(formal_type); break;
+          case longtype:
+            if ((formal_type = make_integer(formal_type)) == shorttype)
+              make_long();
+            else if (formal_type == notype) _error(4);
+            break;
+          case singletype: gen_Flt(formal_type); break;
+          case stringtype:
+            if (formal_type != stringtype) _error(4);
+            break;
+         }
+
+         if (invoke_sub->p_type[bound_count + ci] == shorttype)
+         {
+          addr[lev] += 2;
+          itoa(-1*addr[lev], formaltemp[bound_count + ci], 10);
+          strcat(formaltemp[bound_count + ci], frame_ptr[lev]);
+          gen("move.w", "(sp)+", formaltemp[bound_count + ci]);
+          formaltype[bound_count + ci] = shorttype;
+         }
+         else
+         {
+          addr[lev] += 4;
+          itoa(-1*addr[lev], formaltemp[bound_count + ci], 10);
+          strcat(formaltemp[bound_count + ci], frame_ptr[lev]);
+          gen("move.l", "(sp)+", formaltemp[bound_count + ci]);
+          formaltype[bound_count + ci] = longtype;
+         }
+
+         if (ci < free_count - 1 && sym != comma) { _error(16); break; }
+        }
+        if (sym != rparen) _error(9);
+       }
+      }
+      else
+      {
+       if (sym == lparen)
+       {
+        had_parens = TRUE;
+        insymbol();
+        if (sym != rparen) _error(9);
+       }
+      }
+
+      /* Load closure record address */
+      itoa(-1*invoke_item->address, addrtmp, 10);
+      strcat(addrtmp, frame_ptr[lev]);
+      gen("move.l", addrtmp, "a2");
+
+      /* Read bound args from closure record into temps */
+      for (ci=0; ci<bound_count; ci++)
+      {
+       sprintf(offsettmp, "%d(a2)", 12 + ci * 4);
+       if (invoke_sub->p_type[ci] == shorttype)
+       {
+        addr[lev] += 4;
+        itoa(-1*addr[lev], formaltemp[ci], 10);
+        strcat(formaltemp[ci], frame_ptr[lev]);
+        gen("move.l", offsettmp, formaltemp[ci]);
+        formaltype[ci] = shorttype;
+       }
+       else
+       {
+        addr[lev] += 4;
+        itoa(-1*addr[lev], formaltemp[ci], 10);
+        strcat(formaltemp[ci], frame_ptr[lev]);
+        gen("move.l", offsettmp, formaltemp[ci]);
+        formaltype[ci] = longtype;
+       }
+      }
+
+      /* Forbid multitasking before frame setup */
+      gen("movea.l", "_AbsExecBase", "a6");
+      gen("jsr", "_LVOForbid(a6)", "  ");
+      enter_XREF("_AbsExecBase");
+      enter_XREF("_LVOForbid");
+
+      /* Copy all params into next frame */
+      par_addr = -8;
+      for (ci=0; ci<invoke_sub->no_of_params; ci++)
+      {
+       if (invoke_sub->p_type[ci] == shorttype)
+       {
+        par_addr -= 2;
+        itoa(par_addr, addrtmp, 10);
+        strcat(addrtmp, "(sp)");
+        if (ci < bound_count)
+        {
+         gen("move.l", formaltemp[ci], "d0");
+         gen("move.w", "d0", addrtmp);
+        }
+        else
+         gen("move.w", formaltemp[ci], addrtmp);
+       }
+       else
+       {
+        par_addr -= 4;
+        itoa(par_addr, addrtmp, 10);
+        strcat(addrtmp, "(sp)");
+        gen("move.l", formaltemp[ci], addrtmp);
+       }
+      }
+
+      /* Call through closure's function pointer */
+      itoa(-1*invoke_item->address, addrtmp, 10);
+      strcat(addrtmp, frame_ptr[lev]);
+      gen("move.l", addrtmp, "a2");
+      gen("move.l", "4(a2)", "a0");
+      gen("jsr", "(a0)", "  ");
+
+      if (had_parens) insymbol();
+     }
+    }
+    else
+    if (invoke_item->other != NULL &&
+        invoke_item->other->object == subprogram)
+    {
+     /* SUB calling convention (load_params) */
+     if (invoke_item->other->no_of_params > 0) load_params(invoke_item->other);
+
+     itoa(-1*invoke_item->address,addrbuf,10);
+     strcat(addrbuf,frame_ptr[lev]);
+     gen("move.l",addrbuf,"a0");
+     gen("jsr","(a0)","  ");
+
+     if (invoke_item->other->no_of_params > 0) insymbol();
+    }
+    else
+    {
+     /* MC/C calling convention */
+     if (sym == lparen)
+     {
+      load_mc_params(invoke_item);
+
+      itoa(-1*invoke_item->address,addrbuf,10);
+      strcat(addrbuf,frame_ptr[lev]);
+      gen("move.l",addrbuf,"a0");
+      gen("jsr","(a0)","  ");
+
+      if (invoke_item->no_of_params != 0)
+      {
+       popcount=0;
+       for (i=0;i<invoke_item->no_of_params;i++)
+       {
+        if (invoke_item->p_type[i] == shorttype) popcount += 2;
+        else popcount += 4;
+       }
+       strcpy(buf,"#\0");
+       itoa(popcount,numbuf,10);
+       strcat(buf,numbuf);
+       gen("add.l",buf,"sp");
+      }
+      insymbol();
+     }
+     else
+     {
+      /* no parameters */
+      itoa(-1*invoke_item->address,addrbuf,10);
+      strcat(addrbuf,frame_ptr[lev]);
+      gen("move.l",addrbuf,"a0");
+      gen("jsr","(a0)","  ");
+     }
+    }
+   }
+  }
+ }
  else
  /* kill */
  if (sym == killsym) kill();
