@@ -224,6 +224,7 @@ BOOL colorset=FALSE;
 BOOL start_angle=FALSE;
 BOOL end_angle=FALSE;
 BOOL aspect=FALSE;
+BOOL fill=FALSE;
 
   insymbol();
   if (sym == stepsym)
@@ -309,10 +310,29 @@ BOOL aspect=FALSE;
      {
       /* aspect */
       insymbol();
-      gen_Flt(expr());
-      gen("move.l","(sp)+","d5"); /* aspect */
-      aspect=TRUE;
-     }    
+      if (sym != comma && !(sym == ident && id[0]=='F' && (id[1]=='\0' || id[1]==':')))
+      {
+       gen_Flt(expr());
+       gen("move.l","(sp)+","d5"); /* aspect */
+       aspect=TRUE;
+      }
+     }
+
+     /* fill flag? */
+     if (sym == ident && id[0]=='F' && (id[1]=='\0' || id[1]==':'))
+     {
+      fill = TRUE;
+      insymbol();
+     }
+     else if (sym == comma)
+     {
+      insymbol();
+      if (sym == ident && id[0]=='F' && (id[1]=='\0' || id[1]==':'))
+      {
+       fill = TRUE;
+       insymbol();
+      }
+     }
     }
   
      /* pop radius & (x,y) coordinates */
@@ -353,11 +373,25 @@ BOOL aspect=FALSE;
      if (!end_angle)  gen("move.l","#$b3800049","d4");  /* default is 359 */
      if (!aspect) gen("move.l","#$e147af3f","d5");  /* default is .44 */
 
-     gen("jsr","_ellipse","  ");
-     enter_XREF("_ellipse");
+     if (fill && !start_angle && !end_angle)
+     {
+      gen("jsr","_fillellipse","  ");
+      enter_XREF("_fillellipse");
+     }
+     else if (fill && (start_angle || end_angle))
+     {
+      _error(83);  /* fill not supported for arcs */
+      gen("jsr","_ellipse","  ");
+      enter_XREF("_ellipse");
+     }
+     else
+     {
+      gen("jsr","_ellipse","  ");
+      enter_XREF("_ellipse");
+     }
      enter_XREF("_GfxBase");
      enter_XREF("_MathBase");
-     enter_XREF("_MathTransBase");  /* need these 3 libs for _ellipse */
+     enter_XREF("_MathTransBase");
 
      enter_BSS("_shortx","ds.w 1");
      enter_BSS("_shorty","ds.w 1");

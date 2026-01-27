@@ -478,17 +478,22 @@ CINT		- syntax: CINT(n)
  
 @ENDNODE
 @NODE "CIRCLE" "CIRCLE"
-CIRCLE		- syntax: CIRCLE (x,y),radius[,color-id,start,end,aspect]
+CIRCLE		- syntax: CIRCLE [STEP] (x,y),radius[,color-id[,start,end[,aspect[,F]]]]
 		- Start and end angles are specified in DEGREES *not* radians
-		  because this is probably more useful when thinking about 
+		  because this is probably more useful when thinking about
 		  circles. (Note: this may be changed to radians in future).
 		- If a whole ellipse is to be drawn, the graphics library
 		  DrawEllipse() function is used. However, if the start
 		  angle is not 0 or the end angle is not 359 (these are
-		  the defaults when not specified), a different routine 
+		  the defaults when not specified), a different routine
 		  is used. The latter is quite slow and may well be changed
 		  in a future release of ACE.
 		- The default ASPECT is .44 as in AmigaBASIC.
+		- The trailing F flag requests a filled circle or ellipse.
+		  F is only valid for whole circles (default start=0,
+		  end=359). Filling arcs is not supported.
+		  The fill uses AreaEllipse() and respects any active
+		  area pattern set via PATTERN.
  
 @ENDNODE
 @NODE "CLEAR ALLOC" "CLEAR ALLOC"
