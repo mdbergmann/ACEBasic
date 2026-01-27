@@ -77,6 +77,7 @@ extern	BOOL 	readpresent;
 extern	BOOL 	have_lparen;
 extern	BOOL 	have_equal;
 extern	SYM	*last_addr_sub_sym;
+extern	int	last_bind_bound_count;
 
 /* functions */
 
@@ -492,8 +493,12 @@ int  exprtype;
           gen("move.l","(sp)+",addrbuf);
 	/* link function pointer to SUB if @SubName was assigned */
 	if (last_addr_sub_sym != NULL && storage_item->type == longtype)
+	{
 	   storage_item->other = last_addr_sub_sym;
+	   storage_item->dims = last_bind_bound_count;
+	}
 	last_addr_sub_sym = NULL;
+	last_bind_bound_count = 0;
         break;
 
        case subprogram :   

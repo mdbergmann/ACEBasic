@@ -200,3 +200,6 @@ BOOL early_exit=FALSE;		/* set to TRUE if ctrl-c break detected */
 
 /* function pointer linkage: set by @SubName, consumed by assign() */
 SYM  *last_addr_sub_sym=NULL;
+
+/* closure linkage: set by BIND in basfun.c, consumed by assign() */
+int  last_bind_bound_count=0;
