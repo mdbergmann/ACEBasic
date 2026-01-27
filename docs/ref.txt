@@ -212,7 +212,36 @@ BEVELBOX *	- syntax: BEVELBOX (x1,y1)-(x2,y2),style
 BIN$ *		- syntax: BIN$(n)
 		- Returns a string containing the binary equivalent of n.
 		- If n is a single-precision value, ACE coerces it to integer.
- 
+
+--------------------------------------------------------------------------------
+BIND *		- syntax: BIND(@<sub-name>, <expr1> [, <expr2>..])
+		- Creates a closure that pre-binds arguments to a SUB.
+		- The first argument must be a SUB address obtained with @.
+		- Remaining arguments are bound by value to the SUB's first
+		  N parameters. Their current values are captured at the
+		  time BIND is called and stored in a heap-allocated record.
+		- Returns a LONGINT address that can be passed to INVOKE.
+		- When the closure is later called via INVOKE, only the
+		  unbound (remaining) parameters need to be supplied.
+		- Closure records are allocated via ACEalloc and freed
+		  automatically at program exit. There is no individual
+		  free for closures, so creating closures in tight loops
+		  will accumulate memory until the program ends.
+		- String arguments are captured by address, not by content.
+		  If the source string's storage is reused (e.g., after
+		  the enclosing SUB returns), the closure may hold a stale
+		  pointer.
+		- Example:
+
+			SUB LONGINT AddN(LONGINT n, LONGINT x)
+			  AddN = n + x
+			END SUB
+
+			adder& = BIND(@AddN, 5)
+			PRINT INVOKE adder&(10)   '..prints 15
+
+		- See also INVOKE, @, SUB..END SUB.
+
 --------------------------------------------------------------------------------
 BLOCK *		- The BLOCK construct permits arbitrarily large collections of
 		  statements where one would normally be expected. The syntax is:
@@ -1497,7 +1526,46 @@ INSTR		- syntax: INSTR([I,]X$,Y$)
 		- If Y$="", INSTR returns I or 1.
 		- X$ and Y$ can be string expressions, variables or literals
 		  or any combination thereof.
- 
+
+--------------------------------------------------------------------------------
+INVOKE *	- syntax: INVOKE <variable>([<args>])
+		- Performs an indirect call through a function pointer or
+		  closure stored in a LONGINT/ADDRESS variable.
+		- Can be used as a statement (return value discarded) or
+		  in an expression (return value used).
+		- The variable must hold either:
+		  (a) a raw SUB address obtained via @SubName, or
+		  (b) a closure created via BIND.
+		- When the variable was directly assigned with @SubName,
+		  the compiler knows the target SUB's signature and uses
+		  the same calling convention as a direct CALL. Arguments
+		  are type-checked against the SUB's parameter list.
+		- When the variable holds a BIND closure, INVOKE prepends
+		  the bound arguments and calls the underlying SUB with
+		  the full parameter list.
+		- Examples:
+
+		  As a statement (discard return value):
+
+			INVOKE funcPtr&(3, 4)
+
+		  In an expression:
+
+			result& = INVOKE funcPtr&(3, 4)
+
+		  With a closure:
+
+			adder& = BIND(@AddN, 5)
+			PRINT INVOKE adder&(10)   '..prints 15
+
+		  Passing a function pointer to a SUB:
+
+			DECLARE SUB LONGINT Add(LONGINT a, LONGINT b)
+			funcPtr& = @Add
+			CALL UseCallback(funcPtr&)
+
+		- See also BIND, @, CALL, SUB..END SUB.
+
 --------------------------------------------------------------------------------
 INT		- syntax: INT(n)
 		- Returns the largest integer less than or equal to n.
