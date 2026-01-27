@@ -1,0 +1,26 @@
+Phase 1: DONE
+  Added _fillellipse to src/lib/asm/gfx.s (xdef, xref _LVOAreaEllipse, function body).
+  Routine uses AreaEllipse + AreaEnd with TmpRas setup/cleanup following _areafill pattern.
+
+Phase 2: DONE
+  Modified src/ace/c/gfx.c circle() to parse optional ,F flag after aspect parameter.
+  Added guard in aspect parsing to skip when next token is comma or F identifier.
+  Emits jsr _fillellipse for fill + full ellipse, error 83 for fill + arc.
+  Added error 83 "Fill not supported for arcs" to src/ace/c/lex.c.
+
+Phase 2.5: DONE
+  examples/gfx/circles.b already existed with correct content (filled/unfilled demo).
+
+Phase 3: DONE
+  Updated docs/ref.txt CIRCLE entry with new syntax and F flag documentation.
+
+Tests: DONE
+  verify/tests/cases/syntax/circle_fill.b - compile-only test for filled circle.
+  verify/tests/cases/errors/circle_fill_arc.b - error test for fill + arc angles.
+
+Next: Build verification on Amiga emulator
+  1. Rebuild runtime library: make -f Makefile-lib clean && make -f Makefile-lib
+  2. Rebuild compiler: make -f Makefile-ace clean && make -f Makefile-ace
+  3. Run syntax test: rx runner.rexx syntax
+  4. Run error test: rx runner.rexx errors
+  5. Compile and run examples/gfx/circles.b for visual verification
