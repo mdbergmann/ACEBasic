@@ -80,7 +80,7 @@ void open_shared_libs()
 
 void close_shared_libs()
 {
- if (IntuitionBase != NULL) CloseLibrary(MathTransBase);
+ if (IntuitionBase != NULL) CloseLibrary(IntuitionBase);
  if (MathTransBase != NULL) CloseLibrary(MathTransBase);
  if (MathBase != NULL) CloseLibrary(MathBase);
 }
