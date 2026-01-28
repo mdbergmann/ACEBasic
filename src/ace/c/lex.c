@@ -567,7 +567,7 @@ char chr0,chr1;
 BOOL qualifier()
 {
  /* - Attach a qualifier character (%&$!#).
-    - The default object (variable) can be overriden by
+    - The default object (variable) can be overridden by
       the later declaration of an array, subprogram etc.
  */
 

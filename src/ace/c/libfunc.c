@@ -485,7 +485,7 @@ BOOL found;
 
 	if (sym == rparen && lastsym == lparen) break;  /* FuncName() */
 
-	/* type indentifier? */
+	/* type identifier? */
         if (sym == shortintsym || sym == longintsym || sym == addresssym ||
       	    sym == singlesym || sym == stringsym) 
 	insymbol();

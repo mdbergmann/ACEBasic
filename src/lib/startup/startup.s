@@ -35,7 +35,7 @@
 ;	  27th December 1993,
 ;	  5th November 1995
 ;
-; - Some routines in startup.lib open the shared libaries required by 
+; - Some routines in startup.lib open the shared libraries required by 
 ;   an ACE program along with retrieving DOS and Intuition data.
 ; - startup.lib also contains startup code for Workbench and Shell launched
 ;   programs.

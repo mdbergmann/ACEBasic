@@ -110,7 +110,7 @@ BOOL strfunc()
   case cstrsym		: return(TRUE);
   case fileboxstrsym	: return(TRUE);
   case hexsym	   	: return(TRUE); 
-  case inputboxsym	: return(TRUE);	/* this is here for convienience */
+  case inputboxsym	: return(TRUE);	/* this is here for convenience */
   case inputboxstrsym	: return(TRUE);
   case inputstrsym 	: return(TRUE);
   case instrsym		: return(TRUE);

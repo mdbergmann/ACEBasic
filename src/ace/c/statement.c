@@ -674,7 +674,7 @@ SHORT popcount;
    else 
       strcpy(destbuf,"  ");
 
-   /* generate approriate branch */
+   /* generate appropriate branch */
    switch(commandsym)
    {
     case gotosym  : gen("jmp",id,destbuf); break;

@@ -306,7 +306,7 @@ SHORT width,height;
 	width 	= right-left;
 	height 	= bottom-top;
 
-	/* how many characters can be accomodated by gadget? */
+	/* how many characters can be accommodated by gadget? */
 	gadlist[id].maxval = MAXCHARS;
 
 	/* border point pairs */
@@ -565,7 +565,7 @@ ULONG x1,y1,x2,y2;
 	** If not a string/longint gadget, remove gadget. Don't
 	** want to modify the imagery of these 2 gadget types,
 	** just their status. A disabled string/longint gadget
-	** simply doesn't respond to mouse or keyboard actvity.
+	** simply doesn't respond to mouse or keyboard activity.
 	*/
 	if (gadlist[id].type != 2 && 
 	    gadlist[id].type != 3) RemoveGadget(Wdw,&gadlist[id].gad);

@@ -41,7 +41,7 @@ SIN_wave_length EQU 16
 	SECTION sound_data_code,CODE
 
 ;
-; initalise waveforms and waveform lengths.
+; initialise waveforms and waveform lengths.
 ;
 _initialise_waveform_data:
 	lea	_sinwavedata,a0

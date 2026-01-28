@@ -577,7 +577,7 @@ char lab[80],lablabel[80];
    close-gadget click detected.
    
    This may be extended in the future
-   to accomodate other window events
+   to accommodate other window events
    (eg: resizing).   
 */
    make_label(lab,lablabel);

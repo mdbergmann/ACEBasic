@@ -28,7 +28,7 @@
 ;
 ; This code is used for the ACE Amiga BASIC compiler, with thanks to Sozobon.
 ;
-; Minor modifications were necessary to accomodate the fact that ACE pushes
+; Minor modifications were necessary to accommodate the fact that ACE pushes
 ; operands for long division, multiplication and modulo arithmetic in reverse
 ; order to C. ace_ldiv and ace_lrem were later added (July 1994) to isolate
 ; this bletcherosity to ACE's "\" and "MOD" operators. ldiv[u] and lrem[u] 

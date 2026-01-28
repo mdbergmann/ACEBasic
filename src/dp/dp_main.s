@@ -302,7 +302,7 @@ _dp_sub:
 
 	PUBLIC	_dp_mul
 	;
-	; Mulitply two DOUBLE values (result = op1 * op2).
+	; Multiply two DOUBLE values (result = op1 * op2).
 	;
 _dp_mul:
 	move.l	a6,_a6

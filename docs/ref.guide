@@ -168,7 +168,7 @@ AND		- Boolean operator: X AND Y.
 @ENDNODE
 @NODE "AREA" "AREA"
 AREA		- syntax: AREA [STEP](x,y)
-		- Functions indentically to AmigaBASIC's AREA command.
+		- Functions identically to AmigaBASIC's AREA command.
 		- Defines a set of up to 20 points to be joined
 		  into a polygon and filled by AREAFILL.
  
