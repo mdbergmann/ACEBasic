@@ -1234,6 +1234,13 @@ GADGET (GadTools) *
 		- For GTCY_Labels and GTMX_Labels, the value must be a
 		  string array name followed by (): e.g. GTCY_Labels=opts$()
 
+		- Tag values in the GADGET statement must be constants.
+		  To use variables or expressions, first create the gadget
+		  with a constant value, then use GADGET SETATTR:
+
+		  GADGET 1, 1, "", (10,10)-(100,24), NUMBER_KIND, GTNM_Number=0
+		  GADGET SETATTR 1, GTNM_Number=myVariable
+
 		- GadTools gadgets cannot be mixed with old-style gadgets
 		  (BUTTON, STRING, LONGINT, POTX, POTY) in the same program.
 
@@ -1259,9 +1266,13 @@ GADGET SETATTR *
 		  GadTools gadget.
 		- TAG=value pairs specify which attributes to change.
 		  See GADGET (GadTools) for the list of supported tags.
+		- Unlike gadget creation, SETATTR accepts expressions and
+		  variables as tag values, not just constants. This allows
+		  dynamic updates at runtime.
 
-		- Example:
+		- Examples:
 		  GADGET SETATTR 1, GTSL_Level=75
+		  GADGET SETATTR 1, GTNM_Number=myVariable
 
 --------------------------------------------------------------------------------
 GADGET GETATTR *
