@@ -51,6 +51,7 @@ AreaPtSz	EQU	29
 
 	; graphics routines
 	xdef	_ellipse
+	xdef	_fillellipse
 	xdef	_paint
 	xdef	_area
 	xdef	_areafill
@@ -67,6 +68,7 @@ AreaPtSz	EQU	29
 	xref	_fgdpen
 	xref	_LVOWritePixel
 	xref	_LVODrawEllipse
+	xref	_LVOAreaEllipse
 	xref	_LVOSetAPen
 	xref	_LVOInitArea
 	xref	_LVOAllocRaster
@@ -162,7 +164,115 @@ _store_radius:
 	jsr	_LVODrawEllipse(a6)
 
 	rts
-	
+
+;
+; FILLELLIPSE - draw a filled circle or ellipse using AreaEllipse.
+;		d0=x,d1=y,d2=radius,d3=start,d4=end,d5=aspect.
+;		Only handles the full-ellipse case (compiler ensures this).
+;
+_fillellipse:
+	; store parameters
+	move.l	d0,_x
+	move.l	d1,_y
+	move.l	d2,_radius
+	move.l	d5,_aspect
+
+	; convert x,y to integers
+	movea.l	_MathBase,a6
+	move.l	_x,d0
+	jsr	_LVOSPFix(a6)
+	move.l	d0,_x
+
+	move.l	_y,d0
+	jsr	_LVOSPFix(a6)
+	move.l	d0,_y
+
+	; calculate x-radius = radius / aspect
+	move.l	_radius,d0
+	move.l	_aspect,d1
+	jsr	_LVOSPDiv(a6)
+	jsr	_LVOSPFix(a6)
+	move.l	d0,_xradius
+
+	; coerce y-radius (must be > 0)
+	move.l	_radius,d0
+	jsr	_LVOSPFix(a6)
+	cmpi.l	#0,d0
+	bne.s	_fe_store_yrad
+	moveq	#1,d0
+_fe_store_yrad:
+	move.l	d0,_radius
+
+	; --- set up area system ---
+
+	; initialize AreaInfo
+	movea.l	_GfxBase,a6
+	lea	_areainfo,a0
+	lea	_areabuffer,a1
+	move.w	#21,d0		; 20+1 vertices (enough for AreaEllipse)
+	jsr	_LVOInitArea(a6)
+	movea.l	_RPort,a0
+	move.l	#_areainfo,AreaInfo(a0)
+
+	; allocate TmpRas
+	move.w	#2,d0
+	jsr	_windowfunc
+	move.l	d0,_WdwWidth
+
+	move.w	#3,d0
+	jsr	_windowfunc
+	move.l	d0,_WdwHeight
+
+	movea.l	_GfxBase,a6
+	move.l	_WdwWidth,d0
+	move.l	_WdwHeight,d1
+	jsr	_LVOAllocRaster(a6)
+	cmpi.l	#0,d0
+	beq	_quit_fillellipse
+	move.l	d0,_TRBuf
+
+	; initialize TmpRas
+	movea.l	_GfxBase,a6
+	move.l	_WdwWidth,d0
+	move.l	_WdwHeight,d1
+	jsr	_rassize
+	lea	_tmpras,a0
+	movea.l	_TRBuf,a1
+	jsr	_LVOInitTmpRas(a6)
+	movea.l	_RPort,a0
+	move.l	#_tmpras,TmpRas(a0)
+
+	; --- call AreaEllipse ---
+	movea.l	_GfxBase,a6
+	movea.l	_RPort,a1
+	move.l	_x,d0
+	and.w	#$ffff,d0
+	move.l	_y,d1
+	and.w	#$ffff,d1
+	move.l	_xradius,d2
+	and.w	#$ffff,d2
+	move.l	_radius,d3
+	and.w	#$ffff,d3
+	jsr	_LVOAreaEllipse(a6)
+
+	; --- render the fill ---
+	movea.l	_GfxBase,a6
+	movea.l	_RPort,a1
+	jsr	_LVOAreaEnd(a6)
+
+	; --- cleanup ---
+	movea.l	_GfxBase,a6
+	movea.l	_TRBuf,a0
+	move.l	_WdwWidth,d0
+	move.l	_WdwHeight,d1
+	jsr	_LVOFreeRaster(a6)
+
+_quit_fillellipse:
+	movea.l	_RPort,a0
+	move.l	#0,TmpRas(a0)
+	move.l	#0,AreaInfo(a0)
+	rts
+
 _do_my_ellipse:	
 	; calculate x-radius based upon aspect and radius
 	move.l	_radius,d0

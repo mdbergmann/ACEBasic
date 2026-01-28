@@ -310,6 +310,28 @@ struct Gadget *gad;
     GT_SetGadgetAttrsA(gad, Wdw, NULL, (struct TagItem *)tagarray);
 }
 
+void SetGTGadgetAttrSingle(value, tag, id)
+LONG value;
+ULONG tag;
+LONG id;
+{
+/* Set a single attribute with a runtime-evaluated value.
+** Builds the TagItem array on the stack.
+*/
+struct Gadget *gad;
+struct TagItem tags[2];
+
+    if (id < 1 || id > MAXGADGET) return;
+    gad = gt_gadgets[id];
+    if (gad == NULL || Wdw == NULL) return;
+
+    tags[0].ti_Tag = tag;
+    tags[0].ti_Data = (ULONG)value;
+    tags[1].ti_Tag = 0L;  /* TAG_DONE */
+    tags[1].ti_Data = 0L;
+    GT_SetGadgetAttrsA(gad, Wdw, NULL, tags);
+}
+
 ULONG GetGTGadgetAttr(tag, id)
 ULONG tag;
 LONG id;

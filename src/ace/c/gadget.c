@@ -268,25 +268,25 @@ void gadget_font()
 
 void setattr_gadget()
 {
-/* GADGET SETATTR id, TAG=value [, TAG=value ...] */
-char datalabel[80], dataname[80];
-char literal[1024];
+/* GADGET SETATTR id, TAG=value [, TAG=value ...]
+**
+** For each TAG=value pair, calls _SetGTGadgetAttrSingle(value, tag, id).
+** This allows runtime-evaluated expressions as values.
+*/
 char vbuf[80];
-int ntags;
 unsigned long tag_id;
-long tag_val;
-BOOL negate;
 static int gtstrcount = 0;
 
 	insymbol();
-	make_sure_long(expr());	/* gadget-id */
+	make_sure_long(expr());	/* gadget-id -> d0 and on stack */
+
+	/* Save gadget-id to BSS temp and clean up stack */
+	enter_BSS("_setattr_id:", "ds.l 1");
+	gen("move.l", "(sp)+,_setattr_id", "  ");
 
 	if (sym != comma) { _error(16); return; }
 
-	/* Parse TAG=value pairs */
-	strcpy(literal, "dc.l ");
-	ntags = 0;
-
+	/* Parse TAG=value pairs, call _SetGTGadgetAttrSingle for each */
 	do {
 	    insymbol();
 	    if (sym != ident)
@@ -308,67 +308,40 @@ static int gtstrcount = 0;
 	    }
 	    insymbol();
 
-	    /* Append tag_id first */
-	    if (ntags > 0)
-		strcat(literal, ",");
-	    sprintf(vbuf, "$%lx,", tag_id);
-	    strcat(literal, vbuf);
+	    /* Push gadget-id (rightmost param, pushed first) */
+	    gen("move.l", "_setattr_id,-(sp)", "  ");
+
+	    /* Push tag constant */
+	    sprintf(vbuf, "#$%lx,-(sp)", tag_id);
+	    gen("move.l", vbuf, "  ");
 
 	    /* Handle different value types */
 	    if (sym == stringconst)
 	    {
-		/* String constant - create data entry and reference it */
+		/* String constant - create data entry and push address */
 		char strlabel[40], strdata[256];
 		sprintf(strlabel, "_gtstr%d:", gtstrcount);
 		sprintf(strdata, "dc.b '%s',0", stringval);
 		enter_DATA(strlabel, strdata);
 		sprintf(vbuf, "_gtstr%d", gtstrcount);
-		strcat(literal, vbuf);
+		gen("pea", vbuf, "  ");
 		gtstrcount++;
 		insymbol();
 	    }
 	    else
 	    {
-		negate = FALSE;
-		if (sym == minus)
-		{
-		    negate = TRUE;
-		    insymbol();
-		}
-		if (sym == shortconst)
-		    tag_val = (long)shortval;
-		else if (sym == longconst)
-		    tag_val = longval;
-		else
-		{
-		    _error(82);
-		    break;
-		}
-		if (negate) tag_val = -tag_val;
-		sprintf(vbuf, "%ld", tag_val);
-		strcat(literal, vbuf);
-		insymbol();
+		/* Evaluate expression - result already on stack from expr() */
+		make_sure_long(expr());
+		/* Don't push d0 - expr() already left it on stack */
 	    }
-	    ntags++;
+
+	    /* Call _SetGTGadgetAttrSingle(value, tag, id) */
+	    gen("jsr", "_SetGTGadgetAttrSingle", "  ");
+	    gen("add.l", "#12,sp", "  ");
+	    enter_XREF("_SetGTGadgetAttrSingle");
+
 	} while (sym == comma);
 
-	/* Append TAG_DONE terminator */
-	strcat(literal, ",0,0");
-
-	/* Generate DATA entry */
-	sprintf(dataname, "_gttags%d", gttagcount);
-	sprintf(datalabel, "_gttags%d:", gttagcount);
-	gttagcount++;
-	/* Add alignment directive before tag array */
-	enter_DATA("", "cnop 0,2");
-	enter_DATA(datalabel, literal);
-
-	/* Push tag array address */
-	gen("pea", dataname, "  ");
-
-	gen("jsr","_SetGTGadgetAttrs","  ");
-	gen("addq","#8","sp");
-	enter_XREF("_SetGTGadgetAttrs");
 	gadtoolsused = TRUE;
 }
 

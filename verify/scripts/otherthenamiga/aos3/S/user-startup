@@ -61,3 +61,12 @@ path ACE:bin add
 
 ; Set script flag on bas script (needed for fs-uae shared folder)
 protect ACE:bin/bas +s
+
+; --- Phase 2 Closures: rebuild and test ---
+cd ACE:src/make
+make -f Makefile-ace clean >ACE:verify/tests/results/build.log
+make -f Makefile-ace >>ACE:verify/tests/results/build.log
+cd ACE:verify/tests
+rx runner.rexx closures >ACE:verify/tests/results/closures_results.txt
+echo "done" >ACE:verify/tests/results/done.flag
+

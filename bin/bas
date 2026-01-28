@@ -5,7 +5,7 @@
 ; ** Assembles using vasm, links with vlink. **
 
 ; make sure stack is big enough.
-STACK 40000
+STACK 65000
 
 ; don't abort script if ACE or APP quits 
 ; with a return code of 10 (ERROR).
@@ -30,10 +30,10 @@ IF <arg2> GT ""
    IF NOT ERROR
      ; assemble and link
      delete >NIL: T:<arg2>.b
-     vasmm68k_mot -Fhunk -o T:<arg2>.o T:<arg2>.s
+     ace:bin/vasmm68k_mot -Fhunk -o T:<arg2>.o T:<arg2>.s
      a68k T:<arg2>.s
      delete >NIL: T:<arg2>.s
-     vlink -bamigahunk -x -Bstatic -nostdlib -mrel -s -o T:<arg2> T:<arg2>.o <arg3> ACElib:startup.lib ACElib:db.lib ACElib:ami.lib
+     ace:bin/vlink -bamigahunk -x -Bstatic -nostdlib -mrel -s -o T:<arg2> T:<arg2>.o <arg3> ACElib:startup.lib ACElib:db.lib ACElib:ami.lib
 
      ; leave us with the executable (and icon?).
      copy T:<arg2> ""
@@ -65,9 +65,9 @@ ELSE
    IF NOT ERROR
      ; assemble and link.
      delete >NIL: T:<arg1>.b
-     vasmm68k_mot -Fhunk -o T:<arg1>.o T:<arg1>.s
+     ace:bin/vasmm68k_mot -Fhunk -o T:<arg1>.o T:<arg1>.s
      delete >NIL: T:<arg1>.s
-     vlink -bamigahunk -x -Bstatic -nostdlib -mrel -s -o T:<arg1> T:<arg1>.o ACElib:startup.lib ACElib:db.lib ACElib:ami.lib
+     ace:bin/vlink -bamigahunk -x -Bstatic -nostdlib -mrel -s -o T:<arg1> T:<arg1>.o ACElib:startup.lib ACElib:db.lib ACElib:ami.lib
 
      ; leave us with the executable (and icon?).
      copy T:<arg1> ""
@@ -78,8 +78,3 @@ ELSE
 
      ; kill any remaining temporary files.
      delete >NIL: T:<arg1>#?
-   ENDIF
-  ENDIF 
- ENDIF
-
-ENDIF

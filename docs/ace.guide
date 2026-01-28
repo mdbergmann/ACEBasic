@@ -24,6 +24,7 @@
                       @{" Random Files                         " link random-files}
                       @{" Command line and Workbench arguments " link command-line-and-workbench-arguments}
                       @{" Subprograms                          " link subprograms}
+                      @{" Function Pointers and Closures       " link function-pointers-and-closures}
                       @{" Structures                           " link structures}
                       @{" Shared library function calls        " link shared-library-function-calls}
                       @{" Machine code calls                   " link machine-code-calls}
@@ -44,6 +45,7 @@
                       @{" Error Handling                       " link error-handling}
                       @{" Notes for assembly programmers       " link notes-for-assembly-programmers}
                       @{" Limitations                          " link limitations}
+                      @{" Known Bugs                           " link known-bugs}
                       @{" Future versions                      " link future-versions}
                       @{" A note to PD libraries and reviewers " link a-note-to-pd-libraries-and-reviewers}
                       @{" Disclaimer                           " link disclaimer}
@@ -1342,8 +1344,136 @@ variables in ACE:
  
 Note: In the above table, "addr" is a long integer address. VARPTR or @ 
 can be used to obtain this.
- 
-	
+
+
+@ENDNODE
+@NODE function-pointers-and-closures "Function Pointers and Closures"
+Function Pointers and Closures
+------------------------------
+ACE supports function pointers and closures, enabling indirect calls through
+variables and partial application of arguments. These features allow callback
+patterns, higher-order programming, and flexible program composition.
+
+
+Function Pointers
+~~~~~~~~~~~~~~~~~
+The address of a SUB can be obtained using the @ (VARPTR) operator and stored
+in a LONGINT or ADDRESS variable:
+
+	DECLARE SUB LONGINT Add(LONGINT a, LONGINT b)
+
+	SUB LONGINT Add(LONGINT a, LONGINT b)
+	  Add = a + b
+	END SUB
+
+	funcPtr& = @Add
+
+The variable funcPtr& now holds the code address of the Add subprogram.
+
+
+
+INVOKE -- Indirect Calls
+~~~~~~~~~~~~~~~~~~~~~~~~~
+The INVOKE keyword calls a SUB through a function pointer variable. Unlike
+CALL with a variable, INVOKE can appear in an expression and its return
+value is usable:
+
+	funcPtr& = @Add
+	result& = INVOKE funcPtr&(3, 4)     '..result& = 7
+	PRINT result&
+
+INVOKE can also be used as a statement when the return value is not needed:
+
+	INVOKE funcPtr&(3, 4)
+
+When the variable was directly assigned with @SubName, the compiler knows
+the target SUB's signature and type-checks the arguments. This makes INVOKE
+as safe as a direct CALL in that case.
+
+
+Passing Function Pointers as Parameters
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+A function pointer can be passed to another SUB as a LONGINT or ADDRESS
+parameter, enabling callback patterns:
+
+	SUB LONGINT Apply(ADDRESS callback&, LONGINT x, LONGINT y)
+	  Apply = INVOKE callback&(x, y)
+	END SUB
+
+	funcPtr& = @Add
+	PRINT Apply(funcPtr&, 10, 20)       '..prints 30
+
+Note: when a function pointer is received as a parameter (rather than
+assigned directly with @SubName), the compiler does not know the target
+SUB's signature. INVOKE will use a C-style calling convention in this case.
+Ensure the argument types and count match the target SUB's expectations.
+
+
+BIND -- Value-Capture Closures
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The BIND function creates a closure that pre-binds arguments to a SUB:
+
+	SUB LONGINT AddN(LONGINT n, LONGINT x)
+	  AddN = n + x
+	END SUB
+
+	adder& = BIND(@AddN, 5)
+
+This creates a heap-allocated record that stores the function pointer and
+the bound value (5). When invoked, only the remaining (unbound) arguments
+need to be supplied:
+
+	PRINT INVOKE adder&(10)             '..prints 15 (calls AddN(5, 10))
+
+BIND always binds the first N parameters of the SUB. If a SUB has 3
+parameters and you call BIND with 2 values, the first 2 parameters are
+bound and the third must be supplied at INVOKE time.
+
+
+
+Creating Closures Inside SUBs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+BIND captures values, not references. When called inside a SUB, the current
+values of local variables are copied into the closure record at the time
+BIND executes. The closure persists on the heap after the SUB returns:
+
+	SUB LONGINT MakeAdder(LONGINT n)
+	  MakeAdder = BIND(@AddN, n)       '..captures current value of n
+	END SUB
+
+	adder& = MakeAdder(5)
+	PRINT INVOKE adder&(10)             '..prints 15
+
+This is value capture -- subsequent changes to n (if any) are not reflected
+in the closure. This differs from reference capture used in languages like
+JavaScript or Python.
+
+
+Closures as Callbacks
+~~~~~~~~~~~~~~~~~~~~~
+Since closures are stored as LONGINT values, they can be passed to other
+SUBs just like function pointers:
+
+	SUB UseCallback(ADDRESS cb&)
+	  PRINT INVOKE cb&(20)
+	END SUB
+
+	adder& = BIND(@AddN, 5)
+	CALL UseCallback(adder&)            '..prints 25
+
+
+Memory Behaviour
+~~~~~~~~~~~~~~~~
+Closure records are heap-allocated via ACEalloc. Like all ACEalloc memory,
+they are freed automatically when the program exits. There is currently no
+way to free an individual closure during execution.
+
+This means closures created in a tight loop will accumulate memory until
+the program ends. For long-running programs that create many closures,
+be mindful of memory usage.
+
+
+
 @ENDNODE
 @NODE structures "Structures"
 Structures
@@ -2863,12 +2993,20 @@ doesn't recognise the former at all. The same is true of "=<".
 10. The compiler only responds to ctrl-c during the main compilation phase, 
 and not during optimisation or when target code is being written.
  
-11. Don't mix the compiler's "b"/"w" option with BREAK/WINDOW event trapping, 
+11. Don't mix the compiler's "b"/"w" option with BREAK/WINDOW event trapping,
 as they will conflict.
- 
- 
+
+12. Closure records created with BIND are heap-allocated and only freed at
+program exit. Creating closures in a tight loop will accumulate memory.
+Also, BIND captures string arguments by address, not by content -- if the
+source string's storage is reused after the enclosing SUB returns, the
+closure may hold a stale pointer.
+
+
+@ENDNODE
+@NODE known-bugs "Known Bugs"
 Known Bugs
----------- 
+----------
 If mathieeesingtrans.library is not present at runtime, the FFP SPPow()
 function will be used for exponentiation. This will produce incorrect
 results for a combination of a negative base and odd exponent. Only pre-2.0

@@ -42,7 +42,8 @@
 	Command line and Workbench arguments........1098    18
  
 	Subprograms.................................1149    18
-	Structures..................................1374    22
+	Function Pointers and Closures..............1378    22
+	Structures..................................1484    24
 	Shared library function calls...............1539    25
 	Machine code calls..........................1680    27
  
@@ -1374,8 +1375,136 @@ variables in ACE:
  
 Note: In the above table, "addr" is a long integer address. VARPTR or @ 
 can be used to obtain this.
- 
-	
+
+
+Function Pointers and Closures
+------------------------------
+ACE supports function pointers and closures, enabling indirect calls through
+variables and partial application of arguments. These features allow callback
+patterns, higher-order programming, and flexible program composition.
+
+
+Function Pointers
+~~~~~~~~~~~~~~~~~
+The address of a SUB can be obtained using the @ (VARPTR) operator and stored
+in a LONGINT or ADDRESS variable:
+
+	DECLARE SUB LONGINT Add(LONGINT a, LONGINT b)
+
+	SUB LONGINT Add(LONGINT a, LONGINT b)
+	  Add = a + b
+	END SUB
+
+	funcPtr& = @Add
+
+The variable funcPtr& now holds the code address of the Add subprogram.
+
+
+                                  - page 22 -
+
+INVOKE -- Indirect Calls
+~~~~~~~~~~~~~~~~~~~~~~~~~
+The INVOKE keyword calls a SUB through a function pointer variable. Unlike
+CALL with a variable, INVOKE can appear in an expression and its return
+value is usable:
+
+	funcPtr& = @Add
+	result& = INVOKE funcPtr&(3, 4)     '..result& = 7
+	PRINT result&
+
+INVOKE can also be used as a statement when the return value is not needed:
+
+	INVOKE funcPtr&(3, 4)
+
+When the variable was directly assigned with @SubName, the compiler knows
+the target SUB's signature and type-checks the arguments. This makes INVOKE
+as safe as a direct CALL in that case.
+
+
+Passing Function Pointers as Parameters
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+A function pointer can be passed to another SUB as a LONGINT or ADDRESS
+parameter, enabling callback patterns:
+
+	SUB LONGINT Apply(ADDRESS callback&, LONGINT x, LONGINT y)
+	  Apply = INVOKE callback&(x, y)
+	END SUB
+
+	funcPtr& = @Add
+	PRINT Apply(funcPtr&, 10, 20)       '..prints 30
+
+Note: when a function pointer is received as a parameter (rather than
+assigned directly with @SubName), the compiler does not know the target
+SUB's signature. INVOKE will use a C-style calling convention in this case.
+Ensure the argument types and count match the target SUB's expectations.
+
+
+BIND -- Value-Capture Closures
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The BIND function creates a closure that pre-binds arguments to a SUB:
+
+	SUB LONGINT AddN(LONGINT n, LONGINT x)
+	  AddN = n + x
+	END SUB
+
+	adder& = BIND(@AddN, 5)
+
+This creates a heap-allocated record that stores the function pointer and
+the bound value (5). When invoked, only the remaining (unbound) arguments
+need to be supplied:
+
+	PRINT INVOKE adder&(10)             '..prints 15 (calls AddN(5, 10))
+
+BIND always binds the first N parameters of the SUB. If a SUB has 3
+parameters and you call BIND with 2 values, the first 2 parameters are
+bound and the third must be supplied at INVOKE time.
+
+
+                                  - page 23 -
+
+Creating Closures Inside SUBs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+BIND captures values, not references. When called inside a SUB, the current
+values of local variables are copied into the closure record at the time
+BIND executes. The closure persists on the heap after the SUB returns:
+
+	SUB LONGINT MakeAdder(LONGINT n)
+	  MakeAdder = BIND(@AddN, n)       '..captures current value of n
+	END SUB
+
+	adder& = MakeAdder(5)
+	PRINT INVOKE adder&(10)             '..prints 15
+
+This is value capture -- subsequent changes to n (if any) are not reflected
+in the closure. This differs from reference capture used in languages like
+JavaScript or Python.
+
+
+Closures as Callbacks
+~~~~~~~~~~~~~~~~~~~~~
+Since closures are stored as LONGINT values, they can be passed to other
+SUBs just like function pointers:
+
+	SUB UseCallback(ADDRESS cb&)
+	  PRINT INVOKE cb&(20)
+	END SUB
+
+	adder& = BIND(@AddN, 5)
+	CALL UseCallback(adder&)            '..prints 25
+
+
+Memory Behaviour
+~~~~~~~~~~~~~~~~
+Closure records are heap-allocated via ACEalloc. Like all ACEalloc memory,
+they are freed automatically when the program exits. There is currently no
+way to free an individual closure during execution.
+
+This means closures created in a tight loop will accumulate memory until
+the program ends. For long-running programs that create many closures,
+be mindful of memory usage.
+
+
+
 Structures
 ----------
 Structures have been included in ACE mainly because of their utility in 
@@ -1410,7 +1539,7 @@ system structures from C to ACE much easier than it otherwise would be, eg:
  
 	myDate = @mine->ds	'..assign address of mine->ds to myDate.
  
-                                  - page 22 -
+                                  - page 24 -
  
 	myDate->days = 23
  
@@ -1474,7 +1603,7 @@ Since both forms of structure declaration result in an address being stored
   
 The SIZEOF function can be used to determine the size of a structure type
  
-                                  - page 23 -
+                                  - page 25 -
  
 if allocating memory for a structure (see examples/misc/linkedlist.b).
  
@@ -1538,7 +1667,7 @@ Finally, it is not currently possible to use INPUT, (LINE) INPUT# or READ
 in conjunction with structures.
  
  
-                                  - page 24 -
+                                  - page 26 -
  
 	
 Shared library function calls
@@ -1602,7 +1731,7 @@ DECLARE FUNCTION <funcname>[%&!#$][(param-list)] LIBRARY [<libname>]
  
 	- <funcname> may have a trailing character (&%#!$) to indicate type,
  
-                                  - page 25 -
+                                  - page 27 -
  
 	  otherwise default data type rules apply for the function's return 
 	  value. This character is optional when CALLing the function.
@@ -1666,7 +1795,7 @@ the header files in ACEinclude:.
 As of version 2.0, I have provided a program (FD2BMAP) which is functionally 
 equivalent to ConvertFD (since this may NOT be freely redistributed) so that 
  
-                                  - page 26 -
+                                  - page 28 -
  
 bmap files for new libraries can be created. The program FD2BMAP can be found 
 in the ACE:utils/fd2bmap directory and was written in ACE by Harald Schneider, 
@@ -1730,7 +1859,7 @@ do the following:
 	for i&=0 to N-1
 	  read b%
  
-                                  - page 27 -
+                                  - page 29 -
  
 	  poke addr&+i&,b%
 	next
@@ -1794,7 +1923,7 @@ but _not_ a character pointer, eg:
 Use a C function to return a character pointer, and externally reference it
 from your ACE program.
  
-                                  - page 28 -
+                                  - page 30 -
  
  
 All external reference identifiers have an underscore prefixed by ACE but
@@ -1858,7 +1987,7 @@ multi-file ACE projects. For example in one file you can have:
 	  FOR i=1 to n
 	    LINE (RND*640,RND*200)-(RND*640,RND*200)
  
-                                  - page 29 -
+                                  - page 31 -
  
 	  NEXT
 	END SUB
@@ -1922,7 +2051,7 @@ There are a few things to be kept in mind when using ACE modules:
  
 		n = ARGCOUNT
  
-                                  - page 30 -
+                                  - page 32 -
  
  
 	  will suffice.
@@ -1986,7 +2115,7 @@ actions will do.
 		end sub
  
  
-                                  - page 31 -
+                                  - page 33 -
  
 In addition, while subprograms can be treated as functions when in modules,
 because there is no startup code, SUBs in a module are allocated no space
@@ -2050,7 +2179,7 @@ Windows
 -------
 You can open up to 16 user-defined windows per program. See the command 
  
-                                  - page 32 -
+                                  - page 34 -
  
 and function reference for the syntax of the WINDOW statement.
  
@@ -2114,7 +2243,7 @@ shuffle screens under program control.
 When a screen is closed, ACE makes the screen with the next highest id 
 the current one, so it is advisable to open and close screens in ascending 
  
-                                  - page 33 -
+                                  - page 35 -
  
 and descending order.
  
@@ -2178,7 +2307,7 @@ WINDOW ON
  
 '..main loop (actually does nothing, but is necessary for event trapping)
  
-                                  - page 34 -
+                                  - page 36 -
  
 WHILE having_fun
   '..have a nap while nothing's happening 
@@ -2296,7 +2425,7 @@ ref.txt.
 Menus
 -----
  
-                                  - page 35 -
+                                  - page 37 -
  
 ACE supports menus ala AmigaBASIC, with two additions: menu item keyboard
 equivalents and a MENU WAIT command. The latter puts the program to sleep 
@@ -2360,7 +2489,7 @@ You may be wondering one or more of the following:
 	- why did he include THAT?
  
  
-                                  - page 36 -
+                                  - page 38 -
  
 To answer the first question: Turtle Graphics (TG) originated as a subset of 
 the language LOGO invented by Seymour Papert et al at MIT. LOGO was originally 
@@ -2424,7 +2553,7 @@ where:
 Note that the X:Y ratio can be modified thus:
  
  
-                                  - page 37 -
+                                  - page 39 -
  
 	EXTERNAL SINGLE tg_xy_ratio
 	tg_xy_ratio = 1.125	
@@ -2488,7 +2617,7 @@ equivalent ACE code would be:
 	For i=1 To 100
 	  sum = sum + 1/i
  
-                                  - page 38 -
+                                  - page 40 -
  
 	Next i
  
@@ -2552,7 +2681,7 @@ in the waveform table.
 The SOUND statement syntax is as follows:
  
  
-                                  - page 39 -
+                                  - page 41 -
  
 	SOUND period,duration[,volume][,voice]
  
@@ -2616,7 +2745,7 @@ event types are supported:
 	MOUSE     -  left mouse button press.
 	TIMER(n)  -  cause a trap every n seconds.
  
-                                  - page 40 -
+                                  - page 42 -
  
 	ERROR	  -  I/O and other errors.
 	MENU      -  menu selection.
@@ -2680,7 +2809,7 @@ Here's a typical example:
  
 	quit:
  
-                                  - page 41 -
+                                  - page 43 -
  
 	  PRINT "**break!"
 	  STOP
@@ -2744,7 +2873,7 @@ in ACE is to compile, run and study the programs in examples/ACEports.
   
 ARexx capabilities are also planned for ACE at some stage.
  
-                                  - page 42 -
+                                  - page 44 -
  
  
  
@@ -2808,7 +2937,7 @@ and will hopefully implement it when I have time.
  
 Due to BASIC's tendency to coerce data types so much for the programmer,
  
-                                  - page 43 -
+                                  - page 45 -
  
 the resulting code can look a little nasty, and big increases in efficiency 
 can be gained by careful combinations of data types in expressions.
@@ -2872,18 +3001,24 @@ NEXT must always appear on a line by itself or as part of a multi-statement.
 9. ACE does not consider "=>" to be the same symbol as ">=". In fact, ACE 
 doesn't recognise the former at all. The same is true of "=<".
  
-                                  - page 44 -
+                                  - page 46 -
  
  
 10. The compiler only responds to ctrl-c during the main compilation phase, 
 and not during optimisation or when target code is being written.
  
-11. Don't mix the compiler's "b"/"w" option with BREAK/WINDOW event trapping, 
+11. Don't mix the compiler's "b"/"w" option with BREAK/WINDOW event trapping,
 as they will conflict.
- 
- 
+
+12. Closure records created with BIND are heap-allocated and only freed at
+program exit. Creating closures in a tight loop will accumulate memory.
+Also, BIND captures string arguments by address, not by content -- if the
+source string's storage is reused after the enclosing SUB returns, the
+closure may hold a stale pointer.
+
+
 Known Bugs
----------- 
+----------
 If mathieeesingtrans.library is not present at runtime, the FFP SPPow()
 function will be used for exponentiation. This will produce incorrect
 results for a combination of a negative base and odd exponent. Only pre-2.0
@@ -2936,7 +3071,7 @@ at least try to take advantage of some of its features.
  
  
  
-                                  - page 45 -
+                                  - page 47 -
  
 A note to PD libraries and reviewers
 ------------------------------------
@@ -3000,7 +3135,7 @@ Young Choi's Advanced Programming notes in many ways provided the impetus
 for the development of ACE. They were used in a compiler construction course
 I took as an undergraduate. I thank Young for introducing me to the joys
  
-                                  - page 46 -
+                                  - page 48 -
  
 of compiler writing, although I know he didn't intend me to spend *all* my
 time writing programming language translators of one kind or another. :-)
@@ -3064,7 +3199,7 @@ ACE-related files are stored in the directory:
  
 	/pub/ACE
  
-                                  - page 47 -
+                                  - page 49 -
  
  
 The ACE FTP site is also maintained at:
@@ -3128,7 +3263,7 @@ The sense of community on the virtual world of the Net is a refreshing change
 from the general weirdness of the "real" world.
  
  
-                                  - page 48 -
+                                  - page 50 -
  
 I'd like to thank John Stiwinter for all his excellent work in putting
 together the AmigaGuide documents for ACE. Having ACE's reference material
@@ -3192,7 +3327,7 @@ Happy programming!
 Regards, David Benn
 12th September 1996
  
-                                  - page 49 -
+                                  - page 51 -
  
  
  
@@ -3256,4 +3391,4 @@ Regards, David Benn
  
  
  
-                                  - page 50 -
+                                  - page 52 -
