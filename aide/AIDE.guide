@@ -92,7 +92,7 @@
         thinpaz.font    (in FONTS:)     (These files are included
                                          within this package)
 
- I recommend to have the followings directories as well:
+ I recommend to have the following directories as well:
 
         ACE:Docs        where all the docs reside
         ACE:Icons       where the necessary icons for ACE should be
@@ -619,7 +619,7 @@
   in the "Program" section  to perform the missing steps of your com-
   pilation process.
   This habit differs completely  from older versions of AIDE.  It was
-  done this way, so that the program is not recompiled completly, be-
+  done this way, so that the program is not recompiled completely, be-
   cause only the assembler or linker option had been changed.
 
   If you want to perform a new compiler run, just select "Reset" from
@@ -718,7 +718,7 @@
     other  -  If you select this button  an input box will pop up and
               give you the  possibility  to enter any kind of ACE op-
               tion which may be defined new for the future.  Use this
-              as well if you want to specifiy "list source line".
+              as well if you want to specify "list source line".
 
               You have to enter the options as defined in ACE.txt. If
               no "space" is required, then don't enter it.
@@ -796,7 +796,7 @@
  "Set Options"  buttons.  All what you enter  has to be done the same
  way  as if you would type them  at the Shell prompt.  For  A68K  and
  PhxAss the options are set in the right place of the command string.
- PhxAss ist set to NULL  for optimizing the assembly output.  It does
+ PhxAss is set to NULL  for optimizing the assembly output.  It does
  depend on your program  which optimizing options  you can use.  Read
  the docs carefully and try them.  Optimizing the assembly output re-
  sults in shorter/faster executables.
@@ -884,7 +884,7 @@
   PhxLnk  links  all data sections  into  one piece, no matter if for
   some special ones the Chip mem bit is set!  This can result  in the
   effect that some machines are reporting "not enough memory" if they
-  try to load a program  wich was linked with PhxLnk  and this option
+  try to load a program  which was linked with PhxLnk  and this option
   set. That happens, because ACE creates large data sections  (depen-
   ding on the used amount of variables)  which  has  to  be loaded to
   Chip mem now.  Machines with  only 512k  and sometimes  those  with
@@ -919,7 +919,7 @@
 
  All SUBMods which resides in the specified "Module Dir" are display-
  ed in the main window.  Just click on the name to select the one you
- want to link and the choosen one will be highlighted.  Clicking on a
+ want to link and the chosen one will be highlighted.  Clicking on a
  selected entry results in unselecting it.  If you want to remove all
  modules just click on the button "Remove all Modules"
 
@@ -957,7 +957,7 @@
  As you may have gleaned from the above,  AIDE  has a simple  inbuilt
  "make" capability.
 
- This means that before it builds or makes an exectuable and prior to
+ This means that before it builds or makes an executable and prior to
  compiling or running a program,  AIDE checks to see whether compila-
  tion needs to take place at all.
 

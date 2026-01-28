@@ -358,7 +358,7 @@ aware that ACE sometimes includes extra code apart from that which you might
 expect purely on the basis of the source code.
  
 The "E" switch creates a file in the current directory called ace.err which
-contains all error messages generated during a compliation. Error messages
+contains all error messages generated during a compilation. Error messages
 are still displayed to the screen during compilation however.
  
 The "i" switch tells ACE to make an icon for the executable resulting from 
@@ -533,7 +533,7 @@ RAM:T directory.
  
 Use of #include has the effect of adding lines to the preprocessed ACE 
 source, which has an impact upon the physical location of lines from the
-main ACE file when transfered to the destination file.
+main ACE file when transferred to the destination file.
  
 ACE include files have two purposes. As in C they can be used to include
 constants and structure definitions. Second, as with files like WBarg.h,
@@ -782,7 +782,7 @@ Examples of valid identifiers are:
 		_putchar
 		play.sound
  
-An identifer with no qualifier has a default type of single-precision. The 
+An identifier with no qualifier has a default type of single-precision. The 
 DEFxxx compiler directives (see command and function reference) have the
 same effect as the qualifier characters except they affect all identifiers
 starting with a certain letter. Qualifier characters have higher priority
@@ -1280,7 +1280,7 @@ Keep the following in mind with regard to shared variables in ACE:
 	  to the name of an existing (ie: already referenced/declared) 
           main program variable.
  
-Although variable parameters are not explictly provided by ACE there are 
+Although variable parameters are not explicitly provided by ACE there are 
 two ways to implement them: using indirection operators for simple variables 
 and the ADDRESS option of DIM and STRING (see also "Structures" section).
  

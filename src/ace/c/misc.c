@@ -250,7 +250,7 @@ char mulbuf[40],srcbuf[40];
   ndx_mult *= curr->index[i];
  }
 
- /* mutiply offset by data type size */
+ /* multiply offset by data type size */
  if (curr->type == stringtype)
  {
   /* multiply d7 (containing absolute index) by string element size */

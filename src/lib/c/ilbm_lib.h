@@ -28,7 +28,7 @@ typedef struct {
     WORD  x, y;			/* position for this image */
     UBYTE nPlanes;		/* # source bitplanes */
     UBYTE masking;		/* masking technique */
-    UBYTE compression;		/* compression algoithm */
+    UBYTE compression;		/* compression algorithm */
     UBYTE pad1;			/* UNUSED.  For consistency, put 0 here.*/
     UWORD transparentColor;	/* transparent "color number" */
     UBYTE xAspect, yAspect;	/* aspect ratio, a rational number x/y */

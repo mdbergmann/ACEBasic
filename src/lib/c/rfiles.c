@@ -116,7 +116,7 @@ LONG fileNum;
 ** Store the specified record (1..N) in the
 ** specified file (1..255), taking it from
 ** the supplied buffer. If the file is
-** not large enough to accomodate the 
+** not large enough to accommodate the 
 ** new record, make it so.
 */
 BPTR fh;

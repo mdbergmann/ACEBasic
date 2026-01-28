@@ -110,7 +110,7 @@ You might have already noticed that the statement can in turn be split into smal
     a) @{I}Print@{UI}
     b) @{I}"Hello, World"@{UI}
 
-The dot, parentheses and the quotes are all punctuations that have to be placed at appropriate positions in the statement, for the computer to understand our intent.
+The dot, parentheses and the quotes are all punctuation that have to be placed at appropriate positions in the statement, for the computer to understand our intent.
 
 You might remember the window that appeared when we ran our first program.  That window is called the @{B}Shell@{UB} or sometimes referred to as the @{B}Console@{UB}.  That is where the result of this program goes.  You might have noticed that the Print operation is followed by @{B}Hello, World@{UB} inside quotes.  This text is passed as input to the Print operation, which it then prints out to the user.  This is called the @{U}input@{UU} to the operation.  Some operations take one or more inputs while others don't take any.
 
@@ -187,7 +187,7 @@ The program above will multiply @{B}number1@{UB} with @{B}number2@{UB} and store
 
 Figure 11 - Multiplying Two Numbers
 
-Simularly, you can subtract or divide numbers.  Here is the subtraction:
+Similarly, you can subtract or divide numbers.  Here is the subtraction:
 
     @{I}number3 = number1 - number2@{UI}
 
@@ -260,7 +260,7 @@ And this program will do exactly the same as the other one, which brings us to a
     @{I}@{B}In programming, there are usually many ways of doing the same thing.  Sometimes one way makes more sense than the other way.  The choice is left to the programmer.  As you write more programs and get more experienced, you'll start to notice these different techniques and their advantages and disadvantages.@{UI}@{UB}
 
 @{B}Indentation@{UB}
-In all the examples you can see how the statements between @{B}If@{UB}, @{B}Else@{UB}, and @{B}EndIf@{UB} are indented.  This indentation is not necssary.  The computer will understand the program just fine without them.  However, they help us see and understand the structure of the program easier.  Hence, it's usually considered as a good practice to indent the statements in such blocks.
+In all the examples you can see how the statements between @{B}If@{UB}, @{B}Else@{UB}, and @{B}EndIf@{UB} are indented.  This indentation is not necessary.  The computer will understand the program just fine without them.  However, they help us see and understand the structure of the program easier.  Hence, it's usually considered as a good practice to indent the statements in such blocks.
 
 @{B}Even or Odd@{UB}
 Now that we have the  @{B}If..Then..Else..EndIf@{UB} statement in our bag of tricks, let's write out a program that, given a number, will say if it's even or odd.
@@ -423,7 +423,7 @@ Figure 27 - Changing Line Color
 @Rem
 @Rem Link to WiderPen program text
 @Rem
-@Rem Figure 29 - Mulitple Pen Widths
+@Rem Figure 29 - Multiple Pen Widths
 @Rem
 @Rem The interesting part of this program is the loop, where we increase the @{I}PenWidth@{UI} every time the loop is run and then draw a new line under the old one.
 
@@ -481,7 +481,7 @@ This program sets random colors for the brush and then randomly sets the x and y
 Figure 35 - Randomize
 
 @{B}Fractals@{UB}
-The following program draws a simple triangle fractal using random numbers.  A fractal is a geometric shape that can be subdivided into parts, each of which resembles the parent shape accurately.  In thise case, the program draws hundreds of triangles each of which resembles its parent triangle.  And since the program runs for a few seconds, you can actually see the triangles forming slowly from mere dots.  The logic itself is somewhat hard to describe and I'll leave it as an exercise for you to explore.
+The following program draws a simple triangle fractal using random numbers.  A fractal is a geometric shape that can be subdivided into parts, each of which resembles the parent shape accurately.  In this case, the program draws hundreds of triangles each of which resembles its parent triangle.  And since the program runs for a few seconds, you can actually see the triangles forming slowly from mere dots.  The logic itself is somewhat hard to describe and I'll leave it as an exercise for you to explore.
 
 Link to Fractals program text
 
@@ -630,7 +630,7 @@ And the output of this program looks like this.
 
 Figure 45 - Max of two numbers using Subroutine
 
-Let's look at another example that will illustrate the usage of Subroutines.  This time we'll use a graphics program that computes various points which it will store in variables x and y.  Then it calls a subroutine @{B}DrawCircleUsingCenter@{UB} which is resonsible for drawing a circle using x and y as the center.
+Let's look at another example that will illustrate the usage of Subroutines.  This time we'll use a graphics program that computes various points which it will store in variables x and y.  Then it calls a subroutine @{B}DrawCircleUsingCenter@{UB} which is responsible for drawing a circle using x and y as the center.
 
 Link to CircleSub program text
 
@@ -767,7 +767,7 @@ Figure 53 - Laying out boxes in a grid
 @{I}Chapter 11@{UI}
 @{B}Events and Interactivity@{UB}
 
-In the first two chapters, we introduced objects that have @{U}Properties@{UU} and @{U}Operations@{UU}.  In addition to properties and operations, some objects have what are called @{B}Events@{UB}.  Events are like signals that are raised, for example, in response to user actions, like moving the mouse or clicking it.  In some sense events are the opposite of operations.  In the case of operation, you as a programmer call it to make the computer do something; whereas in the case of events, the computer lets you know when something ineresting has happened.
+In the first two chapters, we introduced objects that have @{U}Properties@{UU} and @{U}Operations@{UU}.  In addition to properties and operations, some objects have what are called @{B}Events@{UB}.  Events are like signals that are raised, for example, in response to user actions, like moving the mouse or clicking it.  In some sense events are the opposite of operations.  In the case of operation, you as a programmer call it to make the computer do something; whereas in the case of events, the computer lets you know when something interesting has happened.
 
 @{B}How are events useful?@{UB}
 Events are central to introducing interactivity in a program.  If you want to allow a user to interact with your program, events are what you'll use.  Say, you're writing a Tic-Tac-Toe game.  You'll want to allow the user to choose his/her play, right?  That's where events com in -- you receive user input from within your program using events.  If this seems hard to grasp, don't worry, we'll take a look at very simple example that will help you understand what events are and how they can be used.

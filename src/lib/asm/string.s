@@ -179,7 +179,7 @@ _quithtol:
 _leftstr:
 	move.l	a1,a3		; save address of target sub-string
 _leftstrloop:
-	cmpi.w	#0,d0		; transfered n bytes?
+	cmpi.w	#0,d0		; transferred n bytes?
 	ble.s	_leftstrquit	
 	cmpi.b	#0,(a0)		; EOS?
 	beq.s	_leftstrquit
