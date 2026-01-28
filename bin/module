@@ -4,6 +4,6 @@
 ACPP <prg>.b T:<prg>.b
 RemoveLine T:<prg>.b T:<prg>.bas
 ACE -Om T:<prg>.bas
-A68K T:<prg>.s
+vasmm68k_mot -Fhunk -o <prg>.o <prg>.s
 copy T:<prg>.o ""
 delete > NIL: T:<prg>#?
