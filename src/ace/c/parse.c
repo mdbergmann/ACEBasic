@@ -612,7 +612,19 @@ void show_title()
 
 void usage()
 {
- printf("usage: ACE [words | -2bcEilmOw] <sourcefile>[.b[as]]\n");
+ printf("\nusage: ACE [words | options] <sourcefile>[.b[as]]\n\n");
+ printf("Commands:\n");
+ printf("  words      List all reserved words\n\n");
+ printf("Options:\n");
+ printf("  -2         Generate MC68020 code\n");
+ printf("  -b         Enable Ctrl-C break checking\n");
+ printf("  -c         Include comments in assembly output\n");
+ printf("  -E         Log errors to <sourcefile>.err\n");
+ printf("  -i         Create program icon (.info file)\n");
+ printf("  -l         List source code during compilation\n");
+ printf("  -m         Compile as shared module (no startup code)\n");
+ printf("  -O         Enable peephole optimization\n");
+ printf("  -w         Enable window close gadget handling\n");
 }
 
 BOOL check_options(opt)
