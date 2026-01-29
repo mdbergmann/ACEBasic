@@ -300,6 +300,7 @@ enum { 	abssym = 0,
 	buttonsym,
 	buttonkindsym,
 	bytesym,
+	callbacksym,
 	casesym,
 	checkboxkindsym,
 	chipsetsym,
@@ -477,6 +478,7 @@ typedef struct symstruct {
 			  int    dims;               /* # of array elements */
 			  BOOL   shared;	     /* is object shared? */
 			  BOOL   new_string_var;     /* new string variable? */
+			  BOOL   is_callback;        /* TRUE if CALLBACK SUB */
 			  SHORT  *index;     	     /* array indices */
 			  SHORT	 no_of_params;       /* # of SUB parameters */
 			  int	 p_type[MAXPARAMS];  /* SUB parameter types */

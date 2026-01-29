@@ -276,9 +276,14 @@ SHORT popcount;
     else
     {
       /* call SUB */
-      if (sub_item->no_of_params != 0) 
-         { load_params(sub_item); insymbol(); }
-      gen("jsr",sub_name,"  ");
+      if (sub_item->is_callback)
+         _error(85);  /* CALLBACK SUB cannot be called from ACE code */
+      else
+      {
+         if (sub_item->no_of_params != 0)
+            { load_params(sub_item); insymbol(); }
+         gen("jsr",sub_name,"  ");
+      }
     }
   }
   else
@@ -497,9 +502,14 @@ SHORT popcount;
     else
        {
         /* user-defined subprogram */
-        if (curr_item->no_of_params != 0) 
-           { insymbol(); load_params(curr_item); }
-        gen("jsr",sub_name,"  ");
+        if (curr_item->is_callback)
+           _error(85);  /* CALLBACK SUB cannot be called from ACE code */
+        else
+        {
+           if (curr_item->no_of_params != 0)
+              { insymbol(); load_params(curr_item); }
+           gen("jsr",sub_name,"  ");
+        }
        }
    }
   }

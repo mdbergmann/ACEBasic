@@ -1504,6 +1504,105 @@ the program ends. For long-running programs that create many closures,
 be mindful of memory usage.
 
 
+Callback SUBs for Amiga Hooks
+-----------------------------
+While INVOKE and BIND handle callbacks within ACE code, some Amiga libraries
+require callbacks using the standard Hook calling convention. MUI, BOOPSI,
+and other frameworks use utility.library's CallHookPkt() to invoke callback
+functions with parameters passed in CPU registers rather than on the stack.
+
+The CALLBACK keyword creates a SUB that follows this convention, making it
+callable from Amiga system code.
+
+
+CALLBACK SUB Syntax
+~~~~~~~~~~~~~~~~~~~
+A CALLBACK SUB must have exactly three ADDRESS parameters:
+
+	SUB SubName(ADDRESS hook, ADDRESS obj, ADDRESS msg) CALLBACK
+	  ' Function body
+	  SubName = returnValue   ' Return value via D0
+	END SUB
+
+The CALLBACK keyword comes after the parameter list, similar to EXTERNAL.
+
+
+Hook Calling Convention
+~~~~~~~~~~~~~~~~~~~~~~~
+The Amiga Hook mechanism passes parameters in registers:
+
+	Register    Contents
+	--------    --------
+	A0          Pointer to Hook structure
+	A2          Object pointer (context-specific)
+	A1          Message pointer (context-specific)
+
+Note the unusual order: A0, A2, A1 (not A0, A1, A2). This is defined by
+utility.library and used throughout AmigaOS.
+
+The CALLBACK SUB automatically:
+- Saves and restores all registers (D1-D7/A0-A6)
+- Copies register parameters to local variables
+- Returns the result in D0
+
+
+Getting the Callback Address
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Use the @ operator to get the address for a Hook structure:
+
+	hookAddr& = @MyCallback
+
+
+Restrictions
+~~~~~~~~~~~~
+CALLBACK SUBs have important restrictions:
+
+1. Cannot be called directly from ACE code - only via CallHookPkt()
+2. Must have exactly 3 ADDRESS parameters (Hook convention)
+3. Should not use SHARED variables - use Hook's h_Data for context
+4. Return value must be assigned to the SUB name (placed in D0)
+
+
+Example: MUI Button Hook
+~~~~~~~~~~~~~~~~~~~~~~~~
+	' Hook structure (from utility/hooks.h)
+	STRUCT Hook
+	  ADDRESS h_MinNode_mln_Succ
+	  ADDRESS h_MinNode_mln_Pred
+	  ADDRESS h_Entry
+	  ADDRESS h_SubEntry
+	  ADDRESS h_Data
+	END STRUCT
+
+	' Our callback function
+	SUB ButtonCallback(ADDRESS hook, ADDRESS obj, ADDRESS msg) CALLBACK
+	  PRINT "Button pressed!"
+	  ButtonCallback = 0&
+	END SUB
+
+	' Set up hook structure
+	DIM myHook AS Hook
+	myHook.h_Entry = @ButtonCallback
+	myHook.h_SubEntry = 0&
+	myHook.h_Data = 0&    ' Can store context data here
+
+	' Use myHook with MUI notifications...
+
+
+Accessing Hook Data
+~~~~~~~~~~~~~~~~~~~
+The hook pointer (first parameter) gives access to the Hook structure,
+including the h_Data field for passing context:
+
+	SUB MyCallback(ADDRESS hook, ADDRESS obj, ADDRESS msg) CALLBACK
+	  DECLARE STRUCT Hook *h
+	  h = hook
+	  contextValue& = h->h_Data
+	  ' Use contextValue&...
+	  MyCallback = 0&
+	END SUB
+
+
 
 Structures
 ----------

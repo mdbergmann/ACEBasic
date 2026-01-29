@@ -1,0 +1,323 @@
+CALLBACK SUB Implementation Plan - Amiga Hook Convention
+========================================================
+
+Version: 1.3
+Date: 2026-01-29
+Status: Draft
+
+Overview
+--------
+Add a new CALLBACK modifier for SUB in ACE Basic that generates functions
+using the Amiga Hook calling convention. These functions can be called by
+external code via utility.library's CallHookPkt() (e.g., MUI hooks, BOOPSI
+dispatchers) but NOT by ACE code directly.
+
+Purpose
+-------
+Enable ACE programs to provide callback functions to Amiga libraries
+that use the standard Hook mechanism, particularly MUI's notification
+and custom class systems.
+
+
+Syntax
+------
+
+    SUB SubName(param1 AS type, param2 AS type, param3 AS type) CALLBACK
+        ' Function body
+        SubName = returnValue   ' Return value via D0
+    END SUB
+
+    ' Get callable address for external use
+    hookAddress = @SubName
+
+Note: The CALLBACK keyword comes after the parameter list, consistent
+with the existing EXTERNAL keyword syntax in ACE.
+
+
+Amiga Hook Calling Convention
+-----------------------------
+
+The Amiga Hook mechanism passes parameters in registers, NOT on the stack:
+
+    Register    Contents
+    --------    --------
+    A0          Pointer to Hook structure
+    A2          Object pointer (context-specific)
+    A1          Message pointer (context-specific)
+
+Note the unusual order: A0, A2, A1 (not A0, A1, A2).
+
+This is defined by utility.library's CallHookPkt() function and is used
+throughout AmigaOS, MUI, BOOPSI, and other frameworks.
+
+
+Calling Convention Comparison
+-----------------------------
+
+                    Regular SUB             CALLBACK SUB
+    ----------------------------------------------------------------
+    Frame pointer   A5 (via LINK)           A5 (via LINK)
+    Parameters      Negative A5 offsets     Registers A0, A2, A1
+                    (caller prepares)       (copied to local frame)
+    Register save   Minimal                 D1-D7/A0-A6
+    Stack cleanup   Callee (UNLK)           N/A (no stack params)
+    Return value    Stack or D0             D0
+    Callable from   ACE only                Hook mechanism only
+
+
+Generated Assembly
+------------------
+
+For:
+    SUB ButtonHandler(ADDRESS hook, ADDRESS obj, ADDRESS msg) CALLBACK
+        PRINT "Clicked"
+        ButtonHandler = 0&
+    END SUB
+
+Generate:
+
+    _ButtonHandler:
+        ; Save all registers (required for Hook callbacks)
+        movem.l d1-d7/a0-a6,-(sp)       ; 52 bytes pushed
+
+        ; Create local frame for ACE-style variable access
+        link    a5,#-16                  ; Space for 3 params + locals
+
+        ; Copy register parameters to local frame
+        ; Note: Order is A0, A2, A1 (not A0, A1, A2!)
+        move.l  a0,-4(a5)               ; hook  (from A0)
+        move.l  a2,-8(a5)               ; obj   (from A2)
+        move.l  a1,-12(a5)              ; msg   (from A1)
+
+        ; --- Function body ---
+        ; PRINT "Clicked" - uses standard ACE code generation
+        ; Variables accessed via negative A5 offsets as usual
+
+        ; --- Return value ---
+        move.l  #0,d0                    ; Return 0
+
+        ; --- Exit sequence ---
+        unlk    a5
+        movem.l (sp)+,d1-d7/a0-a6       ; Restore registers
+        rts
+
+
+Compiler Implementation
+-----------------------
+
+1. LEXER CHANGES (src/ace/c/lex.c)
+
+   Add CALLBACK to reserved word table:
+
+       { "CALLBACK", callbacksym },
+
+
+2. SYMBOL DEFINITIONS (src/ace/h/acedef.h)
+
+   Add symbol constant (around line 148):
+
+       #define callbacksym    85
+
+   Add flag to SYM structure:
+
+       typedef struct sym {
+           /* ... existing fields ... */
+           BOOL is_callback;    /* TRUE if CALLBACK SUB */
+       } SYM;
+
+
+3. PARSER CHANGES (src/ace/c/sub.c)
+
+   In the SUB parsing code, after parsing parameters, check for
+   CALLBACK keyword (similar to how EXTERNAL is handled):
+
+       void parse_subprogram()
+       {
+           /* ... parse SUB keyword, name, parameters ... */
+
+           /* Check for optional trailing keywords */
+           if (sym == externalsym)
+           {
+               /* ... existing EXTERNAL handling ... */
+           }
+           else if (sym == callbacksym)
+           {
+               sub_ptr->is_callback = TRUE;
+               insymbol();  /* consume CALLBACK */
+
+               /* Validate: must have exactly 3 ADDRESS parameters */
+               if (sub_ptr->no_of_params != 3)
+                   _error(/* appropriate error */);
+
+               gen_callback_entry(sub_name, sub_ptr);
+
+               /* ... parse body ... */
+
+               gen_callback_exit(sub_ptr);
+           }
+           else
+           {
+               /* ... regular SUB handling ... */
+           }
+       }
+
+
+4. CODE GENERATION (src/ace/c/sub.c)
+
+   New function - generate CALLBACK entry:
+
+       void gen_callback_entry(char *name, SYM *sub_ptr)
+       {
+           char label[80];
+           char frame_size[20];
+           int locals_needed;
+
+           /* Calculate frame size: 3 params * 4 bytes + extra for locals */
+           locals_needed = 16;
+
+           /* Generate label (standard naming) */
+           sprintf(label, "_%s", name);
+           gen_label(label);
+
+           /* Also generate XDEF for linker */
+           enter_XDEF(label);
+
+           /* Save all registers */
+           gen("movem.l", "d1-d7/a0-a6", "-(sp)");
+
+           /* Create local frame */
+           sprintf(frame_size, "#-%d", locals_needed);
+           gen("link", "a5", frame_size);
+
+           /* Copy register parameters to local frame */
+           /* Hook convention: A0=hook, A2=object, A1=message */
+           gen("move.l", "a0", "-4(a5)");   /* param 1: hook */
+           gen("move.l", "a2", "-8(a5)");   /* param 2: object (A2!) */
+           gen("move.l", "a1", "-12(a5)");  /* param 3: message (A1!) */
+
+           /* Register parameters as local variables */
+           enter_local_symbol(sub_ptr->p_name[0], sub_ptr->p_type[0], -4);
+           enter_local_symbol(sub_ptr->p_name[1], sub_ptr->p_type[1], -8);
+           enter_local_symbol(sub_ptr->p_name[2], sub_ptr->p_type[2], -12);
+       }
+
+   New function - generate CALLBACK exit:
+
+       void gen_callback_exit(SYM *sub_ptr)
+       {
+           /* Return value should be in D0 from final assignment */
+
+           gen("unlk", "a5", "  ");
+           gen("movem.l", "(sp)+", "d1-d7/a0-a6");
+           gen("rts", "  ", "  ");
+       }
+
+
+5. ADDRESS-OF OPERATOR (src/ace/c/factor.c or similar)
+
+   The @ operator works the same for CALLBACK SUBs - returns the
+   standard label address:
+
+       sprintf(addr_label, "#_%s", sym_ptr->name);
+
+   No special handling needed since we use standard label naming.
+
+
+6. DOCUMENTATION (after implementation confirmed working)
+
+   Update the following documentation files:
+   - docs/ace.txt   - User guide: add CALLBACK section with examples
+   - docs/ref.txt   - Language reference: add CALLBACK syntax and semantics
+
+
+Restrictions
+------------
+
+1. CALLBACK SUB cannot be called directly from ACE code
+   - Compiler should emit error if attempted:
+     "Error: CALLBACK SUB cannot be called from ACE code"
+
+2. Must have exactly 3 ADDRESS parameters (Hook convention):
+   - Parameter 1: Hook pointer (received in A0)
+   - Parameter 2: Object pointer (received in A2)
+   - Parameter 3: Message pointer (received in A1)
+
+3. Must have explicit return value assignment:
+   - Last statement should assign to SubName for D0 return
+
+4. No SHARED variables:
+   - CALLBACK SUBs should be self-contained
+   - Use hook's h_Data field for context passing
+
+
+Example Usage with MUI
+----------------------
+
+    ' Hook structure (from utility/hooks.h)
+    STRUCT Hook
+        ADDRESS h_MinNode_mln_Succ
+        ADDRESS h_MinNode_mln_Pred
+        ADDRESS h_Entry
+        ADDRESS h_SubEntry
+        ADDRESS h_Data
+    END STRUCT
+
+    ' Our callback - parameters are: hook, object, message
+    SUB ButtonCallback(ADDRESS hook, ADDRESS obj, ADDRESS msg) CALLBACK
+        PRINT "Button pressed!"
+        ButtonCallback = 0&
+    END SUB
+
+    ' Set up hook
+    DIM myHook AS Hook
+    myHook.h_Entry = @ButtonCallback
+    myHook.h_SubEntry = 0&
+    myHook.h_Data = 0&
+
+    ' Use with MUI notification
+    ' MUIM_Notify -> MUIM_CallHook -> calls our ButtonCallback
+
+
+Testing Strategy
+----------------
+
+1. Minimal test: Callback that returns constant
+   - Verify D0 contains correct value
+
+2. Parameter test: Callback that examines hook->h_Data
+   - Verify A0 (hook) received correctly
+
+3. Register test: Callback that uses many registers internally
+   - Verify no corruption of caller's registers
+
+4. MUI integration test: Simple button hook
+   - Verify callback invoked by MUI
+
+
+Files to Modify
+---------------
+
+    src/ace/h/acedef.h    - Add callbacksym, is_callback flag
+    src/ace/c/lex.c       - Add CALLBACK reserved word
+    src/ace/c/sub.c       - Handle CALLBACK in SUB parsing, entry/exit code
+    src/ace/c/factor.c    - @ operator (no changes needed if standard naming)
+
+
+Estimated Effort
+----------------
+
+    Lexer changes:           ~10 lines
+    Symbol definitions:      ~5 lines
+    Parser changes:          ~40 lines
+    Code generation:         ~80 lines
+    Address-of handling:     ~5 lines (verify only)
+    Error checking:          ~20 lines
+    ---------------------------------
+    Total:                   ~160 lines of C code
+
+
+Future Extensions
+-----------------
+
+See: callback-sub-ace-callable.txt for making CALLBACK SUBs
+callable from ACE code as well.

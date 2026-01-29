@@ -284,9 +284,16 @@ SHORT popcount;
 		}
   	        else
   		if (obj == subprogram || obj == definedfunc)  /* subprogram */
-  		{ 
+  		{
+		 /* CALLBACK SUB cannot be called from ACE code */
+		 if (fact_item->is_callback)
+		 {
+		  _error(85);
+		  insymbol();
+		  return(notype);
+		 }
 		 /* CALL the subprogram */
-		 if (fact_item->no_of_params != 0) 
+		 if (fact_item->no_of_params != 0)
 		 {
 		  insymbol();
 		  load_params(fact_item);

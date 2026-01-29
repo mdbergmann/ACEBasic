@@ -319,13 +319,21 @@ BREAK		- syntax: BREAK ON|OFF|STOP
 		- See the Event Trapping section in ace.txt.
 		
 --------------------------------------------------------------------------------
-CALL		- Passes control to a user-defined subprogram, 
-		  shared library function, external function, 
+CALL		- Passes control to a user-defined subprogram,
+		  shared library function, external function,
 		  or user-defined machine code routine.
-		- Subprogram CALLs can be recursive in ACE. 
+		- Subprogram CALLs can be recursive in ACE.
 		- See also sections on subprograms, shared library access,
 		  external functions and machine code calls in ace.txt.
- 
+
+--------------------------------------------------------------------------------
+CALLBACK	- Modifier for SUB that creates an Amiga Hook callback.
+		- syntax: SUB name(ADDRESS, ADDRESS, ADDRESS) CALLBACK
+		- Must have exactly 3 ADDRESS parameters (Hook convention).
+		- Parameters receive: A0 (hook), A2 (object), A1 (message).
+		- Cannot be called from ACE code; called via CallHookPkt().
+		- See SUB..END SUB entry and ace.txt for full details.
+
 --------------------------------------------------------------------------------
 CASE *		- This is ACE's version of the CASE statement and is different 
 		  from the Pascal CASE and C switch statements.
@@ -2804,28 +2812,49 @@ STYLE *		- syntax: STYLE n
 		  (eg: n=3 gives bold and underlined text).
 
 --------------------------------------------------------------------------------
-SUB..END SUB	- syntax: 
+SUB..END SUB	- syntax:
 
 		  SUB [<type>] <ident> [([<type>] <param> [..])] [EXTERNAL]
 		  	<statement1>
 		    	<statement2>
 		    	.
 		    	.
-		    	<statementN>	
+		    	<statementN>
 		  END SUB
 
 		  where the optional <type> is one of: LONGINT,ADDRESS,
-		  SHORTINT,SINGLE or STRING.	
-		- In ACE, subprograms are non-static, allow recursion, may 
+		  SHORTINT,SINGLE or STRING.
+		- In ACE, subprograms are non-static, allow recursion, may
 		  have return values and have optional parameter lists.
 		- Parameters are call-by-value but ACE does provide mechanisms
 		  for call-by-reference parameters.
-		- SHARED variables are supported in ACE (see SHARED command). 
+		- SHARED variables are supported in ACE (see SHARED command).
 		- Note that since ACE SUBs are non-static, the STATIC keyword
 		  is not allowed.
-		- The optional EXTERNAL keyword makes the subprogram 
-		  visible to other ACE modules. 
+		- The optional EXTERNAL keyword makes the subprogram
+		  visible to other ACE modules.
 		- See "Subprograms" section in ace.txt for more details.
+
+	OR
+		- syntax (CALLBACK):
+
+		  SUB <ident>(ADDRESS p1, ADDRESS p2, ADDRESS p3) CALLBACK
+		    <statements>
+		    <ident> = returnValue
+		  END SUB
+
+		- Creates a subprogram using the Amiga Hook calling convention.
+		- Must have exactly 3 ADDRESS parameters which receive:
+		  - p1: Hook pointer (from register A0)
+		  - p2: Object pointer (from register A2)
+		  - p3: Message pointer (from register A1)
+		- CALLBACK SUBs cannot be called directly from ACE code.
+		  They are invoked by external code via CallHookPkt().
+		- Use @ to get the address for a Hook's h_Entry field:
+		    myHook.h_Entry = @MyCallback
+		- The return value is placed in register D0.
+		- All registers (D1-D7/A0-A6) are preserved.
+		- See "Callback SUBs for Amiga Hooks" in ace.txt for details.
  
 --------------------------------------------------------------------------------
 SWAP		- syntax: SWAP <object>,<object>

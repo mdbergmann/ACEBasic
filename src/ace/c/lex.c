@@ -318,6 +318,8 @@ char *msg;
   case 81 : msg="Cannot mix old-style and GadTools gadgets"; break;
   case 82 : msg="Invalid GadTools tag or value"; break;
   case 83 : msg="Fill not supported for arcs"; break;
+  case 84 : msg="CALLBACK SUB must have exactly 3 ADDRESS parameters"; break;
+  case 85 : msg="CALLBACK SUB cannot be called from ACE code"; break;
  }
 
  /* show the error */
