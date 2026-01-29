@@ -2007,7 +2007,7 @@ then the following sequence of shell commands will give you an executable
 called main:
  
 	ace -Om lines		{ The -m switch is the key here }
-	a68k lines.s
+	vasmm68k_mot -Fhunk -o lines.o lines.s
 	bas -O main lines.o
  
 The first two commands can be replaced by:

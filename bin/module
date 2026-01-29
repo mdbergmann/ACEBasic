@@ -1,9 +1,9 @@
 .key prg
 
 ; Create an ACE module.
-ACPP <prg>.b T:<prg>.b
-RemoveLine T:<prg>.b T:<prg>.bas
-ACE -Om T:<prg>.bas
-vasmm68k_mot -Fhunk -o <prg>.o <prg>.s
+ace:bin/ACPP <prg>.b T:<prg>.b
+ace:bin/RemoveLine T:<prg>.b T:<prg>.bas
+ace:bin/ACE -m T:<prg>.bas
+ace:bin/vasmm68k_mot -Fhunk -o T:<prg>.o T:<prg>.s
 copy T:<prg>.o ""
 delete > NIL: T:<prg>#?
