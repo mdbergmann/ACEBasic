@@ -1,0 +1,121 @@
+MUI Submod Implementation State
+===============================
+Last Updated: 2026-01-30
+Plan File: specs/mui-submod-plan.txt
+
+=============================================================================
+CURRENT STATUS
+=============================================================================
+
+Current Phase: 2 - Basic Objects
+Current Task: Continue with high-level MUI module architecture
+
+=============================================================================
+ACE EXTERNAL MODULE BUGS - FIXED (GitHub Issue #29)
+=============================================================================
+
+All three bugs in ACE's EXTERNAL module handling have been FIXED in commit
+9ae5ab3. The bugs shared a common root cause: the A4 register was used for
+frame-relative addressing in modules, but A4 is never initialized in modules
+(no startup code runs `link a4,#-bytes`).
+
+BUG 1: Multiple DIM arrays in module crash - FIXED
+  Root cause: Array pointer storage used A4-relative addressing
+  Fix: Use DATA section pointer initialized at link time (dc.l _arrayN)
+
+BUG 2: POKE statement in module crash - FIXED
+  Root cause: Variables accessed via A4 which contains garbage
+  Fix: Use absolute BSS addressing (_modv_varname)
+
+BUG 3: Too many array assignments in SUB crash - FIXED
+  Root cause: SHARED arrays computed address from garbage A4
+  Fix: Copy BSS/DATA values to SUB's frame (a5-based addressing)
+
+Solution summary:
+- Simple variables: BSS storage with absolute addressing (_modv_varname)
+- Arrays: DATA section pointer initialized at link time (dc.l _arrayN)
+- SHARED in SUBs: Values copied to SUB's frame, accessed via a5
+
+Files modified:
+- src/ace/c/sym.c: Create BSS for module-level simple variables
+- src/ace/c/assign.c: Use DATA pointer for module arrays
+- src/ace/c/factor.c: Absolute addressing for module variable/array access
+- src/ace/c/sub.c: SHARED handling copies BSS/DATA values to SUB frame
+- src/ace/c/symvar.c: Added module_opt extern declaration
+
+Test files added:
+- submods/mui/MUI_test_poke.b, test_poke.b (Bug #2 test)
+- submods/mui/MUI_test_manyassign.b, test_manyassign.b (Bug #3 test)
+- submods/mui/test_multiarray.b (Bug #1 test)
+
+All tests pass, including full test suite (94/94 tests).
+
+=============================================================================
+ARCHITECTURE OPTIONS (now that bugs are fixed)
+=============================================================================
+
+With the module bugs fixed, we now have two viable architecture options:
+
+OPTION A: High-level helpers in module (original plan)
+  - Module provides MUIText, MUIWindow, MUIApp, etc.
+  - Module builds tag arrays internally
+  - Main program uses simple API calls
+  - Pros: Clean API, easy for users
+  - Cons: More module complexity
+
+OPTION B: Low-level wrappers (workaround architecture)
+  - Module provides only MUICreate, MUIDispose, etc.
+  - Main program builds tag arrays
+  - Pros: Simple module, flexible
+  - Cons: More work for users
+
+Recommendation: Now that bugs are fixed, proceed with OPTION A (high-level
+helpers) as originally planned. The module can safely use multiple arrays
+and complex SUBs.
+
+=============================================================================
+TESTED CONFIGURATIONS (all now work)
+=============================================================================
+
+Previously crashed, now work:
+- MUI_test2: Two DIM arrays - WORKS
+- MUI_test_poke: POKE in module - WORKS
+- MUI_test_manyassign: 7 array assignments in SUB - WORKS
+
+=============================================================================
+NEXT STEPS
+=============================================================================
+
+1. Implement high-level MUI module with helpers:
+   - MUIText(contents$) -> ADDRESS
+   - MUIWindow(title$, rootObj) -> ADDRESS
+   - MUIApp(appTitle$, window) -> ADDRESS
+   - MUILoop(app) for event handling
+
+2. Update MUI.h with all needed constants
+
+3. Create example programs using the high-level API
+
+4. Test full MUI application lifecycle
+
+5. Document the module API
+
+=============================================================================
+PHASE 1: FOUNDATION - COMPLETE
+=============================================================================
+
+Files:
+  [x] include/submods/MUI.h        - Needs update for new architecture
+  [ ] include/submods/MUI_Int.h    - Deferred
+  [x] submods/mui/MUI.b            - Ready for high-level implementation
+  [x] submods/mui/Makefile         - Exists
+  [x] submods/mui/test_lowlevel.b  - Working test
+
+=============================================================================
+NOTES
+=============================================================================
+
+- Module bugs are now fixed - no need for workarounds
+- Full test suite passes (94/94 tests)
+- High-level module architecture is now viable
+- String literals in main program (SADD("...")) persist and are safe for MUI
