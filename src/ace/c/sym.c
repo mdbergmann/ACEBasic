@@ -155,19 +155,61 @@ int i;
  if ((obj != label) && (obj != function) && (obj != constant) &&
      (obj != extvar) && (obj != extfunc) && (obj != structdef))
  {
-  /* how many bytes to reserve? */
-  if ((typ == shorttype) && (obj != array)) 
-     addr[lev] += 2;
-  else
-     addr[lev] += 4; /* long, single, string, array, sub, structure */
+  /*
+  ** For module-level (lev==ZERO) variables in external modules (-m flag),
+  ** use BSS storage with absolute addressing instead of frame-relative.
+  ** This fixes the bug where A4 is uninitialized in modules.
+  */
+  if (module_opt && lev == ZERO && obj == variable)
+  {
+   /* Create BSS storage for this module variable */
+   char bss_name[MAXIDSIZE+8];
+   char bss_store[20];
 
-  new_item->address = addr[lev];
+   /* Generate BSS label: _modv_<name> (strip any qualifier suffix) */
+   strcpy(bss_name, "_modv_");
+   strncat(bss_name, name, MAXIDSIZE);
+   /* Remove type qualifier if present (last char like %, &, !, $) */
+   {
+    int len = strlen(bss_name);
+    if (len > 0) {
+     char last = bss_name[len-1];
+     if (last == '%' || last == '&' || last == '!' || last == '$' || last == '#')
+      bss_name[len-1] = '\0';
+    }
+   }
+   strcat(bss_name, ":");
+
+   /* Determine storage size */
+   if (typ == shorttype)
+    strcpy(bss_store, "ds.w 1");
+   else
+    strcpy(bss_store, "ds.l 1"); /* long, single */
+
+   enter_BSS(bss_name, bss_store);
+
+   /* Mark as module variable with special address value */
+   /* Use -32767 as marker to indicate BSS storage */
+   new_item->address = -32767;
+  }
+  else
+  {
+   /* Normal frame-relative storage */
+   /* how many bytes to reserve? */
+   if ((typ == shorttype) && (obj != array))
+      addr[lev] += 2;
+   else
+      addr[lev] += 4; /* long, single, string, array, sub, structure */
+
+   new_item->address = addr[lev];
+  }
  }
- else 
+ else
      new_item->address = 0; 
 
- new_item->level = lev; 
+ new_item->level = lev;
  new_item->shared = FALSE;  /* shared may be explicitly SET later */
+ new_item->is_callback = FALSE;  /* initialize callback flag */
 
  /* array? -> store index maxima */
  if (obj == array)

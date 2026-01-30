@@ -71,6 +71,7 @@ extern	BOOL	restore_a5;
 extern 	BOOL 	cli_args;
 extern	SYM	*last_addr_sub_sym;
 extern	int	addr[];
+extern	BOOL	module_opt;
 
 /* functions */
 BOOL factorfunc()
@@ -211,14 +212,54 @@ SHORT popcount;
 		   enter(id,typ,obj,0);  
 		  }
 
-	       fact_item=curr_item; 
+	       fact_item=curr_item;
 
                /* frame address of object */
 	       if (obj == subprogram) { oldlevel=lev; lev=ZERO; }
 
-               itoa(-1*curr_item->address,srcbuf,10);
-               strcat(srcbuf,frame_ptr[lev]);
-	       
+               /*
+               ** For module-level variables/arrays (address == -32767),
+               ** use absolute BSS addressing instead of frame-relative.
+               */
+               if (curr_item->address == -32767)
+               {
+                if (obj == array)
+                {
+                 /* Module array: use BSS pointer from libname */
+                 if (curr_item->libname != NULL)
+                    strcpy(srcbuf, curr_item->libname);
+                 else
+                    strcpy(srcbuf, "0"); /* fallback - should not happen */
+                }
+                else if (obj == variable)
+                {
+                 /* Module variable: generate BSS name from var name */
+                 int len;
+                 char last;
+                 strcpy(srcbuf, "_modv_");
+                 strcat(srcbuf, curr_item->name);
+                 /* Remove type qualifier if present */
+                 len = strlen(srcbuf);
+                 if (len > 0) {
+                  last = srcbuf[len-1];
+                  if (last == '%' || last == '&' || last == '!' || last == '$' || last == '#')
+                   srcbuf[len-1] = '\0';
+                 }
+                }
+                else
+                {
+                 /* Other objects - use standard frame addressing */
+                 itoa(-1*curr_item->address,srcbuf,10);
+                 strcat(srcbuf,frame_ptr[lev]);
+                }
+               }
+               else
+               {
+                /* Normal frame-relative addressing */
+                itoa(-1*curr_item->address,srcbuf,10);
+                strcat(srcbuf,frame_ptr[lev]);
+               }
+
 	       if (obj == subprogram) lev=oldlevel;
   
                /* 

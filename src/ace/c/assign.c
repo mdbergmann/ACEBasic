@@ -78,6 +78,7 @@ extern	BOOL 	have_lparen;
 extern	BOOL 	have_equal;
 extern	SYM	*last_addr_sub_sym;
 extern	int	last_bind_bound_count;
+extern	BOOL	module_opt;
 
 /* functions */
 
@@ -462,11 +463,51 @@ int  exprtype;
       {
        /* get address of object */
        if (storage_item->object == subprogram) { oldlevel=lev; lev=ZERO; }
-  
-       itoa(-1*storage_item->address,addrbuf,10);
-       strcat(addrbuf,frame_ptr[lev]);
-	
-       if (storage_item->object == subprogram) lev=oldlevel; 
+
+       /*
+       ** For module-level variables/arrays (address == -32767),
+       ** use absolute BSS addressing instead of frame-relative.
+       */
+       if (storage_item->address == -32767)
+       {
+        if (storage_item->object == array)
+        {
+         /* Module array: use BSS pointer from libname */
+         if (storage_item->libname != NULL)
+            strcpy(addrbuf, storage_item->libname);
+         else
+            strcpy(addrbuf, "0"); /* fallback - should not happen */
+        }
+        else if (storage_item->object == variable)
+        {
+         /* Module variable: generate BSS name from var name */
+         int len;
+         char last;
+         strcpy(addrbuf, "_modv_");
+         strcat(addrbuf, storage_item->name);
+         /* Remove type qualifier if present */
+         len = strlen(addrbuf);
+         if (len > 0) {
+          last = addrbuf[len-1];
+          if (last == '%' || last == '&' || last == '!' || last == '$' || last == '#')
+           addrbuf[len-1] = '\0';
+         }
+        }
+        else
+        {
+         /* Other objects - use standard frame addressing */
+         itoa(-1*storage_item->address,addrbuf,10);
+         strcat(addrbuf,frame_ptr[lev]);
+        }
+       }
+       else
+       {
+        /* Normal frame-relative addressing */
+        itoa(-1*storage_item->address,addrbuf,10);
+        strcat(addrbuf,frame_ptr[lev]);
+       }
+
+       if (storage_item->object == subprogram) lev=oldlevel;
       }
 
       switch(storage_item->object)
@@ -751,8 +792,8 @@ do
      if (array_item->type == shorttype)
         strcpy(buf,"ds.w ");
      else
-        /* long or single */ 
-        strcpy(buf,"ds.l "); 
+        /* long or single */
+        strcpy(buf,"ds.l ");
 
      if (array_item->type == stringtype)
         ltoa(max_element*string_element_size,numbuf,10);
@@ -762,12 +803,47 @@ do
      strcat(buf,numbuf);
      make_array_name(arrayname,arraylabel);
 
-     /* create the BSS object */
+     /* create the BSS object for array data */
      enter_BSS(arraylabel,buf);
 
-     /* store address of array in stack frame */
-     gen("pea",arrayname,"  ");
-     gen("move.l","(sp)+",addrbuf);	    
+     /*
+     ** For module-level arrays in external modules (-m flag),
+     ** use DATA section pointer instead of frame-relative.
+     ** DATA is initialized at link time, so no runtime init code needed.
+     ** This fixes the bug where A4 is uninitialized in modules.
+     */
+     if (module_opt && lev == ZERO)
+     {
+      /* Create DATA pointer variable for array */
+      char ptr_name[80], ptr_label[80], data_literal[80];
+
+      strcpy(ptr_name, arrayname);
+      strcat(ptr_name, "_ptr");
+      strcpy(ptr_label, ptr_name);
+      strcat(ptr_label, ":");
+
+      /* Create DATA entry: _arrayN_ptr: dc.l _arrayN
+      ** This is initialized at link time with the array address */
+      strcpy(data_literal, "dc.l ");
+      strcat(data_literal, arrayname);
+      enter_DATA(ptr_label, data_literal);
+
+      /* No code generation needed - DATA is initialized at link time */
+
+      /* Store pointer name in libname field for later access */
+      array_item->libname = (char *)alloc(strlen(ptr_name)+1, MEMF_ANY);
+      if (array_item->libname != NULL)
+         strcpy(array_item->libname, ptr_name);
+
+      /* Mark as module array with special address value */
+      array_item->address = -32767;
+     }
+     else
+     {
+      /* Normal: store address of array in stack frame */
+      gen("pea",arrayname,"  ");
+      gen("move.l","(sp)+",addrbuf);
+     }
     }
     else
     {
@@ -776,8 +852,42 @@ do
      if (expr() != longtype)
         _error(4);
      else
-         /* store address of array in stack frame */
-         gen("move.l","(sp)+",addrbuf);	    
+     {
+         /*
+         ** For module-level arrays with ADDRESS in external modules,
+         ** also use BSS pointer storage.
+         */
+         if (module_opt && lev == ZERO)
+         {
+          /* Create BSS pointer variable */
+          char ptr_name[80], ptr_label[80];
+
+          make_array_name(arrayname, arraylabel);
+          strcpy(ptr_name, arrayname);
+          strcat(ptr_name, "_ptr");
+          strcpy(ptr_label, ptr_name);
+          strcat(ptr_label, ":");
+
+          /* Create BSS for pointer: _arrayN_ptr: ds.l 1 */
+          enter_BSS(ptr_label, "ds.l 1");
+
+          /* Store the address expression result in pointer */
+          gen("move.l", "(sp)+", ptr_name);
+
+          /* Store pointer name for later access */
+          array_item->libname = (char *)alloc(strlen(ptr_name)+1, MEMF_ANY);
+          if (array_item->libname != NULL)
+             strcpy(array_item->libname, ptr_name);
+
+          /* Mark as module array */
+          array_item->address = -32767;
+         }
+         else
+         {
+          /* Normal: store address of array in stack frame */
+          gen("move.l","(sp)+",addrbuf);
+         }
+     }
     }
    }
   }

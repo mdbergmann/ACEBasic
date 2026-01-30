@@ -44,6 +44,7 @@ extern	BOOL 	translateused;
 extern	BOOL 	narratorused;
 extern	BOOL 	basdatapresent;
 extern	BOOL 	early_exit;
+extern	BOOL	module_opt;
 extern	SHORT 	dimsize[255];
 extern	FILE 	*dest;
 extern	int  	addr[2]; 

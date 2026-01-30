@@ -48,7 +48,8 @@ extern	int	lev;
 extern	char   	id[MAXIDSIZE]; 
 extern	SYM	*curr_item;
 extern	CODE	*curr_code;
-extern	int  	addr[2]; 
+extern	int  	addr[2];
+extern	BOOL	module_opt;
 
 /* functions */
 void forward_ref()
@@ -427,33 +428,81 @@ BOOL share_it;
    if (share_it)
    {
     /* copy size information for SIZEOF? */
-    if (one_ptr->type == stringtype || 
+    if (one_ptr->type == stringtype ||
         one_ptr->object == array ||
         one_ptr->object == structure) one_ptr->size = zero_ptr->size;
 
     /* copy address of object from level ZERO to level ONE stack frame */
-    
-    /* frame location of level ONE object */ 
+
+    /* frame location of level ONE object */
     itoa(-1*one_ptr->address,buf1,10);
     strcat(buf1,"(a5)");
 
-    /* if simple numeric variable (short,long,single) or structure 
-       -> get address */
-    if ((zero_ptr->type != stringtype) && (zero_ptr->object != array))
+    /*
+    ** For module-level SHARED variables/arrays (address == -32767),
+    ** use absolute BSS addressing instead of A4-relative.
+    ** This fixes the bug where A4 is uninitialized in modules.
+    */
+    if (zero_ptr->address == -32767)
     {
-     strcpy(num,"#\0");
-     itoa(zero_ptr->address,buf0,10);
-     strcat(num,buf0);
-     gen("move.l","a4","d0");  /* frame pointer */
-     gen("sub.l",num,"d0");    /* offset from frame top */
-     gen("move.l","d0",buf1);  /* store address in level ONE frame */
+     /* Module variable/array - use BSS address */
+     if (zero_ptr->object == array)
+     {
+      /* Module array: use BSS pointer from libname */
+      if (zero_ptr->libname != NULL)
+      {
+       /* Copy the BSS pointer value to level ONE frame.
+       ** The level ONE symbol keeps its normal frame address so
+       ** SUB code uses frame-relative access (a5-based) which is correct.
+       */
+       gen("move.l",zero_ptr->libname,buf1);
+      }
+      else
+      {
+       /* Fallback - should not happen */
+       gen("move.l","#0",buf1);
+      }
+     }
+     else
+     {
+      /* Module simple variable: get absolute BSS address */
+      char bss_name[MAXIDSIZE+8];
+      int len;
+      char last;
+
+      strcpy(bss_name, "#_modv_");
+      strcat(bss_name, zero_ptr->name);
+      /* Remove type qualifier if present */
+      len = strlen(bss_name);
+      if (len > 0) {
+       last = bss_name[len-1];
+       if (last == '%' || last == '&' || last == '!' || last == '$' || last == '#')
+        bss_name[len-1] = '\0';
+      }
+      gen("move.l",bss_name,buf1);  /* store BSS address in level ONE frame */
+     }
     }
     else
     {
-     /* array or string -> level ZERO already contains address */
-     itoa(-1*zero_ptr->address,buf0,10);
-     strcat(buf0,"(a4)");
-     gen("move.l",buf0,buf1);
+     /* Normal frame-relative addressing using A4 */
+     /* if simple numeric variable (short,long,single) or structure
+        -> get address */
+     if ((zero_ptr->type != stringtype) && (zero_ptr->object != array))
+     {
+      strcpy(num,"#\0");
+      itoa(zero_ptr->address,buf0,10);
+      strcat(num,buf0);
+      gen("move.l","a4","d0");  /* frame pointer */
+      gen("sub.l",num,"d0");    /* offset from frame top */
+      gen("move.l","d0",buf1);  /* store address in level ONE frame */
+     }
+     else
+     {
+      /* array or string -> level ZERO already contains address */
+      itoa(-1*zero_ptr->address,buf0,10);
+      strcat(buf0,"(a4)");
+      gen("move.l",buf0,buf1);
+     }
     }
    }
   }
