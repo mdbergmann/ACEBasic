@@ -1,0 +1,3 @@
+.key prg
+; Rebuild MUI submod
+bas -Om MUI

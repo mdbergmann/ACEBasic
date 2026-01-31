@@ -1,121 +1,98 @@
-MUI Submod Implementation State
-===============================
-Last Updated: 2026-01-30
-Plan File: specs/mui-submod-plan.txt
+MUI Submod State
+================
+Updated: 2026-02-01
 
-=============================================================================
-CURRENT STATUS
-=============================================================================
+Phase Status
+------------
+Phase 1: Foundation ................ COMPLETE
+Phase 2: Basic Objects ............. COMPLETE
+Phase 3: Event Loop ................ COMPLETE
+Phase 4: Group Builder ............. COMPLETE
+Phase 5: More Objects .............. COMPLETE
+Phase 6: Attribute Access .......... COMPLETE
+Phase 7: Hook Support .............. COMPLETE
+Phase 8: Lists ..................... COMPLETE
+Phase 9: Menus ..................... COMPLETE
+Phase 10: Color Objects ............ COMPLETE
+Phase 11: Popup Objects ............ COMPLETE
+Phase 12: Tabs & Scrolling ......... COMPLETE
+Phase 13: Additional Objects ....... COMPLETE
+Phase 14: Documentation ............ NOT STARTED
 
-Current Phase: 2 - Basic Objects
-Current Task: Continue with high-level MUI module architecture
+Files
+-----
+- submods/mui/MUI.b          - Module implementation
+- include/submods/MUI.h      - Public header (constants, declares, MUISetupHookA4)
 
-=============================================================================
-ACE EXTERNAL MODULE BUGS - FIXED (GitHub Issue #29)
-=============================================================================
+Test Files
+----------
+- submods/mui/mui_ev_ok.b    - Event loop test
+- submods/mui/test_hook.b    - Hook/callback test
+- submods/mui/test_features.b - Comprehensive feature test
+- submods/mui/test_colors.b  - Color objects test
+- submods/mui/test_tabs_scroll.b - Phase 12 test (tabs, scrolling, balance)
+- submods/mui/test_additional.b - Phase 13 test (Numericbutton, Knob, Levelmeter)
 
-All three bugs in ACE's EXTERNAL module handling have been FIXED in commit
-9ae5ab3. The bugs shared a common root cause: the A4 register was used for
-frame-relative addressing in modules, but A4 is never initialized in modules
-(no startup code runs `link a4,#-bytes`).
+Implementation Notes
+--------------------
 
-BUG 1: Multiple DIM arrays in module crash - FIXED
-  Root cause: Array pointer storage used A4-relative addressing
-  Fix: Use DATA section pointer initialized at link time (dc.l _arrayN)
+Horizontal groups:
+  MUIA_Group_Horiz doesn't work with ACE BASIC (unknown reason).
+  All HGroup implementations use MUIA_Group_Columns instead.
 
-BUG 2: POKE statement in module crash - FIXED
-  Root cause: Variables accessed via A4 which contains garbage
-  Fix: Use absolute BSS addressing (_modv_varname)
+Hook A4 restoration:
+  MUISetupHookA4 (in MUI.h) creates assembly stub that restores A4
+  before calling callback, enabling SHARED variables in CALLBACK SUBs.
+  Usage: MUISetupHookA4(hookStruct, @MyCallback, 0&)
+  Note: Pass hook struct directly, NOT VARPTR(hookStruct).
 
-BUG 3: Too many array assignments in SUB crash - FIXED
-  Root cause: SHARED arrays computed address from garbage A4
-  Fix: Copy BSS/DATA values to SUB's frame (a5-based addressing)
+Dirlist entries:
+  Entries from MUIListGetEntry on Dirlist have filename at offset +8
+  (embedded string, not a pointer).
 
-Solution summary:
-- Simple variables: BSS storage with absolute addressing (_modv_varname)
-- Arrays: DATA section pointer initialized at link time (dc.l _arrayN)
-- SHARED in SUBs: Values copied to SUB's frame, accessed via a5
+Module libraries:
+  MUI.b must open exec.library explicitly for _Wait to work.
+  Libraries opened: exec, intuition, utility, muimaster.
 
-Files modified:
-- src/ace/c/sym.c: Create BSS for module-level simple variables
-- src/ace/c/assign.c: Use DATA pointer for module arrays
-- src/ace/c/factor.c: Absolute addressing for module variable/array access
-- src/ace/c/sub.c: SHARED handling copies BSS/DATA values to SUB frame
-- src/ace/c/symvar.c: Added module_opt extern declaration
+Menus:
+  MUIA_Window_Menustrip must be set at window creation time, not via SetAttrsA.
+  Use MUIWindowWithMenu() to create a window with menus attached.
+  Reserved word: "menu" cannot be used as variable name in ACE BASIC.
 
-Test files added:
-- submods/mui/MUI_test_poke.b, test_poke.b (Bug #2 test)
-- submods/mui/MUI_test_manyassign.b, test_manyassign.b (Bug #3 test)
-- submods/mui/test_multiarray.b (Bug #1 test)
+Color objects:
+  MUIColorfield - displays a solid color (pass RGB as LONGINTs, full range 0 to &HFFFFFFFF)
+  MUIColoradjust/MUIColoradjustRGB - RGB sliders for selecting colors
+  MUIPendisplay - displays a single pen/color
+  MUIPoppen - popup color picker
+  Use MUIGetColorRed/Green/Blue to get individual components from Coloradjust.
 
-All tests pass, including full test suite (94/94 tests).
+Register (tabs):
+  MUIBeginRegister("Tab1|Tab2|Tab3") - start building with pipe-separated titles
+  MUIRegisterPage(pageGroup) - add each page (must be a group)
+  MUIEndRegister - finish and get register object
+  MUIRegister2/MUIRegister3 - quick helpers for 2 or 3 pages
+  MUIRegisterActive/MUIRegisterSetActive - get/set active page (0-based)
 
-=============================================================================
-ARCHITECTURE OPTIONS (now that bugs are fixed)
-=============================================================================
+Scrollgroup/Virtgroup:
+  MUIVirtgroup(content) - wrap content in virtual group
+  MUIScrollgroup(virtgroup) - create scrollable view (both directions)
+  MUIScrollgroupVert/MUIScrollgroupHoriz - single-direction scrolling
+  Note: Scrollgroup content is non-interactive. Use List for selectable items.
 
-With the module bugs fixed, we now have two viable architecture options:
+Balance:
+  MUIBalance - horizontal resizable divider (use in HGroup)
+  MUIBalanceQuiet - divider that doesn't update layout while dragging
 
-OPTION A: High-level helpers in module (original plan)
-  - Module provides MUIText, MUIWindow, MUIApp, etc.
-  - Module builds tag arrays internally
-  - Main program uses simple API calls
-  - Pros: Clean API, easy for users
-  - Cons: More module complexity
+Numeric controls (Phase 13):
+  MUINumericbutton(min, max, initial) - clickable +/- buttons with editable value
+  MUINumericbuttonFormat(min, max, initial, fmt) - with printf-style format string
+  MUIKnob(min, max, initial) - rotary dial control
+  MUINumericbuttonValue(obj) - get current value (works for all numeric controls)
+  MUINumericbuttonSetValue(obj, val) - set value (works for Numericbutton and Knob)
+  MUILevelmeter - display-only level meter (subclass of Numeric but not interactive)
+  Note: Levelmeter may not respond to SetValue; use for display purposes only.
 
-OPTION B: Low-level wrappers (workaround architecture)
-  - Module provides only MUICreate, MUIDispose, etc.
-  - Main program builds tag arrays
-  - Pros: Simple module, flexible
-  - Cons: More work for users
-
-Recommendation: Now that bugs are fixed, proceed with OPTION A (high-level
-helpers) as originally planned. The module can safely use multiple arrays
-and complex SUBs.
-
-=============================================================================
-TESTED CONFIGURATIONS (all now work)
-=============================================================================
-
-Previously crashed, now work:
-- MUI_test2: Two DIM arrays - WORKS
-- MUI_test_poke: POKE in module - WORKS
-- MUI_test_manyassign: 7 array assignments in SUB - WORKS
-
-=============================================================================
-NEXT STEPS
-=============================================================================
-
-1. Implement high-level MUI module with helpers:
-   - MUIText(contents$) -> ADDRESS
-   - MUIWindow(title$, rootObj) -> ADDRESS
-   - MUIApp(appTitle$, window) -> ADDRESS
-   - MUILoop(app) for event handling
-
-2. Update MUI.h with all needed constants
-
-3. Create example programs using the high-level API
-
-4. Test full MUI application lifecycle
-
-5. Document the module API
-
-=============================================================================
-PHASE 1: FOUNDATION - COMPLETE
-=============================================================================
-
-Files:
-  [x] include/submods/MUI.h        - Needs update for new architecture
-  [ ] include/submods/MUI_Int.h    - Deferred
-  [x] submods/mui/MUI.b            - Ready for high-level implementation
-  [x] submods/mui/Makefile         - Exists
-  [x] submods/mui/test_lowlevel.b  - Working test
-
-=============================================================================
-NOTES
-=============================================================================
-
-- Module bugs are now fixed - no need for workarounds
-- Full test suite passes (94/94 tests)
-- High-level module architecture is now viable
-- String literals in main program (SADD("...")) persist and are safe for MUI
+Image display (Phase 13):
+  MUIDtpic(filename) - display image via datatypes (IFF, PNG, JPEG, etc.)
+  MUIDtpicAlpha(filename, alpha) - with alpha transparency (0-255)
+  MUIDtpicSetName(obj, filename) - change displayed image

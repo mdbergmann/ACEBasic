@@ -1,0 +1,413 @@
+Using Custom MUI Classes with ACE BASIC MUI Submod
+==================================================
+
+Version: 1.0
+Date: 2026-01-31
+
+Overview
+--------
+The MUI submod provides low-level functions that allow using any MUI class,
+including custom classes (MCCs - MUI Custom Classes) from third parties.
+
+This document explains how to use the tag builder API to create and work
+with custom MUI classes.
+
+
+Available Low-Level Functions
+-----------------------------
+
+Tag Builder:
+    MUITagStart                     ' Reset tag array to empty
+    MUITag tagID, value             ' Add a tag/value pair
+    MUITagEnd                       ' Add TAG_DONE terminator
+    MUINewObj(SADD("Class.mui"))    ' Create object with current tags
+
+Method Invocation:
+    DoMethodA(obj, VARPTR(msg&(0))) ' Call any method on an object
+
+Attribute Access:
+    MUISet obj, attr, value         ' Set any attribute
+    MUIGet(obj, attr)               ' Get any attribute
+    MUISetStr obj, attr, "string"   ' Set string attribute
+
+
+Basic Usage Pattern
+-------------------
+
+1. Define constants for the custom class attributes/methods
+2. Use MUITagStart/MUITag/MUITagEnd to build the tag array
+3. Call MUINewObj with the class name
+4. Use the object like any other MUI object
+
+Example:
+
+    #include <submods/MUI.h>
+
+    { Custom class attributes - from class documentation }
+    CONST MYCLASS_Attribute1 = &H80430001
+    CONST MYCLASS_Attribute2 = &H80430002
+
+    ADDRESS customObj
+
+    MUIInit
+
+    ' Build tag array for custom object
+    MUITagStart
+    MUITag MYCLASS_Attribute1, 42
+    MUITag MYCLASS_Attribute2, SADD("some string")
+    MUITag MUIA_Frame, MUIV_Frame_Group    ' Can mix standard MUI tags
+    MUITagEnd
+
+    ' Create the custom object
+    customObj = MUINewObj(SADD("Myclass.mcc"))
+
+    IF customObj <> 0& THEN
+        ' Use in UI - add to a group
+        MUIChild customObj
+    ELSE
+        PRINT "Failed to create custom object"
+        PRINT "Is Myclass.mcc installed in MUI:Libs/MUI?"
+    END IF
+
+
+Class Name Conventions
+----------------------
+
+MUI class names follow these patterns:
+
+    Built-in classes:    "Classname.mui"
+        Examples: "Text.mui", "Button.mui", "Group.mui", "Window.mui"
+
+    Custom classes:      "Classname.mcc"
+        Examples: "NList.mcc", "TextEditor.mcc", "Toolbar.mcc"
+
+    Private classes:     Can be any name, often without extension
+        Defined by the application itself
+
+
+Example: Using NList.mcc
+------------------------
+
+NList is a popular enhanced list class with many features beyond the
+standard MUI List class.
+
+    #include <submods/MUI.h>
+
+    { NList.mcc attributes - from NList documentation }
+    CONST MUIA_NList_Format         = &H9d510010
+    CONST MUIA_NList_Title          = &H9d51001e
+    CONST MUIA_NList_TitleSeparator = &H9d510020
+    CONST MUIA_NList_Input          = &H9d510011
+
+    { NList.mcc methods }
+    CONST MUIM_NList_Insert         = &H9d510017
+    CONST MUIM_NList_Clear          = &H9d51000c
+
+    ADDRESS nlist, nlistview, app, win, grp
+
+    MUIInit
+
+    ' Create NList object with multi-column format
+    MUITagStart
+    MUITag MUIA_NList_Format, SADD("BAR,BAR,")   ' 3 columns with separators
+    MUITag MUIA_NList_Title, 1&                   ' Enable title row
+    MUITag MUIA_NList_Input, 1&                   ' Allow input/selection
+    MUITagEnd
+    nlist = MUINewObj(SADD("NList.mcc"))
+
+    IF nlist = 0& THEN
+        PRINT "NList.mcc not found!"
+        MUICleanup
+        END
+    END IF
+
+    ' Wrap in NListview for scrollbars
+    MUITagStart
+    MUITag MUIA_Listview_List, nlist
+    MUITagEnd
+    nlistview = MUINewObj(SADD("NListview.mcc"))
+
+    ' Build UI
+    MUIBeginVGroup
+        MUIChild nlistview
+        MUIChild MUIButton("Close")
+    grp = MUIEndGroup
+
+    win = MUIWindow("NList Example", grp)
+    app = MUIApp("NListDemo", "$VER: NListDemo 1.0", win)
+
+    ' ... setup notifications and event loop ...
+
+    MUICleanup
+
+
+Calling Custom Methods
+----------------------
+
+Use DoMethodA to call any method, including custom class methods:
+
+    DIM msg&(10)
+
+    ' Example: Call a custom method with parameters
+    msg&(0) = CUSTOM_METHOD_ID      ' Method ID from class documentation
+    msg&(1) = parameter1
+    msg&(2) = parameter2
+    msg&(3) = parameter3
+
+    result = DoMethodA(customObj, VARPTR(msg&(0)))
+
+Example - NList Insert:
+
+    DIM msg&(10)
+    DIM entries&(2)
+
+    ' Prepare string array
+    entries&(0) = SADD("First entry")
+    entries&(1) = 0&                 ' NULL terminator
+
+    ' MUIM_NList_Insert(entries, count, position)
+    msg&(0) = MUIM_NList_Insert
+    msg&(1) = VARPTR(entries&(0))    ' Pointer to entry array
+    msg&(2) = 1&                      ' Count
+    msg&(3) = -3&                     ' MUIV_NList_Insert_Bottom
+
+    CALL DoMethodA(nlist, VARPTR(msg&(0)))
+
+
+Getting/Setting Custom Attributes
+---------------------------------
+
+Use MUISet/MUIGet/MUISetStr for any attribute:
+
+    ' Set a custom attribute
+    MUISet customObj, CUSTOM_ATTR, newValue
+
+    ' Get a custom attribute
+    value = MUIGet(customObj, CUSTOM_ATTR)
+
+    ' Set a string attribute
+    MUISetStr customObj, CUSTOM_STRING_ATTR, "new text"
+
+
+Example: Using TextEditor.mcc
+-----------------------------
+
+TextEditor.mcc provides a full-featured text editing widget.
+
+    #include <submods/MUI.h>
+
+    { TextEditor.mcc attributes }
+    CONST MUIA_TextEditor_Contents    = &HAD000033
+    CONST MUIA_TextEditor_ReadOnly    = &HAD000019
+    CONST MUIA_TextEditor_FixedFont   = &HAD00000f
+
+    ADDRESS editor
+
+    MUIInit
+
+    ' Create text editor
+    MUITagStart
+    MUITag MUIA_TextEditor_FixedFont, 1&     ' Use fixed-width font
+    MUITag MUIA_TextEditor_ReadOnly, 0&      ' Allow editing
+    MUITagEnd
+    editor = MUINewObj(SADD("TextEditor.mcc"))
+
+    IF editor <> 0& THEN
+        ' Set initial contents
+        MUISetStr editor, MUIA_TextEditor_Contents, "Hello, World!"
+
+        ' Add to UI
+        MUIChild editor
+    END IF
+
+
+Combining Standard and Custom Objects
+-------------------------------------
+
+Custom objects integrate seamlessly with standard MUI objects:
+
+    MUIBeginVGroup
+        MUIGroupFrameT "Standard MUI"
+        MUIChild MUIText("Standard text object")
+        MUIChild MUIButton("Standard button")
+    MUIChild MUIEndGroup
+
+    MUIBeginVGroup
+        MUIGroupFrameT "Custom Classes"
+        MUIChild nlistview          ' NListview.mcc
+        MUIChild editor             ' TextEditor.mcc
+    MUIChild MUIEndGroup
+
+    MUIBeginHGroup
+        MUIGroupSameSize
+        MUIChild MUIButton("OK")
+        MUIChild MUIButton("Cancel")
+    grp = MUIEndGroup
+
+
+Error Handling
+--------------
+
+Always check if custom object creation succeeded:
+
+    customObj = MUINewObj(SADD("Myclass.mcc"))
+
+    IF customObj = 0& THEN
+        ' Object creation failed - possible reasons:
+        ' 1. MCC file not installed in MUI:Libs/MUI/
+        ' 2. Wrong class name
+        ' 3. Invalid tag values
+        ' 4. Out of memory
+        PRINT "Error: Could not create Myclass.mcc object"
+    END IF
+
+
+Finding Custom Class Documentation
+----------------------------------
+
+Custom class attributes and methods are documented by the class author.
+Common sources:
+
+1. Aminet - Most MCCs include .doc or .guide files
+2. MUI Developer Documentation
+3. Class header files (if available)
+4. Online MUI resources
+
+Popular MCCs and their Aminet locations:
+    NList.mcc       - dev/mui/MCC_NList.lha
+    TextEditor.mcc  - dev/mui/MCC_TextEditor.lha
+    Toolbar.mcc     - dev/mui/MCC_Toolbar.lha
+    BetterString.mcc - dev/mui/MCC_BetterString.lha
+    TheBar.mcc      - dev/mui/MCC_TheBar.lha
+
+
+Complete Working Example
+------------------------
+
+A full example demonstrating custom class usage:
+
+    ' CustomClassDemo.b - Demonstrates using custom MUI classes
+    '
+    ' Requires: NList.mcc and NListview.mcc installed
+
+    #include <submods/MUI.h>
+
+    { NList attributes }
+    CONST MUIA_NList_Format = &H9d510010
+    CONST MUIA_NList_Title  = &H9d51001e
+    CONST MUIA_NList_Input  = &H9d510011
+
+    { NList methods }
+    CONST MUIM_NList_Insert = &H9d510017
+
+    CONST ID_ADD = 1
+    CONST ID_CLEAR = 2
+
+    ADDRESS app, win, grp
+    ADDRESS nlist, nlistview
+    ADDRESS btnAdd, btnClear
+    LONGINT running, eventID, itemNum
+
+    MUIInit
+
+    ' Create NList with format
+    MUITagStart
+    MUITag MUIA_NList_Format, SADD("COL=0 W=50,COL=1")
+    MUITag MUIA_NList_Title, 1&
+    MUITag MUIA_NList_Input, 1&
+    MUITagEnd
+    nlist = MUINewObj(SADD("NList.mcc"))
+
+    IF nlist = 0& THEN
+        PRINT "Error: NList.mcc not installed"
+        MUICleanup
+        END
+    END IF
+
+    ' Wrap in NListview
+    MUITagStart
+    MUITag MUIA_Listview_List, nlist
+    MUITagEnd
+    nlistview = MUINewObj(SADD("NListview.mcc"))
+
+    ' Create buttons
+    btnAdd = MUIButton("Add Item")
+    btnClear = MUIButton("Clear")
+
+    ' Build layout
+    MUIBeginVGroup
+        MUIChild nlistview
+        MUIBeginHGroup
+            MUIGroupSameSize
+            MUIChild btnAdd
+            MUIChild btnClear
+        MUIChild MUIEndGroup
+    grp = MUIEndGroup
+
+    win = MUIWindow("NList Demo", grp)
+    app = MUIApp("NListDemo", "$VER: NListDemo 1.0", win)
+
+    IF app = 0& THEN
+        PRINT "Failed to create application"
+        MUICleanup
+        END
+    END IF
+
+    ' Setup notifications
+    MUINotifyButton btnAdd, app, ID_ADD
+    MUINotifyButton btnClear, app, ID_CLEAR
+    MUINotifyClose win, app, MUIV_Application_ReturnID_Quit
+
+    MUIWindowOpen win
+
+    ' Event loop
+    itemNum = 0
+    running = -1
+    WHILE running
+        eventID = MUIWaitEvent(app)
+        SELECT CASE eventID
+            CASE MUIV_Application_ReturnID_Quit
+                running = 0
+
+            CASE ID_ADD
+                ' Add item using NList method
+                DIM msg&(10)
+                DIM entries&(2)
+                itemNum = itemNum + 1
+                entries&(0) = SADD("Item " + STR$(itemNum))
+                entries&(1) = 0&
+                msg&(0) = MUIM_NList_Insert
+                msg&(1) = VARPTR(entries&(0))
+                msg&(2) = 1&
+                msg&(3) = -3&    ' MUIV_NList_Insert_Bottom
+                CALL DoMethodA(nlist, VARPTR(msg&(0)))
+
+            CASE ID_CLEAR
+                ' Clear using standard List method (NList inherits it)
+                DIM clrMsg&(5)
+                clrMsg&(0) = &H8042ad89  ' MUIM_List_Clear
+                CALL DoMethodA(nlist, VARPTR(clrMsg&(0)))
+                itemNum = 0
+        END SELECT
+    WEND
+
+    MUIWindowClose win
+    MUIDispose app
+    MUICleanup
+    END
+
+
+Summary
+-------
+
+The MUI submod's low-level API provides full access to any MUI class:
+
+1. Use MUITagStart/MUITag/MUITagEnd to build tag arrays
+2. Use MUINewObj(SADD("Classname.mcc")) to create custom objects
+3. Use DoMethodA for custom methods
+4. Use MUISet/MUIGet for custom attributes
+5. Custom objects work seamlessly with the group builder
+
+This allows ACE BASIC programs to leverage the full ecosystem of MUI
+custom classes while still benefiting from the submod's convenience
+functions for standard MUI objects.

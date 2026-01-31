@@ -3,81 +3,139 @@
 ; ** Preprocess, compile, assemble and link an ACE program using **
 ; ** ACPP rather than APP as a preprocessor. Could use NAP instead. **
 ; ** Assembles using vasm, links with vlink. **
+;
+; Usage:
+;   bas sourcefile                      - Compile sourcefile.b
+;   bas sourcefile.b                    - Also works (strips .b)
+;   bas sourcefile extra.o              - Compile and link with extra.o
+;   bas -option sourcefile              - Compile with ace options
+;   bas -option sourcefile extra.o      - Both options and extra link
 
 ; make sure stack is big enough.
 STACK 65000
 
-; don't abort script if ACE or APP quits 
+; don't abort script if ACE or APP quits
 ; with a return code of 10 (ERROR).
 FAILAT 11
 
-IF <arg2> GT ""
-
- ; at least 2 arguments: <arg1> = compiler options.
- ;                       <arg2> = ACE source file.
- ;                       <arg3> = extra object module/library to link.
-
- ; preprocess source file.
- acpp <arg2>.b T:<arg2>.beta
- IF NOT ERROR
-  ; remove preprocessor-inserted information lines.
-  removeline t:<arg2>.beta t:<arg2>.b
-  IF NOT ERROR
-   delete >NIL: T:<arg2>.beta
-   ; compile preprocessed source file.
-   ace <arg1> T:<arg2>
-
-   IF NOT ERROR
-     ; assemble and link
-     delete >NIL: T:<arg2>.b
-     ace:bin/vasmm68k_mot -Fhunk -o T:<arg2>.o T:<arg2>.s
-     delete >NIL: T:<arg2>.s
-     ace:bin/vlink -bamigahunk -x -Bstatic -nostdlib -mrel -s -o T:<arg2> T:<arg2>.o <arg3> ACElib:startup.lib ACElib:db.lib ACElib:ami.lib
-
-     ; leave us with the executable (and icon?).
-     copy T:<arg2> ""
-
-     IF EXISTS T:<arg2>.info
-       copy T:<arg2>.info ""
-     ENDIF
-
-     ; kill any remaining temporary files.
-     delete >NIL: T:<arg2>#?
-   ENDIF
-  ENDIF
- ENDIF
-ELSE 
-
- ; no compiler options: <arg1> = ACE source file.
- ;                      <arg2> = extra object module/library to link.
-
- ; preprocess source file.
- acpp <arg1>.b T:<arg1>.beta
- IF NOT ERROR
-  ; remove preprocessor-inserted information lines.
-  removeline t:<arg1>.beta t:<arg1>.b
-  IF NOT ERROR
-   delete >NIL: t:<arg1>.beta
-   ; compile source file.
-   ace T:<arg1>
-
-   IF NOT ERROR
-     ; assemble and link.
-     delete >NIL: T:<arg1>.b
-     ace:bin/vasmm68k_mot -Fhunk -o T:<arg1>.o T:<arg1>.s
-     delete >NIL: T:<arg1>.s
-     ace:bin/vlink -bamigahunk -x -Bstatic -nostdlib -mrel -s -o T:<arg1> T:<arg1>.o ACElib:startup.lib ACElib:db.lib ACElib:ami.lib
-
-     ; leave us with the executable (and icon?).
-     copy T:<arg1> ""
-   
-     IF EXISTS T:<arg1>.info
-       copy T:<arg1>.info ""
-     ENDIF
-
-     ; kill any remaining temporary files.
-     delete >NIL: T:<arg1>#?
-   ENDIF
-  ENDIF
- ENDIF
+IF "<arg1>" EQ ""
+  echo "Usage: bas [-options] sourcefile[.b] [extra.o]"
+  SKIP end
 ENDIF
+
+; Check if first argument starts with "-" (is an ace option)
+rx "if left('<arg1>', 1) = '-' then say 1; else say 0" >T:bas_opt
+SET hasopt `type T:bas_opt`
+delete >NIL: T:bas_opt
+
+IF $hasopt EQ 1
+
+  ; arg1 starts with "-": arg1 = compiler options, arg2 = source, arg3 = extra
+  IF "<arg2>" EQ ""
+    echo "Error: source file required after options"
+    SKIP end
+  ENDIF
+
+  ; Handle .b extension - determine base name
+  ; Check if arg2 ends with .b by seeing if arg2.b.b would be the double-extension case
+  SET srcbase "<arg2>"
+  IF EXISTS "<arg2>"
+    IF NOT EXISTS "<arg2>.b"
+      ; File exists without adding .b - user passed full name with .b
+      ; Strip .b extension using rx (ARexx)
+      rx "say substr('<arg2>', 1, length('<arg2>')-2)" >T:bas_base
+      SET srcbase `type T:bas_base`
+      delete >NIL: T:bas_base
+    ENDIF
+  ENDIF
+
+  ; preprocess source file.
+  acpp $srcbase.b T:$srcbase.beta
+  IF NOT ERROR
+    ; remove preprocessor-inserted information lines.
+    removeline T:$srcbase.beta T:$srcbase.b
+    IF NOT ERROR
+      delete >NIL: T:$srcbase.beta
+      ; compile preprocessed source file.
+      ace <arg1> T:$srcbase
+
+      IF NOT ERROR
+        ; assemble
+        delete >NIL: T:$srcbase.b
+        ace:bin/vasmm68k_mot -Fhunk -o T:$srcbase.o T:$srcbase.s
+        delete >NIL: T:$srcbase.s
+
+        ; Check if module compilation (-m flag anywhere in options)
+        rx "if pos('m', '<arg1>') > 0 then say 1; else say 0" >T:bas_ismod
+        SET ismod `type T:bas_ismod`
+        delete >NIL: T:bas_ismod
+        IF $ismod EQ 1
+          ; Module: just copy the .o file, don't link
+          copy T:$srcbase.o ""
+          delete >NIL: T:$srcbase.o
+        ELSE
+          ; Normal: link to executable
+          ace:bin/vlink -bamigahunk -x -Bstatic -nostdlib -mrel -s -o T:$srcbase T:$srcbase.o <arg3> ACElib:startup.lib ACElib:db.lib ACElib:ami.lib
+
+          ; leave us with the executable (and icon?).
+          copy T:$srcbase ""
+
+          IF EXISTS T:$srcbase.info
+            copy T:$srcbase.info ""
+          ENDIF
+
+          ; kill any remaining temporary files.
+          delete >NIL: T:$srcbase#?
+        ENDIF
+      ENDIF
+    ENDIF
+  ENDIF
+
+ELSE
+
+  ; arg1 does NOT start with "-": arg1 = source file, arg2 = extra object
+
+  ; Handle .b extension - determine base name
+  SET srcbase "<arg1>"
+  IF EXISTS "<arg1>"
+    IF NOT EXISTS "<arg1>.b"
+      ; File exists without adding .b - user passed full name with .b
+      ; Strip .b extension using rx (ARexx)
+      rx "say substr('<arg1>', 1, length('<arg1>')-2)" >T:bas_base
+      SET srcbase `type T:bas_base`
+      delete >NIL: T:bas_base
+    ENDIF
+  ENDIF
+
+  ; preprocess source file.
+  acpp $srcbase.b T:$srcbase.beta
+  IF NOT ERROR
+    ; remove preprocessor-inserted information lines.
+    removeline T:$srcbase.beta T:$srcbase.b
+    IF NOT ERROR
+      delete >NIL: T:$srcbase.beta
+      ; compile source file.
+      ace T:$srcbase
+
+      IF NOT ERROR
+        ; assemble and link.
+        delete >NIL: T:$srcbase.b
+        ace:bin/vasmm68k_mot -Fhunk -o T:$srcbase.o T:$srcbase.s
+        delete >NIL: T:$srcbase.s
+        ace:bin/vlink -bamigahunk -x -Bstatic -nostdlib -mrel -s -o T:$srcbase T:$srcbase.o <arg2> ACElib:startup.lib ACElib:db.lib ACElib:ami.lib
+
+        ; leave us with the executable (and icon?).
+        copy T:$srcbase ""
+
+        IF EXISTS T:$srcbase.info
+          copy T:$srcbase.info ""
+        ENDIF
+
+        ; kill any remaining temporary files.
+        delete >NIL: T:$srcbase#?
+      ENDIF
+    ENDIF
+  ENDIF
+ENDIF
+
+LAB end

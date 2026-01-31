@@ -1,0 +1,2245 @@
+MUI Submod Implementation Plan
+==============================
+
+Version: 1.0
+Date: 2026-01-29
+Status: Draft
+Prerequisites: CALLBACK SUB implementation complete
+
+Overview
+--------
+Create a comprehensive MUI submod that provides a DSL-like abstraction
+for building MUI applications in ACE Basic. The submod hides the complexity
+of tag arrays, method calls, and memory management behind a clean API.
+
+MUI developer documentation is here: verify/scripts/otherthenamiga/aos3/System/MUI/Developer
+
+Design Goals
+------------
+1. Simplicity: Common tasks should be one-liners
+2. Safety: Handle memory management internally
+3. Completeness: Support all major MUI object types
+4. Flexibility: Allow access to raw MUI when needed
+5. BASIC-like: Feel natural to BASIC programmers
+
+File Structure
+--------------
+    include/submods/MUI.h       - Public header (user includes this)
+    include/submods/MUI_Int.h   - Internal header (constants, structures)
+    submods/mui/MUI.b           - Module implementation
+    submods/mui/MUI.o           - Compiled module
+    submods/mui/Make            - AmigaDOS build script
+    submods/mui/run_atests.rexx - Automated test runner
+    submods/mui/atest/          - Automated tests
+    submods/mui/mtest/          - Manual tests
+
+
+Variable Scope Note
+-------------------
+SHARED does not work across main program and module boundaries. The design
+accounts for this:
+
+1. Within MUI.b (the module): SHARED works between SUBs in the same file.
+   All module-internal state (_tags&, _groupStack&, _hooks, etc.) uses this.
+
+2. Main program <-> Module: All communication via:
+   - SUB parameters (passing values in)
+   - Return values (getting values back)
+   - ADDRESS pointers (for objects, callbacks)
+
+3. User CALLBACK SUBs are defined in the main program, so they can use
+   SHARED for their own main-program variables. The module just stores
+   the callback address and passes it to MUI's hook system.
+
+Example:
+    ' Main program variables
+    ADDRESS txtStatus
+    LONGINT clickCount
+
+    ' CALLBACK in main program - SHARED accesses main program vars
+    SUB OnClick(ADDRESS hook, ADDRESS obj, ADDRESS msg) CALLBACK
+        SHARED clickCount, txtStatus   ' Works - same compilation unit
+        clickCount = clickCount + 1
+        MUISetText txtStatus, STR$(clickCount)
+        OnClick = 0&
+    END SUB
+
+    ' Pass callback ADDRESS to module
+    MUIOnButtonClick btn, @OnClick, 0&
+
+
+=============================================================================
+PART 1: API DESIGN
+=============================================================================
+
+1.1 Initialization and Cleanup
+------------------------------
+
+    MUIInit                     ' Opens muimaster.library, initializes state
+    MUICleanup                  ' Closes library, frees internal resources
+
+    LONGINT MUIVersion()        ' Returns MUI version (e.g., 38 for 3.8)
+    LONGINT MUILastError()      ' Returns last error code (0 = success)
+    STRING  MUIErrorStr()       ' Returns last error as string
+
+
+1.2 Object Creation - Simple Helpers
+------------------------------------
+
+Text Objects:
+    ADDRESS MUIText(STRING contents)
+    ADDRESS MUITextCentered(STRING contents)
+    ADDRESS MUITextFramed(STRING contents)
+    ADDRESS MUILabel(STRING label)
+    ADDRESS MUILabel1(STRING label)         ' Right-aligned, for gadgets
+    ADDRESS MUILabel2(STRING label)         ' Right-aligned + colon
+
+Buttons:
+    ADDRESS MUIButton(STRING label)
+    ADDRESS MUIKeyButton(STRING label, STRING key)  ' With keyboard shortcut
+    ADDRESS MUIImageButton(LONGINT imageID)
+
+String Gadgets:
+    ADDRESS MUIString(STRING initial, LONGINT maxLen)
+    ADDRESS MUIStringSecret(STRING initial, LONGINT maxLen)  ' Password field
+    ADDRESS MUIInteger(LONGINT initial)
+
+Checkmarks and Cycles:
+    ADDRESS MUICheckmark(LONGINT checked)           ' -1 = checked, 0 = not
+    ADDRESS MUICycle(STRING options)                ' "Opt1|Opt2|Opt3"
+    ADDRESS MUIRadio(STRING options)
+
+Sliders and Gauges:
+    ADDRESS MUISlider(LONGINT min, LONGINT max, LONGINT initial)
+    ADDRESS MUIGauge(LONGINT max)
+    ADDRESS MUIScale()
+
+Lists:
+    ADDRESS MUIList()
+    ADDRESS MUIListview(ADDRESS list)
+    ADDRESS MUIDirlist(STRING directory)
+    ADDRESS MUIVolumelist()
+
+Miscellaneous:
+    ADDRESS MUIRectangle()                          ' Spacing/separator
+    ADDRESS MUIHBar()                               ' Horizontal line
+    ADDRESS MUIVBar()                               ' Vertical line
+    ADDRESS MUIImage(LONGINT imageSpec)
+
+Color Objects:
+    ADDRESS MUIColorfield(LONGINT r, LONGINT g, LONGINT b)  ' Display a color
+    ADDRESS MUIColoradjust()                        ' RGB sliders for color editing
+    ADDRESS MUIColoradjustRGB(LONGINT r, LONGINT g, LONGINT b)  ' With initial color
+    ADDRESS MUIPalette(LONGINT numColors)           ' Color palette grid
+    ADDRESS MUIPendisplay()                         ' Display a single pen/color
+    ADDRESS MUIPoppen()                             ' Popup color picker button
+
+    ' Coloradjust/Pendisplay attribute access
+    SUB MUISetColor(ADDRESS obj, LONGINT r, LONGINT g, LONGINT b)
+    SUB MUIGetColor(ADDRESS obj, LONGINT BYREF r, LONGINT BYREF g, LONGINT BYREF b)
+
+Popup Objects:
+    ' ASL-based popups (file, font, screenmode requesters)
+    ADDRESS MUIPopaslFile(STRING title, STRING pattern)     ' File requester popup
+    ADDRESS MUIPopaslFont()                                 ' Font requester popup
+    ADDRESS MUIPopaslScreen()                               ' Screenmode requester popup
+
+    ' List-based popup
+    ADDRESS MUIPoplist(STRING entries)              ' "Entry1|Entry2|Entry3"
+
+    ' Generic popup (advanced)
+    ADDRESS MUIPopstring(ADDRESS stringObj, ADDRESS popupObj)
+    ADDRESS MUIPopobject(ADDRESS buttonObj, ADDRESS popupObj)
+
+    ' Get selected value from popup
+    STRING MUIPoplistValue(ADDRESS poplist)
+    STRING MUIPopaslPath(ADDRESS popasl)            ' Get selected file path
+    STRING MUIPopaslFontName(ADDRESS popasl)        ' Get selected font name
+    LONGINT MUIPopaslFontSize(ADDRESS popasl)       ' Get selected font size
+
+Tabbed Pages (Register):
+    ADDRESS MUIRegister(STRING titles)              ' "Page1|Page2|Page3"
+
+    ' Builder pattern for register pages
+    MUIBeginRegister(STRING titles)                 ' Start register with tab titles
+    MUIRegisterPage(ADDRESS pageGroup)              ' Add a page (must be a group)
+    ADDRESS MUIEndRegister                          ' End register, returns object
+
+    ' Get/set active page
+    LONGINT MUIRegisterActive(ADDRESS reg)
+    SUB MUIRegisterSetActive(ADDRESS reg, LONGINT page)
+
+Scrollable Groups:
+    ADDRESS MUIScrollgroup(ADDRESS contents)        ' Scrollable content area
+    ADDRESS MUIScrollgroupHoriz(ADDRESS contents)   ' Horizontal scrolling only
+    ADDRESS MUIScrollgroupVert(ADDRESS contents)    ' Vertical scrolling only
+
+    ' Builder pattern for scrollgroup
+    MUIBeginScrollgroup                             ' Start scrollgroup
+    MUIScrollgroupFreeHoriz                         ' Enable horizontal scrolling
+    MUIScrollgroupFreeVert                          ' Enable vertical scrolling
+    ADDRESS MUIEndScrollgroup(ADDRESS contents)     ' End, wrap contents
+
+    ' Virtual group (for inside scrollgroup)
+    ADDRESS MUIVirtgroup(ADDRESS contents)
+
+    ' Balance (resizable divider)
+    ADDRESS MUIBalance()                            ' Horizontal balance
+    ADDRESS MUIBalanceVert()                        ' Vertical balance
+
+Numeric Input:
+    ADDRESS MUINumericbutton(LONGINT min, LONGINT max, LONGINT initial)
+    LONGINT MUINumericbuttonValue(ADDRESS obj)
+    SUB MUINumericbuttonSetValue(ADDRESS obj, LONGINT value)
+
+Image Display:
+    ADDRESS MUIDtpic(STRING filename)               ' Display image via datatypes
+
+
+1.3 Group Construction
+----------------------
+
+Method A: Fluent Builder (for complex groups)
+
+    MUIBeginVGroup                  ' Start vertical group
+    MUIBeginHGroup                  ' Start horizontal group
+    MUIBeginColGroup(SHORTINT cols) ' Start column group (like 2-column form)
+    MUIBeginRowGroup(SHORTINT rows) ' Start row group
+
+    MUIGroupFrameT(STRING title)    ' Add titled frame to current group
+    MUIGroupFrame                   ' Add untitled frame
+    MUIGroupSameSize                ' Make all children same size
+    MUIGroupSameWidth               ' Make all children same width
+    MUIGroupSameHeight              ' Make all children same height
+    MUIGroupSpacing(SHORTINT space) ' Set spacing between children
+
+    MUIChild(ADDRESS obj)           ' Add child to current group
+    MUIChildWeight(ADDRESS obj, SHORTINT weight)  ' Add with layout weight
+
+    ADDRESS MUIEndGroup             ' End group, returns group object
+
+Example:
+    MUIBeginVGroup
+        MUIGroupFrameT "User Info"
+        MUIBeginColGroup 2
+            MUIChild MUILabel1("Name:")
+            MUIChild MUIString("", 40)
+            MUIChild MUILabel1("Age:")
+            MUIChild MUIInteger(0)
+        MUIChild MUIEndGroup        ' Nested group becomes child
+        MUIBeginHGroup
+            MUIGroupSameSize
+            MUIChild MUIButton("OK")
+            MUIChild MUIButton("Cancel")
+        MUIChild MUIEndGroup
+    grp = MUIEndGroup
+
+
+Method B: Quick Helpers (for simple cases)
+
+    ADDRESS MUIVGroup2(ADDRESS c1, ADDRESS c2)
+    ADDRESS MUIVGroup3(ADDRESS c1, ADDRESS c2, ADDRESS c3)
+    ADDRESS MUIVGroup4(ADDRESS c1, ADDRESS c2, ADDRESS c3, ADDRESS c4)
+    ADDRESS MUIHGroup2(ADDRESS c1, ADDRESS c2)
+    ADDRESS MUIHGroup3(ADDRESS c1, ADDRESS c2, ADDRESS c3)
+    ADDRESS MUIHGroup4(ADDRESS c1, ADDRESS c2, ADDRESS c3, ADDRESS c4)
+
+    ' Two-column form helper
+    ADDRESS MUIForm2(ADDRESS l1, ADDRESS g1, ADDRESS l2, ADDRESS g2)
+    ADDRESS MUIForm3(ADDRESS l1, ADDRESS g1, ADDRESS l2, ADDRESS g2, ~
+                     ADDRESS l3, ADDRESS g3)
+
+
+1.4 Window Construction
+-----------------------
+
+    ADDRESS MUIWindow(STRING title, ADDRESS rootGroup)
+    ADDRESS MUIWindowID(STRING title, ADDRESS rootGroup, LONGINT windowID)
+
+    ' Window control
+    SUB MUIWindowOpen(ADDRESS win)
+    SUB MUIWindowClose(ADDRESS win)
+    LONGINT MUIWindowIsOpen(ADDRESS win)
+
+    ' Window attributes
+    SUB MUIWindowTitle(ADDRESS win, STRING title)
+    SUB MUIWindowScreenTitle(ADDRESS win, STRING title)
+
+    ' Attach menustrip to window (call before MUIWindowOpen)
+    SUB MUIWindowMenustrip(ADDRESS win, ADDRESS menustrip)
+
+
+1.5 Menu Construction
+---------------------
+
+Menu Structure:
+    Menustrip (root, attached to window)
+      └── Menu ("File")
+            ├── Menuitem ("New", "N")
+            ├── Menuitem (separator)
+            └── Menuitem ("Quit", "Q")
+      └── Menu ("Edit")
+            └── Menuitem ("Paste", "V")
+
+Builder Pattern:
+
+    MUIBeginMenustrip               ' Start menustrip
+    MUIBeginMenu(STRING title)      ' Start a menu (e.g., "File")
+    MUIMenuitem(STRING title, STRING shortcut)   ' Add menu item
+    MUIMenuitemNoKey(STRING title)  ' Add menu item without shortcut
+    MUIMenuSeparator                ' Add separator bar
+    MUIMenuitemCheck(STRING title, STRING shortcut, LONGINT checked)
+    ADDRESS MUIEndMenu              ' End menu, returns menu object
+    ADDRESS MUIEndMenustrip         ' End menustrip, returns menustrip
+
+    ' Menu item state
+    SUB MUIMenuEnable(ADDRESS item, LONGINT enabled)
+    SUB MUIMenuSetChecked(ADDRESS item, LONGINT checked)
+    LONGINT MUIMenuGetChecked(ADDRESS item)
+
+    ' Notifications (menu items trigger on selection)
+    SUB MUINotifyMenu(ADDRESS menuitem, ADDRESS app, LONGINT menuID)
+
+Example:
+    MUIBeginMenustrip
+        MUIBeginMenu "Project"
+            MUIMenuitem "New", "N"
+            MUIMenuitem "Open...", "O"
+            MUIMenuSeparator
+            miQuit = MUIMenuitem("Quit", "Q")
+        MUIEndMenu
+        MUIBeginMenu "Edit"
+            MUIMenuitem "Cut", "X"
+            MUIMenuitem "Copy", "C"
+            MUIMenuitem "Paste", "V"
+        MUIEndMenu
+    menustrip = MUIEndMenustrip
+
+    ' Attach to window before opening
+    MUIWindowMenustrip win, menustrip
+
+    ' Set up notification
+    MUINotifyMenu miQuit, app, MUI_ID_QUIT
+
+
+1.6 Application Construction
+----------------------------
+
+    ADDRESS MUIApp(STRING title, STRING version, ADDRESS window)
+    ADDRESS MUIAppMulti(STRING title, STRING version)  ' For multiple windows
+
+    ' Add/remove windows dynamically
+    SUB MUIAppAddWindow(ADDRESS app, ADDRESS win)
+    SUB MUIAppRemWindow(ADDRESS app, ADDRESS win)
+
+    ' Application control
+    SUB MUIAppSleep(ADDRESS app)                ' Disable all windows
+    SUB MUIAppWake(ADDRESS app)                 ' Re-enable all windows
+
+    ' Cleanup
+    SUB MUIDispose(ADDRESS app)                 ' Dispose entire app tree
+
+
+1.6 Notification System
+-----------------------
+
+A. ID-Based Notifications (Simple)
+
+    ' Assign ID to button press
+    SUB MUINotifyButton(ADDRESS btn, ADDRESS app, LONGINT buttonID)
+
+    ' Assign ID to any attribute change
+    SUB MUINotifyAttr(ADDRESS obj, LONGINT attr, ADDRESS app, LONGINT eventID)
+
+    ' Assign ID to window close
+    SUB MUINotifyClose(ADDRESS win, ADDRESS app, LONGINT closeID)
+
+B. Hook-Based Notifications (Advanced, requires CALLBACK)
+
+    ' Set up hook structure and bind to button
+    SUB MUIOnButtonClick(ADDRESS btn, ADDRESS hookFunc, ADDRESS userData)
+
+    ' Generic hook binding
+    SUB MUIOnAttrChange(ADDRESS obj, LONGINT attr, ADDRESS hookFunc, ADDRESS userData)
+
+C. Predefined Event IDs
+
+    CONST MUI_ID_QUIT       = -1    ' Application quit
+    CONST MUI_ID_CLOSEWIN   = -2    ' Window close request
+    CONST MUI_ID_NONE       = 0     ' No event
+
+    ' User IDs should start at 1
+
+
+1.7 Event Loop
+--------------
+
+A. Simple Event Loop (Blocking)
+
+    ' Get next event ID (blocks until event occurs)
+    LONGINT MUIWaitEvent(ADDRESS app)
+
+    ' NOTE: MUIEventLoop(ADDRESS app) was considered but deemed unnecessary.
+    ' Users can easily write their own WHILE loop with MUIWaitEvent, which
+    ' gives them full control over event handling. A wrapper would add no value.
+
+    ' Check for event without blocking (optional, for advanced use)
+    LONGINT MUIPollEvent(ADDRESS app)
+
+B. Signal-Based Loop (Advanced)
+
+    ' Get signal mask to wait on
+    LONGINT MUISignals(ADDRESS app)
+
+    ' Process pending events after Wait()
+    LONGINT MUIProcessEvents(ADDRESS app)
+
+Example:
+    WHILE running
+        eventID = MUIWaitEvent(app)
+        SELECT CASE eventID
+            CASE MUI_ID_QUIT
+                running = 0
+            CASE ID_OKBUTTON
+                PRINT "OK clicked"
+            CASE ID_CANCELBUTTON
+                running = 0
+        END SELECT
+    WEND
+
+
+1.8 Attribute Access
+--------------------
+
+    ' Set single attribute
+    SUB MUISet(ADDRESS obj, LONGINT attr, LONGINT value)
+    SUB MUISetStr(ADDRESS obj, LONGINT attr, STRING value)
+
+    ' Get single attribute
+    LONGINT MUIGet(ADDRESS obj, LONGINT attr)
+    STRING  MUIGetStr(ADDRESS obj, LONGINT attr)
+
+    ' Common shortcuts
+    SUB MUISetText(ADDRESS textObj, STRING newText)
+    STRING MUIGetText(ADDRESS textObj)
+    SUB MUISetValue(ADDRESS obj, LONGINT value)     ' For sliders, gauges
+    LONGINT MUIGetValue(ADDRESS obj)
+    SUB MUISetChecked(ADDRESS checkObj, LONGINT state)
+    LONGINT MUIGetChecked(ADDRESS checkObj)
+    LONGINT MUIGetActive(ADDRESS cycleObj)          ' Get cycle/radio selection
+
+
+1.9 List Operations
+-------------------
+
+    SUB MUIListInsert(ADDRESS list, STRING entry)
+    SUB MUIListInsertAt(ADDRESS list, STRING entry, LONGINT pos)
+    SUB MUIListRemove(ADDRESS list, LONGINT pos)
+    SUB MUIListClear(ADDRESS list)
+    LONGINT MUIListCount(ADDRESS list)
+    LONGINT MUIListActive(ADDRESS list)             ' Get selected index
+    SUB MUIListSetActive(ADDRESS list, LONGINT pos)
+    STRING MUIListGetEntry(ADDRESS list, LONGINT pos)
+
+
+1.10 Low-Level Access
+---------------------
+
+For advanced users who need raw MUI access:
+
+    ' Direct method invocation
+    LONGINT MUIDoMethod(ADDRESS obj, ADDRESS msgArray)
+
+    ' Raw object creation with custom tags
+    ADDRESS MUINewObject(STRING className, ADDRESS tagArray)
+
+    ' Tag array helpers
+    SUB MUITagStart                     ' Reset tag array
+    SUB MUITag(LONGINT tagID, LONGINT tagValue)
+    SUB MUITagEnd                       ' Add TAG_DONE
+    ADDRESS MUIGetTagArray              ' Get pointer to tag array
+
+
+=============================================================================
+PART 2: INTERNAL STRUCTURES
+=============================================================================
+
+2.1 Module State (in MUI.b)
+---------------------------
+
+    ' Library base
+    ADDRESS _muiMasterBase
+
+    ' Tag building
+    DIM _tags&(100)                     ' Tag array (50 tag/value pairs)
+    SHORTINT _tagIndex
+
+    ' Group building stack
+    DIM _groupStack&(400)               ' Flat array: 20 levels x 20 children
+    DIM _groupCounts%(20)               ' Child counts per level
+    DIM _groupFlags%(20)                ' Group type flags per level
+    SHORTINT _groupLevel
+
+    ' Menu building stack (similar to group stack)
+    ' Level 0 = menustrip, Level 1+ = menus
+    DIM _menuStack&(100)                ' Flat array: 5 menus x 20 items
+    DIM _menuCounts%(5)                 ' Item counts per menu
+    DIM _menuTitles$(5) SIZE 40         ' Menu titles
+    SHORTINT _menuLevel                 ' 0 = in menustrip, 1+ = in menu
+    DIM _menus&(10)                     ' Built menu objects for menustrip
+
+    ' Hook management
+    STRUCT Hook
+        ADDRESS h_MinNode_Succ
+        ADDRESS h_MinNode_Pred
+        ADDRESS h_Entry
+        ADDRESS h_SubEntry
+        ADDRESS h_Data
+    END STRUCT
+
+    DIM _hooks(20) AS Hook              ' Pre-allocated hook structures
+    SHORTINT _hookCount
+
+    ' Error state
+    LONGINT _lastError
+    STRING _lastErrorStr SIZE 80
+
+
+2.2 Constants (in MUI_Int.h)
+----------------------------
+
+    ' Error codes
+    CONST MUIERR_NONE           = 0
+    CONST MUIERR_NOLIBRARY      = 1
+    CONST MUIERR_CREATEFAILED   = 2
+    CONST MUIERR_GROUPOVERFLOW  = 3
+    CONST MUIERR_HOOKOVERFLOW   = 4
+    CONST MUIERR_MENUOVERFLOW   = 5
+
+    ' All MUIA_* attribute tags
+    ' All MUIM_* method IDs
+    ' All MUIV_* special values
+    ' (Comprehensive list from MUI autodocs)
+
+
+=============================================================================
+PART 3: IMPLEMENTATION DETAILS
+=============================================================================
+
+3.1 MUIInit Implementation
+--------------------------
+
+    SUB MUIInit EXTERNAL
+        SHARED _muiMasterBase, _lastError, _tagIndex, _groupLevel, _hookCount
+
+        ' Open muimaster.library
+        _muiMasterBase = OpenLibrary(SADD("muimaster.library"), 19)
+        IF _muiMasterBase = 0& THEN
+            _lastError = MUIERR_NOLIBRARY
+            ' Also open fallback console for error reporting
+        END IF
+
+        ' Initialize state
+        _tagIndex = 0
+        _groupLevel = 0
+        _hookCount = 0
+        _lastError = MUIERR_NONE
+
+        ' Open supporting libraries
+        LIBRARY "intuition.library"
+        LIBRARY "utility.library"
+        LIBRARY "exec.library"
+    END SUB
+
+
+3.2 Tag Array Management
+------------------------
+
+    SUB MUITagStart EXTERNAL
+        SHARED _tags&, _tagIndex
+        _tagIndex = 0
+    END SUB
+
+    SUB MUITag(LONGINT tagID, LONGINT tagVal) EXTERNAL
+        SHARED _tags&, _tagIndex
+        _tags&(_tagIndex) = tagID
+        _tagIndex = _tagIndex + 1
+        _tags&(_tagIndex) = tagVal
+        _tagIndex = _tagIndex + 1
+    END SUB
+
+    SUB MUITagEnd EXTERNAL
+        SHARED _tags&, _tagIndex
+        _tags&(_tagIndex) = TAG_DONE
+    END SUB
+
+    SUB ADDRESS MUIGetTagArray EXTERNAL
+        SHARED _tags&
+        MUIGetTagArray = VARPTR(_tags&(0))
+    END SUB
+
+
+3.3 Simple Object Creators
+--------------------------
+
+    SUB ADDRESS MUIText(STRING contents) EXTERNAL
+        SHARED _tags&
+
+        MUITagStart
+        MUITag MUIA_Text_Contents, SADD(contents)
+        MUITagEnd
+
+        MUIText = MUI_NewObjectA(SADD("Text.mui"), VARPTR(_tags&(0)))
+    END SUB
+
+    SUB ADDRESS MUIButton(STRING label) EXTERNAL
+        SHARED _tags&
+
+        MUITagStart
+        MUITag MUIA_Frame, MUIV_Frame_Button
+        MUITag MUIA_Background, MUII_ButtonBack
+        MUITag MUIA_InputMode, MUIV_InputMode_RelVerify
+        MUITag MUIA_Text_Contents, SADD(label)
+        MUITag MUIA_Text_PreParse, SADD(CHR$(27) + "c")  ' Centered
+        MUITagEnd
+
+        MUIButton = MUI_NewObjectA(SADD("Text.mui"), VARPTR(_tags&(0)))
+    END SUB
+
+
+3.4 Group Stack Implementation
+------------------------------
+
+    SUB MUIBeginVGroup EXTERNAL
+        SHARED _groupLevel, _groupCounts%, _groupFlags%
+
+        _groupLevel = _groupLevel + 1
+        _groupCounts%(_groupLevel) = 0
+        _groupFlags%(_groupLevel) = 0       ' 0 = vertical
+    END SUB
+
+    SUB MUIBeginHGroup EXTERNAL
+        SHARED _groupLevel, _groupCounts%, _groupFlags%
+
+        _groupLevel = _groupLevel + 1
+        _groupCounts%(_groupLevel) = 0
+        _groupFlags%(_groupLevel) = 1       ' 1 = horizontal
+    END SUB
+
+    SUB MUIChild(ADDRESS obj) EXTERNAL
+        SHARED _groupStack&, _groupCounts%, _groupLevel
+        SHORTINT idx, base
+
+        ' Calculate position in flat array
+        ' Each level can have up to 20 children
+        base = (_groupLevel - 1) * 20
+        idx = _groupCounts%(_groupLevel)
+
+        _groupStack&(base + idx) = obj
+        _groupCounts%(_groupLevel) = idx + 1
+    END SUB
+
+    SUB ADDRESS MUIEndGroup EXTERNAL
+        SHARED _tags&, _groupStack&, _groupCounts%, _groupFlags%, _groupLevel
+        SHORTINT i, count, base, isHoriz
+        ADDRESS grp
+
+        count = _groupCounts%(_groupLevel)
+        base = (_groupLevel - 1) * 20
+        isHoriz = _groupFlags%(_groupLevel)
+
+        MUITagStart
+
+        IF isHoriz THEN
+            MUITag MUIA_Group_Horiz, -1&
+        END IF
+
+        FOR i = 0 TO count - 1
+            MUITag MUIA_Group_Child, _groupStack&(base + i)
+        NEXT i
+
+        MUITagEnd
+
+        grp = MUI_NewObjectA(SADD("Group.mui"), VARPTR(_tags&(0)))
+
+        _groupLevel = _groupLevel - 1
+
+        MUIEndGroup = grp
+    END SUB
+
+
+3.5 Hook-Based Notifications (requires CALLBACK)
+-------------------------------------------------
+
+    SUB MUIOnButtonClick(ADDRESS btn, ADDRESS hookFunc, ADDRESS userData) EXTERNAL
+        SHARED _hooks, _hookCount, _tags&
+        ADDRESS hookAddr
+
+        ' Allocate hook from pool
+        hookAddr = VARPTR(_hooks(_hookCount))
+        _hookCount = _hookCount + 1
+
+        ' Initialize hook structure
+        _hooks(_hookCount - 1).h_Entry = hookFunc
+        _hooks(_hookCount - 1).h_SubEntry = 0&
+        _hooks(_hookCount - 1).h_Data = userData
+
+        ' Set up notification: on MUIA_Pressed = FALSE, call hook
+        DIM msg&(10)
+        msg&(0) = MUIM_Notify
+        msg&(1) = MUIA_Pressed
+        msg&(2) = 0&                        ' FALSE = button released
+        msg&(3) = btn                       ' Target is button itself
+        msg&(4) = 2&                        ' 2 params follow
+        msg&(5) = MUIM_CallHook
+        msg&(6) = hookAddr
+
+        CALL DoMethodA(btn, VARPTR(msg&(0)))
+    END SUB
+
+
+3.6 ID-Based Notifications
+--------------------------
+
+    SUB MUINotifyButton(ADDRESS btn, ADDRESS app, LONGINT buttonID) EXTERNAL
+        DIM msg&(10)
+
+        msg&(0) = MUIM_Notify
+        msg&(1) = MUIA_Pressed
+        msg&(2) = 0&                        ' FALSE = released
+        msg&(3) = app
+        msg&(4) = 2&                        ' 2 params follow
+        msg&(5) = MUIM_Application_ReturnID
+        msg&(6) = buttonID
+
+        CALL DoMethodA(btn, VARPTR(msg&(0)))
+    END SUB
+
+    SUB MUINotifyClose(ADDRESS win, ADDRESS app, LONGINT closeID) EXTERNAL
+        DIM msg&(10)
+
+        msg&(0) = MUIM_Notify
+        msg&(1) = MUIA_Window_CloseRequest
+        msg&(2) = MUIV_EveryTime
+        msg&(3) = app
+        msg&(4) = 2&
+        msg&(5) = MUIM_Application_ReturnID
+        msg&(6) = closeID
+
+        CALL DoMethodA(win, VARPTR(msg&(0)))
+    END SUB
+
+
+3.7 Event Loop
+--------------
+
+    SUB LONGINT MUIWaitEvent(ADDRESS app) EXTERNAL
+        DIM msg&(5)
+        LONGINT sigs, returnID
+
+        msg&(0) = MUIM_Application_NewInput
+        msg&(1) = VARPTR(sigs)
+
+        returnID = DoMethodA(app, VARPTR(msg&(0)))
+
+        IF returnID = 0& AND sigs <> 0& THEN
+            sigs = _Wait(sigs)
+            ' Recurse to process the signals
+            MUIWaitEvent = MUIWaitEvent(app)
+        ELSE
+            MUIWaitEvent = returnID
+        END IF
+    END SUB
+
+    ' NOTE: MUIEventLoop was removed - users write their own loop with MUIWaitEvent
+
+
+=============================================================================
+PART 4: EXAMPLE PROGRAMS
+=============================================================================
+
+4.1 Minimal Example
+-------------------
+
+    ' MinimalMUI.b - Simplest possible MUI program
+
+    #include <submods/MUI.h>
+
+    ADDRESS app, win, txt
+
+    MUIInit
+
+    txt = MUITextCentered("Hello from ACE Basic!")
+    win = MUIWindow("Minimal MUI", txt)
+    app = MUIApp("MinimalMUI", "$VER: MinimalMUI 1.0", win)
+
+    IF app <> 0& THEN
+        MUINotifyClose win, app, MUI_ID_QUIT
+        MUIWindowOpen win
+
+        ' Simple event loop - wait until quit
+        WHILE MUIWaitEvent(app) <> MUI_ID_QUIT
+        WEND
+
+        MUIDispose app
+    END IF
+
+    MUICleanup
+    END
+
+
+4.2 Button Example with IDs
+---------------------------
+
+    ' ButtonMUI.b - Button handling with event IDs
+
+    #include <submods/MUI.h>
+
+    CONST ID_OK = 1
+    CONST ID_CANCEL = 2
+
+    ADDRESS app, win, grp
+    ADDRESS btnOK, btnCancel
+    LONGINT eventID, running
+
+    MUIInit
+
+    btnOK = MUIButton("OK")
+    btnCancel = MUIButton("Cancel")
+
+    MUIBeginVGroup
+        MUIChild MUITextCentered("Click a button:")
+        MUIBeginHGroup
+            MUIGroupSameSize
+            MUIChild btnOK
+            MUIChild btnCancel
+        MUIChild MUIEndGroup
+    grp = MUIEndGroup
+
+    win = MUIWindow("Button Test", grp)
+    app = MUIApp("ButtonTest", "$VER: ButtonTest 1.0", win)
+
+    IF app <> 0& THEN
+        ' Set up notifications
+        MUINotifyButton btnOK, app, ID_OK
+        MUINotifyButton btnCancel, app, ID_CANCEL
+        MUINotifyClose win, app, MUI_ID_QUIT
+
+        MUIWindowOpen win
+
+        running = -1
+        WHILE running
+            eventID = MUIWaitEvent(app)
+            SELECT CASE eventID
+                CASE MUI_ID_QUIT
+                    running = 0
+                CASE ID_OK
+                    PRINT "OK pressed!"
+                CASE ID_CANCEL
+                    PRINT "Cancel pressed!"
+                    running = 0
+            END SELECT
+        WEND
+
+        MUIDispose app
+    END IF
+
+    MUICleanup
+    END
+
+
+4.3 Form Example
+----------------
+
+    ' FormMUI.b - Data entry form
+
+    #include <submods/MUI.h>
+
+    CONST ID_SAVE = 1
+    CONST ID_CLEAR = 2
+
+    ADDRESS app, win, grp
+    ADDRESS strName, strEmail, strPhone
+    ADDRESS btnSave, btnClear
+    LONGINT eventID, running
+
+    MUIInit
+
+    strName = MUIString("", 40)
+    strEmail = MUIString("", 60)
+    strPhone = MUIString("", 20)
+    btnSave = MUIButton("Save")
+    btnClear = MUIButton("Clear")
+
+    MUIBeginVGroup
+        MUIBeginColGroup 2
+            MUIGroupFrameT "Contact Information"
+            MUIChild MUILabel1("Name:")
+            MUIChild strName
+            MUIChild MUILabel1("Email:")
+            MUIChild strEmail
+            MUIChild MUILabel1("Phone:")
+            MUIChild strPhone
+        MUIChild MUIEndGroup
+        MUIBeginHGroup
+            MUIGroupSameSize
+            MUIChild btnSave
+            MUIChild btnClear
+        MUIChild MUIEndGroup
+    grp = MUIEndGroup
+
+    win = MUIWindow("Contact Form", grp)
+    app = MUIApp("ContactForm", "$VER: ContactForm 1.0", win)
+
+    IF app <> 0& THEN
+        MUINotifyButton btnSave, app, ID_SAVE
+        MUINotifyButton btnClear, app, ID_CLEAR
+        MUINotifyClose win, app, MUI_ID_QUIT
+
+        MUIWindowOpen win
+
+        running = -1
+        WHILE running
+            eventID = MUIWaitEvent(app)
+            SELECT CASE eventID
+                CASE MUI_ID_QUIT
+                    running = 0
+                CASE ID_SAVE
+                    PRINT "Name: "; MUIGetStr(strName, MUIA_String_Contents)
+                    PRINT "Email: "; MUIGetStr(strEmail, MUIA_String_Contents)
+                    PRINT "Phone: "; MUIGetStr(strPhone, MUIA_String_Contents)
+                CASE ID_CLEAR
+                    MUISetStr strName, MUIA_String_Contents, ""
+                    MUISetStr strEmail, MUIA_String_Contents, ""
+                    MUISetStr strPhone, MUIA_String_Contents, ""
+            END SELECT
+        WEND
+
+        MUIDispose app
+    END IF
+
+    MUICleanup
+    END
+
+
+4.4 Hook Example (with CALLBACK)
+--------------------------------
+
+    ' HookMUI.b - Using CALLBACK hooks for callbacks
+
+    #include <submods/MUI.h>
+
+    ADDRESS app, win, grp
+    ADDRESS btnClick, txtStatus
+    LONGINT clickCount
+
+    ' Hook callback - called directly by MUI
+    ' Defined in main program, so SHARED accesses main program variables
+    SUB OnButtonClick(ADDRESS hook, ADDRESS obj, ADDRESS msg) CALLBACK
+        SHARED clickCount, txtStatus
+
+        clickCount = clickCount + 1
+        MUISetText txtStatus, "Clicked " + STR$(clickCount) + " times"
+
+        OnButtonClick = 0&
+    END SUB
+
+    ' Main program
+    clickCount = 0
+
+    MUIInit
+
+    txtStatus = MUITextCentered("Click the button!")
+    btnClick = MUIButton("Click Me!")
+
+    grp = MUIVGroup2(txtStatus, btnClick)
+    win = MUIWindow("Hook Demo", grp)
+    app = MUIApp("HookDemo", "$VER: HookDemo 1.0", win)
+
+    IF app <> 0& THEN
+        ' Use hook for button click - pass address of our CALLBACK SUB
+        MUIOnButtonClick btnClick, @OnButtonClick, 0&
+
+        ' Standard close handling
+        MUINotifyClose win, app, MUI_ID_QUIT
+
+        MUIWindowOpen win
+
+        ' Event loop - hook is called automatically by MUI
+        WHILE MUIWaitEvent(app) <> MUI_ID_QUIT
+        WEND
+
+        MUIDispose app
+    END IF
+
+    MUICleanup
+    END
+
+
+4.5 Menu Example
+----------------
+
+    ' MenuMUI.b - Window with menus
+
+    #include <submods/MUI.h>
+
+    CONST ID_NEW = 1
+    CONST ID_OPEN = 2
+    CONST ID_SAVE = 3
+    CONST ID_CUT = 10
+    CONST ID_COPY = 11
+    CONST ID_PASTE = 12
+
+    ADDRESS app, win, grp, menustrip
+    ADDRESS miNew, miOpen, miSave, miQuit
+    ADDRESS miCut, miCopy, miPaste
+    LONGINT eventID, running
+
+    MUIInit
+
+    ' Build menu structure
+    MUIBeginMenustrip
+        MUIBeginMenu "Project"
+            miNew = MUIMenuitem("New", "N")
+            miOpen = MUIMenuitem("Open...", "O")
+            miSave = MUIMenuitem("Save", "S")
+            MUIMenuSeparator
+            miQuit = MUIMenuitem("Quit", "Q")
+        MUIEndMenu
+        MUIBeginMenu "Edit"
+            miCut = MUIMenuitem("Cut", "X")
+            miCopy = MUIMenuitem("Copy", "C")
+            miPaste = MUIMenuitem("Paste", "V")
+        MUIEndMenu
+    menustrip = MUIEndMenustrip
+
+    ' Build window content
+    grp = MUITextCentered("Select a menu item")
+    win = MUIWindow("Menu Demo", grp)
+
+    ' Attach menu to window
+    MUIWindowMenustrip win, menustrip
+
+    app = MUIApp("MenuDemo", "$VER: MenuDemo 1.0", win)
+
+    IF app <> 0& THEN
+        ' Set up menu notifications
+        MUINotifyMenu miNew, app, ID_NEW
+        MUINotifyMenu miOpen, app, ID_OPEN
+        MUINotifyMenu miSave, app, ID_SAVE
+        MUINotifyMenu miQuit, app, MUI_ID_QUIT
+        MUINotifyMenu miCut, app, ID_CUT
+        MUINotifyMenu miCopy, app, ID_COPY
+        MUINotifyMenu miPaste, app, ID_PASTE
+
+        MUINotifyClose win, app, MUI_ID_QUIT
+
+        MUIWindowOpen win
+
+        running = -1
+        WHILE running
+            eventID = MUIWaitEvent(app)
+            SELECT CASE eventID
+                CASE MUI_ID_QUIT
+                    running = 0
+                CASE ID_NEW
+                    PRINT "New selected"
+                CASE ID_OPEN
+                    PRINT "Open selected"
+                CASE ID_SAVE
+                    PRINT "Save selected"
+                CASE ID_CUT
+                    PRINT "Cut selected"
+                CASE ID_COPY
+                    PRINT "Copy selected"
+                CASE ID_PASTE
+                    PRINT "Paste selected"
+            END SELECT
+        WEND
+
+        MUIDispose app
+    END IF
+
+    MUICleanup
+    END
+
+
+=============================================================================
+PART 5: IMPLEMENTATION PHASES
+=============================================================================
+
+Phase 1: Foundation
+-------------------
+Files: MUI.h, MUI_Int.h, MUI.b
+Tasks:
+  [ ] Complete constant definitions (all MUIA_*, MUIM_*, MUIV_*)
+  [ ] Implement MUIInit / MUICleanup
+  [ ] Implement tag array management
+  [ ] Implement DoMethodA wrapper
+  [ ] Implement MUIDispose
+  [ ] Test: Open/close library
+
+Phase 2: Basic Objects
+----------------------
+Tasks:
+  [ ] Implement MUIText, MUITextCentered
+  [ ] Implement MUIButton
+  [ ] Implement MUIVGroup2, MUIHGroup2
+  [ ] Implement MUIWindow
+  [ ] Implement MUIApp
+  [ ] Implement MUIWindowOpen, MUIWindowClose
+  [ ] Test: Display static window with text
+
+Phase 3: Event Loop
+-------------------
+Tasks:
+  [x] Implement MUIWaitEvent
+  [x] Implement MUINotifyClose
+  [x] Implement MUINotifyButton
+  [x] Test: Button click with ID
+  [ ] (Optional) Implement MUIPollEvent for non-blocking checks
+
+NOTE: MUIEventLoop was removed from scope - MUIWaitEvent is sufficient.
+
+Phase 4: Group Builder
+----------------------
+Tasks:
+  [ ] Implement group stack
+  [ ] Implement MUIBeginVGroup, MUIBeginHGroup
+  [ ] Implement MUIChild
+  [ ] Implement MUIEndGroup
+  [ ] Implement MUIGroupFrameT, MUIGroupSameSize
+  [ ] Implement MUIBeginColGroup
+  [ ] Test: Complex nested layouts
+
+Phase 5: More Objects
+---------------------
+Tasks:
+  [ ] Implement MUIString, MUIInteger
+  [ ] Implement MUICheckmark
+  [ ] Implement MUICycle, MUIRadio
+  [ ] Implement MUISlider
+  [ ] Implement MUILabel variants
+  [ ] Test: Form with various gadgets
+
+Phase 6: Attribute Access
+-------------------------
+Tasks:
+  [ ] Implement MUISet, MUISetStr
+  [ ] Implement MUIGet, MUIGetStr
+  [ ] Implement convenience functions (MUISetText, MUIGetValue, etc.)
+  [ ] Test: Read/write gadget values
+
+Phase 7: Hook Support
+---------------------
+Prerequisites: CALLBACK working
+Tasks:
+  [ ] Implement hook pool management
+  [ ] Implement MUIOnButtonClick
+  [ ] Implement MUIOnAttrChange
+  [ ] Test: Hook-based button callback
+
+Phase 8: Lists
+--------------
+Tasks:
+  [ ] Implement MUIList, MUIListview
+  [ ] Implement list manipulation functions
+  [ ] Implement MUIDirlist, MUIVolumelist
+  [ ] Test: File browser example
+
+Phase 9: Menus
+--------------
+Tasks:
+  [ ] Implement menu stack management
+  [ ] Implement MUIBeginMenustrip, MUIEndMenustrip
+  [ ] Implement MUIBeginMenu, MUIEndMenu
+  [ ] Implement MUIMenuitem, MUIMenuitemNoKey
+  [ ] Implement MUIMenuSeparator
+  [ ] Implement MUIMenuitemCheck
+  [ ] Implement MUIWindowMenustrip
+  [ ] Implement MUINotifyMenu
+  [ ] Implement MUIMenuEnable, MUIMenuSetChecked, MUIMenuGetChecked
+  [ ] Test: Window with File/Edit menus
+
+Phase 10: Color Objects
+-----------------------
+Tasks:
+  [ ] Implement MUIColorfield, MUIColoradjust, MUIColoradjustRGB
+  [ ] Implement MUIPalette
+  [ ] Implement MUIPendisplay
+  [ ] Implement MUIPoppen
+  [ ] Implement MUISetColor, MUIGetColor
+  [ ] Test: Color picker dialog
+
+Phase 11: Popup Objects (COMPLETE)
+-----------------------------------
+Tasks:
+  [x] Implement MUIPopaslFile, MUIPopaslFont, MUIPopaslScreen
+  [x] Implement MUIPopaslDrawer, MUIPopaslFontFixed (bonus)
+  [x] Implement MUIPoplist
+  [x] Implement MUIPopobject, MUIPopobjectHooked (advanced)
+  [x] Implement MUIPopstringValue, MUIPopstringSetValue, MUIPopstringObj
+  [x] Implement MUIPopaslActive, MUIPopstringOpen, MUIPopstringClose
+  [x] Test: File requester, font selector, poplist - all working
+
+Phase 12: Tabbed Pages & Scrolling
+----------------------------------
+Tasks:
+  [ ] Implement MUIRegister (simple)
+  [ ] Implement MUIBeginRegister, MUIRegisterPage, MUIEndRegister
+  [ ] Implement MUIRegisterActive, MUIRegisterSetActive
+  [ ] Implement MUIScrollgroup, MUIScrollgroupHoriz, MUIScrollgroupVert
+  [ ] Implement MUIBeginScrollgroup, MUIEndScrollgroup
+  [ ] Implement MUIVirtgroup
+  [ ] Implement MUIBalance, MUIBalanceVert
+  [ ] Test: Tabbed preferences, scrollable content
+
+Phase 13: Additional Objects
+----------------------------
+Tasks:
+  [ ] Implement MUINumericbutton
+  [ ] Implement MUINumericbuttonValue, MUINumericbuttonSetValue
+  [ ] Implement MUIDtpic
+  [ ] Test: Numeric input, image display
+
+Phase 14: Documentation & Examples
+----------------------------------
+Tasks:
+  [ ] Write comprehensive MUI.h header comments
+  [ ] Create example programs directory
+  [ ] Write tutorial document
+  [ ] Add to ACE documentation
+  (See Part 7 for details)
+
+
+=============================================================================
+PART 6: BUILD SYSTEM
+=============================================================================
+
+AmigaDOS build script (submods/mui/Make):
+
+    .key target
+    .def target "all"
+
+    ; MUI Submod Build Script
+    ; Run from submods/mui/ directory
+    ; Usage: execute Make [target]
+    ;   targets: all, clean, install, atest, mtest
+
+    IF "<target>" EQ "all"
+        echo "Building MUI.o..."
+        ACE:bin/ace -m MUI
+        vasm -Fhunk -phxass -warncomm -no-opt -o MUI.o MUI.s
+        echo "Done."
+        SKIP end
+    ENDIF
+
+    IF "<target>" EQ "clean"
+        echo "Cleaning..."
+        delete MUI.o MUI.s QUIET
+        delete atest/#?.o atest/#?.s QUIET
+        delete mtest/#?.o mtest/#?.s QUIET
+        echo "Done."
+        SKIP end
+    ENDIF
+
+    IF "<target>" EQ "install"
+        echo "Installing..."
+        IF NOT EXISTS MUI.o
+            echo "MUI.o not found. Run 'execute Make' first."
+            SKIP end
+        ENDIF
+        copy MUI.o ACElib:
+        copy ACE:include/submods/MUI.h ACEinclude:submods/
+        copy ACE:include/submods/MUI_Int.h ACEinclude:submods/
+        echo "Done."
+        SKIP end
+    ENDIF
+
+    IF "<target>" EQ "atest"
+        echo "Building automated tests..."
+        IF NOT EXISTS MUI.o
+            echo "MUI.o not found. Run 'execute Make' first."
+            SKIP end
+        ENDIF
+        cd atest
+        ; Build testhelper module
+        ACE:bin/ace -m testhelper
+        vasm -Fhunk -phxass -warncomm -no-opt -o testhelper.o testhelper.s
+        ; Build each test
+        FOREACH test IN atest_#?.b
+            SET testname `echo <test> | sed "s/.b$//"`
+            ACE:bin/ace <testname>
+            vasm -Fhunk -phxass -warncomm -no-opt -o <testname>.o <testname>.s
+            vlink -bamigahunk -o <testname> <testname>.o testhelper.o /MUI.o ACElib:startup.o ACElib:db.lib
+        END
+        cd /
+        echo "Done. Run 'rx run_atests.rexx' to execute tests."
+        SKIP end
+    ENDIF
+
+    IF "<target>" EQ "mtest"
+        echo "Building manual tests..."
+        IF NOT EXISTS MUI.o
+            echo "MUI.o not found. Run 'execute Make' first."
+            SKIP end
+        ENDIF
+        cd mtest
+        FOREACH test IN mtest_#?.b
+            SET testname `echo <test> | sed "s/.b$//"`
+            ACE:bin/ace <testname>
+            vasm -Fhunk -phxass -warncomm -no-opt -o <testname>.o <testname>.s
+            vlink -bamigahunk -o <testname> <testname>.o /MUI.o ACElib:startup.o ACElib:db.lib
+        END
+        cd /
+        echo "Done. Run individual tests from mtest/ directory."
+        SKIP end
+    ENDIF
+
+    echo "Unknown target: <target>"
+    echo "Usage: execute Make [all|clean|install|atest|mtest]"
+
+    LAB end
+
+
+=============================================================================
+PART 7: DOCUMENTATION & EXAMPLES
+=============================================================================
+
+7.1 Documentation Files
+-----------------------
+
+docs/MUI-Submod.guide
+    AmigaGuide format documentation covering:
+    - Introduction to MUI programming with ACE
+    - Installation instructions
+    - Quick start tutorial
+    - Complete API reference (all SUBs documented)
+    - Common patterns and idioms
+    - Troubleshooting section
+    - Migration guide from raw MUI API
+
+docs/MUI-Submod.txt
+    Plain text version of the above for non-Amiga viewing
+
+include/submods/MUI.h
+    Comprehensive inline documentation:
+    - Each SUB declaration with parameter descriptions
+    - Usage examples in comments
+    - Related function cross-references
+    - Constant value documentation
+
+
+7.2 Example Programs
+--------------------
+
+Directory: examples/mui/
+
+Basic Examples:
+    01_Minimal.b        - Absolute minimum MUI program
+    02_HelloWorld.b     - Text display with proper structure
+    03_SingleButton.b   - One button, ID-based event
+
+Button Examples:
+    10_TwoButtons.b     - OK/Cancel pattern
+    11_ButtonRow.b      - Multiple buttons with same size
+    12_KeyboardShortcuts.b - Buttons with keyboard control
+
+Layout Examples:
+    20_VerticalGroup.b  - Simple vertical layout
+    21_HorizontalGroup.b - Simple horizontal layout
+    22_NestedGroups.b   - Complex nested structure
+    23_ColumnForm.b     - Two-column label/gadget form
+    24_FramedGroups.b   - Groups with titled frames
+
+Gadget Examples:
+    30_StringGadget.b   - Text input
+    31_IntegerGadget.b  - Number input
+    32_Checkmark.b      - Boolean toggle
+    33_CycleGadget.b    - Option selection
+    34_RadioButtons.b   - Mutually exclusive options
+    35_Slider.b         - Value slider
+    36_Gauge.b          - Progress indicator
+
+List Examples:
+    40_SimpleList.b     - Basic list display
+    41_EditableList.b   - Add/remove list items
+    42_FileList.b       - Directory browser
+    43_VolumeList.b     - Drive selector
+
+Menu Examples:
+    45_SimpleMenu.b     - Basic File/Edit menu
+    46_MenuShortcuts.b  - Menus with keyboard shortcuts
+    47_CheckMenus.b     - Checkmark menu items
+    48_FullMenubar.b    - Complete application menubar
+
+Color Examples:
+    80_Colorfield.b     - Display a color
+    81_Coloradjust.b    - RGB slider color editing
+    82_Palette.b        - Color palette selection
+    83_Poppen.b         - Popup color picker
+    84_ColorChooser.b   - Complete color chooser dialog
+
+Popup Examples:
+    85_FileRequester.b  - File open/save dialog
+    86_FontRequester.b  - Font selection dialog
+    87_Poplist.b        - Dropdown list selection
+    88_ScreenMode.b     - Screen mode selection
+
+Tab & Scroll Examples:
+    90_TabbedPages.b    - Simple tabbed interface
+    91_TabbedPrefs.b    - Preferences with tabs
+    92_ScrollText.b     - Scrollable text area
+    93_ScrollableForm.b - Long form with scrollbars
+    94_ResizablePanes.b - Split view with Balance
+
+Additional Object Examples:
+    95_NumericButton.b  - Numeric input with buttons
+    96_ImageDisplay.b   - Display image with Dtpic
+
+Advanced Examples:
+    50_MultiWindow.b    - Multiple windows
+    51_DynamicUI.b      - Adding/removing gadgets
+    52_Preferences.b    - Settings dialog pattern
+    53_AboutWindow.b    - Modal about dialog
+
+Hook Examples (require CALLBACK):
+    60_HookButton.b     - Button with hook callback
+    61_HookSlider.b     - Slider with live update hook
+    62_HookString.b     - String validation hook
+    63_MultiHook.b      - Multiple hooks in one program
+
+Complete Applications:
+    70_Calculator.b     - Simple calculator
+    71_NoteEditor.b     - Text note editor
+    72_FileBrowser.b    - File manager
+    73_Preferences.b    - Full preferences editor
+
+
+7.3 Tutorial Document Structure
+-------------------------------
+
+docs/MUI-Tutorial.txt (or .guide)
+
+Chapter 1: Getting Started
+    1.1 What is MUI?
+    1.2 Installing the MUI Submod
+    1.3 Your First MUI Program
+    1.4 Understanding the Program Structure
+
+Chapter 2: Basic Concepts
+    2.1 Objects and the Object Tree
+    2.2 Groups and Layout
+    2.3 Windows and Applications
+    2.4 The Event Loop
+
+Chapter 3: User Interface Elements
+    3.1 Text and Labels
+    3.2 Buttons
+    3.3 String Gadgets
+    3.4 Checkmarks and Cycles
+    3.5 Sliders and Gauges
+
+Chapter 4: Layout Techniques
+    4.1 Vertical and Horizontal Groups
+    4.2 Column Groups for Forms
+    4.3 Nested Groups
+    4.4 Frames and Spacing
+    4.5 Weight and Sizing
+
+Chapter 5: Handling Events
+    5.1 ID-Based Events (Simple)
+    5.2 The Event Loop Pattern
+    5.3 Hook-Based Events (Advanced)
+    5.4 CALLBACK SUBs Explained
+
+Chapter 6: Working with Data
+    6.1 Getting and Setting Attributes
+    6.2 String Gadget Contents
+    6.3 Numeric Values
+    6.4 Selection States
+
+Chapter 7: Lists
+    7.1 Creating Lists
+    7.2 Adding and Removing Items
+    7.3 Selection Handling
+    7.4 Special Lists (Directory, Volume)
+
+Chapter 8: Menus
+    8.1 Building a Menustrip
+    8.2 Menu Items and Shortcuts
+    8.3 Checkmark Items
+    8.4 Menu Notifications
+    8.5 Enabling/Disabling Items
+
+Chapter 9: Color Objects
+    9.1 Colorfield and Pendisplay
+    9.2 Coloradjust for Color Editing
+    9.3 Palette Selection
+    9.4 Poppen Popup Color Picker
+
+Chapter 10: Popup Dialogs
+    10.1 File Requesters with Popasl
+    10.2 Font Requesters
+    10.3 Screen Mode Selection
+    10.4 Poplist for Dropdown Selection
+    10.5 Custom Popups with Popobject
+
+Chapter 11: Tabbed Interfaces
+    11.1 Creating a Register (Tabs)
+    11.2 Building Pages with the Builder Pattern
+    11.3 Switching Pages Programmatically
+
+Chapter 12: Scrollable Content
+    12.1 Scrollgroup Basics
+    12.2 Virtgroup for Virtual Content
+    12.3 Horizontal vs Vertical Scrolling
+    12.4 Balance for Resizable Panes
+
+Chapter 13: Advanced Topics
+    13.1 Multiple Windows
+    13.2 Dynamic UI Modification
+    13.3 Custom Object Creation
+    13.4 Raw MUI Access
+    13.5 Error Handling
+    13.6 Numeric Buttons and Dtpic
+
+Appendix A: Complete API Reference
+Appendix B: MUI Constants
+Appendix C: Troubleshooting
+Appendix D: Comparison with Raw MUI
+
+
+7.4 Inline Code Documentation Standard
+--------------------------------------
+
+Every public SUB in MUI.h should have documentation like:
+
+    {*
+    ** MUIButton - Create a button object
+    **
+    ** Parameters:
+    **   label  - Text to display on the button
+    **
+    ** Returns:
+    **   ADDRESS of the button object, or 0 on failure
+    **
+    ** Description:
+    **   Creates a standard MUI button with centered text,
+    **   button frame, and RelVerify input mode.
+    **
+    ** Example:
+    **   btn = MUIButton("Click Me")
+    **   MUINotifyButton btn, app, ID_MYBUTTON
+    **
+    ** See Also:
+    **   MUIKeyButton, MUIImageButton, MUINotifyButton
+    *}
+    DECLARE SUB ADDRESS MUIButton(STRING label) EXTERNAL
+
+
+=============================================================================
+PART 8: TESTING STRATEGY
+=============================================================================
+
+Test Directory Structure:
+    submods/mui/
+        atest/              - Automated tests (run without user interaction)
+        mtest/              - Manual tests (require visual/interactive verification)
+        run_atests.rexx     - ARexx script to run all automated tests
+        Make                - AmigaDOS build script (execute Make atest|mtest)
+
+
+8.1 Automated Tests (atest/)
+----------------------------
+
+Automated tests can programmatically verify behavior by:
+- Creating objects and checking they're non-NULL
+- Setting attributes and reading them back
+- Performing operations and checking results
+- Testing internal state (counts, indices)
+
+Each test must:
+- Print "PASS: <description>" or "FAIL: <description>" for each check
+- Write results to ace:atest-results.txt (append mode)
+- Exit with return code 0 (success) or non-zero (failure)
+- Run without any user interaction
+- Clean up all resources
+
+Test Files:
+
+atest_init.b - Library Initialization
+    - MUIInit succeeds (library opens)
+    - MUIVersion returns valid version (>= 19)
+    - MUILastError returns 0 after successful init
+    - MUICleanup doesn't crash
+    - Double MUIInit is safe
+    - MUIInit after MUICleanup works
+
+atest_tags.b - Tag Array Management
+    - MUITagStart resets index to 0
+    - MUITag adds tag/value pairs
+    - MUITagEnd adds TAG_DONE
+    - MUIGetTagArray returns valid pointer
+    - Tag array contains expected values (read back via PEEK)
+
+atest_objects.b - Object Creation
+    - MUIText returns non-NULL
+    - MUITextCentered returns non-NULL
+    - MUIButton returns non-NULL
+    - MUIString returns non-NULL
+    - MUICheckmark returns non-NULL
+    - MUICycle returns non-NULL
+    - MUISlider returns non-NULL
+    - MUIList returns non-NULL
+    - MUIRectangle returns non-NULL
+    - Invalid parameters return NULL or handle gracefully
+    - MUIDispose doesn't crash
+
+atest_attrs.b - Attribute Get/Set
+    - MUISet changes attribute value
+    - MUIGet retrieves correct value
+    - MUISetStr sets string attribute
+    - MUIGetStr retrieves string
+    - MUISetText/MUIGetText work on Text objects
+    - MUISetValue/MUIGetValue work on Slider
+    - MUISetChecked/MUIGetChecked work on Checkmark
+    - Setting then getting returns same value
+
+atest_groups.b - Group Building
+    - MUIBeginVGroup/MUIEndGroup creates valid group
+    - MUIBeginHGroup creates horizontal group
+    - MUIChild adds children (verify via group child count attribute)
+    - Nested groups work correctly
+    - MUIVGroup2/3/4 create groups with correct child count
+    - MUIHGroup2/3/4 create groups with correct child count
+    - MUIBeginColGroup sets column count
+    - Group stack handles multiple nesting levels
+
+atest_menus.b - Menu Building
+    - MUIBeginMenustrip/MUIEndMenustrip creates menustrip
+    - MUIBeginMenu/MUIEndMenu creates menu
+    - MUIMenuitem returns non-NULL
+    - MUIMenuitemNoKey returns non-NULL
+    - MUIMenuSeparator returns non-NULL
+    - MUIMenuitemCheck returns non-NULL
+    - Menu nesting works correctly
+    - MUIMenuGetChecked returns initial state
+
+atest_lists.b - List Operations
+    - MUIList creates empty list
+    - MUIListCount returns 0 for empty list
+    - MUIListInsert adds entry (count increases)
+    - MUIListInsertAt inserts at position
+    - MUIListRemove removes entry (count decreases)
+    - MUIListClear empties list (count = 0)
+    - MUIListGetEntry retrieves correct entry
+    - MUIListActive returns -1 for no selection
+    - MUIListSetActive changes selection
+
+atest_colors.b - Color Objects
+    - MUIColorfield returns non-NULL
+    - MUIColoradjust returns non-NULL
+    - MUIColoradjustRGB with initial values works
+    - MUISetColor changes color values
+    - MUIGetColor retrieves color values
+    - Set then get returns same RGB values
+    - MUIPendisplay returns non-NULL
+    - MUIPoppen returns non-NULL
+
+atest_register.b - Tabbed Pages
+    - MUIRegister returns non-NULL
+    - MUIBeginRegister/MUIEndRegister works
+    - MUIRegisterActive returns 0 initially
+    - MUIRegisterSetActive changes active page
+    - Get after set returns correct page
+
+atest_scroll.b - Scrollable Content
+    - MUIScrollgroup returns non-NULL
+    - MUIScrollgroupHoriz returns non-NULL
+    - MUIScrollgroupVert returns non-NULL
+    - MUIVirtgroup returns non-NULL
+    - MUIBalance returns non-NULL
+
+atest_numeric.b - Numeric Objects
+    - MUINumericbutton returns non-NULL
+    - MUINumericbuttonValue returns initial value
+    - MUINumericbuttonSetValue changes value
+    - Value clamped to min/max range
+
+atest_window.b - Window Management
+    - MUIWindow returns non-NULL
+    - MUIWindowID returns non-NULL
+    - MUIApp returns non-NULL
+    - MUIWindowIsOpen returns 0 before open
+    - MUIWindowOpen succeeds
+    - MUIWindowIsOpen returns -1 after open
+    - MUIWindowClose succeeds
+    - MUIWindowIsOpen returns 0 after close
+
+
+8.2 Manual Tests (mtest/)
+-------------------------
+
+Manual tests require visual verification or user interaction.
+Each test displays instructions and expected behavior.
+
+mtest_layout.b - Layout Verification
+    - Displays various group layouts
+    - User verifies: alignment, spacing, frames look correct
+    - Instructions: "Press any key when verified, Q to report failure"
+
+mtest_resize.b - Resize Behavior
+    - Window with multiple gadgets
+    - User resizes window
+    - Verifies: gadgets resize/reflow correctly
+
+mtest_buttons.b - Button Interaction
+    - Window with multiple buttons
+    - User clicks each button
+    - Console shows which button was pressed
+    - Verifies: correct button IDs reported
+
+mtest_keyboard.b - Keyboard Shortcuts
+    - Buttons with keyboard shortcuts
+    - User presses shortcut keys
+    - Verifies: buttons activate correctly
+
+mtest_menus.b - Menu Interaction
+    - Window with complete menubar
+    - User selects menu items
+    - Console shows selections
+    - Verifies: all items accessible, shortcuts work
+
+mtest_string.b - String Gadget Input
+    - Various string gadgets (normal, secret, integer)
+    - User types in each gadget
+    - Verifies: input accepted, secret shows dots, integer rejects letters
+
+mtest_cycle.b - Cycle/Radio Selection
+    - Cycle gadgets and radio buttons
+    - User clicks to change selection
+    - Console shows selected values
+
+mtest_slider.b - Slider Interaction
+    - Horizontal and vertical sliders
+    - User drags sliders
+    - Console shows values updating
+
+mtest_list.b - List Interaction
+    - Listview with entries
+    - User scrolls, selects entries
+    - Console shows selection changes
+
+mtest_colors.b - Color Picker
+    - Coloradjust and Poppen objects
+    - User adjusts colors
+    - Verifies: RGB values update, colors display correctly
+
+mtest_popasl.b - ASL Requesters
+    - File, font, screenmode popups
+    - User activates each, makes selection
+    - Console shows selected values
+
+mtest_tabs.b - Tabbed Interface
+    - Register with multiple pages
+    - User clicks tabs
+    - Verifies: correct page displayed
+
+mtest_scroll.b - Scrolling
+    - Scrollgroup with large content
+    - User scrolls horizontally and vertically
+    - Verifies: smooth scrolling, content visible
+
+mtest_balance.b - Resizable Panes
+    - Two panes with Balance between them
+    - User drags divider
+    - Verifies: panes resize correctly
+
+mtest_hooks.b - CALLBACK Hooks
+    - Button with hook callback
+    - User clicks button
+    - Verifies: hook called, counter updates
+
+mtest_memory.b - Memory Leak Check
+    - Instructions: Run "avail" before test
+    - Creates and disposes many objects
+    - Instructions: Run "avail" after test
+    - User compares memory (should be similar)
+
+
+8.3 Test Runner (run_atests.rexx)
+---------------------------------
+
+ARexx script to run all automated tests:
+
+    /* run_atests.rexx - Run all MUI automated tests */
+
+    SAY "MUI Submod Automated Test Suite"
+    SAY "================================"
+    SAY ""
+
+    /* Clear results file */
+    ADDRESS COMMAND "delete ace:atest-results.txt quiet"
+
+    /* List of automated tests */
+    tests = "init tags objects attrs groups menus lists colors register scroll numeric window"
+
+    passed = 0
+    failed = 0
+
+    DO i = 1 TO WORDS(tests)
+        test = WORD(tests, i)
+        SAY "Running atest_" || test || "..."
+        ADDRESS COMMAND "ace:submods/mui/atest/atest_" || test
+        rc = RC
+        IF rc = 0 THEN DO
+            passed = passed + 1
+        END
+        ELSE DO
+            failed = failed + 1
+            SAY "  FAILED with RC=" || rc
+        END
+    END
+
+    SAY ""
+    SAY "================================"
+    SAY "Passed: " || passed
+    SAY "Failed: " || failed
+    SAY "Results written to ace:atest-results.txt"
+
+    EXIT failed
+
+
+8.4 Test Helper Module
+----------------------
+
+submods/mui/atest/testhelper.b - Common test utilities
+
+    ' Test result tracking
+    SHORTINT _testsPassed, _testsFailed
+    STRING _testName SIZE 40
+
+    SUB TestStart(STRING name) EXTERNAL
+        SHARED _testName, _testsPassed, _testsFailed
+        _testName = name
+        _testsPassed = 0
+        _testsFailed = 0
+        OPEN "O", #1, "ace:atest-results.txt", "a"
+        PRINT #1, "=== " + name + " ==="
+    END SUB
+
+    SUB TestCheck(STRING desc, LONGINT condition) EXTERNAL
+        SHARED _testsPassed, _testsFailed
+        IF condition THEN
+            PRINT "PASS: "; desc
+            PRINT #1, "PASS: "; desc
+            _testsPassed = _testsPassed + 1
+        ELSE
+            PRINT "FAIL: "; desc
+            PRINT #1, "FAIL: "; desc
+            _testsFailed = _testsFailed + 1
+        END IF
+    END SUB
+
+    SUB TestCheckEq(STRING desc, LONGINT actual, LONGINT expected) EXTERNAL
+        SHARED _testsPassed, _testsFailed
+        IF actual = expected THEN
+            PRINT "PASS: "; desc
+            PRINT #1, "PASS: "; desc
+            _testsPassed = _testsPassed + 1
+        ELSE
+            PRINT "FAIL: "; desc; " (expected "; expected; ", got "; actual; ")"
+            PRINT #1, "FAIL: "; desc; " (expected "; expected; ", got "; actual; ")"
+            _testsFailed = _testsFailed + 1
+        END IF
+    END SUB
+
+    SUB TestCheckStr(STRING desc, STRING actual, STRING expected) EXTERNAL
+        SHARED _testsPassed, _testsFailed
+        IF actual = expected THEN
+            PRINT "PASS: "; desc
+            PRINT #1, "PASS: "; desc
+            _testsPassed = _testsPassed + 1
+        ELSE
+            PRINT "FAIL: "; desc; " (expected '"; expected; "', got '"; actual; "')"
+            PRINT #1, "FAIL: "; desc
+            _testsFailed = _testsFailed + 1
+        END IF
+    END SUB
+
+    SUB SHORTINT TestEnd EXTERNAL
+        SHARED _testName, _testsPassed, _testsFailed
+        PRINT ""
+        PRINT _testName; ": "; _testsPassed; " passed, "; _testsFailed; " failed"
+        PRINT #1, "--- "; _testsPassed; " passed, "; _testsFailed; " failed ---"
+        PRINT #1, ""
+        CLOSE #1
+        TestEnd = _testsFailed
+    END SUB
+
+
+8.5 Example Automated Test
+--------------------------
+
+atest/atest_attrs.b:
+
+    ' atest_attrs.b - Test attribute get/set
+
+    #include <submods/MUI.h>
+    EXTERNAL testhelper
+
+    ADDRESS slider, check, txt
+    LONGINT val
+    STRING s SIZE 80
+
+    TestStart "Attribute Get/Set"
+
+    MUIInit
+    TestCheck "MUIInit succeeds", MUILastError() = 0
+
+    ' Test slider value
+    slider = MUISlider(0, 100, 50)
+    TestCheck "MUISlider created", slider <> 0&
+
+    val = MUIGetValue(slider)
+    TestCheckEq "Initial slider value", val, 50
+
+    MUISetValue slider, 75
+    val = MUIGetValue(slider)
+    TestCheckEq "Slider value after set", val, 75
+
+    ' Test checkmark
+    check = MUICheckmark(0)
+    TestCheck "MUICheckmark created", check <> 0&
+
+    val = MUIGetChecked(check)
+    TestCheckEq "Initial checkmark state", val, 0
+
+    MUISetChecked check, -1
+    val = MUIGetChecked(check)
+    TestCheckEq "Checkmark after set", val, -1
+
+    ' Test text
+    txt = MUIText("Hello")
+    TestCheck "MUIText created", txt <> 0&
+
+    s = MUIGetText(txt)
+    TestCheckStr "Initial text", s, "Hello"
+
+    MUISetText txt, "World"
+    s = MUIGetText(txt)
+    TestCheckStr "Text after set", s, "World"
+
+    MUICleanup
+
+    END TestEnd
+
+
+=============================================================================
+APPENDIX A: COMPLETE CONSTANT LIST
+=============================================================================
+
+(To be extracted from MUI autodocs and mui/muimaster_protos.h)
+
+Key constants needed:
+
+    ' Tag constants
+    CONST TAG_DONE = 0&
+    CONST TAG_USER = &H80000000
+
+    ' Frame types
+    CONST MUIV_Frame_None       = 0
+    CONST MUIV_Frame_Button     = 1
+    CONST MUIV_Frame_ImageButton = 2
+    CONST MUIV_Frame_Text       = 3
+    CONST MUIV_Frame_String     = 4
+    CONST MUIV_Frame_ReadList   = 5
+    CONST MUIV_Frame_InputList  = 6
+    CONST MUIV_Frame_Prop       = 7
+    CONST MUIV_Frame_Gauge      = 8
+    CONST MUIV_Frame_Group      = 9
+    CONST MUIV_Frame_PopUp      = 10
+    CONST MUIV_Frame_Virtual    = 11
+    CONST MUIV_Frame_Slider     = 12
+
+    ' Background types
+    CONST MUII_WindowBack       = 128
+    CONST MUII_RequesterBack    = 129
+    CONST MUII_ButtonBack       = 130
+    CONST MUII_ListBack         = 131
+    CONST MUII_TextBack         = 132
+    CONST MUII_PropBack         = 133
+    CONST MUII_PopupBack        = 134
+    CONST MUII_SelectedBack     = 135
+    CONST MUII_ListCursor       = 136
+    CONST MUII_ListSelect       = 137
+    CONST MUII_ListSelCur       = 138
+    CONST MUII_ArrowUp          = 139
+    CONST MUII_ArrowDown        = 140
+    CONST MUII_ArrowLeft        = 141
+    CONST MUII_ArrowRight       = 142
+    CONST MUII_CheckMark        = 143
+    CONST MUII_RadioButton      = 144
+    CONST MUII_Cycle            = 145
+    CONST MUII_PopUp            = 146
+    CONST MUII_PopFile          = 147
+    CONST MUII_PopDrawer        = 148
+    CONST MUII_PropButton       = 149
+    CONST MUII_PopFont          = 150
+    CONST MUII_GroupBack        = 151
+    CONST MUII_SliderBack       = 152
+    CONST MUII_SliderKnob       = 153
+    CONST MUII_TapePlay         = 154
+    CONST MUII_TapePlayBack     = 155
+    CONST MUII_TapePause        = 156
+    CONST MUII_TapeStop         = 157
+    CONST MUII_TapeRecord       = 158
+    CONST MUII_TapeLEnd         = 159
+    CONST MUII_TapeREnd         = 160
+
+    ' Input modes
+    CONST MUIV_InputMode_None       = 0
+    CONST MUIV_InputMode_RelVerify  = 1
+    CONST MUIV_InputMode_Immediate  = 2
+    CONST MUIV_InputMode_Toggle     = 3
+
+    ' Notify special values
+    CONST MUIV_EveryTime        = &H49893131
+    CONST MUIV_TriggerValue     = &H49893131
+
+    ' Application attributes
+    CONST MUIA_Application_Title       = &H804281b8
+    CONST MUIA_Application_Version     = &H8042b33f
+    CONST MUIA_Application_Author      = &H80424842
+    CONST MUIA_Application_Description = &H80421fc6
+    CONST MUIA_Application_Base        = &H8042e07a
+    CONST MUIA_Application_Window      = &H8042bfe0
+
+    ' Window attributes
+    CONST MUIA_Window_Title            = &H8042ad3d
+    CONST MUIA_Window_ID               = &H804201bd
+    CONST MUIA_Window_RootObject       = &H8042cba5
+    CONST MUIA_Window_Open             = &H80428aa0
+    CONST MUIA_Window_CloseRequest     = &H8042e86e
+    CONST MUIA_Window_ScreenTitle      = &H804234b0
+    CONST MUIA_Window_ActiveObject     = &H80427925
+
+    ' Group attributes
+    CONST MUIA_Group_Child             = &H804226e6
+    CONST MUIA_Group_Horiz             = &H8042ae4c
+    CONST MUIA_Group_Columns           = &H8042f416
+    CONST MUIA_Group_Rows              = &H8042b68f
+    CONST MUIA_Group_SameSize          = &H80420860
+    CONST MUIA_Group_SameWidth         = &H8042b3ec
+    CONST MUIA_Group_SameHeight        = &H8042037e
+    CONST MUIA_Group_Spacing           = &H8042866d
+
+    ' Area attributes
+    CONST MUIA_Frame                   = &H8042ac64
+    CONST MUIA_FrameTitle              = &H8042d1c7
+    CONST MUIA_Background              = &H8042545b
+    CONST MUIA_InputMode               = &H80423033
+    CONST MUIA_Weight                  = &H80421d1f
+    CONST MUIA_Pressed                 = &H80423535
+    CONST MUIA_Selected                = &H8042654b
+    CONST MUIA_Disabled                = &H80423661
+
+    ' Text attributes
+    CONST MUIA_Text_Contents           = &H8042f8dc
+    CONST MUIA_Text_PreParse           = &H8042566a
+    CONST MUIA_Text_HiChar             = &H804218ff
+    CONST MUIA_Text_SetMin             = &H80424d0a
+    CONST MUIA_Text_SetMax             = &H80424d0b
+
+    ' String attributes
+    CONST MUIA_String_Contents         = &H80428ffd
+    CONST MUIA_String_MaxLen           = &H80424984
+    CONST MUIA_String_Accept           = &H8042e3e1
+    CONST MUIA_String_Reject           = &H8042179c
+    CONST MUIA_String_Secret           = &H80428769
+    CONST MUIA_String_Integer          = &H80426e8a
+    CONST MUIA_String_Format           = &H80427484
+    CONST MUIA_String_AdvanceOnCR      = &H804226de
+
+    ' List attributes
+    CONST MUIA_List_Active             = &H8042391c
+    CONST MUIA_List_Entries            = &H80421654
+    CONST MUIA_List_Quiet              = &H8042d8c7
+    CONST MUIA_List_Format             = &H80423c0a
+    CONST MUIA_List_Title              = &H80423e66
+    CONST MUIA_List_Visible            = &H8042191f
+
+    ' Listview attributes
+    CONST MUIA_Listview_List           = &H8042bcce
+    CONST MUIA_Listview_Input          = &H8042682d
+    CONST MUIA_Listview_MultiSelect    = &H80427e08
+
+    ' Cycle attributes
+    CONST MUIA_Cycle_Active            = &H80421788
+    CONST MUIA_Cycle_Entries           = &H80420629
+
+    ' Slider attributes
+    CONST MUIA_Slider_Min              = &H8042e404
+    CONST MUIA_Slider_Max              = &H8042d78a
+    CONST MUIA_Slider_Level            = &H8042ae3a
+    CONST MUIA_Slider_Quiet            = &H80420b26
+
+    ' Gauge attributes
+    CONST MUIA_Gauge_Current           = &H8042f0dd
+    CONST MUIA_Gauge_Max               = &H8042bcdb
+    CONST MUIA_Gauge_InfoText          = &H8042bf15
+    CONST MUIA_Gauge_Horiz             = &H804232dd
+
+    ' Colorfield attributes
+    CONST MUIA_Colorfield_Red          = &H804279db
+    CONST MUIA_Colorfield_Green        = &H80424466
+    CONST MUIA_Colorfield_Blue         = &H8042d3b0
+    CONST MUIA_Colorfield_RGB          = &H8042677a
+    CONST MUIA_Colorfield_Pen          = &H8042713a
+
+    ' Coloradjust attributes
+    CONST MUIA_Coloradjust_Red         = &H80420eaa
+    CONST MUIA_Coloradjust_Green       = &H804285ab
+    CONST MUIA_Coloradjust_Blue        = &H8042b8a3
+    CONST MUIA_Coloradjust_RGB         = &H8042f899
+    CONST MUIA_Coloradjust_ModeID      = &H8042ec59
+
+    ' Palette attributes
+    CONST MUIA_Palette_Entries         = &H8042a3d8
+    CONST MUIA_Palette_Groupable       = &H80423e67
+    CONST MUIA_Palette_Names           = &H8042c3a2
+
+    ' Pendisplay attributes
+    CONST MUIA_Pendisplay_Pen          = &H8042a748
+    CONST MUIA_Pendisplay_RGBcolor     = &H8042a1a9
+    CONST MUIA_Pendisplay_Spec         = &H8042a204
+
+    ' Poppen attributes
+    CONST MUIA_Poppen_PopPen           = &H80421d20
+
+    ' Popstring attributes
+    CONST MUIA_Popstring_Button        = &H8042d0b9
+    CONST MUIA_Popstring_CloseHook     = &H804256bf
+    CONST MUIA_Popstring_OpenHook      = &H80429d00
+    CONST MUIA_Popstring_String        = &H804239ea
+    CONST MUIA_Popstring_Toggle        = &H80422b7a
+
+    ' Popobject attributes
+    CONST MUIA_Popobject_Follow        = &H80424cb5
+    CONST MUIA_Popobject_Light         = &H8042a5a3
+    CONST MUIA_Popobject_Object        = &H804293e3
+    CONST MUIA_Popobject_ObjStrHook    = &H8042db44
+    CONST MUIA_Popobject_StrObjHook    = &H8042fbe1
+    CONST MUIA_Popobject_Volatile      = &H804252ec
+    CONST MUIA_Popobject_WindowHook    = &H8042f194
+
+    ' Poplist attributes
+    CONST MUIA_Poplist_Array           = &H8042084c
+
+    ' Popasl attributes
+    CONST MUIA_Popasl_Active           = &H80421b37
+    CONST MUIA_Popasl_StartHook        = &H8042b703
+    CONST MUIA_Popasl_StopHook         = &H8042d8d2
+    CONST MUIA_Popasl_Type             = &H8042df3d
+
+    ' ASL requester types for Popasl
+    CONST ASL_FileRequest              = 0
+    CONST ASL_FontRequest              = 1
+    CONST ASL_ScreenModeRequest        = 2
+
+    ' Register (tabs) attributes
+    CONST MUIA_Register_Frame          = &H8042349b
+    CONST MUIA_Register_Titles         = &H804297ec
+
+    ' Scrollgroup attributes
+    CONST MUIA_Scrollgroup_Contents    = &H80421261
+    CONST MUIA_Scrollgroup_FreeHoriz   = &H804292f3
+    CONST MUIA_Scrollgroup_FreeVert    = &H804224f2
+    CONST MUIA_Scrollgroup_HorizBar    = &H8042b63d
+    CONST MUIA_Scrollgroup_UseWinBorder = &H804284c1
+    CONST MUIA_Scrollgroup_VertBar     = &H8042cb41
+
+    ' Virtgroup attributes
+    CONST MUIA_Virtgroup_Height        = &H80423038
+    CONST MUIA_Virtgroup_Input         = &H80427f7e
+    CONST MUIA_Virtgroup_Left          = &H80429371
+    CONST MUIA_Virtgroup_Top           = &H80425200
+    CONST MUIA_Virtgroup_Width         = &H80427c49
+
+    ' Balance attributes
+    CONST MUIA_Balance_Quiet           = &H80427486
+
+    ' Numeric (includes Numericbutton, Slider, Knob) attributes
+    CONST MUIA_Numeric_CheckAllSizes   = &H80421594
+    CONST MUIA_Numeric_Default         = &H804263e8
+    CONST MUIA_Numeric_Format          = &H804263e9
+    CONST MUIA_Numeric_Max             = &H8042d78a
+    CONST MUIA_Numeric_Min             = &H8042e404
+    CONST MUIA_Numeric_Reverse         = &H8042f2a0
+    CONST MUIA_Numeric_RevLeftRight    = &H804294a7
+    CONST MUIA_Numeric_RevUpDown       = &H804252dd
+    CONST MUIA_Numeric_Value           = &H8042ae3a
+
+    ' Dtpic (datatypes picture) attributes
+    CONST MUIA_Dtpic_Name              = &H80423d72
+
+    ' Methods
+    CONST MUIM_Notify                  = &H8042c9cb
+    CONST MUIM_Set                     = &H8042549a
+    CONST MUIM_Get                     = &H8042c0ef
+    CONST MUIM_CallHook                = &H8042b96b
+    CONST MUIM_Application_ReturnID    = &H804276ef
+    CONST MUIM_Application_NewInput    = &H80423ba6
+    CONST MUIM_Application_Input       = &H80428190
+    CONST MUIM_List_Insert             = &H80426c87
+    CONST MUIM_List_Remove             = &H8042647e
+    CONST MUIM_List_Clear              = &H8042ad89
+    CONST MUIM_List_GetEntry           = &H804280ec
+
+    ' Menu/Menuitem attributes
+    CONST MUIA_Menu_Enabled            = &H8042ed48
+    CONST MUIA_Menu_Title              = &H8042a0e3
+    CONST MUIA_Menuitem_Checked        = &H8042562a
+    CONST MUIA_Menuitem_Checkit        = &H80425ace
+    CONST MUIA_Menuitem_CommandString  = &H8042b9cc
+    CONST MUIA_Menuitem_Enabled        = &H8042ae0f
+    CONST MUIA_Menuitem_Exclude        = &H80420bc6
+    CONST MUIA_Menuitem_Shortcut       = &H80422030
+    CONST MUIA_Menuitem_Title          = &H804218be
+    CONST MUIA_Menuitem_Toggle         = &H80424d5c
+    CONST MUIA_Menuitem_Trigger        = &H80426f32
+    CONST MUIA_Window_Menustrip        = &H8042855e
+
+    ' Menu special values
+    CONST MUIV_Menuitem_Shortcut_Check = -1
+    CONST NM_BARLABEL                  = -1    ' For menu separators
+
+    ' Special return IDs
+    CONST MUIV_Application_ReturnID_Quit = -1
+
+
+=============================================================================
+APPENDIX B: STRING HANDLING NOTES
+=============================================================================
+
+MUI expects null-terminated C strings. ACE's SADD() function provides this.
+
+For dynamic strings, the module must ensure strings remain valid for the
+lifetime of the MUI object. Options:
+
+1. Use SADD() for literals (they're in static memory)
+2. For dynamic strings, the user must manage lifetime
+3. Consider internal string pool for common cases
+
+Example of safe dynamic string:
+
+    STRING myTitle SIZE 80
+    myTitle = "Window " + STR$(count)
+    win = MUIWindow(myTitle, grp)
+    ' myTitle must remain valid until window is disposed!
+
+
+=============================================================================
+END OF PLAN
+=============================================================================

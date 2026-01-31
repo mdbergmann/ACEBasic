@@ -1,18 +1,6 @@
 ;BEGIN ViNCEd
-; Remove the ; default console handler CON:
-; Entfernen Sie das ; die Standardkonsole CON: verwenden wollen.
-
 ;SetVNC Quiet Mount Override as CON:
-
-; Remove the ; gadgets with new functions from ViNCEd that can be set with prefs tool ViNCEd.
-; Entfernen Sie das ; F�higkeiten von ViNCEd in Texteingabefeldern wollen. Diese konfigurieren Sie
-; auch mit dem Voreinsteller ViNCEd.
-
 ;StringSnip >NIL: INSTALL
-
-; Remove the ; assigns in pattern matching commands.
-; Entfernen Sie das ; Unterst�tzung der mehrfach Assign in Dateinamensmustern w�nschen.
-
 ;TrueMultiAssigns
 ;END ViNCEd
 
@@ -49,16 +37,14 @@ assign AmiTcp: sys:
 
 ;BEGIN Devel
 assign Devel: SYS:Tools/Devel
-; the following includes assigns for vbcc
 execute Devel:create_assigns
 ;END Devel
 
-; ACE compiler setup (from INSTALL file)
+; ACE compiler setup
 assign ACElib: ACE:lib
 assign ACEbmaps: ACE:bmaps
 assign ACEinclude: ACE:include
 path ACE:bin add
-
-; Set script flag on bas script (needed for fs-uae shared folder)
 protect ACE:bin/bas +s
 protect ACE:bin/module +s
+

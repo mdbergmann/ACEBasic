@@ -1,0 +1,26 @@
+.key prog
+.bra {
+.ket }
+
+; Make script for MUI examples
+; Usage: execute Make <programname>
+; Example: execute Make 01_Hello
+;
+; Compiles the program and links with MUI.o submod
+
+IF "{prog}" EQ ""
+    ECHO "Usage: execute Make <programname>"
+    ECHO "Example: execute Make 01_Hello"
+    SKIP end
+ENDIF
+
+ECHO "Compiling {prog}..."
+ace:bin/bas -iO {prog} ace:submods/mui/MUI.o
+
+IF WARN
+    ECHO "Compilation failed!"
+ELSE
+    ECHO "Done: {prog}"
+ENDIF
+
+LAB end

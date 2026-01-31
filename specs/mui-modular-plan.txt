@@ -1,0 +1,428 @@
+MUI Submod Modular Split Plan
+=============================
+
+Version: 1.0
+Date: 2026-02-01
+Status: Draft
+Prerequisites: MUI submod implementation complete (mui-submod-plan.txt)
+
+Overview
+--------
+Split the monolithic MUI submod into smaller, focused modules that users
+can include based on their needs. This reduces executable size and
+compilation time for simpler programs.
+
+
+Module Structure
+----------------
+
+    submods/mui/
+        MUI_Core.b          - Essential functionality (required by all)
+        MUI_Gadgets.b       - Form gadgets
+        MUI_Lists.b         - List handling
+        MUI_Menus.b         - Menu system
+        MUI_Colors.b        - Color objects
+        MUI_Popups.b        - Popup dialogs
+        MUI_Layout.b        - Advanced layout (tabs, scrolling)
+        MUI_Hooks.b         - CALLBACK hook support
+
+    include/submods/
+        MUI_Core.h          - Core declarations
+        MUI_Gadgets.h       - Gadget declarations
+        MUI_Lists.h         - List declarations
+        MUI_Menus.h         - Menu declarations
+        MUI_Colors.h        - Color declarations
+        MUI_Popups.h        - Popup declarations
+        MUI_Layout.h        - Layout declarations
+        MUI_Hooks.h         - Hook declarations
+        MUI.h               - Convenience header (includes all)
+        MUI_Int.h           - Internal constants (shared by all modules)
+
+
+Module Dependencies
+-------------------
+
+    MUI_Core        (no dependencies - always required)
+        │
+        ├── MUI_Gadgets
+        ├── MUI_Lists
+        ├── MUI_Menus
+        ├── MUI_Colors
+        ├── MUI_Popups
+        ├── MUI_Layout
+        └── MUI_Hooks
+
+All modules depend only on MUI_Core. No cross-dependencies between
+optional modules.
+
+
+Module Contents
+---------------
+
+MUI_Core.b - Essential Functionality
+    Initialization:
+        MUIInit, MUICleanup, MUIVersion, MUILastError, MUIErrorStr
+
+    Tag Management:
+        MUITagStart, MUITag, MUITagEnd, MUIGetTagArray
+
+    Basic Objects:
+        MUIText, MUITextCentered, MUITextFramed
+        MUILabel, MUILabel1, MUILabel2
+        MUIButton, MUIKeyButton, MUIImageButton
+        MUIRectangle, MUIHBar, MUIVBar, MUIImage
+
+    Groups:
+        MUIBeginVGroup, MUIBeginHGroup, MUIBeginColGroup, MUIBeginRowGroup
+        MUIGroupFrameT, MUIGroupFrame, MUIGroupSameSize
+        MUIGroupSameWidth, MUIGroupSameHeight, MUIGroupSpacing
+        MUIChild, MUIChildWeight, MUIEndGroup
+        MUIVGroup2/3/4, MUIHGroup2/3/4, MUIForm2/3
+
+    Window/Application:
+        MUIWindow, MUIWindowID
+        MUIWindowOpen, MUIWindowClose, MUIWindowIsOpen
+        MUIWindowTitle, MUIWindowScreenTitle
+        MUIApp, MUIAppMulti
+        MUIAppAddWindow, MUIAppRemWindow
+        MUIAppSleep, MUIAppWake
+        MUIDispose
+
+    Events:
+        MUIWaitEvent, MUIPollEvent
+        MUISignals, MUIProcessEvents
+
+    Notifications (basic):
+        MUINotifyClose, MUINotifyAttr
+
+    Attributes (basic):
+        MUISet, MUISetStr, MUIGet, MUIGetStr
+        MUISetText, MUIGetText
+
+    Low-Level:
+        MUIDoMethod, MUINewObject
+
+    Internal State:
+        _muiMasterBase, _tags&(), _tagIndex
+        _groupStack&(), _groupCounts%(), _groupFlags%(), _groupLevel
+        _lastError, _lastErrorStr
+
+
+MUI_Gadgets.b - Form Gadgets
+    Objects:
+        MUIString, MUIStringSecret, MUIInteger
+        MUICheckmark
+        MUICycle, MUIRadio
+        MUISlider, MUIGauge, MUIScale
+        MUINumericbutton
+
+    Attributes:
+        MUISetValue, MUIGetValue
+        MUISetChecked, MUIGetChecked
+        MUIGetActive
+        MUINumericbuttonValue, MUINumericbuttonSetValue
+
+    Notifications:
+        MUINotifyButton
+
+
+MUI_Lists.b - List Handling
+    Objects:
+        MUIList, MUIListview
+        MUIDirlist, MUIVolumelist
+
+    Operations:
+        MUIListInsert, MUIListInsertAt
+        MUIListRemove, MUIListClear
+        MUIListCount, MUIListActive, MUIListSetActive
+        MUIListGetEntry
+
+
+MUI_Menus.b - Menu System
+    Builder:
+        MUIBeginMenustrip, MUIEndMenustrip
+        MUIBeginMenu, MUIEndMenu
+        MUIMenuitem, MUIMenuitemNoKey
+        MUIMenuSeparator, MUIMenuitemCheck
+
+    Window Integration:
+        MUIWindowMenustrip
+
+    State:
+        MUIMenuEnable, MUIMenuSetChecked, MUIMenuGetChecked
+
+    Notifications:
+        MUINotifyMenu
+
+    Internal State:
+        _menuStack&(), _menuCounts%(), _menuTitles$()
+        _menuLevel, _menus&()
+
+
+MUI_Colors.b - Color Objects
+    Objects:
+        MUIColorfield
+        MUIColoradjust, MUIColoradjustRGB
+        MUIPalette
+        MUIPendisplay
+        MUIPoppen
+
+    Attributes:
+        MUISetColor, MUIGetColor
+
+
+MUI_Popups.b - Popup Dialogs
+    ASL Popups:
+        MUIPopaslFile, MUIPopaslFont, MUIPopaslScreen
+        MUIPopaslPath, MUIPopaslFontName, MUIPopaslFontSize
+
+    List Popup:
+        MUIPoplist, MUIPoplistValue
+
+    Generic Popups:
+        MUIPopstring, MUIPopobject
+
+
+MUI_Layout.b - Advanced Layout
+    Tabbed Pages:
+        MUIRegister
+        MUIBeginRegister, MUIRegisterPage, MUIEndRegister
+        MUIRegisterActive, MUIRegisterSetActive
+
+    Scrolling:
+        MUIScrollgroup, MUIScrollgroupHoriz, MUIScrollgroupVert
+        MUIBeginScrollgroup, MUIEndScrollgroup
+        MUIScrollgroupFreeHoriz, MUIScrollgroupFreeVert
+        MUIVirtgroup
+
+    Resizable:
+        MUIBalance, MUIBalanceVert
+
+    Image:
+        MUIDtpic
+
+
+MUI_Hooks.b - CALLBACK Hook Support
+    Hook Management:
+        MUIOnButtonClick
+        MUIOnAttrChange
+
+    Internal State:
+        _hooks(), _hookCount
+
+
+User Usage Examples
+-------------------
+
+Example 1: Minimal app (just Core)
+
+    #include <submods/MUI_Core.h>
+    EXTERNAL MUI_Core
+
+    MUIInit
+    txt = MUITextCentered("Hello!")
+    win = MUIWindow("Test", txt)
+    app = MUIApp("Test", "$VER: Test 1.0", win)
+    MUINotifyClose win, app, MUI_ID_QUIT
+    MUIWindowOpen win
+    WHILE MUIWaitEvent(app) <> MUI_ID_QUIT
+    WEND
+    MUIDispose app
+    MUICleanup
+
+
+Example 2: Form with gadgets
+
+    #include <submods/MUI_Core.h>
+    #include <submods/MUI_Gadgets.h>
+    EXTERNAL MUI_Core
+    EXTERNAL MUI_Gadgets
+
+    MUIInit
+    str = MUIString("", 40)
+    chk = MUICheckmark(0)
+    btn = MUIButton("OK")
+    ...
+
+
+Example 3: Full application
+
+    #include <submods/MUI.h>      ' Includes everything
+    EXTERNAL MUI_Core
+    EXTERNAL MUI_Gadgets
+    EXTERNAL MUI_Lists
+    EXTERNAL MUI_Menus
+    ...
+
+
+Convenience Header (MUI.h)
+--------------------------
+
+    ' MUI.h - Include all MUI submodules
+    ' For users who want the complete API
+
+    #include <submods/MUI_Core.h>
+    #include <submods/MUI_Gadgets.h>
+    #include <submods/MUI_Lists.h>
+    #include <submods/MUI_Menus.h>
+    #include <submods/MUI_Colors.h>
+    #include <submods/MUI_Popups.h>
+    #include <submods/MUI_Layout.h>
+    #include <submods/MUI_Hooks.h>
+
+
+Build Script Updates
+--------------------
+
+The Make script needs targets for each module:
+
+    IF "<target>" EQ "all"
+        echo "Building all MUI modules..."
+        FOR mod IN Core Gadgets Lists Menus Colors Popups Layout Hooks
+            ACE:bin/ace -m MUI_<mod>
+            vasm -Fhunk -phxass -warncomm -no-opt -o MUI_<mod>.o MUI_<mod>.s
+        END
+        echo "Done."
+        SKIP end
+    ENDIF
+
+
+Linking
+-------
+
+Users link only the modules they use:
+
+    vlink -bamigahunk -o myapp myapp.o \
+        MUI_Core.o MUI_Gadgets.o MUI_Menus.o \
+        ACElib:startup.o ACElib:db.lib
+
+
+Implementation Approach
+-----------------------
+
+Phase 1: Refactor existing monolithic MUI.b
+    - Extract MUI_Core.b with essential functions
+    - Verify Core works standalone
+    - Test minimal example
+
+Phase 2: Extract optional modules one by one
+    - MUI_Gadgets.b (most commonly needed after Core)
+    - MUI_Menus.b
+    - MUI_Lists.b
+    - MUI_Colors.b
+    - MUI_Popups.b
+    - MUI_Layout.b
+    - MUI_Hooks.b
+
+Phase 3: Update headers
+    - Split MUI.h into individual headers
+    - Create convenience MUI.h that includes all
+    - Update MUI_Int.h if needed
+
+Phase 4: Update build system
+    - Modify Make script for multiple modules
+    - Update test builds
+
+Phase 5: Update documentation
+    - Document modular usage
+    - Update examples
+
+
+Size Estimates
+--------------
+
+Rough estimates for compiled .o sizes:
+
+    MUI_Core.o      ~8-10 KB   (always needed)
+    MUI_Gadgets.o   ~3-4 KB
+    MUI_Lists.o     ~2-3 KB
+    MUI_Menus.o     ~3-4 KB
+    MUI_Colors.o    ~2-3 KB
+    MUI_Popups.o    ~3-4 KB
+    MUI_Layout.o    ~3-4 KB
+    MUI_Hooks.o     ~1-2 KB
+
+    Total:          ~25-34 KB  (all modules)
+    Minimal:        ~8-10 KB   (Core only)
+
+Users save ~15-25 KB by including only what they need.
+
+
+Migration Path
+--------------
+
+Existing code using monolithic MUI.b:
+    #include <submods/MUI.h>
+    EXTERNAL MUI
+
+New modular code:
+    #include <submods/MUI.h>     ' Same header works
+    EXTERNAL MUI_Core            ' Must list each module
+    EXTERNAL MUI_Gadgets
+    ...
+
+Or keep backward compatibility with a wrapper:
+    ' MUI.b - Wrapper that includes all modules
+    EXTERNAL MUI_Core
+    EXTERNAL MUI_Gadgets
+    EXTERNAL MUI_Lists
+    EXTERNAL MUI_Menus
+    EXTERNAL MUI_Colors
+    EXTERNAL MUI_Popups
+    EXTERNAL MUI_Layout
+    EXTERNAL MUI_Hooks
+
+This allows existing code to keep using:
+    EXTERNAL MUI
+
+
+Alternative Approach Attempted: vlink gc-all
+--------------------------------------------
+
+Date: 2026-02-01
+
+Before implementing the manual modular split, we explored whether vlink's
+garbage collection could automatically eliminate unused functions.
+
+Approach:
+    1. Post-process MUI.s to inject per-function SECTION directives
+    2. Each SUB gets its own section: SECTION code_MUIINIT,CODE
+    3. Assemble with vasm -> MUI_split.o (165 code sections)
+    4. Link with vlink -gc-all to garbage collect unused sections
+
+Test Setup:
+    - Created split_sections.sh to inject sections before each _SUB_ label
+    - Created minimal test program using only MUIInit/MUICleanup/MUIVersion
+    - Compared executable sizes with and without gc-all
+
+Results:
+    MUI_regular.o:  135,960 bytes (single code section)
+    MUI_split.o:    162,528 bytes (165 code sections)
+
+    test_regular:   143,492 bytes (linked without gc-all)
+    test_gcall:     155,220 bytes (linked with gc-all)
+
+    The gc-all version was 12KB LARGER, not smaller.
+
+Why It Failed:
+    1. Per-section overhead: Each section adds hunk metadata (headers,
+       relocation tables) in the Amiga hunk format
+    2. Amiga hunk format limitations: vlink's gc-all doesn't eliminate
+       sections as efficiently with this format compared to ELF
+    3. Shared data references: The BSS section (67KB) contains shared
+       module state that keeps code sections referenced
+
+Conclusion:
+    The per-function section splitting approach is NOT viable for size
+    reduction with vlink and Amiga hunk format. The manual modular split
+    described in this plan remains the only practical approach.
+
+Files Created (can be deleted):
+    submods/mui/split_sections.sh   - Bash script for section injection
+    submods/mui/MUI_split.s         - Split assembly (for reference)
+    submods/mui/test_gcall.b        - Minimal test program
+
+
+=============================================================================
+END OF PLAN
+=============================================================================
