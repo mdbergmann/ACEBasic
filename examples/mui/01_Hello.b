@@ -1,6 +1,8 @@
 {*
 ** 01_Hello.b - Minimal MUI window
 **
+** Copyright (c) 2026 Manfred Bergmann. All rights reserved.
+**
 ** This is the simplest possible MUI program using the MUI submod.
 ** It creates a window with centered text that closes when you
 ** click the close gadget.

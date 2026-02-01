@@ -6,6 +6,8 @@
 ** Part of the MUI submod for ACE Basic
 ** Version 1.0 - February 2026
 **
+** Copyright (c) 2026 Manfred Bergmann. All rights reserved.
+**
 ** QUICK START:
 **
 **   #include <submods/MUI.h>
@@ -698,7 +700,7 @@ DECLARE SUB MUIMenuEnable(ADDRESS menuitem, LONGINT enabled) EXTERNAL
 DECLARE SUB MUIMenuSetChecked(ADDRESS menuitem, LONGINT checked) EXTERNAL
 DECLARE SUB LONGINT MUIMenuGetChecked(ADDRESS menuitem) EXTERNAL
 
-{ ============== Popup Objects (Phase 11) ============== }
+{ ============== Popup Objects ============== }
 {*
 ** Popup objects combine a string gadget with a popup button.
 ** When the button is pressed, a popup window opens.
@@ -747,7 +749,7 @@ DECLARE SUB LONGINT MUIPopaslActive(ADDRESS popup) EXTERNAL
 DECLARE SUB MUIPopstringClose(ADDRESS popup, LONGINT success) EXTERNAL
 DECLARE SUB MUIPopstringOpen(ADDRESS popup) EXTERNAL
 
-{ ============== Register (Tabbed Pages) - Phase 12 ============== }
+{ ============== Register (Tabbed Pages) ============== }
 {*
 ** Register creates a tabbed interface. Each page is a group.
 **
@@ -770,7 +772,7 @@ DECLARE SUB ADDRESS MUIRegister3(STRING titles, ADDRESS page1, ADDRESS page2, AD
 DECLARE SUB LONGINT MUIRegisterActive(ADDRESS reg) EXTERNAL
 DECLARE SUB MUIRegisterSetActive(ADDRESS reg, LONGINT page) EXTERNAL
 
-{ ============== Scrollgroup & Virtgroup - Phase 12 ============== }
+{ ============== Scrollgroup & Virtgroup ============== }
 {*
 ** Scrollgroup provides scrollable content.
 ** Virtgroup creates virtual content larger than visible area.
@@ -793,7 +795,7 @@ DECLARE SUB ADDRESS MUIScrollgroup(ADDRESS virtgroup) EXTERNAL
 DECLARE SUB ADDRESS MUIScrollgroupHoriz(ADDRESS virtgroup) EXTERNAL
 DECLARE SUB ADDRESS MUIScrollgroupVert(ADDRESS virtgroup) EXTERNAL
 
-{ ============== Balance (Resizable Divider) - Phase 12 ============== }
+{ ============== Balance (Resizable Divider) ============== }
 {*
 ** Balance creates a resizable divider between groups.
 ** Use in HGroup for horizontal resizing, VGroup for vertical.
@@ -808,7 +810,7 @@ DECLARE SUB ADDRESS MUIScrollgroupVert(ADDRESS virtgroup) EXTERNAL
 DECLARE SUB ADDRESS MUIBalance EXTERNAL
 DECLARE SUB ADDRESS MUIBalanceQuiet EXTERNAL
 
-{ ============== Numericbutton - Phase 13 ============== }
+{ ============== Numericbutton ============== }
 {*
 ** Numericbutton creates a numeric input with +/- buttons.
 ** User can click buttons or type a value directly.
@@ -832,7 +834,7 @@ DECLARE SUB ADDRESS MUINumericbuttonFormat(LONGINT minVal, LONGINT maxVal, LONGI
 DECLARE SUB LONGINT MUINumericbuttonValue(ADDRESS obj) EXTERNAL
 DECLARE SUB MUINumericbuttonSetValue(ADDRESS obj, LONGINT value) EXTERNAL
 
-{ ============== Dtpic (Image Display) - Phase 13 ============== }
+{ ============== Dtpic (Image Display) ============== }
 {*
 ** Dtpic displays an image file using the datatypes system.
 ** Supports any image format with an installed datatype (IFF, PNG, JPEG, etc).
@@ -851,7 +853,7 @@ DECLARE SUB ADDRESS MUIDtpic(STRING filename) EXTERNAL
 DECLARE SUB ADDRESS MUIDtpicAlpha(STRING filename, LONGINT alpha) EXTERNAL
 DECLARE SUB MUIDtpicSetName(ADDRESS obj, STRING filename) EXTERNAL
 
-{ ============== Knob & Levelmeter - Phase 13 ============== }
+{ ============== Knob & Levelmeter ============== }
 {*
 ** Additional numeric input controls.
 **

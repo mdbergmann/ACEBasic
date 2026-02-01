@@ -6,6 +6,8 @@
                               Version 1.0
                             February 2026
 
+            Copyright (c) 2026 Manfred Bergmann. All rights reserved.
+
 
 ================================================================================
                               TABLE OF CONTENTS

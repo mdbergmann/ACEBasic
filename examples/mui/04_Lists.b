@@ -1,6 +1,8 @@
 {*
 ** 04_Lists.b - List operations
 **
+** Copyright (c) 2026 Manfred Bergmann. All rights reserved.
+**
 ** Demonstrates:
 ** - Creating lists with MUIList and MUIListview
 ** - Adding and removing entries

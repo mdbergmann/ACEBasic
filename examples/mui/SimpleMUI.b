@@ -1,6 +1,8 @@
 {
   SimpleMUI.b - A simple MUI example for ACE Basic
   All definitions inline to avoid include path issues.
+
+  Copyright (c) 2026 Manfred Bergmann. All rights reserved.
 }
 
 { ============== Inline Definitions ============== }

@@ -59,7 +59,6 @@ SUB OnVolumeSelect(ADDRESS hook, ADDRESS obj, ADDRESS msg) CALLBACK
     LONGINT activeIdx
     ADDRESS entryPtr
     STRING volName
-    SHORTINT i, ch
 
     IF volumeList = 0& OR dirList = 0& THEN
         OnVolumeSelect = 0&
@@ -79,13 +78,7 @@ SUB OnVolumeSelect(ADDRESS hook, ADDRESS obj, ADDRESS msg) CALLBACK
         EXIT SUB
     END IF
 
-    { Convert C string to BASIC string }
-    volName = ""
-    FOR i = 0 TO 30
-        ch = PEEK(entryPtr + i)
-        IF ch = 0 THEN EXIT FOR
-        volName = volName + CHR$(ch)
-    NEXT i
+    volName = CSTR(entryPtr)
 
     PRINT "Selected volume: "; volName
 
@@ -114,7 +107,6 @@ SUB OnDirSelect(ADDRESS hook, ADDRESS obj, ADDRESS msg) CALLBACK
     LONGINT activeIdx
     ADDRESS entryPtr, nameAddr
     STRING fileName
-    SHORTINT i, ch
 
     { Skip if we're in the middle of changing volumes }
     IF changingVolume THEN
@@ -149,13 +141,7 @@ SUB OnDirSelect(ADDRESS hook, ADDRESS obj, ADDRESS msg) CALLBACK
     { Dirlist entry: name string starts at offset 8 }
     nameAddr = entryPtr + 8
 
-    { Convert C string to BASIC string }
-    fileName = ""
-    FOR i = 0 TO 40
-        ch = PEEK(nameAddr + i)
-        IF ch = 0 THEN EXIT FOR
-        fileName = fileName + CHR$(ch)
-    NEXT i
+    fileName = CSTR(nameAddr)
 
     { Update the selected text display }
     IF txtSelected <> 0& THEN

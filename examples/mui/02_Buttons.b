@@ -1,6 +1,8 @@
 {*
 ** 02_Buttons.b - Button handling with event IDs
 **
+** Copyright (c) 2026 Manfred Bergmann. All rights reserved.
+**
 ** Demonstrates:
 ** - Creating buttons with MUIButton
 ** - Setting up button notifications with MUINotifyButton

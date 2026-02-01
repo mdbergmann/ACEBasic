@@ -1,6 +1,8 @@
 {*
 ** 06_Tabs.b - Tabbed interface (Register)
 **
+** Copyright (c) 2026 Manfred Bergmann. All rights reserved.
+**
 ** Demonstrates:
 ** - Creating tabbed pages with MUIRegister
 ** - Builder pattern vs quick helper

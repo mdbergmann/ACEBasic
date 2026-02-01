@@ -1,6 +1,8 @@
 {*
 ** 03_Form.b - Input form with various gadgets
 **
+** Copyright (c) 2026 Manfred Bergmann. All rights reserved.
+**
 ** Demonstrates:
 ** - Column groups for form layout (MUIBeginColGroup 2)
 ** - String gadgets (MUIString, MUIInteger)

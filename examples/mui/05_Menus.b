@@ -1,6 +1,8 @@
 {*
 ** 05_Menus.b - Menu handling
 **
+** Copyright (c) 2026 Manfred Bergmann. All rights reserved.
+**
 ** Demonstrates:
 ** - Building menus with MUIBeginMenustrip/MUIEndMenustrip
 ** - Menu items with keyboard shortcuts

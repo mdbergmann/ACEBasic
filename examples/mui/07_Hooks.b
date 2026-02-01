@@ -1,6 +1,8 @@
 {*
 ** 07_Hooks.b - Hook-based callbacks
 **
+** Copyright (c) 2026 Manfred Bergmann. All rights reserved.
+**
 ** Demonstrates:
 ** - CALLBACK SUBs for MUI hooks
 ** - Using MUISetupHookA4 for SHARED variable access

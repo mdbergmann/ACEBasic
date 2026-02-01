@@ -2,6 +2,8 @@
 ** MUI.b - MUI Submod Implementation for ACE Basic
 ** Part of the MUI submod for ACE Basic
 **
+** Copyright (c) 2026 Manfred Bergmann. All rights reserved.
+**
 ** This module provides MUI functionality. It handles library management
 ** and provides wrapper functions for MUI operations.
 **
