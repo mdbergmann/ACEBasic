@@ -2,9 +2,6 @@ REM Test: Nested SUB calls with SHARED variable
 REM Multiple SUBs can share the same variable
 
 total& = 0
-CALL AddTen
-CALL AddTwenty
-CALL PrintTotal
 
 SUB AddTen
   SHARED total&
@@ -20,3 +17,7 @@ SUB PrintTotal
   SHARED total&
   PRINT total&
 END SUB
+
+CALL AddTen
+CALL AddTwenty
+CALL PrintTotal

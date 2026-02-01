@@ -7,7 +7,6 @@ nums%(1) = 2
 nums%(2) = 3
 nums%(3) = 4
 nums%(4) = 5
-CALL PrintArray
 
 SUB PrintArray
   SHARED nums%
@@ -15,3 +14,5 @@ SUB PrintArray
     PRINT nums%(i%)
   NEXT i%
 END SUB
+
+CALL PrintArray
