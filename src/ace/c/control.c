@@ -59,13 +59,24 @@ extern	BOOL	have_equal;
 extern	BOOL	have_lparen;
 
 /* functions */
+
+#define MAX_ELSEIF 32
+
 void block_if(cx1)
 CODE *cx1;
 {
-char labname1[80],lablabel1[80];
-char labname2[80],lablabel2[80];
-char labname3[80],lablabel3[80];
-CODE *cx2;
+char labname[80],lablabel[80];
+char endif_labname[80],endif_lablabel[80];
+CODE *endif_jumps[MAX_ELSEIF];
+CODE *cx_false;
+CODE *cx[3];
+int endif_count;
+int exprtype;
+int targettype;
+int i;
+
+ endif_count = 0;
+ cx_false = cx1;
 
  /* statement block after THEN */
  insymbol();
@@ -73,51 +84,103 @@ CODE *cx2;
  {
   statement();
  }
- while ((sym != elsesym) && (sym != endsym) && (!end_of_source));  
-       /* ELSE or END IF */
+ while ((sym != elsesym) && (sym != elseifsym) &&
+        (sym != endsym) && (!end_of_source));
 
-   /* ELSE? */
-   if (sym == elsesym)
-   {
-    gen("nop","  ","  ");  /* jump after THEN statement block */
-    cx2=curr_code;
+ /* process ELSEIF chain */
+ while (sym == elseifsym)
+ {
+  /* jump to END IF after this block completes */
+  gen("nop","  ","  ");
+  if (endif_count < MAX_ELSEIF)
+   endif_jumps[endif_count++] = curr_code;
 
-    /* execute ELSE code section if expression false */
-    make_label(labname1,lablabel1);
-    gen(lablabel1,"  ","  ");
-    change(cx1,"jmp",labname1,"  ");
-    
-    insymbol();
-    do
-    {	
-     statement();
-    }
-    while ((sym != endsym) && (!end_of_source));
+  /* label for false condition from previous block */
+  make_label(labname,lablabel);
+  gen(lablabel,"  ","  ");
+  change(cx_false,"jmp",labname,"  ");
 
-    insymbol();
-    if (sym == ifsym)
-    {
-     /* branch after THEN */
-     make_label(labname2,lablabel2);
-     gen(lablabel2,"  ","  ");
-     change(cx2,"jmp",labname2,"  ");
-     insymbol();
-    }
-    else _error(15);  /* END IF expected */
-   }
-   else  
-       /* no ELSE */
-       {
-	insymbol();
-	if (sym == ifsym)
-        {
- 	 make_label(labname3,lablabel3);
- 	 gen(lablabel3,"  ","  ");
- 	 change(cx1,"jmp",labname3,"  ");
-	 insymbol();
-        }
-	else _error(15);  /* END IF expected */
-       }
+  /* parse ELSEIF condition */
+  insymbol();
+  exprtype = expr();
+
+  /* make sure it's a LONG */
+  exprtype = make_integer(exprtype);
+  targettype = longtype;
+  for (i=0;i<=2;i++)
+  {
+   gen("nop","  ","  ");
+   cx[i]=curr_code;
+  }
+  coerce(&exprtype,&targettype,cx);
+
+  if (sym != thensym) { _error(11); return; }
+
+  /* generate condition test */
+  gen("move.l","(sp)+","d0");
+  gen("cmpi.l","#0","d0");
+  make_label(labname,lablabel);
+  gen("bne.s",labname,"  ");
+  gen("nop","  ","  ");
+  cx_false = curr_code;
+  gen(lablabel,"  ","  ");
+
+  /* expect THEN followed by end of line */
+  insymbol();
+  if (sym != endofline) { _error(38); return; }
+
+  /* parse ELSEIF block */
+  insymbol();
+  do
+  {
+   statement();
+  }
+  while ((sym != elsesym) && (sym != elseifsym) &&
+         (sym != endsym) && (!end_of_source));
+ }
+
+ /* ELSE clause (optional) */
+ if (sym == elsesym)
+ {
+  /* jump to END IF after THEN/ELSEIF block */
+  gen("nop","  ","  ");
+  if (endif_count < MAX_ELSEIF)
+   endif_jumps[endif_count++] = curr_code;
+
+  /* label for false condition */
+  make_label(labname,lablabel);
+  gen(lablabel,"  ","  ");
+  change(cx_false,"jmp",labname,"  ");
+  cx_false = NULL;
+
+  /* parse ELSE block */
+  insymbol();
+  do
+  {
+   statement();
+  }
+  while ((sym != endsym) && (!end_of_source));
+ }
+
+ /* END IF */
+ insymbol();
+ if (sym == ifsym)
+ {
+  /* create END IF label */
+  make_label(endif_labname,endif_lablabel);
+  gen(endif_lablabel,"  ","  ");
+
+  /* patch false-branch if no ELSE */
+  if (cx_false != NULL)
+   change(cx_false,"jmp",endif_labname,"  ");
+
+  /* patch all end-of-block jumps */
+  for (i=0;i<endif_count;i++)
+   change(endif_jumps[i],"jmp",endif_labname,"  ");
+
+  insymbol();
+ }
+ else _error(15);  /* END IF expected */
 }   
 
 void if_statement()

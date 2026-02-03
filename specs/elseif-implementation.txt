@@ -1,0 +1,385 @@
+ELSEIF Implementation Plan for ACE BASIC Compiler
+=================================================
+
+Date: 2026-02-03
+Status: Planned
+
+
+1. OVERVIEW
+-----------
+
+Implement the ELSEIF keyword to allow chained conditional blocks without
+deep nesting. This is a standard BASIC construct found in QuickBASIC,
+FreeBASIC, and other dialects.
+
+Current syntax:
+    IF condition1 THEN
+        statements
+    ELSE
+        IF condition2 THEN
+            statements
+        END IF
+    END IF
+
+New syntax:
+    IF condition1 THEN
+        statements
+    ELSEIF condition2 THEN
+        statements
+    ELSEIF condition3 THEN
+        statements
+    ELSE
+        statements
+    END IF
+
+
+2. CURRENT STATE
+----------------
+
+The token infrastructure already exists:
+- Token `elseifsym` defined in acedef.h (line 135)
+- Keyword "ELSEIF" in rword[] table in lexvar.c
+- Lexer already recognizes ELSEIF and returns elseifsym
+
+What's missing:
+- Parser support in control.c (block_if function ignores elseifsym)
+- Code generation for chained conditionals
+
+
+3. FILES TO MODIFY
+------------------
+
+    File                    Changes
+    ----                    -------
+    src/ace/c/control.c     Major: rewrite block_if() function
+
+No changes needed:
+    src/ace/c/acedef.h      (elseifsym already exists)
+    src/ace/c/lexvar.c      (ELSEIF already in keyword table)
+    src/ace/c/statement.c   (no changes needed)
+
+
+4. IMPLEMENTATION DETAILS
+-------------------------
+
+4.1 Current block_if() Analysis (control.c lines 62-121)
+
+Current flow:
+1. Parse statements until ELSE or END
+2. If ELSE found:
+   - Generate jump to skip THEN block
+   - Parse ELSE statements until END
+   - Expect END IF
+3. If no ELSE:
+   - Expect END IF
+   - Patch jump to END IF
+
+Current termination condition (line 76):
+    while ((sym != elsesym) && (sym != endsym) && (!end_of_source))
+
+4.2 New block_if() Design
+
+Change termination to also check for elseifsym:
+    while ((sym != elsesym) && (sym != elseifsym) &&
+           (sym != endsym) && (!end_of_source))
+
+New flow:
+1. Parse statements until ELSE, ELSEIF, or END
+2. If ELSEIF found:
+   - Generate jump placeholder (skip THEN block on false)
+   - Add jump to endif_jumps list (for end-of-block jump)
+   - Parse ELSEIF condition
+   - Expect THEN
+   - Expect end-of-line (block ELSEIF only)
+   - Recursively process next block (loop back to step 1)
+3. If ELSE found:
+   - Generate jump placeholder
+   - Add jump to endif_jumps list
+   - Parse ELSE statements until END
+4. Expect END IF
+5. Patch all endif_jumps to final END IF label
+
+4.3 Code Generation Pattern
+
+For this BASIC code:
+    IF cond1 THEN
+        block1
+    ELSEIF cond2 THEN
+        block2
+    ELSE
+        block3
+    END IF
+
+Generate:
+    ; Evaluate cond1
+        move.l  (sp)+,d0
+        cmpi.l  #0,d0
+        bne.s   _lab_then1      ; true -> execute block1
+        jmp     _lab_elseif1    ; false -> try elseif
+    _lab_then1:
+        ; block1 code
+        jmp     _lab_endif      ; done, skip to end
+
+    _lab_elseif1:
+        ; Evaluate cond2
+        move.l  (sp)+,d0
+        cmpi.l  #0,d0
+        bne.s   _lab_then2      ; true -> execute block2
+        jmp     _lab_else       ; false -> go to else
+    _lab_then2:
+        ; block2 code
+        jmp     _lab_endif      ; done, skip to end
+
+    _lab_else:
+        ; block3 code
+
+    _lab_endif:
+
+4.4 Data Structures
+
+Need to track multiple end-of-block jumps that all target END IF:
+
+    #define MAX_ELSEIF 32   /* maximum ELSEIF clauses */
+
+    CODE *endif_jumps[MAX_ELSEIF];
+    int endif_count = 0;
+
+At END IF, patch all collected jumps:
+    for (i = 0; i < endif_count; i++)
+        change(endif_jumps[i], "jmp", endif_label, "  ");
+
+
+5. PSEUDO-CODE FOR NEW block_if()
+---------------------------------
+
+void block_if(cx1)
+CODE *cx1;
+{
+    char labname[80], lablabel[80];
+    char endif_labname[80], endif_lablabel[80];
+    CODE *endif_jumps[MAX_ELSEIF];
+    int endif_count = 0;
+    CODE *cx_false;      /* jump when condition false */
+    int exprtype;
+
+    /* Parse THEN block */
+    insymbol();
+    while (sym != elsesym && sym != elseifsym &&
+           sym != endsym && !end_of_source)
+    {
+        statement();
+    }
+
+    /* Process ELSEIF chain */
+    while (sym == elseifsym)
+    {
+        /* Jump past this block (for fall-through from previous block) */
+        gen("nop", "  ", "  ");
+        endif_jumps[endif_count++] = curr_code;
+
+        /* Label for false condition from previous block */
+        make_label(labname, lablabel);
+        gen(lablabel, "  ", "  ");
+        change(cx1, "jmp", labname, "  ");
+
+        /* Parse ELSEIF condition */
+        insymbol();  /* consume ELSEIF */
+        exprtype = expr();
+        exprtype = make_integer(exprtype);
+        /* coerce to long if needed */
+
+        if (sym != thensym) { _error(11); return; }  /* THEN expected */
+
+        /* Generate condition test */
+        gen("move.l", "(sp)+", "d0");
+        gen("cmpi.l", "#0", "d0");
+        make_label(labname, lablabel);
+        gen("bne.s", labname, "  ");  /* branch if true */
+        gen("nop", "  ", "  ");
+        cx1 = curr_code;              /* new false-branch placeholder */
+        gen(lablabel, "  ", "  ");    /* true: execute this block */
+
+        insymbol();  /* consume THEN */
+        if (sym != endofline) { _error(38); return; }  /* EOL expected */
+
+        /* Parse ELSEIF block */
+        insymbol();
+        while (sym != elsesym && sym != elseifsym &&
+               sym != endsym && !end_of_source)
+        {
+            statement();
+        }
+    }
+
+    /* ELSE clause (optional) */
+    if (sym == elsesym)
+    {
+        /* Jump to END IF from previous block */
+        gen("nop", "  ", "  ");
+        endif_jumps[endif_count++] = curr_code;
+
+        /* Label for false condition */
+        make_label(labname, lablabel);
+        gen(lablabel, "  ", "  ");
+        change(cx1, "jmp", labname, "  ");
+        cx1 = NULL;  /* no more false-branch to patch */
+
+        /* Parse ELSE block */
+        insymbol();
+        while (sym != endsym && !end_of_source)
+        {
+            statement();
+        }
+    }
+
+    /* END IF */
+    insymbol();
+    if (sym != ifsym) { _error(15); return; }  /* END IF expected */
+
+    /* Create END IF label */
+    make_label(endif_labname, endif_lablabel);
+    gen(endif_lablabel, "  ", "  ");
+
+    /* Patch false-branch if no ELSE */
+    if (cx1 != NULL)
+        change(cx1, "jmp", endif_labname, "  ");
+
+    /* Patch all end-of-block jumps */
+    for (i = 0; i < endif_count; i++)
+        change(endif_jumps[i], "jmp", endif_labname, "  ");
+
+    insymbol();
+}
+
+
+6. TEST CASES
+-------------
+
+Create test file: verify/tests/cases/control/elseif.b
+
+6.1 Basic ELSEIF test:
+
+    x% = 2
+    IF x% = 1 THEN
+        PRINT "one"
+    ELSEIF x% = 2 THEN
+        PRINT "two"
+    ELSEIF x% = 3 THEN
+        PRINT "three"
+    ELSE
+        PRINT "other"
+    END IF
+
+    Expected output: two
+
+6.2 ELSEIF without ELSE:
+
+    x% = 5
+    IF x% = 1 THEN
+        PRINT "one"
+    ELSEIF x% = 2 THEN
+        PRINT "two"
+    END IF
+    PRINT "done"
+
+    Expected output: done
+
+6.3 Nested IF inside ELSEIF:
+
+    x% = 2
+    y% = 1
+    IF x% = 1 THEN
+        PRINT "x is 1"
+    ELSEIF x% = 2 THEN
+        IF y% = 1 THEN
+            PRINT "x=2, y=1"
+        END IF
+    END IF
+
+    Expected output: x=2, y=1
+
+6.4 Multiple ELSEIF clauses:
+
+    x% = 4
+    IF x% = 1 THEN
+        PRINT "1"
+    ELSEIF x% = 2 THEN
+        PRINT "2"
+    ELSEIF x% = 3 THEN
+        PRINT "3"
+    ELSEIF x% = 4 THEN
+        PRINT "4"
+    ELSEIF x% = 5 THEN
+        PRINT "5"
+    ELSE
+        PRINT "?"
+    END IF
+
+    Expected output: 4
+
+
+7. IMPLEMENTATION STEPS
+-----------------------
+
+Step 1: Create test file
+    - Create verify/tests/cases/control/elseif.b with test cases
+    - Create verify/tests/expected/control/elseif.expected
+    - Verify test fails (ELSEIF not yet implemented)
+
+Step 2: Modify block_if() in control.c
+    - Add elseifsym to termination condition
+    - Add endif_jumps array and counter
+    - Add ELSEIF processing loop
+    - Update ELSE handling
+    - Update END IF label patching
+
+Step 3: Build and test
+    - cd src/make && make -f Makefile-ace
+    - Run test on emulator
+    - Verify generated assembly is correct
+
+Step 4: Edge case testing
+    - Test nested IFs inside ELSEIF blocks
+    - Test ELSEIF without ELSE
+    - Test many ELSEIF clauses (up to MAX_ELSEIF)
+    - Test error cases (missing THEN, etc.)
+
+
+8. ERROR HANDLING
+-----------------
+
+Existing error codes that apply:
+- Error 11: THEN expected (after ELSEIF condition)
+- Error 15: END IF expected
+- Error 38: End of line expected (if applicable)
+
+Consider adding:
+- Error for too many ELSEIF clauses (if MAX_ELSEIF exceeded)
+
+
+9. BACKWARD COMPATIBILITY
+-------------------------
+
+This change is fully backward compatible:
+- Existing IF/ELSE/END IF code works unchanged
+- ELSEIF was a reserved word but caused syntax error
+- No existing valid programs use ELSEIF
+
+
+10. FUTURE CONSIDERATIONS
+-------------------------
+
+- ELSE IF (two words) as alternative syntax
+  Could be handled in lexer by combining ELSE + IF tokens
+  Not recommended due to ambiguity with nested IF
+
+- SELECT CASE as alternative to long ELSEIF chains
+  Already implemented as CASE...END CASE in ACE
+
+
+11. REFERENCES
+--------------
+
+- control.c: Current IF implementation (lines 62-253)
+- acedef.h: Token definitions (elseifsym at line 135)
+- docs/ref.txt: Language reference (update after implementation)

@@ -1352,11 +1352,24 @@ IF		- syntax: IF..THEN..[ELSE..]
 			  IF..GOTO..[ELSE..]
 			  IF..THEN
 			  .
+			  [ELSEIF..THEN]
+			  .
 			  [ELSE]
 			  .
-			  END IF 		
-		- ELSEIF is not yet implemented.
-		- IF..[ELSE]..END IF blocks can be nested.
+			  END IF
+		- ELSEIF allows chaining multiple conditions without
+		  nesting, eg.
+				IF x=1 THEN
+				  PRINT "one"
+				ELSEIF x=2 THEN
+				  PRINT "two"
+				ELSEIF x=3 THEN
+				  PRINT "three"
+				ELSE
+				  PRINT "other"
+				END IF
+		- Multiple ELSEIF clauses can be used.
+		- IF..[ELSEIF]..[ELSE]..END IF blocks can be nested.
 		- Use STOP rather than END before an END IF
 		  otherwise the compiler will become confused.
 		- There must be _something_ between IF..THEN
