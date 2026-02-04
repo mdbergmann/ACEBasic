@@ -1,0 +1,145 @@
+List Library: Higher-Order Functions (Future Work)
+==================================================
+
+This document describes planned higher-order functions for the list library.
+Implementation requires @ (address-of) and INVOKE/BIND for callbacks.
+
+
+Planned Functions
+-----------------
+
+LMap(lst, callback)
+    Apply callback to each element, return new list with results.
+
+    callback signature: SUB returnType callback(elementType value)
+
+    Example:
+        SUB SHORTINT Double%(SHORTINT x)
+          Double% = x * 2
+        END SUB
+
+        result = LMap%(mylist, @Double%)
+        ' (1 2 3) -> (2 4 6)
+
+
+LFilter(lst, predicate)
+    Return new list containing only elements where predicate returns true.
+
+    predicate signature: SUB SHORTINT predicate(elementType value)
+
+    Example:
+        SUB SHORTINT IsEven%(SHORTINT x)
+          IsEven% = (x MOD 2) = 0
+        END SUB
+
+        result = LFilter%(mylist, @IsEven%)
+        ' (1 2 3 4 5 6) -> (2 4 6)
+
+
+LReduce(lst, callback, initial)
+    Combine all elements into single value using callback.
+    Also known as fold/foldl.
+
+    callback signature: SUB returnType callback(accumulator, element)
+
+    Example:
+        SUB LONGINT Sum&(LONGINT acc, SHORTINT x)
+          Sum& = acc + x
+        END SUB
+
+        result = LReduce%(mylist, @Sum&, 0&)
+        ' (1 2 3 4 5) -> 15
+
+
+Type Variants
+-------------
+
+Each function needs variants for different types:
+
+LMap%    - SHORTINT elements, returns list of SHORTINT
+LMap&    - LONGINT elements
+LMap!    - SINGLE elements
+LMap$    - STRING elements
+
+LFilter% - filter SHORTINT list
+LFilter& - filter LONGINT list
+LFilter! - filter SINGLE list
+LFilter$ - filter STRING list
+
+LReduce% - reduce SHORTINT list
+LReduce& - reduce LONGINT list
+LReduce! - reduce SINGLE list
+LReduce$ - reduce STRING list
+
+
+Implementation Notes
+--------------------
+
+1. Use @ operator to get address of callback SUB
+2. Use INVOKE or BIND to call through the address
+3. Need to handle type conversion carefully
+4. Consider providing LMapGeneric that works with ADDRESS values
+
+
+Alternative: LForEach
+---------------------
+
+Simpler variant that just calls callback for side effects (no return list):
+
+    LForEach(lst, callback)
+
+    SUB PrintValue(SHORTINT x)
+      PRINT x
+    END SUB
+
+    LForEach%(mylist, @PrintValue)
+
+
+Current Workaround
+------------------
+
+Until higher-order functions are implemented, users can iterate manually:
+
+    ' Map example (double each value)
+    LNew
+    cur = mylist
+    WHILE NOT LNull(cur)
+      LAdd%(LCar%(cur) * 2)
+      cur = LCdr(cur)
+    WEND
+    doubled = LEnd
+
+    ' Filter example (keep even values)
+    LNew
+    cur = mylist
+    WHILE NOT LNull(cur)
+      IF (LCar%(cur) MOD 2) = 0 THEN
+        LAdd%(LCar%(cur))
+      END IF
+      cur = LCdr(cur)
+    WEND
+    evens = LEnd
+
+    ' Reduce example (sum)
+    LONGINT total
+    total = 0
+    cur = mylist
+    WHILE NOT LNull(cur)
+      total = total + LCar%(cur)
+      cur = LCdr(cur)
+    WEND
+
+
+Dependencies
+------------
+
+- @ operator for getting SUB address
+- INVOKE/BIND for calling through address
+- May need compiler support verification
+
+
+Priority
+--------
+
+Low - Users can work around with iteration patterns.
+Implement when @ and INVOKE/BIND are confirmed working.

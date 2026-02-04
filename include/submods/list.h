@@ -15,13 +15,10 @@ CONST LTypeSng = 3
 CONST LTypeStr = 4
 CONST LTypeList = 5
 
-{* ============== Cell Structure ============== *}
+{* ============== Initialization ============== *}
 
-STRUCT LCell
-  BYTE tag
-  LONGINT car
-  ADDRESS cdr
-END STRUCT
+DECLARE SUB LInit EXTERNAL
+DECLARE SUB LCleanup EXTERNAL
 
 {* ============== Cell Creation - Prepend (O(1)) ============== *}
 

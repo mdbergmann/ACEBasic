@@ -32,9 +32,9 @@ CONST LMEMF_CLEAR = 65536&
 {* ============== Cell Structure ============== *}
 
 STRUCT LCell
-  BYTE tag
   LONGINT car
   ADDRESS cdr
+  BYTE tag
 END STRUCT
 
 {* ============== Builder State (module-level) ============== *}
@@ -43,15 +43,26 @@ ADDRESS _LBuildHead, _LBuildTail
 
 {* ============== Library Declarations ============== *}
 
-LIBRARY "exec.library"
 DECLARE FUNCTION ADDRESS AllocVec(LONGINT byteSize, LONGINT requirements) LIBRARY exec
 DECLARE FUNCTION FreeVec(ADDRESS memoryBlock) LIBRARY exec
 DECLARE FUNCTION CopyMem(ADDRESS source, ADDRESS dest, LONGINT sz) LIBRARY exec
 
+{* ============== Initialization ============== *}
+
+SUB LInit EXTERNAL
+  LIBRARY "exec.library"
+END SUB
+
+SUB LCleanup EXTERNAL
+  LIBRARY CLOSE "exec.library"
+END SUB
+
 {* ============== Internal Helper: Allocate a cell ============== *}
 
 SUB ADDRESS _LAllocCell
-  _LAllocCell = AllocVec(SIZEOF(LCell), LMEMF_PUBLIC OR LMEMF_CLEAR)
+  ADDRESS res
+  res = AllocVec(SIZEOF(LCell), LMEMF_PUBLIC OR LMEMF_CLEAR)
+  _LAllocCell = res
 END SUB
 
 {* ============== Internal Helper: Allocate and copy string ============== *}
@@ -72,6 +83,7 @@ END SUB
 
 SUB ADDRESS LCons%(SHORTINT v, ADDRESS tl) EXTERNAL
   DECLARE STRUCT LCell *cel
+  ADDRESS result
 
   cel = _LAllocCell
   IF cel <> LNil THEN
@@ -79,7 +91,8 @@ SUB ADDRESS LCons%(SHORTINT v, ADDRESS tl) EXTERNAL
     cel->car = v
     cel->cdr = tl
   END IF
-  LCons% = cel
+  result = cel
+  LCons% = result
 END SUB
 
 SUB ADDRESS LCons&(LONGINT v, ADDRESS tl) EXTERNAL
@@ -345,26 +358,28 @@ END SUB
 
 SUB ADDRESS LCar(ADDRESS lst) EXTERNAL
   DECLARE STRUCT LCell *cel
+  ADDRESS result
 
   IF lst = LNil THEN
-    LCar = LNil
-    EXIT SUB
+    result = LNil
+  ELSE
+    cel = lst
+    result = cel->car
   END IF
-
-  cel = lst
-  LCar = cel->car
+  LCar = result
 END SUB
 
 SUB ADDRESS LCdr(ADDRESS lst) EXTERNAL
   DECLARE STRUCT LCell *cel
+  ADDRESS result
 
   IF lst = LNil THEN
-    LCdr = LNil
-    EXIT SUB
+    result = LNil
+  ELSE
+    cel = lst
+    result = cel->cdr
   END IF
-
-  cel = lst
-  LCdr = cel->cdr
+  LCdr = result
 END SUB
 
 SUB ADDRESS LRest(ADDRESS lst) EXTERNAL
@@ -558,9 +573,11 @@ END SUB
 
 SUB ADDRESS LEnd EXTERNAL
   SHARED _LBuildHead, _LBuildTail
-  LEnd = _LBuildHead
+  ADDRESS result
+  result = _LBuildHead
   _LBuildHead = LNil
   _LBuildTail = LNil
+  LEnd = result
 END SUB
 
 {* ============== List Operations - Non-destructive ============== *}
@@ -786,7 +803,7 @@ END SUB
 
 {* ============== Debugging ============== *}
 
-DECLARE SUB LDump(ADDRESS lst) EXTERNAL
+DECLARE SUB LDump(ADDRESS lst)
 
 SUB _LDumpValue(ADDRESS cel)
   DECLARE STRUCT LCell *c
