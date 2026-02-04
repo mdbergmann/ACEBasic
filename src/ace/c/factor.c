@@ -238,12 +238,18 @@ SHORT popcount;
                  char last;
                  strcpy(srcbuf, "_modv_");
                  strcat(srcbuf, curr_item->name);
-                 /* Remove type qualifier if present */
+                 /* Remove type suffix if present (_IS, _IL, _FS, _FD, _ST) */
                  len = strlen(srcbuf);
-                 if (len > 0) {
-                  last = srcbuf[len-1];
-                  if (last == '%' || last == '&' || last == '!' || last == '$' || last == '#')
-                   srcbuf[len-1] = '\0';
+                 if (len >= 3 && srcbuf[len-3] == '_')
+                 {
+                  char c1 = srcbuf[len-2];
+                  char c2 = srcbuf[len-1];
+                  if ((c1 == 'I' && (c2 == 'S' || c2 == 'L')) ||
+                      (c1 == 'F' && (c2 == 'S' || c2 == 'D')) ||
+                      (c1 == 'S' && c2 == 'T'))
+                  {
+                   srcbuf[len-3] = '\0';
+                  }
                  }
                 }
                 else

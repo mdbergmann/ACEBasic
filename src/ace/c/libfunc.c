@@ -260,14 +260,23 @@ int  cc;
 void remove_qualifier(funcname)
 char *funcname;
 {
-/* remove any trailing data type qualifier (%&#!$) @=& [=! */
+/* remove any trailing type suffix (_IS, _IL, _FS, _FD, _ST) */
 int cc=0;
 
  /* find end of string */
  while (funcname[cc] != '\0') cc++;
- /* is the last character a qualifier? */
- if ((funcname[cc-1] == '%')||(funcname[cc-1] == '@')||(funcname[cc-1] == '#')
-    ||(funcname[cc-1] == '[')||(funcname[cc-1] == '$')) funcname[cc-1]='\0';
+ /* is there a 3-char type suffix? */
+ if (cc >= 3 && funcname[cc-3] == '_')
+ {
+  char c1 = funcname[cc-2];
+  char c2 = funcname[cc-1];
+  if ((c1 == 'I' && (c2 == 'S' || c2 == 'L')) ||
+      (c1 == 'F' && (c2 == 'S' || c2 == 'D')) ||
+      (c1 == 'S' && c2 == 'T'))
+  {
+   funcname[cc-3] = '\0';
+  }
+ }
 }
 
 BOOL search_func(bmap,func,declared_func)

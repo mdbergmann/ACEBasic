@@ -169,13 +169,19 @@ int i;
    /* Generate BSS label: _modv_<name> (strip any qualifier suffix) */
    strcpy(bss_name, "_modv_");
    strncat(bss_name, name, MAXIDSIZE);
-   /* Remove type qualifier if present (last char like %, &, !, $) */
+   /* Remove type suffix if present (_IS, _IL, _FS, _FD, _ST) */
    {
     int len = strlen(bss_name);
-    if (len > 0) {
-     char last = bss_name[len-1];
-     if (last == '%' || last == '&' || last == '!' || last == '$' || last == '#')
-      bss_name[len-1] = '\0';
+    if (len >= 3 && bss_name[len-3] == '_')
+    {
+     char c1 = bss_name[len-2];
+     char c2 = bss_name[len-1];
+     if ((c1 == 'I' && (c2 == 'S' || c2 == 'L')) ||
+         (c1 == 'F' && (c2 == 'S' || c2 == 'D')) ||
+         (c1 == 'S' && c2 == 'T'))
+     {
+      bss_name[len-3] = '\0';
+     }
     }
    }
    strcat(bss_name, ":");

@@ -485,12 +485,18 @@ int  exprtype;
          char last;
          strcpy(addrbuf, "_modv_");
          strcat(addrbuf, storage_item->name);
-         /* Remove type qualifier if present */
+         /* Remove type suffix if present (_IS, _IL, _FS, _FD, _ST) */
          len = strlen(addrbuf);
-         if (len > 0) {
-          last = addrbuf[len-1];
-          if (last == '%' || last == '&' || last == '!' || last == '$' || last == '#')
-           addrbuf[len-1] = '\0';
+         if (len >= 3 && addrbuf[len-3] == '_')
+         {
+          char c1 = addrbuf[len-2];
+          char c2 = addrbuf[len-1];
+          if ((c1 == 'I' && (c2 == 'S' || c2 == 'L')) ||
+              (c1 == 'F' && (c2 == 'S' || c2 == 'D')) ||
+              (c1 == 'S' && c2 == 'T'))
+          {
+           addrbuf[len-3] = '\0';
+          }
          }
         }
         else
