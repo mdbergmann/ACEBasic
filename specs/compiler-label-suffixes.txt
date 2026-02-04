@@ -1,6 +1,9 @@
 ACE Compiler: Portable Assembly Label Generation
 ================================================
 
+Status: IMPLEMENTED (commit 92323e9)
+
+
 Problem
 -------
 
@@ -20,15 +23,15 @@ Example BASIC code:
     SUB ADDRESS LCons!(SINGLE v, ADDRESS tl) EXTERNAL
     SUB ADDRESS LCons$(src$, ADDRESS tl) EXTERNAL
 
-The ACE compiler currently generates assembly labels by directly
-translating these suffixes:
+The old ACE compiler generated assembly labels by directly translating
+these suffixes:
 
     _SUB_LCONS%:
     _SUB_LCONS&:    (becomes _SUB_LCONS@: due to & -> @ conversion)
     _SUB_LCONS!:    (becomes _SUB_LCONS[: due to ! -> [ conversion)
     _SUB_LCONS$:
 
-These labels work with the old a68k assembler but fail with vasm
+These labels worked with the old a68k assembler but failed with vasm
 (vasmm68k_mot) because:
 
 1. vasm uses % as binary number prefix
@@ -37,18 +40,18 @@ These labels work with the old a68k assembler but fail with vasm
 4. Only alphanumeric characters and underscore are allowed in vasm labels
 
 
-Proposed Solution
------------------
+Solution
+--------
 
-Modify the ACE compiler's code generation (likely in misc.c or related
-files) to translate type suffixes to assembler-safe label suffixes:
+The ACE compiler's lexer (src/ace/c/lex.c) now translates type suffixes
+to assembler-safe label suffixes at tokenization time:
 
-    BASIC suffix    Current ASM     Proposed ASM
+    BASIC suffix    Old ASM         New ASM
     ------------    -----------     ------------
     %               %               _IS  (Integer Short)
     &               @ (broken)      _IL  (Integer Long)
     !               [ (broken)      _FS  (Float Single)
-    #               (if used)       _FD  (Float Double)
+    #               (broken)        _FD  (Float Double)
     $               $               _ST  (String)
 
 Example output:
@@ -61,55 +64,33 @@ Example output:
 This produces valid assembly labels for both a68k and vasm.
 
 
-Files to Modify
----------------
+Files Modified
+--------------
 
-Primary:
-- src/ace/c/misc.c      - Code generation, label emission
-- src/ace/c/sym.c       - Symbol table management
-- src/ace/c/symvar.c    - Symbol/variable handling
-
-Investigation needed:
-- src/ace/c/lex.c       - Lexer (how suffixes are tokenized)
-- src/ace/c/parse.c     - Parser (how SUB names are parsed)
-- src/ace/c/acedef.h    - Type definitions and constants
+- src/ace/c/lex.c       - Lexer: suffix translation at tokenization (lines 830-837)
+- src/ace/c/sym.c       - Symbol table: suffix stripping for lookups
+- src/ace/c/sub.c       - SUB handling: suffix stripping
+- src/ace/c/factor.c    - Expression handling: suffix stripping
+- src/ace/c/assign.c    - Assignment handling: suffix stripping
+- src/ace/c/libfunc.c   - Library function handling: suffix stripping
 
 
-Implementation Notes
---------------------
+Implementation Details
+----------------------
 
-1. The translation should happen at code generation time, not parsing time.
-   Internally, ACE should still recognize and handle the BASIC suffixes
-   normally.
+1. The translation happens at lexer time (lex.c) when identifiers are
+   tokenized. When a type suffix character is encountered after an
+   identifier, it is converted to the 3-character assembler-safe suffix.
 
-2. Need to ensure the translation is consistent across:
+2. Reserved words retain their original suffix characters (e.g., IF%
+   would keep the % if it were valid syntax).
+
+3. Various parts of the compiler strip the type suffix when looking up
+   base identifiers (sym.c, sub.c, factor.c, assign.c, libfunc.c) to
+   ensure consistent symbol resolution.
+
+4. The translation is consistent across:
    - SUB/FUNCTION label generation
    - EXIT SUB/FUNCTION labels
-   - GOSUB/GOTO targets if they can have suffixes
    - EXTERNAL symbol exports
-
-3. The suffix translation should be applied wherever an identifier with
-   a type suffix is converted to an assembly label.
-
-4. Consider adding a compiler flag for backwards compatibility with a68k
-   if needed (e.g., -a68k-labels).
-
-
-Testing
--------
-
-1. Create test SUBs with all type suffixes
-2. Compile to .s assembly output
-3. Verify labels use new _I, _L, _F, _S suffixes
-4. Assemble with vasm - should succeed
-5. Link and run - verify correct function dispatch
-
-
-Priority
---------
-
-Medium - Blocks usage of type-suffixed SUB names with vasm assembler.
-Currently affects the list submodule and any other code using this pattern.
-
-Workaround: Use a68k assembler instead of vasm, or avoid type suffixes
-in SUB names (use LConsInt, LConsLng, etc. instead).
+   - Variable references
