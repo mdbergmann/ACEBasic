@@ -1,0 +1,334 @@
+Lisp-style List API for ACE BASIC
+==================================
+
+A singly-linked list implementation similar to Common Lisp lists,
+implemented as an ACE BASIC submodule.
+
+Overview
+--------
+
+Lists are built from cons cells, each containing:
+- type tag (BYTE) - identifies the type of the car value
+- car (LONG) - the value (integer, float bits, or pointer)
+- cdr (ADDRESS) - pointer to next cell or LNil
+
+Key characteristics:
+- Mixed types allowed in same list
+- All values copied at insertion time (including strings)
+- Singly-linked (forward traversal only)
+- Both non-destructive and destructive operations provided
+
+
+Constants
+---------
+
+CONST LNil = 0              ' Empty list / null pointer
+
+' Type tags
+CONST LTypeNil = 0          ' Nil/empty
+CONST LTypeInt = 1          ' INTEGER (16-bit)
+CONST LTypeLng = 2          ' LONG (32-bit)
+CONST LTypeSng = 3          ' SINGLE (float)
+CONST LTypeStr = 4          ' STRING (pointer to copied string)
+CONST LTypeList = 5         ' Nested list (ADDRESS)
+
+
+Cell Creation - Prepend (O(1))
+------------------------------
+
+Returns new list with value prepended to tail.
+
+list& = LCons%(val%, tail&)      ' Cons INTEGER
+list& = LCons&(val&, tail&)      ' Cons LONG
+list& = LCons!(val!, tail&)      ' Cons SINGLE
+list& = LCons$(val$, tail&)      ' Cons STRING (copies string)
+list& = LConsList(ptr&, tail&)   ' Cons nested list
+
+Example:
+    list& = LCons%(3, LNil)
+    list& = LCons%(2, list&)
+    list& = LCons%(1, list&)
+    ' Result: (1 2 3)
+
+
+Cell Creation - Append (O(n))
+-----------------------------
+
+Returns new list with value appended to end.
+Less efficient than prepend - must traverse to find end.
+
+list& = LSnoc%(val%, list&)      ' Append INTEGER
+list& = LSnoc&(val&, list&)      ' Append LONG
+list& = LSnoc!(val!, list&)      ' Append SINGLE
+list& = LSnoc$(val$, list&)      ' Append STRING (copies string)
+list& = LSnocList(ptr&, list&)   ' Append nested list
+
+Example:
+    list& = LSnoc%(1, LNil)
+    list& = LSnoc%(2, list&)
+    list& = LSnoc%(3, list&)
+    ' Result: (1 2 3)
+
+
+Accessors
+---------
+
+Get the car (head) value, interpreted as specified type:
+
+val% = LCar%(list&)              ' Get car as INTEGER
+val& = LCar&(list&)              ' Get car as LONG
+val! = LCar!(list&)              ' Get car as SINGLE
+val$ = LCar$(list&)              ' Get car as STRING
+ptr& = LCar(list&)               ' Get car as ADDRESS (for nested lists)
+
+Get the cdr (tail):
+
+rest& = LCdr(list&)              ' Get tail of list
+rest& = LRest(list&)             ' Alias for LCdr (more readable)
+
+
+Convenience Accessors
+---------------------
+
+LFirst - alias for LCar (first element):
+
+val% = LFirst%(list&)            ' Same as LCar%(list&)
+val& = LFirst&(list&)
+val! = LFirst!(list&)
+val$ = LFirst$(list&)
+ptr& = LFirst(list&)
+
+LSecond - second element (car of cdr):
+
+val% = LSecond%(list&)           ' Same as LCar%(LCdr(list&))
+val& = LSecond&(list&)
+val! = LSecond!(list&)
+val$ = LSecond$(list&)
+ptr& = LSecond(list&)
+
+Type safety: Accessors check the type tag and produce an error
+if the requested type doesn't match the stored type.
+
+
+Predicates & Info
+-----------------
+
+ok% = LNull(list&)               ' True if list is LNil
+t% = LType(list&)                ' Get type tag of car
+n& = LLen(list&)                 ' Count elements (O(n))
+
+
+Builder Pattern
+---------------
+
+Efficient way to build lists in forward order.
+Maintains internal tail pointer for O(1) appends.
+
+LOf                              ' Start building (resets state)
+
+LAdd%(val%)                      ' Add INTEGER
+LAdd&(val&)                      ' Add LONG
+LAdd!(val!)                      ' Add SINGLE
+LAdd$(val$)                      ' Add STRING (copies string)
+LAddList(ptr&)                   ' Add nested list
+
+list& = LEnd                     ' Finalize, return list
+
+Example:
+    LOf
+      LAdd%(1)
+      LAdd%(2)
+      LAdd%(3)
+    list& = LEnd
+    ' Result: (1 2 3)
+
+Example with loop:
+    LOf
+      FOR i% = 0 TO 10
+        LAdd%(i%)
+      NEXT
+    numbers& = LEnd
+    ' Result: (0 1 2 3 4 5 6 7 8 9 10)
+
+Example with mixed types:
+    LOf
+      LAdd&(42)
+      LAdd$("hello")
+      LAdd!(3.14)
+    mixed& = LEnd
+    ' Result: (42 "hello" 3.14)
+
+
+List Operations - Non-destructive
+---------------------------------
+
+These return new lists, leaving originals unchanged.
+
+new& = LAppend(a&, b&)           ' Concatenate lists
+                                  ' Copies cells from a, shares b
+                                  ' O(n) where n = length of a
+
+new& = LRev(list&)               ' Reversed copy
+                                  ' O(n) time, O(n) space
+
+new& = LCopy(list&)              ' Deep copy (including strings)
+                                  ' O(n)
+
+cell& = LNth(list&, n%)          ' Get nth cell (0-indexed)
+                                  ' Returns LNil if n >= length
+                                  ' O(n)
+
+
+List Operations - Destructive
+-----------------------------
+
+These modify lists in place. Use with care.
+
+LNconc(a&, b&)                   ' Append b to end of a
+                                  ' Modifies a's last cdr to point to b
+                                  ' O(n) where n = length of a
+                                  ' WARNING: a is modified!
+
+LNrev(list&)                     ' Reverse in place
+                                  ' Relinks cdr pointers
+                                  ' O(n) time, O(1) space
+                                  ' WARNING: original list destroyed!
+                                  ' Returns new head
+
+LFree(list&)                     ' Free all cells recursively
+                                  ' Also frees copied strings
+                                  ' O(n)
+
+
+Debugging
+---------
+
+LPrint(list&)                    ' Print list to console
+                                  ' Format: (val1 val2 val3 ...)
+                                  ' Nested lists shown with parens
+
+
+Memory Management
+-----------------
+
+- All values are copied at insertion time
+- Strings are copied (new allocation) - caller's string can change
+- LFree must be called to release memory
+- LFree also frees copied string storage
+- No garbage collection - user responsible for calling LFree
+
+
+Copy Semantics Example
+----------------------
+
+Values are captured at insertion time:
+
+    FOR i% = 0 TO 3
+      list& = LCons%(i%, list&)
+    NEXT
+    ' Result: (3 2 1 0) - each value captured when inserted
+
+    s$ = "hello"
+    list& = LCons$(s$, LNil)
+    s$ = "world"
+    ' list still contains "hello", not "world"
+
+
+Iteration Example
+-----------------
+
+    cur& = mylist&
+    WHILE NOT LNull(cur&)
+      CASE LType(cur&)
+        LTypeLng
+          PRINT LCar&(cur&)
+        LTypeStr
+          PRINT LCar$(cur&)
+        LTypeSng
+          PRINT LCar!(cur&)
+      END CASE
+      cur& = LCdr(cur&)
+    WEND
+
+
+Operation Complexity
+--------------------
+
+| Operation    | Time  | Space | Notes                    |
+|--------------|-------|-------|--------------------------|
+| LCons        | O(1)  | O(1)  | Prepend                  |
+| LSnoc        | O(n)  | O(1)  | Append (must find end)   |
+| LCar         | O(1)  | O(1)  |                          |
+| LCdr         | O(1)  | O(1)  |                          |
+| LRest        | O(1)  | O(1)  | Alias for LCdr           |
+| LFirst       | O(1)  | O(1)  | Alias for LCar           |
+| LSecond      | O(1)  | O(1)  | Car of Cdr               |
+| LNull        | O(1)  | O(1)  |                          |
+| LType        | O(1)  | O(1)  |                          |
+| LLen         | O(n)  | O(1)  | Must traverse            |
+| LNth         | O(n)  | O(1)  | Must traverse            |
+| LAppend      | O(n)  | O(n)  | Copies first list        |
+| LNconc       | O(n)  | O(1)  | Destructive append       |
+| LRev         | O(n)  | O(n)  | Creates new list         |
+| LNrev        | O(n)  | O(1)  | Relinks in place         |
+| LCopy        | O(n)  | O(n)  | Deep copy                |
+| LFree        | O(n)  | O(1)  |                          |
+| Builder LAdd | O(1)  | O(1)  | Uses tail pointer        |
+
+
+Internal Structure
+------------------
+
+Cons cell (9 bytes, may pad to 10 or 12):
+
+    STRUCT LCell
+      tag AS BYTE        ' LTypeInt, LTypeLng, etc.
+      car AS LONG        ' Value or pointer
+      cdr AS ADDRESS     ' Next cell or LNil
+    END STRUCT
+
+Builder state (module-level):
+
+    DIM SHARED _LBuildHead AS ADDRESS    ' First cell
+    DIM SHARED _LBuildTail AS ADDRESS    ' Last cell (for O(1) append)
+
+
+Implementation Notes
+--------------------
+
+LRev (non-destructive reverse):
+    Walk list, cons each element onto new list.
+    Since cons prepends, order naturally reverses.
+
+LNrev (destructive reverse):
+    Three-pointer walk: prev, cur, next
+    At each step, reverse cur's cdr to point to prev
+    O(1) space - just relinks existing cells
+
+LAppend vs LNconc:
+    LAppend copies cells from first list, safe
+    LNconc modifies first list's last cell, faster but dangerous
+    After LNconc(a, b), modifying b affects a too
+
+
+File Organization
+-----------------
+
+submods/list/list.b          ' Main implementation
+include/submods/list.h       ' Header for EXTERNAL usage (if needed)
+
+
+Usage
+-----
+
+EXTERNAL list
+
+LOf
+  LAdd%(1)
+  LAdd%(2)
+  LAdd%(3)
+mylist& = LEnd
+
+PRINT "Length:"; LLen(mylist&)
+
+LFree(mylist&)
