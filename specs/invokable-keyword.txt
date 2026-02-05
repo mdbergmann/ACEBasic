@@ -1,0 +1,93 @@
+INVOKABLE Keyword Implementation
+=================================
+
+Status: IMPLEMENTED
+
+
+Purpose
+-------
+
+SUBs marked INVOKABLE return via d0 register instead of frame slot.
+This enables them to be used as callbacks with runtime CLSR detection
+in INVOKE, where the callee's frame slot address is unknown at runtime.
+
+Usage:
+    SUB LONGINT Double(LONGINT x) INVOKABLE
+      Double = x * 2
+    END SUB
+
+The keyword pairs naturally with INVOKE:
+- INVOKABLE marks a SUB as callable through INVOKE
+- INVOKE calls through function pointers/closures
+
+
+Files Changed
+-------------
+
+1. acedef.h
+   - Added invokablesym to ACE-specific reserved words enum
+   - Location: line 326, alphabetically after integerkindsym
+
+2. lexvar.c
+   - Added "INVOKABLE" to reserved words array
+   - Location: alphabetically after "INTEGER_KIND"
+
+3. parse.c
+   - Handle keyword after CALLBACK check (around line 260)
+   - Sets sub_ptr->address = extfunc for d0 return
+
+4. sub.c (forward_ref function)
+   - Handle INVOKABLE on DECLARE SUB for forward references
+   - Added in both no-params and with-params cases
+   - Sets sub_ptr->address = extfunc
+
+
+Requirements
+------------
+
+1. SUBs used with BIND must be marked INVOKABLE
+2. For forward-referenced INVOKABLE SUBs, DECLARE must include INVOKABLE:
+   DECLARE SUB LONGINT MyFunc(LONGINT x) INVOKABLE
+3. Closure dispatch always expects d0 return
+
+
+Example Test Code
+-----------------
+
+' bind_zero_args.b
+DECLARE SUB LONGINT Double(LONGINT x) INVOKABLE
+DECLARE SUB LONGINT ApplyFunc(ADDRESS func, LONGINT value) INVOKABLE
+
+closure& = BIND(@Double)
+result& = INVOKE closure&(21)
+ASSERT result& = 42, "Direct INVOKE should work"
+
+result2& = ApplyFunc(closure&, 10)
+ASSERT result2& = 20, "INVOKE through parameter should work"
+
+SUB LONGINT Double(LONGINT x) INVOKABLE
+  Double = x * 2
+END SUB
+
+SUB LONGINT ApplyFunc(ADDRESS func, LONGINT value) INVOKABLE
+  LONGINT res
+  res = INVOKE func(value)
+  ApplyFunc = res
+END SUB
+
+
+Background
+----------
+
+Regular BASIC SUBs return values via frame slot at -N(a4).
+The slot address is known at compile time from the SUB's symbol.
+
+When INVOKE is used with runtime CLSR detection (callback passed as
+ADDRESS parameter), the callee's frame slot address is unknown.
+
+INVOKABLE SUBs return via d0 register, which the runtime CLSR
+detection code can reliably read regardless of which SUB was called.
+
+This is the same mechanism used by:
+- Module SUBs (compiled with -m flag)
+- CALLBACK SUBs (for Amiga Hook convention)

@@ -257,6 +257,13 @@ int  sub_type,def_expr_type;
 	}
     }
 
+    /* INVOKABLE SUB returns via d0 (for use with INVOKE/closures) */
+    if (sym == invokablesym)
+    {
+	insymbol();
+	sub_ptr->address = extfunc;
+    }
+
     /*
     ** Pass function (SUB) values via d0 for ALL subprograms
     ** in a module since there is no link using A4 for modules.

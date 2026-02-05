@@ -982,39 +982,66 @@ char varptr_obj_name[MAXIDSIZE];
 	     bound_count++;
 	   }
 
-	   if (bound_count == 0) { _error(16); nftype = undefined; break; }
+	   /* Allocate closure record with signature info:
+	      14 bytes header + param_count bytes for types + padding + bound args
+	      Header: magic(4) + func(4) + total_params(2) + bound_count(2) + return_type(1) + reserved(1)
+	      Then: param types (1 byte each), padding to 4-byte alignment, bound args (4 bytes each) */
+	   {
+	    int param_bytes = bind_sub->no_of_params;
+	    int header_plus_params = 14 + param_bytes;
+	    int param_padding = (4 - (header_plus_params % 4)) % 4;
+	    int bound_args_offset = header_plus_params + param_padding;
+	    int pi;
 
-	   /* Allocate closure record: 12 + bound_count * 4 bytes */
-	   record_size = 12 + bound_count * 4;
-	   sprintf(nbuf, "#%d", record_size);
-	   gen("move.l", nbuf, "-(sp)");     /* size */
-	   gen("move.l", "#9", "-(sp)");     /* memory type */
-	   gen("jsr", "_ACEalloc", "  ");
-	   gen("addq", "#8", "sp");
-	   gen("move.l", "d0", "a2");
-	   enter_XREF("_ACEalloc");
-	   enter_XREF("_IntuitionBase");
+	    record_size = bound_args_offset + bound_count * 4;
+	    sprintf(nbuf, "#%d", record_size);
+	    gen("move.l", nbuf, "-(sp)");     /* size */
+	    gen("move.l", "#9", "-(sp)");     /* memory type */
+	    gen("jsr", "_ACEalloc", "  ");
+	    gen("addq", "#8", "sp");
+	    gen("move.l", "d0", "a2");
+	    enter_XREF("_ACEalloc");
+	    enter_XREF("_IntuitionBase");
 
-	   /* Fill closure record */
-	   gen("move.l", "#$434C5352", "(a2)");    /* magic "CLSR" */
-	   gen("move.l", functemp, "4(a2)");       /* func ptr */
-	   sprintf(nbuf, "#%d", bind_sub->no_of_params);
-	   gen("move.w", nbuf, "8(a2)");           /* total param count */
-	   sprintf(nbuf, "#%d", bound_count);
-	   gen("move.w", nbuf, "10(a2)");          /* bound count */
+	    /* Fill closure record header */
+	    gen("move.l", "#$434C5352", "(a2)");    /* magic "CLSR" */
+	    gen("move.l", functemp, "4(a2)");       /* func ptr */
+	    sprintf(nbuf, "#%d", bind_sub->no_of_params);
+	    gen("move.w", nbuf, "8(a2)");           /* total param count */
+	    sprintf(nbuf, "#%d", bound_count);
+	    gen("move.w", nbuf, "10(a2)");          /* bound count */
 
-	   /* Store bound arg values */
-	   for (bi = 0; bi < bound_count; bi++) {
-	     sprintf(offsetbuf, "%d(a2)", 12 + bi * 4);
-	     gen("move.l", boundtemps[bi], offsetbuf);
+	    /* Write return type at offset 12.
+	       Encode as small value: type - 2000 (shorttype=1, longtype=2, etc.) */
+	    sprintf(nbuf, "#%d", bind_sub->type - 2000);
+	    gen("move.b", nbuf, "12(a2)");
+
+	    /* Write reserved byte at offset 13 (zero) */
+	    gen("move.b", "#0", "13(a2)");
+
+	    /* Write param types starting at offset 14.
+	       Encode as small values: type - 2000 */
+	    for (pi = 0; pi < bind_sub->no_of_params; pi++) {
+	      sprintf(nbuf, "#%d", bind_sub->p_type[pi] - 2000);
+	      sprintf(offsetbuf, "%d(a2)", 14 + pi);
+	      gen("move.b", nbuf, offsetbuf);
+	    }
+
+	    /* Store bound arg values */
+	    for (bi = 0; bi < bound_count; bi++) {
+	      sprintf(offsetbuf, "%d(a2)", bound_args_offset + bi * 4);
+	      gen("move.l", boundtemps[bi], offsetbuf);
+	    }
 	   }
 
 	   /* Push record address as result */
 	   gen("move.l", "a2", "-(sp)");
 	   nftype = longtype;
 
-	   /* Set bound count for assign.c to pick up */
-	   last_bind_bound_count = bound_count;
+	   /* Set bound count + 1 for assign.c to pick up.
+	      We add 1 so zero-arg BIND stores 1, distinguishing
+	      it from direct @SubName which stores 0. */
+	   last_bind_bound_count = bound_count + 1;
 	  }
 	  break;
 

@@ -1,0 +1,462 @@
+INVOKE Runtime Closure Detection
+=================================
+
+Status: IMPLEMENTED (Phase 1 & 2)
+
+Overview
+--------
+
+Currently, INVOKE can only use BASIC calling convention when the compiler
+has compile-time knowledge of the target SUB's signature. This knowledge
+is stored in the symbol table via the ->other linkage, which is set when
+a variable is directly assigned with @SubName.
+
+When function pointers are passed as parameters to other SUBs (e.g., for
+higher-order functions like LMap), the ->other linkage is lost because
+parameters are just ADDRESS values with no compile-time SUB association.
+INVOKE then falls back to C calling convention, which is incompatible
+with BASIC SUBs.
+
+This specification describes an enhancement to detect closure records at
+runtime and use their embedded signature information for proper calling
+convention dispatch.
+
+
+Problem Statement
+-----------------
+
+Higher-order functions like LMap need to INVOKE callbacks:
+
+    SUB ADDRESS LMap(ADDRESS lst, ADDRESS fun) EXTERNAL
+      ...
+      result = INVOKE fun(cr->car, cr->tag)   ' fun->other is NULL!
+      ...
+    END SUB
+
+User code:
+
+    mapped = LMap(myList, @DoubleValue)
+
+Inside LMap, the parameter 'fun' has no ->other linkage because:
+1. list.b is compiled separately from user code
+2. ->other is compile-time metadata, not a runtime value
+3. Parameters are just ADDRESS values
+
+INVOKE sees ->other == NULL and uses C calling convention:
+- Args pushed on stack (not in frame slots)
+- Return value expected in d0 (not frame slot)
+
+But DoubleValue is a BASIC SUB expecting:
+- Args in frame slots at negative offsets from frame pointer
+- Return value stored in its frame slot
+
+Result: Calling convention mismatch, callbacks don't work.
+
+
+Proposed Solution
+-----------------
+
+1. Allow BIND with zero bound arguments
+2. Extend closure record to include parameter types and return type
+3. Add runtime closure detection in INVOKE when ->other is NULL
+4. Use embedded signature for proper BASIC calling convention
+
+User code becomes:
+
+    ' DoubleValue must be EXTERNAL SUB (returns in d0)
+    SUB ADDRESS DoubleValue(ADDRESS val, SHORTINT tag) EXTERNAL
+      ...
+    END SUB
+
+    mapped = LMap(myList, BIND(@DoubleValue))
+
+The BIND creates a closure record containing the signature. When LMap
+INVOKEs fun, the runtime detects the closure and uses proper calling.
+
+IMPORTANT: Callbacks must be declared as EXTERNAL SUBs because:
+- Runtime CLSR detection cannot know the callee's frame slot address
+- EXTERNAL SUBs return in d0, which the runtime code expects
+
+
+Closure Record Format
+---------------------
+
+Current format (with bound args):
+
+    Offset  Size  Content
+    ------  ----  -------
+    +0      4     Magic "CLSR" (0x434C5352)
+    +4      4     Function pointer (address of SUB)
+    +8      2     Total parameter count
+    +10     2     Bound argument count
+    +12     4*N   Bound argument values (N = bound count)
+
+New format (with signature info):
+
+    Offset  Size  Content
+    ------  ----  -------
+    +0      4     Magic "CLSR" (0x434C5352)
+    +4      4     Function pointer (address of SUB)
+    +8      2     Total parameter count
+    +10     2     Bound argument count
+    +12     1     Return type (0=void, 1=short, 2=long, 3=single, 4=string)
+    +13     1     Reserved (alignment)
+    +14     1*P   Parameter types array (P = total param count, 1 byte each)
+                  Values: 1=short, 2=long, 3=single, 4=string
+    +14+P   ...   Padding to 4-byte alignment if needed
+    +??     4*N   Bound argument values (N = bound count)
+
+Type encoding (matches existing type constants):
+    1 = shorttype
+    2 = longtype  (also used for ADDRESS)
+    3 = singletype
+    4 = stringtype
+
+Example for callback SUB ADDRESS MyFunc(ADDRESS carVal, SHORTINT typeTag):
+    Total params: 2
+    Bound count: 0
+    Return type: 2 (longtype/ADDRESS)
+    Param types: [2, 1] (longtype, shorttype)
+    Record size: 14 + 2 + 0 padding + 0 bound args = 16 bytes
+
+
+Implementation Changes
+----------------------
+
+### File: src/ace/c/basfun.c
+
+Location: BIND case in numfunc() (around line 918)
+
+Change 1: Remove zero bound args error
+
+    Current:
+        if (bound_count == 0) { _error(16); nftype = undefined; break; }
+
+    New:
+        (remove this check entirely)
+
+Change 2: Calculate new record size
+
+    Current:
+        record_size = 12 + bound_count * 4;
+
+    New:
+        int param_bytes = bind_sub->no_of_params;
+        int param_padding = (4 - ((14 + param_bytes) % 4)) % 4;
+        record_size = 14 + param_bytes + param_padding + bound_count * 4;
+
+Change 3: Write return type and param types to record
+
+    After writing bound_count at offset 10, add:
+
+        // Write return type at offset 12
+        sprintf(nbuf, "#%d", bind_sub->type);
+        gen("move.b", nbuf, "12(a2)");
+
+        // Write param types starting at offset 14
+        for (int pi = 0; pi < bind_sub->no_of_params; pi++) {
+            sprintf(nbuf, "#%d", bind_sub->p_type[pi]);
+            sprintf(offsetbuf, "%d(a2)", 14 + pi);
+            gen("move.b", nbuf, offsetbuf);
+        }
+
+Change 4: Adjust bound args offset
+
+    Current:
+        sprintf(offsetbuf, "%d(a2)", 12 + bi * 4);
+
+    New:
+        int bound_args_offset = 14 + param_bytes + param_padding;
+        sprintf(offsetbuf, "%d(a2)", bound_args_offset + bi * 4);
+
+
+### File: src/ace/c/factor.c
+
+Location: INVOKE case in factor() (around line 462)
+
+After the existing checks for ->other linkage (closure with bound args,
+direct function pointer), add runtime detection before the C calling
+convention fallback.
+
+Current structure:
+    if (invoke_item->other != NULL && ... && invoke_item->dims > 0)
+    {
+        /* Closure dispatch with bound args */
+    }
+    else if (invoke_item->other != NULL && ... ->object == subprogram)
+    {
+        /* Direct function pointer, known signature */
+    }
+    else
+    {
+        /* C calling convention fallback */
+    }
+
+New structure:
+    if (invoke_item->other != NULL && ... && invoke_item->dims > 0)
+    {
+        /* Closure dispatch with bound args */
+    }
+    else if (invoke_item->other != NULL && ... ->object == subprogram)
+    {
+        /* Direct function pointer, known signature */
+    }
+    else
+    {
+        /* NEW: Runtime closure detection */
+        /* Generate code to check for CLSR magic at runtime */
+
+        char skip_runtime_label[80];
+        char do_c_call_label[80];
+        sprintf(skip_runtime_label, "_InvRt%d", labession++);
+        sprintf(do_c_call_label, "_InvCC%d", labession++);
+
+        // Load variable value into a2
+        itoa(-1*invoke_item->address, buf, 10);
+        strcat(buf, frame_ptr[lev]);
+        gen("move.l", buf, "a2");
+
+        // Check for CLSR magic
+        gen("cmp.l", "#$434C5352", "(a2)");
+        gen("bne", do_c_call_label, "  ");
+
+        // --- CLSR detected: runtime dispatch ---
+        // Read signature from record and call with BASIC convention
+        // (detailed code generation follows)
+
+        // ... generate runtime dispatch code ...
+
+        gen("bra", skip_runtime_label, "  ");
+
+        // --- C calling convention fallback ---
+        gen_label(do_c_call_label);
+        // (existing C calling convention code)
+
+        gen_label(skip_runtime_label);
+    }
+
+
+Runtime Dispatch Code Generation (factor.c)
+-------------------------------------------
+
+When CLSR magic is detected at runtime, generate code to:
+
+1. Read total_params from offset +8
+2. Read param types from offset +14
+3. Parse and evaluate INVOKE arguments from source
+4. Push arguments according to their types (BASIC calling convention)
+5. Call the function via pointer at offset +4
+6. Handle return value according to return type at offset +12
+
+This is complex because the param count and types are runtime values.
+Two approaches:
+
+Approach A: Fixed maximum params, unrolled checks
+    - Support up to N params (e.g., 4)
+    - Generate code that checks param count and branches
+    - Simpler but limited
+
+Approach B: Fully dynamic
+    - Generate a loop that processes params at runtime
+    - More complex, requires runtime stack manipulation
+
+For the higher-order function use case, callbacks have 2 params.
+Approach A with max 4 params is sufficient and simpler to implement.
+
+Pseudocode for Approach A:
+
+    // a2 points to CLSR record
+    // Arguments already parsed into temps by earlier code
+
+    move.w  8(a2),d1        ; d1 = total_params
+
+    cmp.w   #0,d1
+    beq     .call
+
+    ; Handle param 0
+    move.b  14(a2),d2       ; param 0 type
+    cmp.b   #1,d2           ; shorttype?
+    bne     .p0_long
+    move.w  temp0,-10(sp)   ; push as short
+    bra     .p0_done
+.p0_long:
+    move.l  temp0,-10(sp)   ; push as long
+.p0_done:
+
+    cmp.w   #1,d1
+    beq     .call
+
+    ; Handle param 1 (similar)
+    ...
+
+.call:
+    move.l  4(a2),a0        ; function pointer
+    jsr     (a0)
+
+    ; Handle return value based on type at offset 12
+    move.b  12(a2),d2
+    cmp.b   #1,d2           ; shorttype?
+    bne     .ret_long
+    move.w  d0,-(sp)        ; Note: BASIC SUB returns in frame slot, not d0
+    bra     .ret_done
+.ret_long:
+    move.l  d0,-(sp)
+.ret_done:
+
+Note: The return value handling needs care. BASIC SUBs store return
+values in their frame slot (at the SUB's address offset from a4).
+But when called through a closure, we need the callee's frame slot
+address. The closure record could store this, or we use a convention
+that external SUBs return in d0.
+
+Simplification: For EXTERNAL SUBs (which higher-order callbacks likely
+are), return value is in d0. Check if invoke_sub->address == extfunc
+equivalent can be determined at runtime, or require callbacks to be
+EXTERNAL.
+
+
+Alternative Simpler Approach
+----------------------------
+
+Given the complexity of fully dynamic runtime dispatch, consider a
+simpler approach for the immediate use case:
+
+1. Allow zero-arg BIND (creates closure record with signature)
+
+2. Define a STANDARD CALLBACK signature for higher-order functions:
+   SUB ADDRESS callback(ADDRESS carValue, SHORTINT typeTag)
+
+3. In the runtime CLSR detection, ASSUME this signature:
+   - 2 params: long, short
+   - Returns: long
+
+4. Generate fixed code for this specific signature:
+
+   // Check CLSR magic
+   cmp.l   #$434C5352,(a2)
+   bne     .c_call
+
+   // CLSR detected - use fixed callback signature
+   // Assumes: SUB ADDRESS fn(ADDRESS, SHORTINT)
+
+   // Set up callee frame (Forbid/Permit for safety)
+   jsr     _LVOForbid(a6)
+
+   // Push params to callee's expected frame locations
+   move.w  param1_temp,-12(sp)   ; SHORTINT typeTag
+   move.l  param0_temp,-10(sp)   ; ADDRESS carValue (overlapping is ok)
+
+   // Actually need proper frame setup...
+
+   // Call
+   move.l  4(a2),a0
+   jsr     (a0)
+
+   // Return value in d0 (assume EXTERNAL style)
+   move.l  d0,-(sp)
+
+   jsr     _LVOPermit(a6)
+   bra     .done
+
+.c_call:
+   // Existing C calling convention
+   ...
+
+.done:
+
+This is a pragmatic compromise that solves the higher-order function
+use case without full generality.
+
+
+Backward Compatibility
+----------------------
+
+1. Existing BIND with 1+ args: Works, just larger record format.
+   Code must be recompiled to use new format.
+
+2. Existing INVOKE with compile-time linkage: Same code paths taken,
+   no change in behavior.
+
+3. Existing INVOKE falling back to C calling convention: Runtime check
+   for CLSR magic added first. Raw @SubName points to code (not CLSR),
+   so check fails and falls back to C convention as before.
+
+4. Binary compatibility: Old .o files with closures incompatible with
+   new .o files. Full recompile required after compiler update.
+
+
+Testing
+-------
+
+1. Existing closure tests must still pass:
+   - verify/tests/cases/closures/funcptr_basic.b
+   - verify/tests/cases/closures/funcptr_params.b
+   - verify/tests/cases/closures/bind_*.b
+
+2. New tests for zero-arg BIND:
+   - verify/tests/cases/closures/bind_zero_args.b
+
+3. New tests for runtime closure detection:
+   - verify/tests/cases/closures/closure_as_param.b
+
+4. Higher-order function tests:
+   - submods/list/test_list.b (LMap, LFilter, etc. sections)
+
+
+Implementation Order
+--------------------
+
+Phase 1: Allow zero-arg BIND
+  - Modify basfun.c to remove bound_count==0 error
+  - Add p_type[] and return_type to closure record
+  - Update closure record size calculation
+  - Test: zero-arg BIND creates valid closure
+
+Phase 2: Runtime CLSR detection (simplified)
+  - Modify factor.c INVOKE to check CLSR magic when ->other is NULL
+  - Implement fixed-signature dispatch for (ADDRESS, SHORTINT)->ADDRESS
+  - Test: callback passed as parameter works
+
+Phase 3: Generalize (optional)
+  - Implement dynamic param count handling
+  - Support arbitrary callback signatures
+  - Test: various callback signatures work
+
+
+Design Decisions
+----------------
+
+1. Return value handling: RESOLVED
+   - Callbacks used with BIND/INVOKE must be INVOKABLE SUBs
+   - INVOKABLE SUBs return in d0, which runtime CLSR detection expects
+   - Regular BASIC SUBs return via frame slot (-N(a4)) which requires
+     compile-time knowledge of the slot address
+   - This is a reasonable restriction for higher-order functions
+   - For forward-referenced INVOKABLE SUBs, DECLARE must include INVOKABLE
+
+2. Type encoding in closure record:
+   - Types stored as small values: type - 2000
+   - shorttype (2001) -> 1, longtype (2002) -> 2, etc.
+   - Fits in single byte for efficient storage
+
+3. Forbid/Permit handling:
+   - Caller calls Forbid before writing to callee's frame
+   - Callee calls Permit in its prologue (sub_params)
+   - This protects the frame setup from task switching
+
+4. Zero-arg BIND distinction:
+   - BIND stores bound_count + 1 in dims field
+   - Direct @SubName stores 0 in dims
+   - dims > 0 indicates closure, dims - 1 is actual bound count
+
+
+Open Questions (Resolved)
+-------------------------
+
+1. Return value handling: DECIDED - require INVOKABLE SUBs for callbacks
+   (INVOKABLE keyword added to mark SUBs that return via d0)
+
+2. Zero-arg BIND naming: Kept as BIND(@Sub) for consistency
+
+3. CALLBACK keyword: Not used - CALLBACK is for Amiga Hook convention
+   (3 ADDRESS params, can't call from ACE). INVOKABLE is the right choice.

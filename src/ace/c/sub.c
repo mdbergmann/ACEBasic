@@ -102,10 +102,17 @@ int   sub_type=undefined;
   if (sym != lparen) 
   {
    /* Is this an external subprogram? */
-   if (sym == externalsym) 
+   if (sym == externalsym)
    {
 	insymbol();
 	enter_XREF(sub_name);
+	sub_ptr->address = extfunc;
+   }
+
+   /* INVOKABLE SUB returns via d0 (for use with INVOKE/closures) */
+   if (sym == invokablesym)
+   {
+	insymbol();
 	sub_ptr->address = extfunc;
    }
 
@@ -156,10 +163,17 @@ int   sub_type=undefined;
    insymbol();
 
    /* Is this an external subprogram? */
-   if (sym == externalsym) 
+   if (sym == externalsym)
    {
 	insymbol();
 	enter_XREF(sub_name);
+	sub_ptr->address = extfunc;
+   }
+
+   /* INVOKABLE SUB returns via d0 (for use with INVOKE/closures) */
+   if (sym == invokablesym)
+   {
+	insymbol();
 	sub_ptr->address = extfunc;
    }
   }

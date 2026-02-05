@@ -732,7 +732,7 @@ SHORT popcount;
      /* Closure dispatch: bound args from record, free args from source */
      {
       SYM *invoke_sub = invoke_item->other;
-      int bound_count = invoke_item->dims;
+      int bound_count = invoke_item->dims - 1;  /* dims stores count+1 */
       int free_count = invoke_sub->no_of_params - bound_count;
       int ci, formal_type;
       SHORT par_addr;
@@ -804,10 +804,16 @@ SHORT popcount;
       strcat(addrtmp, frame_ptr[lev]);
       gen("move.l", addrtmp, "a2");
 
-      /* Read bound args from closure record into temps */
+      /* Read bound args from closure record into temps.
+         New format: bound args start after 14-byte header + param types + padding */
+      {
+       int param_bytes = invoke_sub->no_of_params;
+       int header_plus_params = 14 + param_bytes;
+       int param_padding = (4 - (header_plus_params % 4)) % 4;
+       int bound_args_offset = header_plus_params + param_padding;
       for (ci=0; ci<bound_count; ci++)
       {
-       sprintf(offsettmp, "%d(a2)", 12 + ci * 4);
+       sprintf(offsettmp, "%d(a2)", bound_args_offset + ci * 4);
        if (invoke_sub->p_type[ci] == shorttype)
        {
         addr[lev] += 4;
@@ -824,6 +830,7 @@ SHORT popcount;
         gen("move.l", offsettmp, formaltemp[ci]);
         formaltype[ci] = longtype;
        }
+      }
       }
 
       /* Forbid multitasking before frame setup */
