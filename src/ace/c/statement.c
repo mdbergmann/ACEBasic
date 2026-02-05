@@ -84,6 +84,8 @@ extern	BOOL	end_of_source;
 extern	char 	exit_sub_name[80];
 extern	SYM	*last_addr_sub_sym;
 extern	int	addr[];
+extern	int	labelcount;
+extern	char	templongname[80];
 
 /* ------*/
 /* sound */
@@ -891,39 +893,132 @@ SHORT popcount;
     }
     else
     {
-     /* MC/C calling convention */
+     /* Unknown signature - runtime CLSR detection with C fallback.
+        CLSR path uses BASIC calling convention (params in callee frame).
+        Non-CLSR path uses C calling convention (params pushed to stack). */
+     char clsr_label[80], done_label[80];
+     char labnum[40];
+     char p_temp[MAXPARAMS][80];
+     int p_type[MAXPARAMS];
+     int n_params = 0;
+     int n;
+
+     /* Generate unique labels for branching */
+     itoa(labelcount++, labnum, 10);
+     strcpy(clsr_label, "_InvClsr");
+     strcat(clsr_label, labnum);
+     strcpy(done_label, "_InvDone");
+     strcat(done_label, labnum);
+
+     /* Parse arguments into temps if present */
      if (sym == lparen)
      {
-      load_mc_params(invoke_item);
-
-      itoa(-1*invoke_item->address,addrbuf,10);
-      strcat(addrbuf,frame_ptr[lev]);
-      gen("move.l",addrbuf,"a0");
-      gen("jsr","(a0)","  ");
-
-      if (invoke_item->no_of_params != 0)
+      int ptype;
+      do
       {
-       popcount=0;
-       for (i=0;i<invoke_item->no_of_params;i++)
+       insymbol();
+       ptype = expr();
+
+       /* Store arg in temp - extend shorts to longs for uniform handling */
+       if (ptype == shorttype)
        {
-        if (invoke_item->p_type[i] == shorttype) popcount += 2;
-        else popcount += 4;
+        p_type[n_params] = shorttype;
+        gen("move.w", "(sp)+", "d0");
+        gen("ext.l", "d0", "  ");
+        make_temp_long();
+        strcpy(p_temp[n_params], templongname);
+        gen("move.l", "d0", templongname);
        }
-       strcpy(buf,"#\0");
-       itoa(popcount,numbuf,10);
-       strcat(buf,numbuf);
-       gen("add.l",buf,"sp");
+       else
+       {
+        p_type[n_params] = longtype;
+        make_temp_long();
+        strcpy(p_temp[n_params], templongname);
+        gen("move.l", "(sp)+", templongname);
+       }
+       n_params++;
       }
+      while ((n_params < MAXPARAMS) && (sym == comma));
+
+      if (sym != rparen) _error(9);
       insymbol();
      }
-     else
+
+     /* Load function pointer/closure address into a2 */
+     itoa(-1*invoke_item->address, addrbuf, 10);
+     strcat(addrbuf, frame_ptr[lev]);
+     gen("move.l", addrbuf, "a2");
+
+     /* Check for CLSR magic */
+     gen("cmp.l", "#$434C5352", "(a2)");
+     gen("beq", clsr_label, "  ");
+
+     /* --- C calling convention path (not a CLSR) --- */
+     /* Push args to stack in reverse order */
+     for (n = n_params - 1; n >= 0; n--)
      {
-      /* no parameters */
-      itoa(-1*invoke_item->address,addrbuf,10);
-      strcat(addrbuf,frame_ptr[lev]);
-      gen("move.l",addrbuf,"a0");
-      gen("jsr","(a0)","  ");
+      if (p_type[n] == shorttype)
+       gen("move.w", p_temp[n], "-(sp)");
+      else
+       gen("move.l", p_temp[n], "-(sp)");
      }
+
+     /* Call through pointer (a2 holds the function address) */
+     gen("move.l", "a2", "a0");
+     gen("jsr", "(a0)", "  ");
+
+     /* Pop args from stack */
+     if (n_params > 0)
+     {
+      popcount = 0;
+      for (i = 0; i < n_params; i++)
+      {
+       if (p_type[i] == shorttype) popcount += 2;
+       else popcount += 4;
+      }
+      strcpy(buf, "#\0");
+      itoa(popcount, numbuf, 10);
+      strcat(buf, numbuf);
+      gen("add.l", buf, "sp");
+     }
+
+     /* Return value ignored (statement context) */
+     gen("bra", done_label, "  ");
+
+     /* --- CLSR path: BASIC calling convention --- */
+     strcpy(buf, clsr_label);
+     strcat(buf, ":");
+     gen(buf, "  ", "  ");
+
+     /* Forbid multitasking during frame setup.
+        The callee will call Permit in its prologue (sub_params). */
+     gen("movea.l", "_AbsExecBase", "a6");
+     gen("jsr", "_LVOForbid(a6)", "  ");
+     enter_XREF("_AbsExecBase");
+     enter_XREF("_LVOForbid");
+
+     /* Set up callee frame with arguments.
+        Simplified approach: treat all params as longs (4 bytes).
+        Frame layout: -12(sp), -16(sp), -20(sp), ... */
+     {
+      SHORT par_addr = -8;
+      char offsetbuf[40];
+      for (i = 0; i < n_params; i++)
+      {
+       par_addr -= 4;
+       sprintf(offsetbuf, "%d(sp)", par_addr);
+       gen("move.l", p_temp[i], offsetbuf);
+      }
+     }
+
+     /* Call through closure's function pointer at offset 4 */
+     gen("move.l", "4(a2)", "a0");
+     gen("jsr", "(a0)", "  ");
+
+     /* Done label */
+     strcpy(buf, done_label);
+     strcat(buf, ":");
+     gen(buf, "  ", "  ");
     }
    }
   }
