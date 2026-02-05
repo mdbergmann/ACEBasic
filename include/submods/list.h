@@ -152,6 +152,17 @@ DECLARE SUB LDumpLn(ADDRESS lst) EXTERNAL
 ** Generic higher-order functions - work with all list types.
 ** Callbacks receive (carValue, typeTag) to handle any element type.
 **
+** IMPORTANT: Callbacks must be:
+**   1. Declared with INVOKABLE keyword
+**   2. Passed using BIND(@callback)
+**
+** Example:
+**   SUB ADDRESS DoubleIt(ADDRESS val, SHORTINT tag) INVOKABLE
+**     DoubleIt = val * 2
+**   END SUB
+**   ...
+**   mapped = LMap(lst, BIND(@DoubleIt))
+**
 ** Type interpretation for carValue (ADDRESS):
 **   LTypeInt (1): SHORTINT value stored as ADDRESS
 **   LTypeLng (2): LONGINT value stored as ADDRESS
@@ -161,36 +172,42 @@ DECLARE SUB LDumpLn(ADDRESS lst) EXTERNAL
 *}
 
 ' LMap - Apply function to each element, return NEW list
-' fn signature: SUB ADDRESS fn(ADDRESS carValue, SHORTINT typeTag)
+' fn signature: SUB ADDRESS fn(ADDRESS carValue, SHORTINT typeTag) INVOKABLE
+' Pass callback as: BIND(@fn)
 ' Callback returns new carValue (same type as input).
 ' Original list unchanged. Caller must free returned list.
 DECLARE SUB ADDRESS LMap(ADDRESS lst, ADDRESS fun) EXTERNAL
 
 ' LFilter - Return NEW list with elements where predicate is true
-' fn signature: SUB SHORTINT fn(ADDRESS carValue, SHORTINT typeTag)
+' fn signature: SUB SHORTINT fn(ADDRESS carValue, SHORTINT typeTag) INVOKABLE
+' Pass callback as: BIND(@fn)
 ' Callback returns non-zero to keep element.
 ' Original list unchanged. Caller must free returned list.
 DECLARE SUB ADDRESS LFilter(ADDRESS lst, ADDRESS fun) EXTERNAL
 
 ' LReduce - Fold list into single value using accumulator
-' fn signature: SUB ADDRESS fn(ADDRESS acc, ADDRESS carValue, SHORTINT typeTag)
+' fn signature: SUB ADDRESS fn(ADDRESS acc, ADDRESS carValue, SHORTINT typeTag) INVOKABLE
+' Pass callback as: BIND(@fn)
 ' Callback returns new accumulator value.
 DECLARE SUB ADDRESS LReduce(ADDRESS lst, ADDRESS fun, ADDRESS initial) EXTERNAL
 
 ' LForEach - Call function for each element (side effects only)
-' fn signature: SUB fn(ADDRESS carValue, SHORTINT typeTag)
+' fn signature: SUB fn(ADDRESS carValue, SHORTINT typeTag) INVOKABLE
+' Pass callback as: BIND(@fn)
 DECLARE SUB LForEach(ADDRESS lst, ADDRESS fun) EXTERNAL
 
 {* ============== Destructive Higher-Order Functions ============== *}
 
 ' LNmap - Apply function IN PLACE (modifies original list)
-' fn signature: SUB ADDRESS fn(ADDRESS carValue, SHORTINT typeTag)
+' fn signature: SUB ADDRESS fn(ADDRESS carValue, SHORTINT typeTag) INVOKABLE
+' Pass callback as: BIND(@fn)
 ' Callback returns new carValue (same type).
 ' No new list created - original cells modified.
 DECLARE SUB LNmap(ADDRESS lst, ADDRESS fun) EXTERNAL
 
 ' LNfilter - Filter list IN PLACE, freeing removed cells
-' fn signature: SUB SHORTINT fn(ADDRESS carValue, SHORTINT typeTag)
+' fn signature: SUB SHORTINT fn(ADDRESS carValue, SHORTINT typeTag) INVOKABLE
+' Pass callback as: BIND(@fn)
 ' Callback returns non-zero to keep element.
 ' Returns new head (may differ if first elements removed).
 ' WARNING: Original list variable may become invalid - use returned head!

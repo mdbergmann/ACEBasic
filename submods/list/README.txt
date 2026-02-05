@@ -134,8 +134,8 @@ Example:
     LAdd%(3)
     original& = LEnd
 
-    ' Map creates new list
-    doubled& = LMap(original&, @MyDoubler)
+    ' Map creates new list (callback must be INVOKABLE, passed via BIND)
+    doubled& = LMap(original&, BIND(@MyDoubler))
 
     ' Both lists exist - must free both
     LFree(original&)
@@ -238,7 +238,10 @@ Higher-Order Function Callbacks
 -------------------------------
 
 All higher-order functions use generic callbacks that receive the raw
-car value and type tag:
+car value and type tag.
+
+IMPORTANT: Callbacks must be declared with the INVOKABLE keyword and
+passed using BIND(@callback):
 
   carValue  - The value stored in the cell (ADDRESS)
   typeTag   - The type (LTypeInt, LTypeLng, LTypeSng, LTypeStr, LTypeList)
@@ -250,17 +253,17 @@ Type interpretation:
   LTypeStr (4): Pointer to null-terminated string - use CSTR()
   LTypeList (5): Pointer to nested list
 
-Callback signatures:
-  LMap:     SUB ADDRESS fn(ADDRESS carValue, SHORTINT typeTag)
-  LFilter:  SUB SHORTINT fn(ADDRESS carValue, SHORTINT typeTag)
-  LReduce:  SUB ADDRESS fn(ADDRESS acc, ADDRESS carValue, SHORTINT typeTag)
-  LForEach: SUB fn(ADDRESS carValue, SHORTINT typeTag)
-  LNmap:    SUB ADDRESS fn(ADDRESS carValue, SHORTINT typeTag)
-  LNfilter: SUB SHORTINT fn(ADDRESS carValue, SHORTINT typeTag)
+Callback signatures (all must have INVOKABLE):
+  LMap:     SUB ADDRESS fn(ADDRESS carValue, SHORTINT typeTag) INVOKABLE
+  LFilter:  SUB SHORTINT fn(ADDRESS carValue, SHORTINT typeTag) INVOKABLE
+  LReduce:  SUB ADDRESS fn(ADDRESS acc, ADDRESS carValue, SHORTINT typeTag) INVOKABLE
+  LForEach: SUB fn(ADDRESS carValue, SHORTINT typeTag) INVOKABLE
+  LNmap:    SUB ADDRESS fn(ADDRESS carValue, SHORTINT typeTag) INVOKABLE
+  LNfilter: SUB SHORTINT fn(ADDRESS carValue, SHORTINT typeTag) INVOKABLE
 
 Example callback - double any numeric value:
 
-    SUB ADDRESS DoubleValue(ADDRESS carVal, SHORTINT typeTag)
+    SUB ADDRESS DoubleValue(ADDRESS carVal, SHORTINT typeTag) INVOKABLE
       SHORTINT intVal
       LONGINT lngVal
 
@@ -275,12 +278,12 @@ Example callback - double any numeric value:
       END IF
     END SUB
 
-    ' Usage:
-    doubled& = LMap(mylist&, @DoubleValue)
+    ' Usage - must use BIND(@callback):
+    doubled& = LMap(mylist&, BIND(@DoubleValue))
 
 Example callback - filter even numbers:
 
-    SUB SHORTINT IsEven(ADDRESS carVal, SHORTINT typeTag)
+    SUB SHORTINT IsEven(ADDRESS carVal, SHORTINT typeTag) INVOKABLE
       SHORTINT intVal
 
       IF typeTag = LTypeInt THEN
@@ -295,5 +298,5 @@ Example callback - filter even numbers:
       END IF
     END SUB
 
-    ' Usage:
-    evens& = LFilter(mylist&, @IsEven)
+    ' Usage - must use BIND(@callback):
+    evens& = LFilter(mylist&, BIND(@IsEven))

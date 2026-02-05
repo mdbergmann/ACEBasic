@@ -501,8 +501,8 @@ PRINT
 PRINT "=== LMap (Higher-Order) ==="
 
 {* Callback functions for testing - declared before use *}
-DECLARE SUB ADDRESS DoubleValue(ADDRESS carVal, SHORTINT typeTag)
-DECLARE SUB ADDRESS ToUpperStr(ADDRESS carVal, SHORTINT typeTag)
+DECLARE SUB ADDRESS DoubleValue(ADDRESS carVal, SHORTINT typeTag) INVOKABLE
+DECLARE SUB ADDRESS ToUpperStr(ADDRESS carVal, SHORTINT typeTag) INVOKABLE
 
 PRINT "Test: LMap with SHORTINT list"
 LNew
@@ -511,7 +511,7 @@ LAdd%(2)
 LAdd%(3)
 lst = LEnd
 ADDRESS mapped
-mapped = LMap(lst, @DoubleValue)
+mapped = LMap(lst, BIND(@DoubleValue))
 AssertEq&(LLen(mapped), 3, "LMap length preserved")
 AssertEq%(LCar%(mapped), 2, "LMap first doubled")
 AssertEq%(LCar%(LCdr(mapped)), 4, "LMap second doubled")
@@ -526,7 +526,7 @@ LNew
 LAdd&(100000&)
 LAdd&(200000&)
 lst = LEnd
-mapped = LMap(lst, @DoubleValue)
+mapped = LMap(lst, BIND(@DoubleValue))
 AssertEq&(LCar&(mapped), 200000, "LMap LONG first doubled")
 AssertEq&(LCar&(LCdr(mapped)), 400000, "LMap LONG second doubled")
 LFree(lst)
@@ -538,7 +538,7 @@ LAdd!(1.5)
 LAdd!(2.25)
 LAdd!(3.0)
 lst = LEnd
-mapped = LMap(lst, @DoubleValue)
+mapped = LMap(lst, BIND(@DoubleValue))
 AssertEq&(LLen(mapped), 3, "LMap SINGLE length preserved")
 AssertEqFloat(LCar!(mapped), 3.0, "LMap SINGLE first doubled (1.5 -> 3.0)")
 AssertEqFloat(LCar!(LCdr(mapped)), 4.5, "LMap SINGLE second doubled (2.25 -> 4.5)")
@@ -553,14 +553,14 @@ LNew
 LAdd$("abc")
 LAdd$("def")
 lst = LEnd
-mapped = LMap(lst, @ToUpperStr)
+mapped = LMap(lst, BIND(@ToUpperStr))
 AssertEqStr(LCar$(mapped), "ABC", "LMap STR first uppercased")
 AssertEqStr(LCar$(LCdr(mapped)), "DEF", "LMap STR second uppercased")
 LFree(lst)
 LFree(mapped)
 
 PRINT "Test: LMap on empty list"
-AssertEqAddr(LMap(LNil, @DoubleValue), LNil, "LMap of empty returns LNil")
+AssertEqAddr(LMap(LNil, BIND(@DoubleValue)), LNil, "LMap of empty returns LNil")
 PRINT
 
 {* ============================================== *}
@@ -568,9 +568,9 @@ PRINT
 {* ============================================== *}
 PRINT "=== LFilter (Higher-Order) ==="
 
-DECLARE SUB SHORTINT IsEvenValue(ADDRESS carVal, SHORTINT typeTag)
-DECLARE SUB SHORTINT IsPositiveValue(ADDRESS carVal, SHORTINT typeTag)
-DECLARE SUB SHORTINT StartsWithA(ADDRESS carVal, SHORTINT typeTag)
+DECLARE SUB SHORTINT IsEvenValue(ADDRESS carVal, SHORTINT typeTag) INVOKABLE
+DECLARE SUB SHORTINT IsPositiveValue(ADDRESS carVal, SHORTINT typeTag) INVOKABLE
+DECLARE SUB SHORTINT StartsWithA(ADDRESS carVal, SHORTINT typeTag) INVOKABLE
 
 PRINT "Test: LFilter with SHORTINT list"
 LNew
@@ -582,7 +582,7 @@ LAdd%(5)
 LAdd%(6)
 lst = LEnd
 ADDRESS filtered
-filtered = LFilter(lst, @IsEvenValue)
+filtered = LFilter(lst, BIND(@IsEvenValue))
 AssertEq&(LLen(filtered), 3, "LFilter keeps only evens")
 AssertEq%(LCar%(filtered), 2, "LFilter first even")
 AssertEq%(LCar%(LCdr(filtered)), 4, "LFilter second even")
@@ -599,7 +599,7 @@ LAdd&(200&)
 LAdd&(-300&)
 LAdd&(400&)
 lst = LEnd
-filtered = LFilter(lst, @IsPositiveValue)
+filtered = LFilter(lst, BIND(@IsPositiveValue))
 AssertEq&(LLen(filtered), 2, "LFilter keeps positives")
 AssertEq&(LCar&(filtered), 200, "LFilter first positive")
 LFree(lst)
@@ -612,7 +612,7 @@ LAdd$("banana")
 LAdd$("apricot")
 LAdd$("cherry")
 lst = LEnd
-filtered = LFilter(lst, @StartsWithA)
+filtered = LFilter(lst, BIND(@StartsWithA))
 AssertEq&(LLen(filtered), 2, "LFilter keeps A-words")
 AssertEqStr(LCar$(filtered), "apple", "LFilter first A-word")
 AssertEqStr(LCar$(LCdr(filtered)), "apricot", "LFilter second A-word")
@@ -625,12 +625,12 @@ LAdd%(1)
 LAdd%(3)
 LAdd%(5)
 lst = LEnd
-filtered = LFilter(lst, @IsEvenValue)
+filtered = LFilter(lst, BIND(@IsEvenValue))
 AssertEqAddr(filtered, LNil, "LFilter all odds removed")
 LFree(lst)
 
 PRINT "Test: LFilter on empty list"
-AssertEqAddr(LFilter(LNil, @IsEvenValue), LNil, "LFilter of empty")
+AssertEqAddr(LFilter(LNil, BIND(@IsEvenValue)), LNil, "LFilter of empty")
 PRINT
 
 {* ============================================== *}
@@ -638,8 +638,8 @@ PRINT
 {* ============================================== *}
 PRINT "=== LReduce (Higher-Order) ==="
 
-DECLARE SUB ADDRESS SumValues(ADDRESS acc, ADDRESS carVal, SHORTINT typeTag)
-DECLARE SUB ADDRESS ConcatStrings(ADDRESS acc, ADDRESS carVal, SHORTINT typeTag)
+DECLARE SUB ADDRESS SumValues(ADDRESS acc, ADDRESS carVal, SHORTINT typeTag) INVOKABLE
+DECLARE SUB ADDRESS ConcatStrings(ADDRESS acc, ADDRESS carVal, SHORTINT typeTag) INVOKABLE
 
 PRINT "Test: LReduce with SHORTINT list"
 LNew
@@ -650,7 +650,7 @@ LAdd%(4)
 LAdd%(5)
 lst = LEnd
 ADDRESS sumResult
-sumResult = LReduce(lst, @SumValues, 0&)
+sumResult = LReduce(lst, BIND(@SumValues), 0&)
 AssertEq&(sumResult, 15, "LReduce sum 1+2+3+4+5=15")
 LFree(lst)
 
@@ -660,12 +660,12 @@ LAdd&(100000&)
 LAdd&(200000&)
 LAdd&(300000&)
 lst = LEnd
-sumResult = LReduce(lst, @SumValues, 0&)
+sumResult = LReduce(lst, BIND(@SumValues), 0&)
 AssertEq&(sumResult, 600000, "LReduce LONG sum")
 LFree(lst)
 
 PRINT "Test: LReduce on empty list"
-sumResult = LReduce(LNil, @SumValues, 42&)
+sumResult = LReduce(LNil, BIND(@SumValues), 42&)
 AssertEq&(sumResult, 42, "LReduce of empty returns initial")
 PRINT
 
@@ -678,7 +678,7 @@ PRINT "=== LForEach (Higher-Order) ==="
 SHORTINT _forEachCount
 _forEachCount = 0
 
-DECLARE SUB CountCallback(ADDRESS carVal, SHORTINT typeTag)
+DECLARE SUB ADDRESS CountCallback(ADDRESS carVal, SHORTINT typeTag) INVOKABLE
 
 PRINT "Test: LForEach"
 LNew
@@ -687,13 +687,13 @@ LAdd%(20)
 LAdd%(30)
 lst = LEnd
 _forEachCount = 0
-LForEach(lst, @CountCallback)
+LForEach(lst, BIND(@CountCallback))
 AssertEq%(_forEachCount, 3, "LForEach called 3 times")
 LFree(lst)
 
 PRINT "Test: LForEach on empty list"
 _forEachCount = 0
-LForEach(LNil, @CountCallback)
+LForEach(LNil, BIND(@CountCallback))
 AssertEq%(_forEachCount, 0, "LForEach on empty calls nothing")
 PRINT
 
@@ -708,7 +708,7 @@ LAdd%(1)
 LAdd%(2)
 LAdd%(3)
 lst = LEnd
-LNmap(lst, @DoubleValue)
+LNmap(lst, BIND(@DoubleValue))
 AssertEq%(LCar%(lst), 2, "LNmap first doubled in place")
 AssertEq%(LCar%(LCdr(lst)), 4, "LNmap second doubled in place")
 AssertEq%(LCar%(LCdr(LCdr(lst))), 6, "LNmap third doubled in place")
@@ -719,7 +719,7 @@ LNew
 LAdd&(100000&)
 LAdd&(200000&)
 lst = LEnd
-LNmap(lst, @DoubleValue)
+LNmap(lst, BIND(@DoubleValue))
 AssertEq&(LCar&(lst), 200000, "LNmap LONG first doubled in place")
 LFree(lst)
 
@@ -728,7 +728,7 @@ LNew
 LAdd$("abc")
 LAdd$("xyz")
 lst = LEnd
-LNmap(lst, @ToUpperStr)
+LNmap(lst, BIND(@ToUpperStr))
 AssertEqStr(LCar$(lst), "ABC", "LNmap STR first uppercased in place")
 AssertEqStr(LCar$(LCdr(lst)), "XYZ", "LNmap STR second uppercased in place")
 LFree(lst)
@@ -748,7 +748,7 @@ LAdd%(4)
 LAdd%(5)
 LAdd%(6)
 lst = LEnd
-lst = LNfilter(lst, @IsEvenValue)
+lst = LNfilter(lst, BIND(@IsEvenValue))
 AssertEq&(LLen(lst), 3, "LNfilter keeps only evens")
 AssertEq%(LCar%(lst), 2, "LNfilter first even")
 AssertEq%(LCar%(LCdr(lst)), 4, "LNfilter second even")
@@ -762,7 +762,7 @@ LAdd%(4)
 LAdd%(5)
 LAdd%(6)
 lst = LEnd
-lst = LNfilter(lst, @IsEvenValue)
+lst = LNfilter(lst, BIND(@IsEvenValue))
 AssertEq&(LLen(lst), 2, "LNfilter new head after removal")
 AssertEq%(LCar%(lst), 4, "LNfilter new first is 4")
 LFree(lst)
@@ -773,7 +773,7 @@ LAdd%(1)
 LAdd%(3)
 LAdd%(5)
 lst = LEnd
-lst = LNfilter(lst, @IsEvenValue)
+lst = LNfilter(lst, BIND(@IsEvenValue))
 AssertEqAddr(lst, LNil, "LNfilter all removed returns LNil")
 
 PRINT "Test: LNfilter with LONGINT list"
@@ -783,7 +783,7 @@ LAdd&(200&)
 LAdd&(-300&)
 LAdd&(400&)
 lst = LEnd
-lst = LNfilter(lst, @IsPositiveValue)
+lst = LNfilter(lst, BIND(@IsPositiveValue))
 AssertEq&(LLen(lst), 2, "LNfilter keeps positives")
 LFree(lst)
 
@@ -793,7 +793,7 @@ LAdd$("apple")
 LAdd$("banana")
 LAdd$("apricot")
 lst = LEnd
-lst = LNfilter(lst, @StartsWithA)
+lst = LNfilter(lst, BIND(@StartsWithA))
 AssertEq&(LLen(lst), 2, "LNfilter keeps A-words")
 AssertEqStr(LCar$(lst), "apple", "LNfilter first A-word")
 LFree(lst)
@@ -825,7 +825,7 @@ STOP
 {* ============================================== *}
 
 {* Double any numeric value *}
-SUB ADDRESS DoubleValue(ADDRESS carVal, SHORTINT typeTag)
+SUB ADDRESS DoubleValue(ADDRESS carVal, SHORTINT typeTag) INVOKABLE
   SHORTINT intVal
   LONGINT lngVal
   SINGLE sngVal
@@ -848,7 +848,7 @@ SUB ADDRESS DoubleValue(ADDRESS carVal, SHORTINT typeTag)
 END SUB
 
 {* Convert string to uppercase *}
-SUB ADDRESS ToUpperStr(ADDRESS carVal, SHORTINT typeTag)
+SUB ADDRESS ToUpperStr(ADDRESS carVal, SHORTINT typeTag) INVOKABLE
   SHARED _upperResult$
   STRING s
   SHORTINT i, c
@@ -871,7 +871,7 @@ SUB ADDRESS ToUpperStr(ADDRESS carVal, SHORTINT typeTag)
 END SUB
 
 {* Check if numeric value is even *}
-SUB SHORTINT IsEvenValue(ADDRESS carVal, SHORTINT typeTag)
+SUB SHORTINT IsEvenValue(ADDRESS carVal, SHORTINT typeTag) INVOKABLE
   SHORTINT intVal
   LONGINT lngVal
 
@@ -895,7 +895,7 @@ SUB SHORTINT IsEvenValue(ADDRESS carVal, SHORTINT typeTag)
 END SUB
 
 {* Check if numeric value is positive *}
-SUB SHORTINT IsPositiveValue(ADDRESS carVal, SHORTINT typeTag)
+SUB SHORTINT IsPositiveValue(ADDRESS carVal, SHORTINT typeTag) INVOKABLE
   SHORTINT intVal
   LONGINT lngVal
 
@@ -919,7 +919,7 @@ SUB SHORTINT IsPositiveValue(ADDRESS carVal, SHORTINT typeTag)
 END SUB
 
 {* Check if string starts with 'a' or 'A' *}
-SUB SHORTINT StartsWithA(ADDRESS carVal, SHORTINT typeTag)
+SUB SHORTINT StartsWithA(ADDRESS carVal, SHORTINT typeTag) INVOKABLE
   STRING s
 
   IF typeTag <> LTypeStr THEN
@@ -936,7 +936,7 @@ SUB SHORTINT StartsWithA(ADDRESS carVal, SHORTINT typeTag)
 END SUB
 
 {* Sum accumulator for reduce *}
-SUB ADDRESS SumValues(ADDRESS acc, ADDRESS carVal, SHORTINT typeTag)
+SUB ADDRESS SumValues(ADDRESS acc, ADDRESS carVal, SHORTINT typeTag) INVOKABLE
   LONGINT accLng, valLng
   SHORTINT valInt
 
@@ -953,13 +953,14 @@ SUB ADDRESS SumValues(ADDRESS acc, ADDRESS carVal, SHORTINT typeTag)
 END SUB
 
 {* Concat accumulator for reduce (not used in current tests) *}
-SUB ADDRESS ConcatStrings(ADDRESS acc, ADDRESS carVal, SHORTINT typeTag)
+SUB ADDRESS ConcatStrings(ADDRESS acc, ADDRESS carVal, SHORTINT typeTag) INVOKABLE
   ' String concat would need shared variable for result
   ConcatStrings = acc
 END SUB
 
 {* Count callback for ForEach *}
-SUB CountCallback(ADDRESS carVal, SHORTINT typeTag)
+SUB ADDRESS CountCallback(ADDRESS carVal, SHORTINT typeTag) INVOKABLE
   SHARED _forEachCount
   _forEachCount = _forEachCount + 1
+  CountCallback = 0
 END SUB

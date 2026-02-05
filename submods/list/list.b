@@ -1024,12 +1024,12 @@ END SUB
 *}
 SUB LForEach(ADDRESS lst, ADDRESS fun) EXTERNAL
   DECLARE STRUCT LCell *cr
-  ADDRESS crAddr
+  ADDRESS crAddr, dummy
 
   crAddr = lst
   WHILE crAddr <> LNil
     cr = crAddr
-    INVOKE fun(cr->car, cr->tag)
+    dummy = INVOKE fun(cr->car, cr->tag)
     crAddr = cr->cdr
   WEND
 END SUB
