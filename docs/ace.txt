@@ -1485,12 +1485,75 @@ Closures as Callbacks
 Since closures are stored as LONGINT values, they can be passed to other
 SUBs just like function pointers:
 
-	SUB UseCallback(ADDRESS cb&)
-	  PRINT INVOKE cb&(20)
+	SUB UseCallback(ADDRESS cb)
+	  PRINT INVOKE cb(20)
 	END SUB
 
 	adder& = BIND(@AddN, 5)
 	CALL UseCallback(adder&)            '..prints 25
+
+
+The INVOKABLE Keyword
+~~~~~~~~~~~~~~~~~~~~~
+When a SUB is called indirectly through a closure (via INVOKE), the caller
+cannot access the SUB's frame to retrieve the return value. The INVOKABLE
+keyword solves this by making the SUB return its value in register D0:
+
+	SUB LONGINT Double(LONGINT x) INVOKABLE
+	  Double = x * 2
+	END SUB
+
+	cb& = BIND(@Double)
+	result& = INVOKE cb&(5)             '..result& = 10
+
+Use INVOKABLE when:
+- The SUB will be used with BIND to create closures
+- The SUB will be passed as a callback to other SUBs via ADDRESS
+- The return value must be retrieved via INVOKE
+
+INVOKABLE SUBs can still be called directly like any other SUB. The compiler
+handles both direct calls and indirect calls through closures correctly.
+
+Without INVOKABLE, a SUB stores its return value in a frame variable. This
+works fine for direct calls (the caller knows where to look), but indirect
+calls via INVOKE cannot reliably access this frame location.
+
+
+Complete Callback Example
+~~~~~~~~~~~~~~~~~~~~~~~~~
+Here is a complete example showing how to pass a closure to a SUB that
+invokes it. This pattern is useful for higher-order functions like map,
+filter, or custom iteration:
+
+	' The callback SUB - must be INVOKABLE to return values via INVOKE
+	DECLARE SUB LONGINT Multiplier(LONGINT factor, LONGINT x) INVOKABLE
+
+	' A SUB that receives and invokes a callback
+	DECLARE SUB LONGINT ApplyCallback(ADDRESS cb, LONGINT value)
+
+	' Create a closure that binds 'factor' to 3
+	tripler& = BIND(@Multiplier, 3)
+
+	' Pass the closure to ApplyCallback
+	result& = ApplyCallback(tripler&, 7)
+	PRINT result&                           '..prints 21
+
+	SUB LONGINT Multiplier(LONGINT factor, LONGINT x) INVOKABLE
+	  Multiplier = factor * x
+	END SUB
+
+	SUB LONGINT ApplyCallback(ADDRESS cb, LONGINT value)
+	  ' The SUB receives the closure as ADDRESS - it doesn't know
+	  ' at compile time whether cb is a raw function pointer or a
+	  ' closure. INVOKE handles both cases at runtime.
+	  ApplyCallback = INVOKE cb(value)
+	END SUB
+
+The key points:
+- Multiplier is marked INVOKABLE so its return value is accessible via INVOKE
+- ApplyCallback receives the closure as ADDRESS (a generic pointer type)
+- INVOKE detects at runtime whether cb is a closure or raw function pointer
+- INVOKE can be used as a statement (ignoring return) or in an expression
 
 
 Memory Behaviour

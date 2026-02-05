@@ -2873,7 +2873,39 @@ SUB..END SUB	- syntax:
 		- The return value is placed in register D0.
 		- All registers (D1-D7/A0-A6) are preserved.
 		- See "Callback SUBs for Amiga Hooks" in ace.txt for details.
- 
+
+	OR
+		- syntax (INVOKABLE):
+
+		  SUB [<type>] <ident> ([params]) INVOKABLE
+		    <statements>
+		  END SUB
+
+		- Creates a subprogram optimized for use with BIND and INVOKE.
+		- INVOKABLE SUBs return their value in register D0 instead of
+		  via a frame variable. This enables proper return values when
+		  called indirectly through closures.
+		- An INVOKABLE SUB can still be called directly like any other
+		  SUB. The compiler handles both cases correctly.
+		- Use INVOKABLE when:
+		  - The SUB will be used with BIND to create closures
+		  - The SUB will be passed as a callback via ADDRESS parameter
+		  - The return value must be accessible via INVOKE
+		- Example:
+
+		    SUB LONGINT Double(LONGINT x) INVOKABLE
+		      Double = x * 2
+		    END SUB
+
+		    cb& = BIND(@Double)
+		    result& = INVOKE cb&(5)   '..result& = 10
+
+		- Without INVOKABLE, indirect calls through closures cannot
+		  reliably retrieve the return value because the compiler
+		  generates code that stores the return in a frame variable
+		  that isn't accessible to the caller via INVOKE.
+		- See also BIND, INVOKE, @.
+
 --------------------------------------------------------------------------------
 SWAP		- syntax: SWAP <object>,<object>
 		  where <object> is a simple/external variable, parameter,
