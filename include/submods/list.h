@@ -146,3 +146,52 @@ DECLARE SUB LFree(ADDRESS lst) EXTERNAL
 ' LDump/LDumpLn - Print list contents (LDumpLn adds newline)
 DECLARE SUB LDump(ADDRESS lst) EXTERNAL
 DECLARE SUB LDumpLn(ADDRESS lst) EXTERNAL
+
+{* ============== Higher-Order Functions ============== *}
+{*
+** Generic higher-order functions - work with all list types.
+** Callbacks receive (carValue, typeTag) to handle any element type.
+**
+** Type interpretation for carValue (ADDRESS):
+**   LTypeInt (1): SHORTINT value stored as ADDRESS
+**   LTypeLng (2): LONGINT value stored as ADDRESS
+**   LTypeSng (3): SINGLE (FFP) bit pattern - use POKEL/PEEKL to convert
+**   LTypeStr (4): Pointer to null-terminated string - use CSTR()
+**   LTypeList (5): Pointer to nested list
+*}
+
+' LMap - Apply function to each element, return NEW list
+' fn signature: SUB ADDRESS fn(ADDRESS carValue, SHORTINT typeTag)
+' Callback returns new carValue (same type as input).
+' Original list unchanged. Caller must free returned list.
+DECLARE SUB ADDRESS LMap(ADDRESS lst, ADDRESS fun) EXTERNAL
+
+' LFilter - Return NEW list with elements where predicate is true
+' fn signature: SUB SHORTINT fn(ADDRESS carValue, SHORTINT typeTag)
+' Callback returns non-zero to keep element.
+' Original list unchanged. Caller must free returned list.
+DECLARE SUB ADDRESS LFilter(ADDRESS lst, ADDRESS fun) EXTERNAL
+
+' LReduce - Fold list into single value using accumulator
+' fn signature: SUB ADDRESS fn(ADDRESS acc, ADDRESS carValue, SHORTINT typeTag)
+' Callback returns new accumulator value.
+DECLARE SUB ADDRESS LReduce(ADDRESS lst, ADDRESS fun, ADDRESS initial) EXTERNAL
+
+' LForEach - Call function for each element (side effects only)
+' fn signature: SUB fn(ADDRESS carValue, SHORTINT typeTag)
+DECLARE SUB LForEach(ADDRESS lst, ADDRESS fun) EXTERNAL
+
+{* ============== Destructive Higher-Order Functions ============== *}
+
+' LNmap - Apply function IN PLACE (modifies original list)
+' fn signature: SUB ADDRESS fn(ADDRESS carValue, SHORTINT typeTag)
+' Callback returns new carValue (same type).
+' No new list created - original cells modified.
+DECLARE SUB LNmap(ADDRESS lst, ADDRESS fun) EXTERNAL
+
+' LNfilter - Filter list IN PLACE, freeing removed cells
+' fn signature: SUB SHORTINT fn(ADDRESS carValue, SHORTINT typeTag)
+' Callback returns non-zero to keep element.
+' Returns new head (may differ if first elements removed).
+' WARNING: Original list variable may become invalid - use returned head!
+DECLARE SUB ADDRESS LNfilter(ADDRESS lst, ADDRESS fun) EXTERNAL

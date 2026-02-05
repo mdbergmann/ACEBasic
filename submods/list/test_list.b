@@ -6,6 +6,7 @@
 #include <submods/list.h>
 
 SHORTINT _testsPassed, _testsFailed
+STRING _upperResult$
 
 {* ============== Assertion Helpers ============== *}
 
@@ -494,6 +495,310 @@ lst = LEnd
 AssertEqAddr(lst, LNil, "empty builder returns LNil")
 PRINT
 
+{* ============================================== *}
+{* Test Group 11: Higher-Order Functions - LMap   *}
+{* ============================================== *}
+PRINT "=== LMap (Higher-Order) ==="
+
+{* Callback functions for testing - declared before use *}
+DECLARE SUB ADDRESS DoubleValue(ADDRESS carVal, SHORTINT typeTag)
+DECLARE SUB ADDRESS ToUpperStr(ADDRESS carVal, SHORTINT typeTag)
+
+PRINT "Test: LMap with SHORTINT list"
+LNew
+LAdd%(1)
+LAdd%(2)
+LAdd%(3)
+lst = LEnd
+ADDRESS mapped
+mapped = LMap(lst, @DoubleValue)
+AssertEq&(LLen(mapped), 3, "LMap length preserved")
+AssertEq%(LCar%(mapped), 2, "LMap first doubled")
+AssertEq%(LCar%(LCdr(mapped)), 4, "LMap second doubled")
+AssertEq%(LCar%(LCdr(LCdr(mapped))), 6, "LMap third doubled")
+' Original should be unchanged
+AssertEq%(LCar%(lst), 1, "LMap original unchanged")
+LFree(lst)
+LFree(mapped)
+
+PRINT "Test: LMap with LONGINT list"
+LNew
+LAdd&(100000&)
+LAdd&(200000&)
+lst = LEnd
+mapped = LMap(lst, @DoubleValue)
+AssertEq&(LCar&(mapped), 200000, "LMap LONG first doubled")
+AssertEq&(LCar&(LCdr(mapped)), 400000, "LMap LONG second doubled")
+LFree(lst)
+LFree(mapped)
+
+PRINT "Test: LMap with SINGLE (FFP) list"
+LNew
+LAdd!(1.5)
+LAdd!(2.25)
+LAdd!(3.0)
+lst = LEnd
+mapped = LMap(lst, @DoubleValue)
+AssertEq&(LLen(mapped), 3, "LMap SINGLE length preserved")
+AssertEqFloat(LCar!(mapped), 3.0, "LMap SINGLE first doubled (1.5 -> 3.0)")
+AssertEqFloat(LCar!(LCdr(mapped)), 4.5, "LMap SINGLE second doubled (2.25 -> 4.5)")
+AssertEqFloat(LCar!(LCdr(LCdr(mapped))), 6.0, "LMap SINGLE third doubled (3.0 -> 6.0)")
+' Original should be unchanged
+AssertEqFloat(LCar!(lst), 1.5, "LMap SINGLE original unchanged")
+LFree(lst)
+LFree(mapped)
+
+PRINT "Test: LMap with STRING list"
+LNew
+LAdd$("abc")
+LAdd$("def")
+lst = LEnd
+mapped = LMap(lst, @ToUpperStr)
+AssertEqStr(LCar$(mapped), "ABC", "LMap STR first uppercased")
+AssertEqStr(LCar$(LCdr(mapped)), "DEF", "LMap STR second uppercased")
+LFree(lst)
+LFree(mapped)
+
+PRINT "Test: LMap on empty list"
+AssertEqAddr(LMap(LNil, @DoubleValue), LNil, "LMap of empty returns LNil")
+PRINT
+
+{* ============================================== *}
+{* Test Group 12: Higher-Order Functions - LFilter *}
+{* ============================================== *}
+PRINT "=== LFilter (Higher-Order) ==="
+
+DECLARE SUB SHORTINT IsEvenValue(ADDRESS carVal, SHORTINT typeTag)
+DECLARE SUB SHORTINT IsPositiveValue(ADDRESS carVal, SHORTINT typeTag)
+DECLARE SUB SHORTINT StartsWithA(ADDRESS carVal, SHORTINT typeTag)
+
+PRINT "Test: LFilter with SHORTINT list"
+LNew
+LAdd%(1)
+LAdd%(2)
+LAdd%(3)
+LAdd%(4)
+LAdd%(5)
+LAdd%(6)
+lst = LEnd
+ADDRESS filtered
+filtered = LFilter(lst, @IsEvenValue)
+AssertEq&(LLen(filtered), 3, "LFilter keeps only evens")
+AssertEq%(LCar%(filtered), 2, "LFilter first even")
+AssertEq%(LCar%(LCdr(filtered)), 4, "LFilter second even")
+AssertEq%(LCar%(LCdr(LCdr(filtered))), 6, "LFilter third even")
+' Original unchanged
+AssertEq&(LLen(lst), 6, "LFilter original unchanged")
+LFree(lst)
+LFree(filtered)
+
+PRINT "Test: LFilter with LONGINT list"
+LNew
+LAdd&(-100&)
+LAdd&(200&)
+LAdd&(-300&)
+LAdd&(400&)
+lst = LEnd
+filtered = LFilter(lst, @IsPositiveValue)
+AssertEq&(LLen(filtered), 2, "LFilter keeps positives")
+AssertEq&(LCar&(filtered), 200, "LFilter first positive")
+LFree(lst)
+LFree(filtered)
+
+PRINT "Test: LFilter with STRING list"
+LNew
+LAdd$("apple")
+LAdd$("banana")
+LAdd$("apricot")
+LAdd$("cherry")
+lst = LEnd
+filtered = LFilter(lst, @StartsWithA)
+AssertEq&(LLen(filtered), 2, "LFilter keeps A-words")
+AssertEqStr(LCar$(filtered), "apple", "LFilter first A-word")
+AssertEqStr(LCar$(LCdr(filtered)), "apricot", "LFilter second A-word")
+LFree(lst)
+LFree(filtered)
+
+PRINT "Test: LFilter all removed"
+LNew
+LAdd%(1)
+LAdd%(3)
+LAdd%(5)
+lst = LEnd
+filtered = LFilter(lst, @IsEvenValue)
+AssertEqAddr(filtered, LNil, "LFilter all odds removed")
+LFree(lst)
+
+PRINT "Test: LFilter on empty list"
+AssertEqAddr(LFilter(LNil, @IsEvenValue), LNil, "LFilter of empty")
+PRINT
+
+{* ============================================== *}
+{* Test Group 13: Higher-Order Functions - LReduce *}
+{* ============================================== *}
+PRINT "=== LReduce (Higher-Order) ==="
+
+DECLARE SUB ADDRESS SumValues(ADDRESS acc, ADDRESS carVal, SHORTINT typeTag)
+DECLARE SUB ADDRESS ConcatStrings(ADDRESS acc, ADDRESS carVal, SHORTINT typeTag)
+
+PRINT "Test: LReduce with SHORTINT list"
+LNew
+LAdd%(1)
+LAdd%(2)
+LAdd%(3)
+LAdd%(4)
+LAdd%(5)
+lst = LEnd
+ADDRESS sumResult
+sumResult = LReduce(lst, @SumValues, 0&)
+AssertEq&(sumResult, 15, "LReduce sum 1+2+3+4+5=15")
+LFree(lst)
+
+PRINT "Test: LReduce with LONGINT list"
+LNew
+LAdd&(100000&)
+LAdd&(200000&)
+LAdd&(300000&)
+lst = LEnd
+sumResult = LReduce(lst, @SumValues, 0&)
+AssertEq&(sumResult, 600000, "LReduce LONG sum")
+LFree(lst)
+
+PRINT "Test: LReduce on empty list"
+sumResult = LReduce(LNil, @SumValues, 42&)
+AssertEq&(sumResult, 42, "LReduce of empty returns initial")
+PRINT
+
+{* ============================================== *}
+{* Test Group 14: Higher-Order Functions - LForEach *}
+{* ============================================== *}
+PRINT "=== LForEach (Higher-Order) ==="
+
+' We'll use a shared variable to track calls
+SHORTINT _forEachCount
+_forEachCount = 0
+
+DECLARE SUB CountCallback(ADDRESS carVal, SHORTINT typeTag)
+
+PRINT "Test: LForEach"
+LNew
+LAdd%(10)
+LAdd%(20)
+LAdd%(30)
+lst = LEnd
+_forEachCount = 0
+LForEach(lst, @CountCallback)
+AssertEq%(_forEachCount, 3, "LForEach called 3 times")
+LFree(lst)
+
+PRINT "Test: LForEach on empty list"
+_forEachCount = 0
+LForEach(LNil, @CountCallback)
+AssertEq%(_forEachCount, 0, "LForEach on empty calls nothing")
+PRINT
+
+{* ============================================== *}
+{* Test Group 15: Destructive Higher-Order - LNmap *}
+{* ============================================== *}
+PRINT "=== LNmap (Destructive Map) ==="
+
+PRINT "Test: LNmap with SHORTINT list"
+LNew
+LAdd%(1)
+LAdd%(2)
+LAdd%(3)
+lst = LEnd
+LNmap(lst, @DoubleValue)
+AssertEq%(LCar%(lst), 2, "LNmap first doubled in place")
+AssertEq%(LCar%(LCdr(lst)), 4, "LNmap second doubled in place")
+AssertEq%(LCar%(LCdr(LCdr(lst))), 6, "LNmap third doubled in place")
+LFree(lst)
+
+PRINT "Test: LNmap with LONGINT list"
+LNew
+LAdd&(100000&)
+LAdd&(200000&)
+lst = LEnd
+LNmap(lst, @DoubleValue)
+AssertEq&(LCar&(lst), 200000, "LNmap LONG first doubled in place")
+LFree(lst)
+
+PRINT "Test: LNmap with STRING list"
+LNew
+LAdd$("abc")
+LAdd$("xyz")
+lst = LEnd
+LNmap(lst, @ToUpperStr)
+AssertEqStr(LCar$(lst), "ABC", "LNmap STR first uppercased in place")
+AssertEqStr(LCar$(LCdr(lst)), "XYZ", "LNmap STR second uppercased in place")
+LFree(lst)
+PRINT
+
+{* ============================================== *}
+{* Test Group 16: Destructive Higher-Order - LNfilter *}
+{* ============================================== *}
+PRINT "=== LNfilter (Destructive Filter) ==="
+
+PRINT "Test: LNfilter with SHORTINT list"
+LNew
+LAdd%(1)
+LAdd%(2)
+LAdd%(3)
+LAdd%(4)
+LAdd%(5)
+LAdd%(6)
+lst = LEnd
+lst = LNfilter(lst, @IsEvenValue)
+AssertEq&(LLen(lst), 3, "LNfilter keeps only evens")
+AssertEq%(LCar%(lst), 2, "LNfilter first even")
+AssertEq%(LCar%(LCdr(lst)), 4, "LNfilter second even")
+LFree(lst)
+
+PRINT "Test: LNfilter removes first elements"
+LNew
+LAdd%(1)
+LAdd%(3)
+LAdd%(4)
+LAdd%(5)
+LAdd%(6)
+lst = LEnd
+lst = LNfilter(lst, @IsEvenValue)
+AssertEq&(LLen(lst), 2, "LNfilter new head after removal")
+AssertEq%(LCar%(lst), 4, "LNfilter new first is 4")
+LFree(lst)
+
+PRINT "Test: LNfilter all removed"
+LNew
+LAdd%(1)
+LAdd%(3)
+LAdd%(5)
+lst = LEnd
+lst = LNfilter(lst, @IsEvenValue)
+AssertEqAddr(lst, LNil, "LNfilter all removed returns LNil")
+
+PRINT "Test: LNfilter with LONGINT list"
+LNew
+LAdd&(-100&)
+LAdd&(200&)
+LAdd&(-300&)
+LAdd&(400&)
+lst = LEnd
+lst = LNfilter(lst, @IsPositiveValue)
+AssertEq&(LLen(lst), 2, "LNfilter keeps positives")
+LFree(lst)
+
+PRINT "Test: LNfilter with STRING list"
+LNew
+LAdd$("apple")
+LAdd$("banana")
+LAdd$("apricot")
+lst = LEnd
+lst = LNfilter(lst, @StartsWithA)
+AssertEq&(LLen(lst), 2, "LNfilter keeps A-words")
+AssertEqStr(LCar$(lst), "apple", "LNfilter first A-word")
+LFree(lst)
+PRINT
+
 LCleanup
 
 {* ============================================== *}
@@ -511,3 +816,150 @@ IF _testsFailed = 0 THEN
 ELSE
   PRINT "Some tests FAILED!"
 END IF
+
+STOP
+
+{* ============================================== *}
+{* Callback Functions for Higher-Order Tests      *}
+{* Generic callbacks receive (carValue, typeTag)  *}
+{* ============================================== *}
+
+{* Double any numeric value *}
+SUB ADDRESS DoubleValue(ADDRESS carVal, SHORTINT typeTag)
+  SHORTINT intVal
+  LONGINT lngVal
+  SINGLE sngVal
+  ADDRESS floatAddr
+
+  IF typeTag = LTypeInt THEN
+    intVal = carVal
+    DoubleValue = intVal * 2
+  ELSEIF typeTag = LTypeLng THEN
+    lngVal = carVal
+    DoubleValue = lngVal * 2
+  ELSEIF typeTag = LTypeSng THEN
+    floatAddr = VARPTR(sngVal)
+    POKEL floatAddr, carVal
+    sngVal = sngVal * 2.0!
+    DoubleValue = PEEKL(floatAddr)
+  ELSE
+    DoubleValue = carVal
+  END IF
+END SUB
+
+{* Convert string to uppercase *}
+SUB ADDRESS ToUpperStr(ADDRESS carVal, SHORTINT typeTag)
+  SHARED _upperResult$
+  STRING s
+  SHORTINT i, c
+
+  IF typeTag <> LTypeStr THEN
+    ToUpperStr = carVal
+    EXIT SUB
+  END IF
+
+  s = CSTR(carVal)
+  _upperResult$ = ""
+  FOR i = 1 TO LEN(s)
+    c = ASC(MID$(s, i, 1))
+    IF c >= 97 AND c <= 122 THEN
+      c = c - 32
+    END IF
+    _upperResult$ = _upperResult$ + CHR$(c)
+  NEXT
+  ToUpperStr = SADD(_upperResult$)
+END SUB
+
+{* Check if numeric value is even *}
+SUB SHORTINT IsEvenValue(ADDRESS carVal, SHORTINT typeTag)
+  SHORTINT intVal
+  LONGINT lngVal
+
+  IF typeTag = LTypeInt THEN
+    intVal = carVal
+    IF (intVal MOD 2) = 0 THEN
+      IsEvenValue = -1
+    ELSE
+      IsEvenValue = 0
+    END IF
+  ELSEIF typeTag = LTypeLng THEN
+    lngVal = carVal
+    IF (lngVal MOD 2) = 0 THEN
+      IsEvenValue = -1
+    ELSE
+      IsEvenValue = 0
+    END IF
+  ELSE
+    IsEvenValue = 0
+  END IF
+END SUB
+
+{* Check if numeric value is positive *}
+SUB SHORTINT IsPositiveValue(ADDRESS carVal, SHORTINT typeTag)
+  SHORTINT intVal
+  LONGINT lngVal
+
+  IF typeTag = LTypeInt THEN
+    intVal = carVal
+    IF intVal > 0 THEN
+      IsPositiveValue = -1
+    ELSE
+      IsPositiveValue = 0
+    END IF
+  ELSEIF typeTag = LTypeLng THEN
+    lngVal = carVal
+    IF lngVal > 0 THEN
+      IsPositiveValue = -1
+    ELSE
+      IsPositiveValue = 0
+    END IF
+  ELSE
+    IsPositiveValue = 0
+  END IF
+END SUB
+
+{* Check if string starts with 'a' or 'A' *}
+SUB SHORTINT StartsWithA(ADDRESS carVal, SHORTINT typeTag)
+  STRING s
+
+  IF typeTag <> LTypeStr THEN
+    StartsWithA = 0
+    EXIT SUB
+  END IF
+
+  s = CSTR(carVal)
+  IF LEFT$(s, 1) = "a" OR LEFT$(s, 1) = "A" THEN
+    StartsWithA = -1
+  ELSE
+    StartsWithA = 0
+  END IF
+END SUB
+
+{* Sum accumulator for reduce *}
+SUB ADDRESS SumValues(ADDRESS acc, ADDRESS carVal, SHORTINT typeTag)
+  LONGINT accLng, valLng
+  SHORTINT valInt
+
+  accLng = acc
+  IF typeTag = LTypeInt THEN
+    valInt = carVal
+    SumValues = accLng + valInt
+  ELSEIF typeTag = LTypeLng THEN
+    valLng = carVal
+    SumValues = accLng + valLng
+  ELSE
+    SumValues = acc
+  END IF
+END SUB
+
+{* Concat accumulator for reduce (not used in current tests) *}
+SUB ADDRESS ConcatStrings(ADDRESS acc, ADDRESS carVal, SHORTINT typeTag)
+  ' String concat would need shared variable for result
+  ConcatStrings = acc
+END SUB
+
+{* Count callback for ForEach *}
+SUB CountCallback(ADDRESS carVal, SHORTINT typeTag)
+  SHARED _forEachCount
+  _forEachCount = _forEachCount + 1
+END SUB

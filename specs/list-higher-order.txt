@@ -1,145 +1,244 @@
-List Library: Higher-Order Functions (Future Work)
-==================================================
+List Library: Higher-Order Functions
+=====================================
 
-This document describes planned higher-order functions for the list library.
-Implementation requires @ (address-of) and INVOKE/BIND for callbacks.
+Generic higher-order functions for the list library.
+Uses @ (address-of) and INVOKE for callbacks.
 
-
-Planned Functions
------------------
-
-LMap(lst, callback)
-    Apply callback to each element, return new list with results.
-
-    callback signature: SUB returnType callback(elementType value)
-
-    Example:
-        SUB SHORTINT Double%(SHORTINT x)
-          Double% = x * 2
-        END SUB
-
-        result = LMap%(mylist, @Double%)
-        ' (1 2 3) -> (2 4 6)
+Status: IMPLEMENTED
 
 
-LFilter(lst, predicate)
-    Return new list containing only elements where predicate returns true.
+API Overview
+------------
 
-    predicate signature: SUB SHORTINT predicate(elementType value)
+All functions use generic callbacks that receive (carValue, typeTag),
+allowing a single function to work with any list type.
 
-    Example:
-        SUB SHORTINT IsEven%(SHORTINT x)
-          IsEven% = (x MOD 2) = 0
-        END SUB
+Non-destructive (create new lists):
+  LMap(lst, fun)              - Transform elements, return new list
+  LFilter(lst, fun)           - Keep matching elements, return new list
+  LReduce(lst, fn, initial)  - Fold list into single value
+  LForEach(lst, fun)          - Call function for side effects
 
-        result = LFilter%(mylist, @IsEven%)
-        ' (1 2 3 4 5 6) -> (2 4 6)
-
-
-LReduce(lst, callback, initial)
-    Combine all elements into single value using callback.
-    Also known as fold/foldl.
-
-    callback signature: SUB returnType callback(accumulator, element)
-
-    Example:
-        SUB LONGINT Sum&(LONGINT acc, SHORTINT x)
-          Sum& = acc + x
-        END SUB
-
-        result = LReduce%(mylist, @Sum&, 0&)
-        ' (1 2 3 4 5) -> 15
+Destructive (modify in place):
+  LNmap(lst, fun)             - Transform elements in place
+  LNfilter(lst, fun)          - Remove non-matching elements, free them
 
 
-Type Variants
--------------
+Callback Signatures
+-------------------
 
-Each function needs variants for different types:
+Callbacks receive raw car values and type tags:
 
-LMap%    - SHORTINT elements, returns list of SHORTINT
-LMap&    - LONGINT elements
-LMap!    - SINGLE elements
-LMap$    - STRING elements
+  carValue (ADDRESS) - The value stored in the cell
+  typeTag (SHORTINT) - The type: LTypeInt, LTypeLng, LTypeSng, LTypeStr, LTypeList
 
-LFilter% - filter SHORTINT list
-LFilter& - filter LONGINT list
-LFilter! - filter SINGLE list
-LFilter$ - filter STRING list
+Type interpretation:
+  LTypeInt (1): SHORTINT value (fits in ADDRESS)
+  LTypeLng (2): LONGINT value (fits in ADDRESS)
+  LTypeSng (3): SINGLE (FFP format) as bit pattern - use POKEL/PEEKL to convert
+  LTypeStr (4): Pointer to null-terminated string - use CSTR()
+  LTypeList (5): Pointer to nested list
 
-LReduce% - reduce SHORTINT list
-LReduce& - reduce LONGINT list
-LReduce! - reduce SINGLE list
-LReduce$ - reduce STRING list
+Signatures:
+  LMap:     SUB ADDRESS fn(ADDRESS carValue, SHORTINT typeTag)
+  LFilter:  SUB SHORTINT fn(ADDRESS carValue, SHORTINT typeTag)
+  LReduce:  SUB ADDRESS fn(ADDRESS acc, ADDRESS carValue, SHORTINT typeTag)
+  LForEach: SUB fn(ADDRESS carValue, SHORTINT typeTag)
+  LNmap:    SUB ADDRESS fn(ADDRESS carValue, SHORTINT typeTag)
+  LNfilter: SUB SHORTINT fn(ADDRESS carValue, SHORTINT typeTag)
+
+
+LMap - Transform Elements
+-------------------------
+
+Apply function to each element, return NEW list with results.
+Result cells have same type as input cells.
+
+    result& = LMap(lst&, @callback)
+
+Example - double numeric values:
+
+    SUB ADDRESS DoubleValue(ADDRESS carVal, SHORTINT typeTag)
+      SHORTINT intVal
+      LONGINT lngVal
+
+      IF typeTag = LTypeInt THEN
+        intVal = carVal
+        DoubleValue = intVal * 2
+      ELSEIF typeTag = LTypeLng THEN
+        lngVal = carVal
+        DoubleValue = lngVal * 2
+      ELSE
+        DoubleValue = carVal
+      END IF
+    END SUB
+
+    doubled& = LMap(mylist&, @DoubleValue)
+    ' (1 2 3) -> (2 4 6)
+
+Memory: Creates new list. Caller must free returned list.
+        Original list unchanged.
+
+
+LFilter - Select Elements
+-------------------------
+
+Return NEW list containing only elements where predicate returns true.
+
+    result& = LFilter(lst&, @predicate)
+
+Example - keep even numbers:
+
+    SUB SHORTINT IsEven(ADDRESS carVal, SHORTINT typeTag)
+      SHORTINT intVal
+
+      IF typeTag = LTypeInt THEN
+        intVal = carVal
+        IF (intVal MOD 2) = 0 THEN
+          IsEven = -1   ' Keep (true)
+        ELSE
+          IsEven = 0    ' Remove (false)
+        END IF
+      ELSE
+        IsEven = 0
+      END IF
+    END SUB
+
+    evens& = LFilter(mylist&, @IsEven)
+    ' (1 2 3 4 5 6) -> (2 4 6)
+
+Memory: Creates new list. Caller must free returned list.
+        Original list unchanged.
+
+
+LReduce - Fold List
+-------------------
+
+Combine all elements into single value using accumulator function.
+
+    result& = LReduce(lst&, @callback, initial&)
+
+Example - sum all values:
+
+    SUB ADDRESS SumValues(ADDRESS acc, ADDRESS carVal, SHORTINT typeTag)
+      LONGINT accLng, valLng
+      SHORTINT valInt
+
+      accLng = acc
+      IF typeTag = LTypeInt THEN
+        valInt = carVal
+        SumValues = accLng + valInt
+      ELSEIF typeTag = LTypeLng THEN
+        valLng = carVal
+        SumValues = accLng + valLng
+      ELSE
+        SumValues = acc
+      END IF
+    END SUB
+
+    total& = LReduce(mylist&, @SumValues, 0&)
+    ' (1 2 3 4 5) -> 15
+
+Memory: No allocation. Returns single value.
+
+
+LForEach - Side Effects
+-----------------------
+
+Call function for each element. No return value.
+
+    LForEach(lst&, @callback)
+
+Example - print all values:
+
+    SUB PrintValue(ADDRESS carVal, SHORTINT typeTag)
+      IF typeTag = LTypeInt THEN
+        PRINT carVal
+      END IF
+    END SUB
+
+    LForEach(mylist&, @PrintValue)
+
+Memory: No changes.
+
+
+LNmap - Transform In Place (Destructive)
+----------------------------------------
+
+Apply function to each element, modifying the original list.
+No new list created.
+
+    LNmap(lst&, @callback)
+
+Example:
+
+    LNmap(mylist&, @DoubleValue)
+    ' Original list now contains doubled values
+
+Memory: Modifies original cells. For strings, old string data is
+        freed and new string is allocated.
+
+
+LNfilter - Filter In Place (Destructive)
+----------------------------------------
+
+Remove elements that don't match predicate. Frees removed cells.
+Returns new head (may differ if leading elements removed).
+
+    lst& = LNfilter(lst&, @predicate)   ' Must reassign!
+
+Example:
+
+    lst& = LNfilter(lst&, @IsEven)
+    ' Odd-valued cells have been freed
+    ' lst& now points to first even element (or LNil)
+
+Memory: Frees removed cells (including string data).
+        Remaining cells unchanged.
+
+WARNING: Original list variable may become invalid if first
+         elements are removed. Always reassign the result!
+
+
+Memory Management Summary
+-------------------------
+
+| Function  | Creates List | Frees Anything | Original List |
+|-----------|--------------|----------------|---------------|
+| LMap      | Yes (new)    | No             | Unchanged     |
+| LFilter   | Yes (new)    | No             | Unchanged     |
+| LReduce   | No           | No             | Unchanged     |
+| LForEach  | No           | No             | Unchanged     |
+| LNmap     | No           | Strings only   | Modified      |
+| LNfilter  | No           | Removed cells  | Modified      |
+
+For non-destructive functions:
+- Original list remains valid
+- Caller must free BOTH original and returned list
+
+For destructive functions:
+- Original list is modified
+- For LNfilter, must use returned head
+
+
+Complexity
+----------
+
+| Function  | Time | Space |
+|-----------|------|-------|
+| LMap      | O(n) | O(n)  |
+| LFilter   | O(n) | O(k)  | k = kept elements
+| LReduce   | O(n) | O(1)  |
+| LForEach  | O(n) | O(1)  |
+| LNmap     | O(n) | O(1)  |
+| LNfilter  | O(n) | O(1)  |
 
 
 Implementation Notes
 --------------------
 
-1. Use @ operator to get address of callback SUB
-2. Use INVOKE or BIND to call through the address
-3. Need to handle type conversion carefully
-4. Consider providing LMapGeneric that works with ADDRESS values
-
-
-Alternative: LForEach
----------------------
-
-Simpler variant that just calls callback for side effects (no return list):
-
-    LForEach(lst, callback)
-
-    SUB PrintValue(SHORTINT x)
-      PRINT x
-    END SUB
-
-    LForEach%(mylist, @PrintValue)
-
-
-Current Workaround
-------------------
-
-Until higher-order functions are implemented, users can iterate manually:
-
-    ' Map example (double each value)
-    LNew
-    cur = mylist
-    WHILE NOT LNull(cur)
-      LAdd%(LCar%(cur) * 2)
-      cur = LCdr(cur)
-    WEND
-    doubled = LEnd
-
-    ' Filter example (keep even values)
-    LNew
-    cur = mylist
-    WHILE NOT LNull(cur)
-      IF (LCar%(cur) MOD 2) = 0 THEN
-        LAdd%(LCar%(cur))
-      END IF
-      cur = LCdr(cur)
-    WEND
-    evens = LEnd
-
-    ' Reduce example (sum)
-    LONGINT total
-    total = 0
-    cur = mylist
-    WHILE NOT LNull(cur)
-      total = total + LCar%(cur)
-      cur = LCdr(cur)
-    WEND
-
-
-Dependencies
-------------
-
-- @ operator for getting SUB address
-- INVOKE/BIND for calling through address
-- May need compiler support verification
-
-
-Priority
---------
-
-Low - Users can work around with iteration patterns.
-Implement when @ and INVOKE/BIND are confirmed working.
+1. Single generic function per operation (not typed variants)
+2. Callbacks interpret carValue based on typeTag
+3. LMap/LFilter preserve element types in result
+4. String handling: LMap copies callback result, LNmap frees old/allocates new
+5. LNfilter uses single-pass algorithm with head tracking

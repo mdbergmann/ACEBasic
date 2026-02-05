@@ -115,6 +115,44 @@ Value Copying:
 - No garbage collection - user responsible for calling LFree
 
 
+Higher-Order Functions and Memory
+---------------------------------
+
+Non-destructive functions (LMap, LFilter, LReduce, LForEach):
+
+- LMap creates a NEW list - caller must free the returned list
+- LFilter creates a NEW list - caller must free the returned list
+- LReduce returns a single value (no memory allocation)
+- LForEach just iterates - no memory changes
+- Original lists remain unchanged and valid
+
+Example:
+    ' Create original list
+    LNew
+    LAdd%(1)
+    LAdd%(2)
+    LAdd%(3)
+    original& = LEnd
+
+    ' Map creates new list
+    doubled& = LMap(original&, @MyDoubler)
+
+    ' Both lists exist - must free both
+    LFree(original&)
+    LFree(doubled&)
+
+Destructive functions (LNmap, LNfilter):
+
+- LNmap modifies cells in place - no new memory allocated
+- LNfilter removes cells and FREES them (including string data)
+- LNfilter returns new head - original variable may be invalid!
+
+Example:
+    lst& = LNfilter(lst&, @MyPredicate)  ' Must reassign!
+    ' Filtered-out cells have been freed
+    LFree(lst&)  ' Free remaining cells
+
+
 Building the Module
 -------------------
 
@@ -186,3 +224,76 @@ Core functions:
   LNconc, LNrev       - Destructive operations
   LFree               - Memory deallocation
   LDump, LDumpLn      - Debug output
+
+Higher-order functions:
+  LMap                - Apply function to each element, return new list
+  LFilter             - Return new list with elements passing predicate
+  LReduce             - Fold list into single value
+  LForEach            - Call function for each element (side effects)
+  LNmap               - Map in place (destructive)
+  LNfilter            - Filter in place (destructive, frees removed cells)
+
+
+Higher-Order Function Callbacks
+-------------------------------
+
+All higher-order functions use generic callbacks that receive the raw
+car value and type tag:
+
+  carValue  - The value stored in the cell (ADDRESS)
+  typeTag   - The type (LTypeInt, LTypeLng, LTypeSng, LTypeStr, LTypeList)
+
+Type interpretation:
+  LTypeInt (1): SHORTINT value (fits in ADDRESS)
+  LTypeLng (2): LONGINT value (fits in ADDRESS)
+  LTypeSng (3): SINGLE as bit pattern - use POKEL/PEEKL to convert
+  LTypeStr (4): Pointer to null-terminated string - use CSTR()
+  LTypeList (5): Pointer to nested list
+
+Callback signatures:
+  LMap:     SUB ADDRESS fn(ADDRESS carValue, SHORTINT typeTag)
+  LFilter:  SUB SHORTINT fn(ADDRESS carValue, SHORTINT typeTag)
+  LReduce:  SUB ADDRESS fn(ADDRESS acc, ADDRESS carValue, SHORTINT typeTag)
+  LForEach: SUB fn(ADDRESS carValue, SHORTINT typeTag)
+  LNmap:    SUB ADDRESS fn(ADDRESS carValue, SHORTINT typeTag)
+  LNfilter: SUB SHORTINT fn(ADDRESS carValue, SHORTINT typeTag)
+
+Example callback - double any numeric value:
+
+    SUB ADDRESS DoubleValue(ADDRESS carVal, SHORTINT typeTag)
+      SHORTINT intVal
+      LONGINT lngVal
+
+      IF typeTag = LTypeInt THEN
+        intVal = carVal
+        DoubleValue = intVal * 2
+      ELSEIF typeTag = LTypeLng THEN
+        lngVal = carVal
+        DoubleValue = lngVal * 2
+      ELSE
+        DoubleValue = carVal
+      END IF
+    END SUB
+
+    ' Usage:
+    doubled& = LMap(mylist&, @DoubleValue)
+
+Example callback - filter even numbers:
+
+    SUB SHORTINT IsEven(ADDRESS carVal, SHORTINT typeTag)
+      SHORTINT intVal
+
+      IF typeTag = LTypeInt THEN
+        intVal = carVal
+        IF (intVal MOD 2) = 0 THEN
+          IsEven = -1  ' Keep
+        ELSE
+          IsEven = 0   ' Remove
+        END IF
+      ELSE
+        IsEven = 0
+      END IF
+    END SUB
+
+    ' Usage:
+    evens& = LFilter(mylist&, @IsEven)

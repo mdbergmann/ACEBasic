@@ -856,3 +856,262 @@ SUB LDumpLn(ADDRESS lst) EXTERNAL
   LDump(lst)
   PRINT
 END SUB
+
+{* ============== Higher-Order Functions ============== *}
+{*
+** Generic higher-order functions that work with all list types.
+** Callbacks receive (carValue, typeTag) so they can handle any type.
+**
+** Type interpretation for carValue:
+**   LTypeInt (1): SHORTINT value (use as-is, fits in ADDRESS)
+**   LTypeLng (2): LONGINT value (use as-is)
+**   LTypeSng (3): SINGLE as bit pattern (use POKEL/PEEKL to convert)
+**   LTypeStr (4): Pointer to null-terminated string (use CSTR)
+**   LTypeList (5): Pointer to nested list
+*}
+
+{* Internal helper: create cell with raw car value and type *}
+SUB ADDRESS _LConsRaw(ADDRESS carVal, SHORTINT typeTag, ADDRESS tl)
+  DECLARE STRUCT LCell *cel
+
+  cel = _LAllocCell
+  IF cel <> LNil THEN
+    cel->tag = typeTag
+    IF typeTag = LTypeStr THEN
+      ' Copy string for safety
+      cel->car = _LCopyString(CSTR(carVal))
+    ELSE
+      cel->car = carVal
+    END IF
+    cel->cdr = tl
+  END IF
+  _LConsRaw = cel
+END SUB
+
+{* LMap - Apply function to each element, return NEW list
+** fn signature: SUB ADDRESS fun(ADDRESS carValue, SHORTINT typeTag)
+** Returns new carValue (same type as input)
+** Original list unchanged. Caller must free returned list.
+*}
+SUB ADDRESS LMap(ADDRESS lst, ADDRESS fun) EXTERNAL
+  DECLARE STRUCT LCell *cr, *newCel, *tailCel
+  ADDRESS crAddr, newCarVal, newAddr, res, tailAddr
+
+  IF lst = LNil THEN
+    LMap = LNil
+    EXIT SUB
+  END IF
+
+  res = LNil
+  tailAddr = LNil
+  crAddr = lst
+
+  WHILE crAddr <> LNil
+    cr = crAddr
+    ' Call callback with car value and type
+    newCarVal = INVOKE fun(cr->car, cr->tag)
+
+    ' Create new cell with mapped value (same type)
+    newAddr = _LAllocCell
+    IF newAddr = LNil THEN
+      LMap = res
+      EXIT SUB
+    END IF
+
+    newCel = newAddr
+    newCel->tag = cr->tag
+    IF cr->tag = LTypeStr THEN
+      ' Copy the string returned by callback
+      newCel->car = _LCopyString(CSTR(newCarVal))
+    ELSE
+      newCel->car = newCarVal
+    END IF
+    newCel->cdr = LNil
+
+    IF res = LNil THEN
+      res = newAddr
+      tailAddr = newAddr
+    ELSE
+      tailCel = tailAddr
+      tailCel->cdr = newAddr
+      tailAddr = newAddr
+    END IF
+
+    crAddr = cr->cdr
+  WEND
+
+  LMap = res
+END SUB
+
+{* LFilter - Return NEW list with elements where predicate is true
+** fn signature: SUB SHORTINT fn(ADDRESS carValue, SHORTINT typeTag)
+** Returns non-zero to keep element.
+** Original list unchanged. Caller must free returned list.
+*}
+SUB ADDRESS LFilter(ADDRESS lst, ADDRESS fun) EXTERNAL
+  DECLARE STRUCT LCell *cr, *newCel, *tailCel
+  ADDRESS crAddr, newAddr, res, tailAddr
+  SHORTINT keep
+
+  IF lst = LNil THEN
+    LFilter = LNil
+    EXIT SUB
+  END IF
+
+  res = LNil
+  tailAddr = LNil
+  crAddr = lst
+
+  WHILE crAddr <> LNil
+    cr = crAddr
+    keep = INVOKE fun(cr->car, cr->tag)
+
+    IF keep THEN
+      ' Copy this cell to result
+      newAddr = _LAllocCell
+      IF newAddr = LNil THEN
+        LFilter = res
+        EXIT SUB
+      END IF
+
+      newCel = newAddr
+      newCel->tag = cr->tag
+      IF cr->tag = LTypeStr THEN
+        newCel->car = _LCopyString(CSTR(cr->car))
+      ELSE
+        newCel->car = cr->car
+      END IF
+      newCel->cdr = LNil
+
+      IF res = LNil THEN
+        res = newAddr
+        tailAddr = newAddr
+      ELSE
+        tailCel = tailAddr
+        tailCel->cdr = newAddr
+        tailAddr = newAddr
+      END IF
+    END IF
+
+    crAddr = cr->cdr
+  WEND
+
+  LFilter = res
+END SUB
+
+{* LReduce - Fold list into single value
+** fn signature: SUB ADDRESS fun(ADDRESS acc, ADDRESS carValue, SHORTINT typeTag)
+** Returns new accumulator value.
+*}
+SUB ADDRESS LReduce(ADDRESS lst, ADDRESS fun, ADDRESS initial) EXTERNAL
+  DECLARE STRUCT LCell *cr
+  ADDRESS crAddr, acc
+
+  acc = initial
+  crAddr = lst
+
+  WHILE crAddr <> LNil
+    cr = crAddr
+    acc = INVOKE fun(acc, cr->car, cr->tag)
+    crAddr = cr->cdr
+  WEND
+
+  LReduce = acc
+END SUB
+
+{* LForEach - Call function for each element (side effects only)
+** fn signature: SUB fn(ADDRESS carValue, SHORTINT typeTag)
+*}
+SUB LForEach(ADDRESS lst, ADDRESS fun) EXTERNAL
+  DECLARE STRUCT LCell *cr
+  ADDRESS crAddr
+
+  crAddr = lst
+  WHILE crAddr <> LNil
+    cr = crAddr
+    INVOKE fun(cr->car, cr->tag)
+    crAddr = cr->cdr
+  WEND
+END SUB
+
+{* ============== Destructive Higher-Order Functions ============== *}
+
+{* LNmap - Apply function IN PLACE (modifies original list)
+** fn signature: SUB ADDRESS fun(ADDRESS carValue, SHORTINT typeTag)
+** Returns new carValue (same type).
+*}
+SUB LNmap(ADDRESS lst, ADDRESS fun) EXTERNAL
+  DECLARE STRUCT LCell *cr
+  ADDRESS crAddr, newCarVal, newStrAddr
+
+  crAddr = lst
+  WHILE crAddr <> LNil
+    cr = crAddr
+    newCarVal = INVOKE fun(cr->car, cr->tag)
+
+    IF cr->tag = LTypeStr THEN
+      ' Free old string, copy new one
+      IF cr->car <> LNil THEN
+        FreeVec(cr->car)
+      END IF
+      newStrAddr = _LCopyString(CSTR(newCarVal))
+      cr->car = newStrAddr
+    ELSE
+      cr->car = newCarVal
+    END IF
+
+    crAddr = cr->cdr
+  WEND
+END SUB
+
+{* LNfilter - Filter list IN PLACE, freeing removed cells
+** fn signature: SUB SHORTINT fn(ADDRESS carValue, SHORTINT typeTag)
+** Returns non-zero to keep element.
+** Returns new head (may differ if first elements removed).
+** WARNING: Original list variable may become invalid!
+*}
+SUB ADDRESS LNfilter(ADDRESS lst, ADDRESS fun) EXTERNAL
+  DECLARE STRUCT LCell *cr, *prev
+  ADDRESS crAddr, nxtAddr, newHead, prevAddr
+  SHORTINT keep
+
+  IF lst = LNil THEN
+    LNfilter = LNil
+    EXIT SUB
+  END IF
+
+  newHead = LNil
+  prevAddr = LNil
+  crAddr = lst
+
+  WHILE crAddr <> LNil
+    cr = crAddr
+    nxtAddr = cr->cdr
+    keep = INVOKE fun(cr->car, cr->tag)
+
+    IF keep THEN
+      IF newHead = LNil THEN
+        newHead = crAddr
+      ELSE
+        prev = prevAddr
+        prev->cdr = crAddr
+      END IF
+      prevAddr = crAddr
+    ELSE
+      ' Free string data if needed
+      IF cr->tag = LTypeStr AND cr->car <> LNil THEN
+        FreeVec(cr->car)
+      END IF
+      FreeVec(crAddr)
+    END IF
+    crAddr = nxtAddr
+  WEND
+
+  ' Terminate the list
+  IF prevAddr <> LNil THEN
+    prev = prevAddr
+    prev->cdr = LNil
+  END IF
+
+  LNfilter = newHead
+END SUB
