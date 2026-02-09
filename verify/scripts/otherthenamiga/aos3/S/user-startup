@@ -47,6 +47,8 @@ assign ACEinclude: ACE:include
 path ACE:bin add
 protect ACE:bin/bas +s
 
+; P96 screen support - Phase 3 complete (COLOR r,g,b)
+
 
 
 

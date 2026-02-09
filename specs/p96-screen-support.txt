@@ -1,0 +1,339 @@
+P96 (Picasso96) Screen Support for ACE BASIC
+=============================================
+
+Status: DRAFT
+Date: 2026-02-09
+
+
+1. OVERVIEW
+-----------
+
+Add RTG (retargetable graphics) screen support to ACE via the
+Picasso96API.library. This extends the existing SCREEN command with
+a new mode 13 that opens screens on any P96-compatible graphics card.
+
+No new keywords are needed for basic operation. The existing SCREEN,
+SCREEN CLOSE, SCREEN FORWARD, SCREEN BACK, WINDOW, and drawing
+commands all work unchanged because P96 screens are standard Intuition
+screens.
+
+A new 3-argument COLOR form is added for direct RGB color on
+HiColor/TrueColor screens.
+
+
+2. MODE SCHEME
+--------------
+
+Three tiers, easy to remember:
+
+  Modes  1-6  : Classic chipset (OCS/ECS)   [existing]
+  Modes  7-12 : AGA chipset (A1200/A4000)   [existing]
+  Mode  13    : RTG / Picasso96              [new]
+
+The depth parameter selects color mode for P96:
+
+  Depth 1-8   : CLUT (palette-based, like classic Amiga)
+  Depth 15    : HiColor 15-bit (32768 colors)
+  Depth 16    : HiColor 16-bit (65536 colors)
+  Depth 24    : TrueColor (16.7M colors)
+  Depth 32    : TrueColor + alpha channel
+
+P96's p96BestModeIDTagList() automatically selects the right display
+mode and pixel format for the installed graphics card. The programmer
+does not need to know about RGBFB_* format details.
+
+
+3. SYNTAX
+---------
+
+3.1 Open a P96 screen
+
+  SCREEN screen-id, width, height, depth, 13
+
+  screen-id : 1-9 (same as existing)
+  width     : desired pixel width  (e.g. 800, 1024, 1920)
+  height    : desired pixel height (e.g. 600, 768, 1080)
+  depth     : bits per pixel (8, 15, 16, 24, or 32)
+  mode      : 13 (P96/RTG)
+
+  Examples:
+    SCREEN 1, 800, 600, 8, 13      ' 256-color CLUT
+    SCREEN 1, 800, 600, 16, 13     ' HiColor
+    SCREEN 1, 1024, 768, 24, 13    ' TrueColor
+    SCREEN 1, 1920, 1080, 32, 13   ' TrueColor + alpha
+
+3.2 Clone Workbench screen
+
+  SCREEN screen-id, 0, 0, 0, 13
+
+  When width, height, and depth are all 0 with mode 13, the runtime
+  clones the current Workbench screen settings. This opens a P96
+  screen with the same resolution, depth, and display mode as WB.
+
+  Example:
+    SCREEN 1, 0, 0, 0, 13          ' clone WB
+
+3.3 Close, Forward, Back (unchanged)
+
+  SCREEN CLOSE screen-id
+  SCREEN FORWARD screen-id
+  SCREEN BACK screen-id
+
+  These work identically for P96 screens. CLOSE calls p96CloseScreen()
+  instead of CloseScreen() for screens opened via P96.
+
+3.4 COLOR with RGB (new 3-argument form)
+
+  COLOR r, g, b
+
+  Sets the foreground pen to the specified RGB value (0-255 each).
+  Only meaningful on P96 screens with depth > 8. On CLUT screens
+  (depth <= 8), this is an error or ignored.
+
+  Under the hood: packs (r<<16)|(g<<8)|b and sets the pen via
+  SetAPen() which P96 patches to accept 24-bit values on RTG
+  screens.
+
+  Examples:
+    COLOR 255, 0, 0        ' red
+    COLOR 0, 255, 0        ' green
+    COLOR 255, 128, 0      ' orange
+    LINE (0,0)-(100,100)   ' draws in current color
+
+
+4. WHAT WORKS UNCHANGED
+------------------------
+
+Because p96OpenScreenTagList() returns a standard struct Screen*
+and a standard Intuition window is opened on it, the following all
+work without any changes:
+
+  - WINDOW commands (open windows on P96 screen)
+  - SCREEN() function (returns Screen*, Window*, RastPort*, etc.)
+  - SCREEN CLOSE / FORWARD / BACK (operate on screen-id)
+  - LINE, CIRCLE, PSET, AREA, PAINT, GET, PUT (use RastPort)
+  - PRINT on screen (uses RastPort cursor)
+  - PALETTE for CLUT screens (depth <= 8, SetRGB4/SetRGB32)
+  - Mouse/keyboard events (standard Intuition IDCMP)
+  - MENU commands (standard Intuition menus)
+
+
+5. RUNTIME IMPLEMENTATION (scrwin.s)
+-------------------------------------
+
+5.1 _openscreen changes
+
+  a) Raise validation limits:
+     - width:  remove 1280 cap (or raise to 4096)
+     - height: remove 512 cap  (or raise to 4096)
+     - depth:  raise from 8 to 32
+     - mode:   raise from 12 to 13
+
+  b) Add branch for mode 13 -> _openthescreen_p96
+
+5.2 _openthescreen_p96 (new, ~80-100 lines of assembly)
+
+  Flow:
+    1. OpenLibrary("Picasso96API.library", 2) -> _P96Base
+       If fails: set error 600, return
+
+    2. Check for clone-WB case (width=0, height=0, depth=0):
+       - LockPubScreen(NULL) -> WB screen pointer
+       - Read WB Screen->Width, Height, ViewPort.ColorMap depth
+       - Read WB ViewPort ModeID via GetVPModeID()
+       - UnlockPubScreen()
+       - Use these values as width/height/depth/DisplayID
+
+    3. For explicit dimensions:
+       Build tag list for p96BestModeIDTagList:
+         P96BIDTAG_NominalWidth,  width
+         P96BIDTAG_NominalHeight, height
+         P96BIDTAG_Depth,         depth
+         TAG_DONE
+       Call p96BestModeIDTagList -> DisplayID
+       If INVALID_ID: set error 600, close library, return
+
+    4. Build tag list for p96OpenScreenTagList:
+         P96SA_Width,      width
+         P96SA_Height,     height
+         P96SA_Depth,      depth
+         P96SA_DisplayID,  DisplayID  (from step 3 or WB clone)
+         P96SA_AutoScroll, TRUE
+         P96SA_Title,      0
+         P96SA_Quiet,      TRUE
+         TAG_DONE
+       Call p96OpenScreenTagList -> struct Screen*
+       If NULL: set error 600, close library, return
+
+    5. Store Screen* in _Screen_list[screen_id]
+       Set _screen_p96_flag[screen_id] = 1
+
+    6. Open borderless window on screen (reuse existing code path
+       from _openthescreen, starting at the OpenWindow section)
+
+    7. Set globals: _Scrn, _Wdw, _RPort, _ViewPort
+       Store in per-screen lists as usual
+
+    8. Store depth in _screen_depth_list for palette support
+
+5.3 _closescreen changes
+
+  Before calling CloseScreen(), check _screen_p96_flag[screen_id]:
+    - If flag set: call p96CloseScreen(a0=Screen*) instead
+    - Clear the flag
+    - If no more P96 screens open: CloseLibrary(_P96Base)
+
+5.4 _change_screen_depth (unchanged)
+
+  ScreenToFront/ScreenToBack work on P96 screens via standard
+  Intuition LVOs. No change needed.
+
+
+6. DATA ADDITIONS (scrwin_data.s)
+---------------------------------
+
+  _screen_p96_flag:  ds.b 10       ; 0=native, 1=P96 per screen slot
+  _P96Base:          ds.l 1        ; Picasso96API.library base
+  _p96_taglist:      ds.l 20       ; tag list for P96 calls (reusable)
+
+
+7. COMPILER CHANGES (screen.c)
+-------------------------------
+
+  Minimal changes:
+  - Currently enter_XREF("_GfxBase") for SCREEN open.
+    Also need enter_XREF("_P96Base") conditionally, or
+    unconditionally (runtime handles NULL gracefully).
+  - Alternatively: no compiler change at all. The runtime
+    references _P96Base internally. The compiler just emits
+    the same _openscreen call. The runtime decides based on
+    mode parameter whether to use P96.
+
+  Preferred approach: No compiler change. Keep all P96 logic
+  in the runtime library. The compiler already passes mode as
+  a parameter and the runtime switches on it.
+
+
+8. BMAP GENERATION
+------------------
+
+  Generate bmaps/Picasso96API.bmap from the .fd file at:
+    aos3/Tools/Devel/ThirdParty-Libs/Picasso96Develop/
+      Include/fd/Picasso96API_lib.fd
+
+  Functions needed (minimum):
+    p96OpenScreenTagList  (a0)
+    p96CloseScreen        (a0)
+    p96BestModeIDTagList  (a0)
+    p96WritePixel         (a1,d0/d1/d2)
+    p96ReadPixel          (a1,d0/d1)
+    p96RectFill           (a1,d0/d1/d2/d3/d4)
+    p96EncodeColor        (d0/d1)
+    p96GetBitMapAttr      (a0,d0)
+
+
+9. COLOR r, g, b IMPLEMENTATION
+--------------------------------
+
+9.1 Compiler (assign.c or colorstmt.c)
+
+  Detect 3-argument COLOR form:
+    COLOR expr, expr, expr
+
+  vs existing:
+    COLOR foreground, background
+
+  Disambiguation: if there are 3 comma-separated arguments,
+  it is the RGB form. Pack into a single LONG:
+    (r << 16) | (g << 8) | b
+  and call a new runtime function _color_rgb.
+
+  Alternative: use a different keyword like RGBCOLOR to avoid
+  ambiguity. But 3-arg vs 2-arg is unambiguous and more elegant.
+
+9.2 Runtime
+
+  _color_rgb(packed_rgb):
+    - On P96 screen with depth > 8:
+      Call SetAPen(RPort, packed_rgb)
+      (P96 patches SetAPen to accept 24-bit values)
+    - On CLUT screen (depth <= 8):
+      Find nearest palette entry or ignore
+
+
+10. PALETTE ON P96 CLUT SCREENS
+---------------------------------
+
+  For depth <= 8 on P96, the existing PALETTE command works
+  unchanged because P96 CLUT screens use standard Amiga color
+  registers accessible via SetRGB4/SetRGB32.
+
+  For depth > 8, PALETTE is meaningless (no palette). Programs
+  use COLOR r, g, b instead.
+
+
+11. ERROR HANDLING
+------------------
+
+  Error 600 (SCREEN_OPEN_ERR) is reused for:
+    - Picasso96API.library not found (P96 not installed)
+    - p96BestModeIDTagList returns INVALID_ID (no matching mode)
+    - p96OpenScreenTagList returns NULL (screen open failed)
+
+  Programs can check: IF ERR = 600 THEN ...
+
+
+12. GRACEFUL DEGRADATION
+--------------------------
+
+  If P96 is not installed, mode 13 simply fails with error 600.
+  Programs can attempt mode 13, check ERR, and fall back:
+
+    SCREEN 1, 800, 600, 8, 13
+    IF ERR = 600 THEN
+      ' P96 not available, fall back to AGA
+      SCREEN 1, 640, 256, 8, 8
+    END IF
+
+
+13. IMPLEMENTATION ORDER
+-------------------------
+
+  Phase 1: Basic P96 screen open/close
+    - Generate Picasso96API.bmap
+    - Add _screen_p96_flag and _P96Base to scrwin_data.s
+    - Add _openthescreen_p96 to scrwin.s (explicit dimensions)
+    - Add P96 close path to _closescreen
+    - Raise validation limits in _openscreen
+    - Test: open 800x600x8 P96 screen, draw with LINE/CIRCLE
+
+  Phase 2: Clone WB
+    - Add clone-WB detection (w=0,h=0,d=0) in _openthescreen_p96
+    - Test: SCREEN 1, 0, 0, 0, 13 on various WB configs
+
+  Phase 3: COLOR r, g, b
+    - Add 3-arg COLOR parsing in compiler
+    - Add _color_rgb runtime function
+    - Test: draw colored shapes on 24-bit P96 screen
+
+  Phase 4: Documentation
+    - Update docs/ref.txt with mode 13 and COLOR r,g,b
+    - Add examples/p96/ with sample programs
+
+
+14. TESTING
+-----------
+
+  FS-UAE supports P96 via the uaegfx.card driver. The emulator
+  config needs a Picasso96-compatible RTG card enabled.
+
+  Test cases:
+    - Mode 13 with depth 8:  CLUT, palette, drawing commands
+    - Mode 13 with depth 16: HiColor, COLOR r,g,b
+    - Mode 13 with depth 24: TrueColor, COLOR r,g,b
+    - Mode 13 with 0,0,0:   WB clone
+    - Mode 13 without P96:   error 600 graceful failure
+    - SCREEN CLOSE on P96:   proper cleanup
+    - Multiple P96 screens:  screen-id 1 and 2 simultaneously
+    - WINDOW on P96 screen:  open/close windows
+    - Mixed screens:         P96 screen 1 + native screen 2

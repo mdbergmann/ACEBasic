@@ -451,14 +451,24 @@ CLS		- Clears the current output window or screen and sets the
  
 --------------------------------------------------------------------------------
 COLOR		- syntax: COLOR fgnd-id[,bgnd-id]
-		- Changes the foreground and/or background color to
-		  fgnd-id and bgnd-id respectively.
+		          COLOR r,g,b
+		- The 2-argument form changes the foreground and/or
+		  background color to fgnd-id and bgnd-id respectively.
 		- Note that in ACE, you can change just the foreground
 		  color, both the foreground and background colors,
-		  but not the background color alone. This may be changed 
+		  but not the background color alone. This may be changed
 		  in a future revision.
-		- The PALETTE command is used to change the colors 
+		- The PALETTE command is used to change the colors
 		  corresponding to given color-ids.
+		- The 3-argument form (COLOR r,g,b) sets the foreground
+		  pen to a direct RGB color where r, g, and b are each
+		  0-255. This is intended for P96/RTG screens with depth
+		  greater than 8 (HiColor/TrueColor). The RGB value is
+		  packed as (r*65536 + g*256 + b) and passed to SetAPen.
+		- Example:
+			COLOR 255,0,0	  ' red
+			COLOR 0,255,0	  ' green
+			COLOR 255,128,0	  ' orange
  
 --------------------------------------------------------------------------------
 COMMON *	- syntax: COMMON [<type>] <identifier>[%&!$]
@@ -2359,22 +2369,57 @@ SCREEN		- The SCREEN statement syntax is the same as in AmigaBASIC:
 		  7 = AGA lores,256 colors	[ACE only, AGA required]
 		  8 = AGA hires,256 colors	[ACE only, AGA required]
 		  9 = AGA super-hires		[ACE only, AGA required]
-		  10 = HAM8 lores			[ACE only, AGA required]
-		  11 = HAM8 hires			[ACE only, AGA required]
+		  10 = HAM8 lores		[ACE only, AGA required]
+		  11 = HAM8 hires		[ACE only, AGA required]
 		  12 = HAM8 super-hires		[ACE only, AGA required]
+		  13 = P96/RTG			[ACE only, Picasso96 required]
 
 		- Modes 7-12 require an AGA chipset (A1200, A4000, CD32).
 		  Use the CHIPSET function to detect AGA before using
 		  these modes. On non-AGA systems, these modes will fail
 		  to open (check ERR for error status).
 
+		- Mode 13 requires Picasso96 (RTG). It opens a screen on
+		  any P96-compatible graphics card. The width, height, and
+		  depth parameters are passed to p96BestModeIDTagList to
+		  find a suitable display mode automatically.
+
+		  Supported depths for mode 13:
+		    8  = 256-color CLUT (palette-based)
+		    15 = HiColor 15-bit (32768 colors)
+		    16 = HiColor 16-bit (65536 colors)
+		    24 = TrueColor (16.7M colors)
+		    32 = TrueColor + alpha
+
+		  Examples:
+		    SCREEN 1,800,600,8,13     ' 256-color P96
+		    SCREEN 1,1024,768,16,13   ' HiColor
+		    SCREEN 1,1920,1080,24,13  ' TrueColor
+
+		  Clone Workbench: when width, height, and depth are all
+		  zero, the runtime clones the current Workbench screen:
+		    SCREEN 1,0,0,0,13         ' clone WB
+
+		  If P96 is not installed or no matching display mode is
+		  found, ERR is set to 600. Programs can check and fall
+		  back:
+		    SCREEN 1,800,600,8,13
+		    IF ERR = 600 THEN
+		      SCREEN 1,640,256,8,8    ' fall back to AGA
+		    END IF
+
+		  Use COLOR r,g,b (3-argument form) to set direct RGB
+		  colors on HiColor/TrueColor screens (depth > 8).
+		  Use PALETTE for palette-based screens (depth <= 8).
+
 		- Maximum parameters by mode:
 		  Modes 1-6: width up to 640, depth up to 6 bitplanes
 		  Modes 7-8: width up to 640, depth up to 8 bitplanes
 		  Mode 9:    width up to 1280, depth up to 8 bitplanes
 		  Modes 10-12: HAM8 (262,144 colors from 256 palette)
+		  Mode 13:   width/height up to 4096, depth up to 32
 
-		- See also CHIPSET and ERR.
+		- See also CHIPSET, COLOR, PALETTE, and ERR.
 
 
 		- The SCREEN function (ACE only) syntax is SCREEN(n), where:

@@ -77,6 +77,12 @@ MAXSTRINGSIZE equ 1024
 	xdef	_aga_taglist
 	xdef	_screen_depth_list
 
+	; P96 screen support
+	xdef	_P96Base
+	xdef	_screen_p96_flag
+	xdef	_p96_taglist
+	xdef	_p96_libname
+
 	SECTION scrwin_data,DATA
 
 ; * general *
@@ -156,6 +162,10 @@ _newwindow:
 _horiz_tabstring:	dc.b  $9b,$31,$31,$43,0
 _NULL_string:		dc.b  0
 
+; * P96 screen support *
+_p96_libname:		dc.b  'Picasso96API.library',0
+	even
+
 ;************************
 
 	SECTION scrwin_mem,BSS
@@ -201,5 +211,11 @@ _horiz_pos:		ds.w 1
 _aga_modeid:		ds.l 1		; AGA display mode ID
 _aga_taglist:		ds.l 16		; TagList for OpenScreenTagList (8 tags max)
 _screen_depth_list:	ds.w 10		; Depth for each screen (10 screens max)
+
+; * P96 screen support *
+_P96Base:		ds.l 1		; Picasso96API.library base
+_screen_p96_flag:	ds.b 10		; 0=native, 1=P96 per screen slot (0-9)
+	even
+_p96_taglist:		ds.l 20		; TagList for P96 calls (10 tags max)
 
 	END

@@ -73,6 +73,29 @@ SCREEN_OPEN_ERR equ 600
 _LVOOpenScreenTagList equ -612
 _LVOSetRGB32 equ -852
 
+; LVOs for P96 support
+_LVOp96BestModeIDTagList equ -60
+_LVOp96OpenScreenTagList equ -90
+_LVOp96CloseScreen equ -96
+
+; P96 tag constants
+P96BIDTAG_NominalWidth equ $80000063
+P96BIDTAG_NominalHeight equ $80000064
+P96BIDTAG_Depth equ $80000065
+P96SA_Width equ $80020063
+P96SA_Height equ $80020064
+P96SA_Depth equ $80020065
+P96SA_AutoScroll equ $80020077
+P96SA_Quiet equ $80020076
+P96SA_DisplayID equ $80020072
+
+INVALID_ID equ $FFFFFFFF
+
+; LVOs for clone-WB support (v36+, not in ami.lib)
+_LVOLockPubScreen equ -510
+_LVOUnlockPubScreen equ -516
+_LVOGetVPModeID equ -792
+
 
 	; window & screen routines
 	xdef	_openscreen
@@ -92,6 +115,7 @@ _LVOSetRGB32 equ -852
 	xdef	_cls
 	xdef	_ptab
 	xdef	_ctrl_c_test
+	xdef	_color_rgb
 
    	; external references
 	xref	_locate
@@ -149,6 +173,14 @@ _LVOSetRGB32 equ -852
 	xref	_aga_modeid
 	xref	_aga_taglist
 	xref	_screen_depth_list
+
+	; P96 screen support
+	xref	_P96Base
+	xref	_screen_p96_flag
+	xref	_p96_taglist
+	xref	_p96_libname
+	xref	_LVOOpenLibrary
+	xref	_LVOCloseLibrary
 	
 	xref	_putchar
 	xref	_sprintf
@@ -398,6 +430,11 @@ _openscreen:
 	cmpi.w	#9,d0		; screen-id > 9?
 	bgt	_quitopenscreen
 
+	; P96 mode 13 allows larger dimensions and depths
+	cmpi.w	#13,d4
+	beq.s	_p96_validate
+
+	; Native/AGA validation (modes 1-12)
 	cmpi.w	#1,d1		; width < 1?
 	blt	_quitopenscreen
 	cmpi.w	#1280,d1	; width > 1280? (AGA super-hires support)
@@ -417,6 +454,34 @@ _openscreen:
 	blt	_quitopenscreen
 	cmpi.w	#12,d4		; mode > 12? (AGA modes 7-12)
 	bgt	_quitopenscreen
+	bra.s	_native_validate_ok
+
+_p96_validate:
+	; P96 mode: allow width/height 0 (clone WB) or 1-4096
+	; depth 0 (clone WB) or 8,15,16,24,32
+	cmpi.w	#0,d1		; width = 0 is ok (clone WB)
+	beq.s	_p96_check_height
+	cmpi.w	#1,d1		; width < 1?
+	blt	_quitopenscreen
+	cmpi.w	#4096,d1	; width > 4096?
+	bgt	_quitopenscreen
+_p96_check_height:
+	cmpi.w	#0,d2		; height = 0 is ok (clone WB)
+	beq.s	_p96_check_depth
+	cmpi.w	#1,d2		; height < 1?
+	blt	_quitopenscreen
+	cmpi.w	#4096,d2	; height > 4096?
+	bgt	_quitopenscreen
+_p96_check_depth:
+	cmpi.w	#0,d3		; depth = 0 is ok (clone WB)
+	beq.s	_p96_validate_ok
+	cmpi.w	#1,d3		; depth < 1?
+	blt	_quitopenscreen
+	cmpi.w	#32,d3		; depth > 32?
+	bgt	_quitopenscreen
+_p96_validate_ok:
+
+_native_validate_ok:
 
 	; calculate place in screen lists
 	move.w	_screen_id,d0
@@ -444,7 +509,11 @@ _openscreen:
 	cmpi.l	#0,d0
 	bne	_quitopenscreen	; if not ZERO -> quit!
 
-	; complete NewScreen and NewWindow structures.	
+	; P96 mode 13 - branch to P96 handler
+	cmpi.w	#13,d4
+	beq	_openthescreen_p96
+
+	; complete NewScreen and NewWindow structures.
 
 	lea	_newwindow,a0
 	move.w	d1,4(a0)	; width
@@ -686,6 +755,271 @@ _openthescreen_aga:
 
 	rts
 
+;
+; Open a P96/RTG screen (mode 13).
+; d1 = width, d2 = height, d3 = depth (0,0,0 = clone WB)
+; _screen_id, _screen_addr, _scr_wdw_addr, _rport_addr,
+; _viewport_addr are already set by the caller.
+;
+_openthescreen_p96:
+	; Save parameters on stack (we need them across library calls)
+	move.w	d1,-(sp)		; width
+	move.w	d2,-(sp)		; height
+	move.w	d3,-(sp)		; depth
+
+	; Open Picasso96API.library
+	movea.l	_AbsExecBase,a6
+	lea	_p96_libname,a1
+	moveq	#2,d0			; version 2
+	jsr	_LVOOpenLibrary(a6)
+	move.l	d0,_P96Base
+	tst.l	d0
+	beq	_p96_fail_stack		; P96 not installed
+
+	; Restore parameters
+	move.w	(sp)+,d3		; depth
+	move.w	(sp)+,d2		; height
+	move.w	(sp)+,d1		; width
+
+	; Check for clone-WB case (w=0, h=0, d=0)
+	tst.w	d1
+	bne	_p96_explicit
+	tst.w	d2
+	bne	_p96_explicit
+	tst.w	d3
+	bne	_p96_explicit
+
+	; --- Clone WB: read Workbench screen properties ---
+	; LockPubScreen(NULL) -> default public screen (WB)
+	movea.l	_IntuitionBase,a6
+	sub.l	a0,a0			; name = NULL
+	jsr	_LVOLockPubScreen(a6)
+	tst.l	d0
+	beq	_p96_close_fail		; can't lock WB screen
+	movea.l	d0,a2			; a2 = WB Screen (preserved across calls)
+
+	; Read width/height and store in _newwindow
+	lea	_newwindow,a0
+	move.w	12(a2),4(a0)		; Screen->Width
+	move.w	14(a2),6(a0)		; Screen->Height
+
+	; Read depth from BitMap and store in depth list
+	move.w	_screen_id,d0
+	subq.w	#1,d0
+	mulu	#2,d0
+	lea	_screen_depth_list,a1
+	moveq	#0,d3
+	move.b	BitMap+Depth(a2),d3	; Screen->BitMap.Depth
+	move.w	d3,(a1,d0.w)
+
+	; Get ViewPort ModeID
+	movea.l	_GfxBase,a6
+	lea	44(a2),a0		; &Screen->ViewPort (embedded at offset 44)
+	jsr	_LVOGetVPModeID(a6)
+	move.l	d0,_aga_modeid		; store as DisplayID
+
+	cmpi.l	#INVALID_ID,d0
+	beq.s	_p96_clone_unlock_fail
+
+	; UnlockPubScreen(NULL, screen)
+	movea.l	_IntuitionBase,a6
+	sub.l	a0,a0			; name = NULL
+	movea.l	a2,a1			; screen pointer
+	jsr	_LVOUnlockPubScreen(a6)
+
+	; Skip BestModeID - already have DisplayID from WB
+	bra	_p96_open_screen
+
+_p96_clone_unlock_fail:
+	; Unlock and fail
+	movea.l	_IntuitionBase,a6
+	sub.l	a0,a0
+	movea.l	a2,a1
+	jsr	_LVOUnlockPubScreen(a6)
+	bra	_p96_close_fail
+
+_p96_explicit:
+	; Store depth in depth list for palette function
+	move.w	_screen_id,d0
+	subq.w	#1,d0
+	mulu	#2,d0
+	lea	_screen_depth_list,a1
+	move.w	d3,(a1,d0.w)
+
+	; Set newwindow width/height for the borderless window
+	lea	_newwindow,a0
+	move.w	d1,4(a0)		; width
+	move.w	d2,6(a0)		; height
+
+	; Build BestModeID tag list
+	lea	_p96_taglist,a1
+
+	move.l	#P96BIDTAG_NominalWidth,(a1)+
+	moveq	#0,d0
+	move.w	d1,d0
+	move.l	d0,(a1)+
+
+	move.l	#P96BIDTAG_NominalHeight,(a1)+
+	moveq	#0,d0
+	move.w	d2,d0
+	move.l	d0,(a1)+
+
+	move.l	#P96BIDTAG_Depth,(a1)+
+	moveq	#0,d0
+	move.w	d3,d0
+	move.l	d0,(a1)+
+
+	; TAG_DONE
+	clr.l	(a1)+
+	clr.l	(a1)
+
+	; Call p96BestModeIDTagList
+	movea.l	_P96Base,a6
+	lea	_p96_taglist,a0
+	jsr	_LVOp96BestModeIDTagList(a6)
+	; d0 = DisplayID or INVALID_ID
+
+	cmpi.l	#INVALID_ID,d0
+	beq	_p96_close_fail
+
+	move.l	d0,_aga_modeid		; reuse aga_modeid for storage
+
+_p96_open_screen:
+	; Reload width/height/depth from _newwindow and depth list
+	lea	_newwindow,a0
+	moveq	#0,d1
+	move.w	4(a0),d1		; width
+	moveq	#0,d2
+	move.w	6(a0),d2		; height
+	move.w	_screen_id,d0
+	subq.w	#1,d0
+	mulu	#2,d0
+	lea	_screen_depth_list,a1
+	moveq	#0,d3
+	move.w	(a1,d0.w),d3		; depth
+
+	; Build p96OpenScreenTagList tags
+	lea	_p96_taglist,a1
+
+	move.l	#P96SA_Width,(a1)+
+	move.l	d1,(a1)+
+
+	move.l	#P96SA_Height,(a1)+
+	move.l	d2,(a1)+
+
+	move.l	#P96SA_Depth,(a1)+
+	move.l	d3,(a1)+
+
+	move.l	#P96SA_DisplayID,(a1)+
+	move.l	_aga_modeid,(a1)+
+
+	move.l	#P96SA_AutoScroll,(a1)+
+	move.l	#1,(a1)+
+
+	move.l	#P96SA_Quiet,(a1)+
+	move.l	#1,(a1)+
+
+	; TAG_DONE
+	clr.l	(a1)+
+	clr.l	(a1)
+
+	; Call p96OpenScreenTagList
+	movea.l	_P96Base,a6
+	lea	_p96_taglist,a0
+	jsr	_LVOp96OpenScreenTagList(a6)
+	move.l	d0,_Scrn
+	tst.l	d0
+	beq	_p96_close_fail
+
+	; Set P96 flag for this screen
+	move.w	_screen_id,d0
+	lea	_screen_p96_flag,a0
+	move.b	#1,(a0,d0.w)
+
+	; Read actual screen width/height for the window
+	; struct Screen: sc_Width at offset 12 (WORD), sc_Height at offset 14 (WORD)
+	movea.l	_Scrn,a0
+	moveq	#0,d1
+	move.w	12(a0),d1		; actual screen width
+	moveq	#0,d2
+	move.w	14(a0),d2		; actual screen height
+
+	; Update _newwindow with actual screen dimensions
+	lea	_newwindow,a0
+	move.w	d1,4(a0)		; width
+	move.w	d2,6(a0)		; height
+
+	; Open borderless window on P96 screen
+	movea.l	_IntuitionBase,a6
+	lea	_newwindow,a0
+	move.l	_Scrn,30(a0)		; link to screen
+	jsr	_LVOOpenWindow(a6)
+	move.l	d0,_Wdw
+	tst.l	d0
+	beq	_p96_close_screen_fail
+
+	; Update lists and set screen mode
+	move.b	#1,_IntuiMode
+
+	; Store screen
+	movea.l	_screen_addr,a0
+	move.l	_Scrn,(a0)
+
+	; Store window
+	movea.l	_scr_wdw_addr,a0
+	move.l	_Wdw,(a0)
+
+	movea.l	_rport_addr,a0
+	movea.l	_Wdw,a1
+	move.l	50(a1),(a0)
+	move.l	50(a1),_RPort
+
+	; Store viewport
+	movea.l	_viewport_addr,a0
+	move.l	_Scrn,d0
+	add.l	#44,d0
+	move.l	d0,(a0)
+	move.l	d0,_ViewPort
+
+	; Set first PRINT position
+	moveq	#3,d0
+	moveq	#1,d1
+	jsr	_locate
+
+	; Set foreground pen
+	movea.l	_GfxBase,a6
+	movea.l	_RPort,a1
+	moveq	#1,d0
+	jsr	_LVOSetAPen(a6)
+
+	rts
+
+_p96_close_screen_fail:
+	; Close the P96 screen we just opened
+	movea.l	_P96Base,a6
+	movea.l	_Scrn,a0
+	jsr	_LVOp96CloseScreen(a6)
+	; Clear P96 flag
+	move.w	_screen_id,d0
+	lea	_screen_p96_flag,a0
+	clr.b	(a0,d0.w)
+
+_p96_close_fail:
+	; Close the P96 library (stack is clean at this point)
+	movea.l	_AbsExecBase,a6
+	movea.l	_P96Base,a1
+	jsr	_LVOCloseLibrary(a6)
+	clr.l	_P96Base
+	bra.s	_p96_fail
+
+_p96_fail_stack:
+	; Clean stack - 3 words pushed before OpenLibrary call
+	addq.l	#6,sp
+
+_p96_fail:
+	move.l	#SCREEN_OPEN_ERR,_error_code
+	rts
+
 _quitopenscreen:
 	move.l	#SCREEN_OPEN_ERR,_error_code	; !! ERROR !!
 	rts
@@ -726,7 +1060,13 @@ _closescreen:
 	movea.l	(a1),a0
 	jsr	_LVOCloseWindow(a6)
 
-	; close the screen
+	; close the screen - check if P96 or native
+	move.w	_screen_id,d0
+	lea	_screen_p96_flag,a0
+	tst.b	(a0,d0.w)
+	bne.s	_close_p96_screen
+
+	; native screen: use CloseScreen
 	movea.l	_IntuitionBase,a6
 	move.w	_screen_id,d0
 	mulu	#4,d0
@@ -735,7 +1075,39 @@ _closescreen:
 	movea.l	d5,a1
 	movea.l	(a1),a0
 	jsr	_LVOCloseScreen(a6)
-	
+	bra.s	_after_close_screen
+
+_close_p96_screen:
+	; P96 screen: use p96CloseScreen
+	movea.l	_P96Base,a6
+	move.w	_screen_id,d0
+	mulu	#4,d0
+	move.l	#_Screen_list,d5
+	add.l	d0,d5
+	movea.l	d5,a1
+	movea.l	(a1),a0
+	jsr	_LVOp96CloseScreen(a6)
+
+	; Clear P96 flag
+	move.w	_screen_id,d0
+	lea	_screen_p96_flag,a0
+	clr.b	(a0,d0.w)
+
+	; Check if any other P96 screens are still open
+	moveq	#9,d1
+_check_p96_open:
+	tst.b	(a0,d1.w)
+	bne.s	_after_close_screen	; still a P96 screen open
+	subq.w	#1,d1
+	bne.s	_check_p96_open
+
+	; No more P96 screens - close library
+	movea.l	_AbsExecBase,a6
+	movea.l	_P96Base,a1
+	jsr	_LVOCloseLibrary(a6)
+	clr.l	_P96Base
+
+_after_close_screen:
 	; zero all list elements -> screen,rastport,viewport
 	move.w	_screen_id,d0
 	mulu	#4,d0		; offset from start of screen lists
@@ -1169,6 +1541,24 @@ _is_ecs:
 
 _is_aga:
 	moveq	#2,d0
+	rts
+
+;***
+;** _color_rgb - set foreground pen from RGB components
+;** Input: d0.w = red (0-255), d1.w = green (0-255), d2.w = blue (0-255)
+;** Packs into (r<<16)|(g<<8)|b and calls SetAPen
+;***
+_color_rgb:
+	and.l	#$FF,d0		; mask r to byte, clear high word
+	lsl.l	#8,d0		; r << 8
+	and.l	#$FF,d1		; mask g to byte
+	or.l	d1,d0		; d0 = (r<<8)|g
+	lsl.l	#8,d0		; d0 = (r<<16)|(g<<8)
+	and.l	#$FF,d2		; mask b to byte
+	or.l	d2,d0		; d0 = (r<<16)|(g<<8)|b
+	move.l	_RPort,a1
+	move.l	_GfxBase,a6
+	jsr	_LVOSetAPen(a6)
 	rts
 
 	END

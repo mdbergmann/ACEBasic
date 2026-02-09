@@ -617,9 +617,53 @@ CODE *cx,*cx1,*cx2,*cx3,*cx4,*cx5,*cx6;
 
 void color()
 {
- /* foreground color */
+ /* parse first argument */
  insymbol();
  make_sure_short(expr());
+
+ if (sym == comma)
+ {
+  /* parse second argument */
+  insymbol();
+  make_sure_short(expr());
+
+  if (sym == comma)
+  {
+   /* 3-arg form: COLOR r, g, b */
+   insymbol();
+   make_sure_short(expr());
+
+   /* stack: b(top), g, r */
+   gen("move.w","(sp)+","d2");
+   gen("move.w","(sp)+","d1");
+   gen("move.w","(sp)+","d0");
+   gen_rt_call("_color_rgb");
+   enter_XREF("_GfxBase");
+   enter_XREF("_RPort");
+   return;
+  }
+
+  /* 2-arg form: COLOR fg, bg */
+  /* stack: bg(top), fg */
+  gen("move.w","(sp)+","d0");
+  gen("move.w","d0","_bg");
+  gen("move.w","d0","_bgpen");
+  gen("move.l","_RPort","a1");
+  gen("move.l","_GfxBase","a6");
+  gen("jsr","_LVOSetBPen(a6)","  ");
+  enter_XREF("_LVOSetBPen");
+  enter_XREF("_bgpen");
+  enter_BSS("_bg","ds.w 1");
+ }
+ else
+ {
+  /* 1-arg form: default to current background pen */
+  gen("move.w","_bgpen","_bg");
+  enter_XREF("_bgpen");
+  enter_BSS("_bg","ds.w 1");
+ }
+
+ /* common path for 1-arg and 2-arg: foreground pen is on stack */
  gen("move.w","(sp)+","d0");
  gen("move.w","d0","_fg");   /* foreground pen for text color change */
  gen("move.w","d0","_fgdpen");  /* change global foreground color holder */
@@ -631,29 +675,6 @@ void color()
  enter_XREF("_RPort");
  enter_XREF("_fgdpen");
  enter_BSS("_fg","ds.w 1");
-
- if (sym == comma)
- {
-  /* background color */
-  insymbol();
-  make_sure_short(expr());
-  gen("move.w","(sp)+","d0");
-  gen("move.w","d0","_bg");  /* background pen for text color change */
-  gen("move.w","d0","_bgpen"); /* change global background pen color */
-  gen("move.l","_RPort","a1");
-  gen("move.l","_GfxBase","a6");
-  gen("jsr","_LVOSetBPen(a6)","  ");
-  enter_XREF("_LVOSetBPen");
-  enter_XREF("_bgpen");
-  enter_BSS("_bg","ds.w 1");
- }
- else 
- {
-  /* default to current background pen */
-  gen("move.w","_bgpen","_bg");
-  enter_XREF("_bgpen");
-  enter_BSS("_bg","ds.w 1");
- }
 
  /* call text color change routine */
  gen("move.w","_fg","d0");
