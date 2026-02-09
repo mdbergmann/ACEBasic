@@ -1,0 +1,770 @@
+Code Generation Abstraction Refactoring
+========================================
+
+Goal: Lift recurring raw gen() instruction patterns into codegen.c
+helpers, reducing duplication and creating abstraction points that
+enable future CPU-target-specific instruction selection (68020+,
+68080/Vampire).
+
+Builds on the existing codegen.c layer from Phase 2 of the compiler
+refactoring (compiler-refactoring.txt).  Each phase is a separate
+git branch, built and tested before merging to master.
+
+Motivation: There are ~1,079 raw gen() calls across 25 source files.
+Many repeat the same multi-instruction patterns.  Extracting these
+into helpers:
+  - Eliminates duplication (fewer places to change)
+  - Creates a single point where CPU-specific variants can be selected
+  - Makes the parser code read more semantically
+  - Does NOT change generated assembly (pure refactoring initially)
+
+Prerequisite: 68020 codegen is already implemented (cpu020_opt, default
+TRUE).  This refactoring does not change that -- it wraps what already
+exists.
+
+
+Progress Tracking
+-----------------
+After completing each phase, update the state file:
+
+  specs/codegen-abstraction-state.txt
+
+with the following format:
+
+  Last completed: Phase N.M - <short description>
+  Next step:      Phase N.M+1 - <short description>
+  Notes:          <any observations, issues, or deviations from plan>
+
+
+======================================================================
+Phase 1: FFP Library Call Helper (gen_ffp_call)
+======================================================================
+
+Pattern: move.l _MathBase,a6 / jsr _LVOSPxxx(a6) / enter_XREF
+
+This 3-instruction + XREF sequence appears ~25 times across:
+  expr.c (~12), control.c (~5), statement.c (~3), basfun.c (~3),
+  gfx.c (~2)
+
+Step 1.1 -- Add gen_ffp_call() to codegen.c
+
+  Signature (K&R):
+
+    void gen_ffp_call(funcname)
+    char *funcname;
+
+  Implementation:
+
+    void gen_ffp_call(funcname)
+    char *funcname;
+    {
+     char buf[80];
+     gen("move.l","_MathBase","a6");
+     strcpy(buf, funcname);
+     strcat(buf, "(a6)");
+     gen("jsr", buf, "  ");
+     enter_XREF(funcname);
+     enter_XREF("_MathBase");
+    }
+
+  Note: Some callers use "movea.l" instead of "move.l".  Both are
+  semantically identical for address registers -- vasm accepts either.
+  Standardise on "move.l" (shorter, more common in the codebase).
+
+Step 1.2 -- Declare in acedef.h (K&R style, no param types)
+
+    void gen_ffp_call();
+
+Step 1.3 -- Replace in expr.c
+
+  Target patterns (each becomes a single gen_ffp_call call):
+
+    gen("move.l","_MathBase","a6");
+    gen("jsr","_LVOSPNeg(a6)","  ");
+    enter_XREF("_LVOSPNeg");
+    enter_XREF("_MathBase");
+      -->  gen_ffp_call("_LVOSPNeg");
+
+  Repeat for: _LVOSPMul, _LVOSPDiv, _LVOSPAdd, _LVOSPSub,
+              _LVOSPCmp, _LVOSPFlt
+
+  Approximately 12 replacements in expr.c.
+
+  Special case: lines ~1013-1017 use change() to patch a coercion
+  slot with the FFP call.  These cannot use gen_ffp_call -- leave
+  as-is.
+
+Step 1.4 -- Replace in control.c (~5 occurrences)
+Step 1.5 -- Replace in statement.c (~3 occurrences)
+Step 1.6 -- Replace in basfun.c (~3 occurrences, including the
+            gen_single_func helper that already wraps some calls --
+            check whether gen_single_func can use gen_ffp_call
+            internally)
+Step 1.7 -- Replace in gfx.c (~2 occurrences)
+Step 1.8 -- Remove now-unused standalone enter_XREF("_MathBase")
+            calls that were adjacent to the replaced blocks
+
+Step 1.9 -- Build on emulator, run full test suite
+
+  Expected outcome: identical generated assembly, all tests pass.
+
+
+======================================================================
+Phase 2: Boolean Test Helper (gen_bool_test)
+======================================================================
+
+Pattern: move.l (sp)+,d0 / cmpi.l #0,d0 / b?? label
+
+The cmpi.l #0,d0 instruction (6 bytes) can be replaced with tst.l d0
+(4 bytes) -- they set identical condition codes.  Some code already
+uses tst.l (event.c), others use cmpi.l #0.  This phase standardises.
+
+Found 7 cmpi.l #0 occurrences:
+  control.c: lines 116, 210, 335, 383, 421, 497
+  libfunc.c: line 203
+
+Step 2.1 -- Add gen_bool_test() to codegen.c
+
+  Signature:
+
+    void gen_bool_test(reg)
+    char *reg;
+
+  Implementation:
+
+    void gen_bool_test(reg)
+    char *reg;
+    {
+     gen("tst.l", reg, "  ");
+    }
+
+  Note: This is intentionally a thin wrapper.  The value is:
+  (a) semantic clarity at call sites (testing a boolean/zero condition)
+  (b) single point for future CPU-specific variants
+
+Step 2.2 -- Declare in acedef.h
+
+Step 2.3 -- Replace in control.c (6 occurrences)
+
+  Each:
+    gen("cmpi.l","#0","d0");
+  becomes:
+    gen_bool_test("d0");
+
+  Special case: line 497 tests a frame variable (stpbuf), not d0:
+    gen("cmpi.l","#0",stpbuf);
+  This also becomes:
+    gen_bool_test(stpbuf);
+
+  Note: cmpi with frame-relative operand works but tst.l also
+  accepts memory-direct and frame-relative addressing on 68000.
+
+Step 2.4 -- Replace in libfunc.c (1 occurrence)
+Step 2.5 -- Build on emulator, run full test suite
+
+  Expected outcome: generated assembly changes from cmpi.l to tst.l
+  (saves 2 bytes per occurrence = 14 bytes total).  All tests pass.
+
+
+======================================================================
+Phase 3: Stack Cleanup Helper (gen_stack_cleanup)
+======================================================================
+
+Pattern: add.l #N,sp  or  addq #N,sp
+
+The codebase inconsistently uses add.l #N,sp for small constants
+where addq #N,sp would be correct and smaller (2 bytes vs 6 bytes).
+
+Found 22 add.l #N,sp with N <= 48 across:
+  expr.c (3), misc.c (2), window.c (1), message.c (1), menu.c (2),
+  file.c (2), basfun.c (3), serial.c (3), gadget.c (4), statement.c(1)
+
+Note: addq only works for #1..#8.  For #9..#48, add.l is needed,
+though two addq instructions may still be smaller for #9..#16.
+
+Step 3.1 -- Add gen_stack_cleanup() to codegen.c
+
+  Signature:
+
+    void gen_stack_cleanup(bytes)
+    int bytes;
+
+  Implementation:
+
+    void gen_stack_cleanup(bytes)
+    int bytes;
+    {
+     char buf[12];
+     if (bytes <= 8)
+     {
+      sprintf(buf, "#%d", bytes);
+      gen("addq", buf, "sp");
+     }
+     else
+     {
+      sprintf(buf, "#%d", bytes);
+      gen("add.l", buf, "sp");
+     }
+    }
+
+Step 3.2 -- Declare in acedef.h
+
+Step 3.3 -- Replace existing addq #N,sp calls
+
+  Convert existing addq calls (~55 occurrences across many files)
+  to use gen_stack_cleanup().  This is safe because the helper
+  produces the same addq instruction for N <= 8.
+
+  Files: print.c, basfun.c, gadget.c, event.c, control.c, expr.c,
+         assign.c, statement.c, serial.c, message.c, window.c,
+         iff.c, file.c, gfx.c
+
+Step 3.4 -- Replace existing add.l #N,sp calls
+
+  Convert add.l calls (~22 occurrences) to gen_stack_cleanup().
+  For N <= 8, the generated code improves (addq instead of add.l).
+  For N > 8, the generated code is identical.
+
+  Files: expr.c, misc.c, window.c, message.c, menu.c, file.c,
+         basfun.c, serial.c, gadget.c, statement.c
+
+Step 3.5 -- Build on emulator, run full test suite
+
+  Expected outcome: some add.l #N,sp (where N<=8) become addq.
+  Saves 4 bytes per such occurrence.  All tests pass.
+
+
+======================================================================
+Phase 4: Sign Extension Helper (gen_sign_extend)
+======================================================================
+
+Pattern: ext.w d0 / ext.l d0  (byte to long, two instructions)
+         ext.l d0              (short to long, one instruction)
+
+On 68020+, byte-to-long can use extb.l d0 (one instruction, saves
+2 bytes).  Currently the compiler always emits the two-step sequence.
+
+Found ext.w + ext.l consecutive pairs:
+  basfun.c: line 570-571 (d1, MID$ byte to long)
+
+Found standalone ext.l (short to long):
+  expr.c: lines 93, 111, 994
+  misc.c: line 243
+  assign.c: line 136
+  invoke.c: line 257
+  basfun.c: lines 924, 1034, 1301, 1332, 1351
+  gfx.c: lines 354, 360
+  memory.c: lines 56, 85, 114, 128
+
+Step 4.1 -- Add gen_ext_long() to codegen.c
+
+  Signature:
+
+    void gen_ext_long(from_type, reg)
+    int from_type;
+    char *reg;
+
+  Implementation:
+
+    void gen_ext_long(from_type, reg)
+    int from_type;
+    char *reg;
+    {
+     if (from_type == bytetype)
+     {
+      if (cpu020_opt)
+       gen("extb.l", reg, "  ");
+      else
+      {
+       gen("ext.w", reg, "  ");
+       gen("ext.l", reg, "  ");
+      }
+     }
+     else /* shorttype -> longtype */
+      gen("ext.l", reg, "  ");
+    }
+
+  Note: The bytetype constant must exist or be defined (value TBD
+  based on acedef.h review).  If no bytetype constant exists, use a
+  simple BOOL parameter: gen_ext_long(TRUE, "d0") for byte source,
+  gen_ext_long(FALSE, "d0") for short source.
+
+  Alternative simpler signature if bytetype doesn't exist:
+
+    void gen_ext_to_long(from_byte, reg)
+    BOOL from_byte;
+    char *reg;
+
+Step 4.2 -- Declare in acedef.h
+
+Step 4.3 -- Replace byte-to-long patterns (ext.w + ext.l pairs)
+
+  basfun.c line 570-571:
+    gen("ext.w","d1","  ");
+    gen("ext.l","d1","  ");
+      -->  gen_ext_to_long(TRUE, "d1");
+
+Step 4.4 -- Replace short-to-long patterns (standalone ext.l)
+
+  Each:
+    gen("ext.l","d0","  ");
+  becomes:
+    gen_ext_to_long(FALSE, "d0");
+
+  ~20 occurrences across expr.c, misc.c, assign.c, invoke.c,
+  basfun.c, gfx.c, memory.c.
+
+Step 4.5 -- Build on emulator, run full test suite
+
+  Expected outcome: byte-to-long sequences emit extb.l on 68020+
+  (saves 2 bytes each).  Short-to-long unchanged.  All tests pass.
+
+
+======================================================================
+Phase 5: Array Index Scaling (gen_index_scale)
+======================================================================
+
+Pattern in misc.c push_indices():
+
+  For shorttype arrays:  lsl.l #1,d7   (multiply offset by 2)
+  For long/single arrays: lsl.l #2,d7   (multiply offset by 4)
+  For string arrays:     lmulu library call  (multiply by element size)
+
+Also: multi-dimensional index computation uses lmulu for cumulative
+index multiplication.
+
+Step 5.1 -- Add gen_index_scale() to codegen.c
+
+  Signature:
+
+    void gen_index_scale(type, elem_size)
+    int type;
+    LONG elem_size;
+
+  Implementation:
+
+    void gen_index_scale(type, elem_size)
+    int type;
+    LONG elem_size;
+    {
+     char buf[20];
+     if (type == shorttype)
+      gen("lsl.l", "#1", "d7");
+     else if (type == longtype || type == singletype)
+      gen("lsl.l", "#2", "d7");
+     else
+     {
+      /* string or other: use multiplication */
+      sprintf(buf, "#%ld", elem_size);
+      gen("move.l", "d7", "-(sp)");
+      gen("move.l", buf, "-(sp)");
+      gen_rt_call("lmulu");
+      gen_stack_cleanup(8);  /* uses Phase 3 helper */
+      gen("move.l", "d0", "d7");
+     }
+    }
+
+  Note: On 68020+, the lmulu library call for strings could be
+  replaced with native mulu.l.  This is a future optimisation point.
+
+Step 5.2 -- Declare in acedef.h
+
+Step 5.3 -- Replace in misc.c push_indices()
+
+  Replace the type-switching block (lines ~268-274) and the string
+  multiplication block (lines ~256-266) with gen_index_scale() calls.
+
+Step 5.4 -- Consider replacing the multi-dimensional cumulative
+  index lmulu call as well (lines ~242-250).  This uses a different
+  pattern (push index, push multiplier, call lmulu, add to d7).
+  May warrant a separate helper gen_index_multiply() or may be
+  left inline since it only occurs once.
+
+Step 5.5 -- Build on emulator, run full test suite
+
+  Expected outcome: identical generated assembly.  All tests pass.
+
+
+======================================================================
+Phase 6: Peephole Optimizer Enhancements (opt.c)
+======================================================================
+
+The existing peephole optimizer (opt.c) has 3 patterns run over
+4 passes.  Additional patterns can be added to catch sequences that
+the earlier phases expose or that were always present but unoptimised.
+
+Step 6.1 -- Add tst_for_zero pattern
+
+  Pattern to detect:
+
+    move.l  (sp)+,d0
+    tst.l   d0          (or cmpi.l #0,d0 if any remain)
+    b??     label
+
+  Optimisation: if the move already sets the condition codes
+  (it does on 68000 for data register destinations), the tst.l is
+  redundant.
+
+    move.l  (sp)+,d0
+    b??     label        (tst.l becomes nop)
+
+  IMPORTANT: move to address registers (movea) does NOT set condition
+  codes.  Only apply when destination is d0-d7.
+
+  This saves 2 bytes per boolean test (and they're very common in
+  IF/WHILE/UNTIL conditions).
+
+Step 6.2 -- Add addq_for_small_add pattern
+
+  Pattern to detect:
+
+    add.l   #N,sp       where 1 <= N <= 8
+
+  Optimisation:
+
+    addq    #N,sp
+
+  This is a safety net for any add.l #small that wasn't caught by
+  Phase 3's gen_stack_cleanup.  Also catches add.l to registers
+  other than sp.
+
+  Note: addq works for any register, not just sp.
+
+Step 6.3 -- Add extb_for_020 pattern (conditional on cpu020_opt)
+
+  Pattern to detect:
+
+    ext.w   dn
+    ext.l   dn           (same register)
+
+  Optimisation (when cpu020_opt):
+
+    extb.l  dn
+    nop
+
+  This is a safety net for any byte-to-long extension that wasn't
+  caught by Phase 4's gen_ext_to_long.
+
+Step 6.4 -- Build on emulator, run full test suite
+
+  Expected: additional peephole removals reported.  All tests pass.
+
+Step 6.5 -- Create a test program that exercises the new patterns
+  to verify the peephole counter increases.
+
+
+======================================================================
+Phase 7: Future CPU Target Abstraction Points
+======================================================================
+
+This phase documents WHERE in the newly-created helpers a CPU target
+switch would go, without implementing it.  This is the payoff: each
+helper is now a single point of change.
+
+No code changes in this phase -- documentation only.
+
+7.1  gen_ffp_call():
+     - 68080/Vampire: Could use AMMX packed float ops for bulk
+       operations (arrays).  Single calls remain the same.
+     - IEEE migration: When moving from FFP to IEEE doubles,
+       this helper becomes the single place to change library
+       base and function offsets.
+
+7.2  gen_bool_test():
+     - All CPUs: tst.l is universal 68k.  No change needed.
+     - If the move preceding tst.l is always to a data register,
+       the peephole optimizer (Phase 6.1) eliminates tst.l entirely.
+
+7.3  gen_stack_cleanup():
+     - All CPUs: addq/add.l are universal 68k.  No change needed.
+     - 68020+: lea N(sp),sp is an alternative for large cleanups
+       that avoids setting condition codes (sometimes desirable).
+
+7.4  gen_ext_to_long():
+     - 68020+: Already uses extb.l when cpu020_opt is set.
+     - 68000: Falls back to ext.w + ext.l.
+
+7.5  gen_index_scale():
+     - 68020+: Could replace lmulu library call with native mulu.l
+       for string array indexing.
+     - 68020+: Could use scaled indexed addressing (d7.l*2 or d7.l*4)
+       in the subsequent memory access, eliminating the lsl.l entirely.
+       This would require the helper to return addressing mode info
+       rather than emitting instructions -- a larger refactoring.
+
+7.6  Array access (gen_var_addr/gen_load_var/gen_store_var):
+     - Already in codegen.c.  68020+ scaled addressing would modify
+       these to use (base,index.l*scale) modes.
+     - This is the highest-impact 68020+ optimisation after the
+       muls.l/divs.l changes already implemented.
+
+
+======================================================================
+Summary of Expected Impact
+======================================================================
+
+Phase   Helper              Call Sites   Bytes Saved   CPU Benefit
+------  ------------------  ----------   -----------   -----------
+1       gen_ffp_call        ~25          0 (refactor)  abstraction
+2       gen_bool_test       7            14 bytes      all CPUs
+3       gen_stack_cleanup   ~77          ~88 bytes     all CPUs
+4       gen_ext_to_long     ~21          ~2 bytes      68020+
+5       gen_index_scale     3            0 (refactor)  future 020+
+6       peephole additions  many         ~50+ bytes    all/020+
+------  ------------------  ----------   -----------   -----------
+TOTAL                       ~133 sites   ~154+ bytes
+
+Lines of code in codegen.c: ~60 new lines (helpers)
+Lines removed from callers: ~200 (replaced by single-line calls)
+Net: ~140 fewer lines of scattered assembly generation
+
+
+======================================================================
+Verification Strategy
+======================================================================
+
+For each phase:
+
+1. Build compiler on Amiga emulator: make -f Makefile-ace clean all
+2. Compile the full test suite: cd ACE:verify/tests && rx runner.rexx all
+3. Compare generated .s files for a few programs (before/after) to
+   verify:
+   - Phases 1, 5: assembly is byte-for-byte identical
+   - Phases 2, 3, 4: assembly differs only in expected ways
+     (tst.l vs cmpi.l, addq vs add.l, extb.l vs ext.w+ext.l)
+   - Phase 6: fewer nop lines, peephole counter increases
+
+4. For regression safety: compile and run examples/Sieve.b,
+   examples/Hanoi.b, and the recursion test suite.
+
+
+======================================================================
+Dependencies Between Phases
+======================================================================
+
+Phase 5 uses gen_stack_cleanup from Phase 3.  All other phases are
+independent and can be done in any order.  The recommended order
+is 1-6 as written, since Phase 1 is the largest win in terms of
+duplication reduction and sets the pattern for the others.
+
+
+======================================================================
+Phase 8: Benchmark Program
+======================================================================
+
+A benchmark to measure the runtime and code-size impact of the
+codegen improvements.  Each section exercises a specific pattern
+in a tight loop so that even small per-instruction savings become
+measurable over many iterations.
+
+The benchmark is compiled TWICE with the same source: once with the
+old compiler (before refactoring) and once with the new compiler
+(after all phases).  Compare execution times and .s file sizes.
+
+
+Step 8.1 -- examples/BenchCodegen.b
+
+    REM ============================================================
+    REM BenchCodegen -- Measure codegen abstraction improvements
+    REM ============================================================
+    REM Compile with old and new compiler, compare elapsed times.
+    REM Each section isolates one pattern changed by the refactoring.
+    REM
+    REM Patterns exercised:
+    REM   Section 1: Boolean tests      (Phase 2 + Phase 6 peephole)
+    REM   Section 2: Stack cleanup       (Phase 3)
+    REM   Section 3: Type coercion       (Phase 4 + peephole)
+    REM   Section 4: Array indexing      (Phase 5)
+    REM   Section 5: Combined workload   (all patterns together)
+    REM ============================================================
+
+    DEFLNG a-z
+    CONST ITERATIONS& = 200000
+    CONST ARR_ITERS&  = 50000
+
+    DIM result&(500)
+
+    PRINT "Codegen Abstraction Benchmark"
+    PRINT "Iterations per section:"; ITERATIONS&
+    PRINT
+
+    REM === Section 1: Boolean tests ===
+    REM Each IF generates: move.l (sp)+,d0 / tst.l d0 / bne.s
+    REM Phase 2: cmpi.l #0 -> tst.l  (saves 2 bytes each)
+    REM Phase 6: move sets flags, tst.l eliminated (saves 2 more)
+
+    t1! = TIMER
+    s = 0
+    FOR i = 1 TO ITERATIONS&
+      a = i
+      IF a > 100 THEN
+        s = s + 1
+      END IF
+      IF a > 200 THEN
+        s = s + 1
+      END IF
+      IF a > 300 THEN
+        s = s + 1
+      END IF
+      IF a > 400 THEN
+        s = s + 1
+      END IF
+    NEXT
+    t2! = TIMER
+    PRINT "Section 1 (boolean tests):"; t2! - t1!; "s  check:"; s
+
+    REM === Section 2: Stack cleanup after SUB calls ===
+    REM Each call generates push args + jsr + addq/add.l to clean stack
+    REM Phase 3: add.l #N -> addq #N for N<=8  (saves 4 bytes each)
+
+    t1! = TIMER
+    s = 0
+    FOR i = 1 TO ITERATIONS&
+      AddThree(i, i, i)
+      s = s + 1
+    NEXT
+    t2! = TIMER
+    PRINT "Section 2 (SUB calls):   "; t2! - t1!; "s  check:"; s
+
+    REM === Section 3: Short-to-long coercion ===
+    REM Mixing SHORT% and LONG& forces ext.l coercion at each operation
+    REM Phase 4: byte-to-long uses extb.l on 68020+
+    REM Phase 6 peephole: catches remaining ext.w+ext.l pairs
+
+    t1! = TIMER
+    s = 0
+    a% = 7
+    b% = 13
+    FOR i = 1 TO ITERATIONS&
+      c = a% + b%
+      d = a% * b%
+      e = c + d
+      s = s + e
+      a% = b%
+      b% = (a% + 1) MOD 100
+    NEXT
+    t2! = TIMER
+    PRINT "Section 3 (coercion):    "; t2! - t1!; "s  check:"; s
+
+    REM === Section 4: Array indexing ===
+    REM Array element access generates index scaling (lsl.l #2,d7)
+    REM Phase 5 wraps this; future 68020+ can use scaled addressing
+
+    t1! = TIMER
+    s = 0
+    FOR i = 1 TO ARR_ITERS&
+      j = i MOD 500
+      result&(j) = result&(j) + 1
+      s = s + result&(j)
+    NEXT
+    t2! = TIMER
+    PRINT "Section 4 (arrays):      "; t2! - t1!; "s  check:"; s
+
+    REM === Section 5: Combined workload ===
+    REM Exercises all patterns together in a realistic mix
+
+    t1! = TIMER
+    s = 0
+    a% = 1
+    FOR i = 1 TO ITERATIONS&
+      c = a% + i
+      IF c > 500 THEN
+        j = c MOD 500
+        result&(j) = result&(j) + c
+        s = s + result&(j)
+      ELSE
+        AddThree(c, c, c)
+        s = s + 1
+      END IF
+      a% = (a% + 3) MOD 50
+    NEXT
+    t2! = TIMER
+    PRINT "Section 5 (combined):    "; t2! - t1!; "s  check:"; s
+
+    PRINT
+    PRINT "Done."
+    STOP
+
+    REM --- Helper SUB: takes 3 long args (exercises stack cleanup) ---
+    SUB AddThree(LONG x, LONG y, LONG z) STATIC
+      SHARED s
+      s = s + x + y + z
+    END SUB
+
+
+Step 8.2 -- How to run the comparison
+
+  1. Build the OLD compiler (before refactoring):
+       cd ACE:src/make
+       make -f Makefile-ace clean all
+
+  2. Compile the benchmark, save the assembly:
+       cd ACE:examples
+       ace BenchCodegen.b
+       copy BenchCodegen.s BenchCodegen_old.s
+       bas BenchCodegen
+       BenchCodegen >ACE:bench-old.txt
+
+  3. Apply all refactoring phases, rebuild compiler:
+       cd ACE:src/make
+       make -f Makefile-ace clean all
+
+  4. Compile the same benchmark with the NEW compiler:
+       cd ACE:examples
+       ace BenchCodegen.b
+       copy BenchCodegen.s BenchCodegen_new.s
+       bas BenchCodegen
+       BenchCodegen >ACE:bench-new.txt
+
+  5. Compare results:
+       a) Runtime:  compare times in bench-old.txt vs bench-new.txt
+       b) Code size: compare file sizes of BenchCodegen_old.s vs
+                     BenchCodegen_new.s (fewer lines = fewer instructions)
+       c) Assembly:  diff the two .s files to see exact changes:
+                     - cmpi.l #0 -> tst.l  (or eliminated by peephole)
+                     - add.l #4,sp -> addq #4,sp
+                     - ext.w + ext.l -> extb.l
+                     - additional nop removals from peephole
+
+  Expected differences:
+    - Code size: 100-200 bytes smaller
+    - Runtime: measurable improvement in sections 1 and 2
+      (boolean tests and SUB calls are the tightest loops)
+    - Sections 3-5: smaller improvements since the loop overhead
+      dominates over the per-instruction savings
+
+
+Step 8.3 -- Code size measurement script (AmigaDOS)
+
+  For a quick code-size comparison, count assembly lines in the
+  generated .s files:
+
+    search BenchCodegen_old.s "	" >ram:old_count
+    search BenchCodegen_new.s "	" >ram:new_count
+
+  Or compare object file sizes after assembly:
+
+    list BenchCodegen_old.o LFORMAT="%l"
+    list BenchCodegen_new.o LFORMAT="%l"
+
+  The object file size difference is the most accurate measure
+  of bytes saved, since it accounts for instruction encoding sizes.
+
+
+Step 8.4 -- Interpreting results
+
+  Pattern              Savings per hit   Hits per loop iter   Expected
+  -------------------  ----------------  ------------------   --------
+  tst.l vs cmpi.l #0   2 bytes, ~1 cyc   4 (section 1)       8 bytes
+  peephole tst removal  2 bytes, ~2 cyc   4 (section 1)       8 bytes
+  addq vs add.l         4 bytes, ~2 cyc   1 (section 2)       4 bytes
+  extb.l vs ext.w+ext.l 2 bytes, ~2 cyc   2 (section 3)       4 bytes
+
+  On a 7 MHz 68000, each cycle saved per iteration over 200,000
+  iterations = ~0.03 seconds.  On a 50 MHz 68060 or Vampire the
+  absolute time is smaller but the relative improvement is similar.
+
+  The primary value is CODE SIZE reduction, which improves
+  instruction cache utilization on 68020+ (256-byte I-cache on
+  68020, 4KB on 68040, larger on Vampire).  Cache effects are
+  hard to benchmark in isolation but compound across a full program.

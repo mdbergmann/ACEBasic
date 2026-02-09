@@ -632,6 +632,11 @@ void	gen_startup_code();
 void	gen_exit_code();
 void	gen_asm_header();
 void	gen_asm_end();
+void	gen_ffp_call();
+void	gen_bool_test();
+void	gen_stack_cleanup();
+void	gen_ext_to_long();
+void	gen_index_scale();
 
 /* invoke.c */
 int	handle_invoke();

@@ -198,13 +198,10 @@ SYM  *item;
       case longtype   : gen(is_increment ? "add.l" : "sub.l","#1","(a0)");
      		       break;
 
-      case singletype : gen("movea.l","_MathBase","a6");
-			       gen("move.l","(a0)","d0");
+      case singletype : gen("move.l","(a0)","d0");
 			       gen("move.l","#$80000041","d1");
-			       gen("jsr",is_increment ? "_LVOSPAdd(a6)" : "_LVOSPSub(a6)","  ");
+			       gen_ffp_call(is_increment ? "_LVOSPAdd" : "_LVOSPSub");
 			       gen("move.l","d0","(a0)");
-			       enter_XREF("_MathBase");
-			       enter_XREF(is_increment ? "_LVOSPAdd" : "_LVOSPSub");
 			       break;
      }
     }
@@ -481,10 +478,7 @@ SHORT popcount;
 	    popcount += 4;
          }
         /* add popcount to sp */
-        strcpy(buf,"#\0");
-        itoa(popcount,numbuf,10);
-        strcat(buf,numbuf);
-        gen("add.l",buf,"sp");
+        gen_stack_cleanup(popcount);
        }
       }
       else _error(37); /* undeclared subprogram */
@@ -693,7 +687,7 @@ char addrbuf[80];
   else gen("move.l","#0","-(sp)");  /* no mode-array -> push NULL */
 
   gen_rt_call("_say");
-  gen("addq","#8","sp");  /* pop two parameters */
+  gen_stack_cleanup(8);  /* pop two parameters */
   enter_XREF("_cleanup_async_speech");
   narratorused=TRUE;
 }
@@ -735,7 +729,7 @@ int stype;
 	  else
 	  {
 		gen_Flt(stype);
-	  	gen_rt_call("_sleep_for_secs"); gen("addq","#4","sp");
+	  	gen_rt_call("_sleep_for_secs"); gen_stack_cleanup(4);
 	  	enter_XREF("_MathBase");
 	  }
     }
@@ -759,7 +753,7 @@ int stype;
   {
      /* SYSTEM command-string */
      gen_rt_call("_system_call");
-     gen("addq","#4","sp");
+     gen_stack_cleanup(4);
   }
 }
 

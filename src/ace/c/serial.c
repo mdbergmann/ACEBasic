@@ -128,7 +128,7 @@ void open_serial()
 
      /* call open_serial function */
      gen_rt_call("_OpenSerial");
-     gen("add.l","#24","sp");      
+     gen_stack_cleanup(24);      
     }
    }
   }
@@ -149,7 +149,7 @@ void close_serial()
  if (make_integer(expr()) == shorttype) make_long();	/* channel */ 
 	 	 
  gen_rt_call("_CloseSerial");
- gen("addq","#4","sp"); 
+ gen_stack_cleanup(4); 
 }
 
 void read_serial()
@@ -213,7 +213,7 @@ char addrbuf[40];
 
      /* call serial_read function */
      gen_rt_call("_ReadSerial");
-     gen("add.l","#12","sp");
+     gen_stack_cleanup(12);
     }
    }
   }
@@ -250,7 +250,7 @@ void write_serial()
 
     /* call serial_write function */
     gen_rt_call("_WriteSerial");
-    gen("add.l","#12","sp");
+    gen_stack_cleanup(12);
    }	 	 
   }
  }

@@ -91,7 +91,7 @@ int  mtype;
 				if (sym != comma)
 				{ 
 					gen_rt_call("_ChangeMenuState");
-					gen("add.l","#12","sp");	
+					gen_stack_cleanup(12);	
 					return;	
 				}
 			}
@@ -118,7 +118,7 @@ int  mtype;
 
 	 /* call function */
 	 gen_rt_call("_ModifyMenu");
-	 gen("add.l","#20","sp");
+	 gen_stack_cleanup(20);
  	 enter_XREF("_IntuitionBase");
  	 enter_XREF("_GfxBase");
 	}

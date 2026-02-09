@@ -133,7 +133,7 @@ int storetype,exptype;
  if ((storetype == longtype) && (exptype == shorttype))
  {
   gen("move.w","(sp)+","d0");
-  gen("ext.l","d0","  ");
+  gen_ext_to_long(FALSE, "d0");
   gen("move.l","d0","-(sp)");
  }
  else
@@ -802,7 +802,7 @@ SYM  *storage;
   if ((inptype == stringtype) && (lastsym == stringconst))
   {
    gen_rt_call("_Ustringprint");
-   gen("addq","#4","sp");
+   gen_stack_cleanup(4);
   }
   else _error(18); 
  }

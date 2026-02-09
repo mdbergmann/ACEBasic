@@ -113,7 +113,7 @@ int i;
 
   /* generate condition test */
   gen("move.l","(sp)+","d0");
-  gen("cmpi.l","#0","d0");
+  gen_bool_test("d0");
   make_label(labname,lablabel);
   gen("bne.s",labname,"  ");
   gen("nop","  ","  ");
@@ -207,7 +207,7 @@ int  exprtype;
   if ((sym == thensym) || (sym == gotosym))
   {
    gen("move.l","(sp)+","d0");
-   gen("cmpi.l","#0","d0");
+   gen_bool_test("d0");
    make_label(labname1,lablabel1);
    gen("bne.s",labname1,"  ");
    gen("nop","  ","  ");  /* jump past THEN code section */
@@ -332,9 +332,9 @@ int  exprtype;
  if (exprtype == longtype)
  {
   gen("move.l","(sp)+","d0");
-  gen("cmpi.l","#0","d0");
+  gen_bool_test("d0");
   make_label(labname2,lablabel2);
-  gen("bne.s",labname2,"  "); 
+  gen("bne.s",labname2,"  ");
   gen("nop","  ","  ");  /* jump out of loop when condition is FALSE */
   cx2=curr_code;
   gen(lablabel2,"  ","  ");  
@@ -380,7 +380,7 @@ int  exprtype;
   if (exprtype == longtype)
   {
    gen("move.l","(sp)+","d0");
-   gen("cmpi.l","#0","d0");
+   gen_bool_test("d0");
    make_label(labname2,lablabel2);
    gen("bne.s",labname2,"  ");
    gen("jmp",labname1,"  ");	/* loop until condition is TRUE */
@@ -418,9 +418,9 @@ SHORT i;
    if (exprtype == longtype)
    {
     gen("move.l","(sp)+","d0");
-    gen("cmpi.l","#0","d0");
+    gen_bool_test("d0");
     make_label(labname1,lablabel1);
-    gen("bne.s",labname1,"  "); 
+    gen("bne.s",labname1,"  ");
     gen("nop","  ","  ");	/* try next case */
     cx = curr_code;
     gen(lablabel1,"  ","  ");   /* execute code for THIS case */
@@ -494,7 +494,7 @@ char labname3[80],lablabel3[80];
     {
      gen("move.l",cntbuf,"d0");   /* counter */
      gen("move.l",limbuf,"d1");   /* limit */
-     gen("cmpi.l","#0",stpbuf);
+     gen_bool_test(stpbuf);
      make_label(labname2,lablabel2);
      gen("blt",labname2,"  ");
      gen("cmp.l","d1","d0");
@@ -513,16 +513,12 @@ char labname3[80],lablabel3[80];
     {
      gen("moveq","#0","d1");
      gen("move.l",stpbuf,"d0");   /* d0 < d1? (where d1=0) */
-     gen("move.l","_MathBase","a6");
-     gen("jsr","_LVOSPCmp(a6)","  ");
-     enter_XREF("_MathBase");
-     enter_XREF("_LVOSPCmp");
+     gen_ffp_call("_LVOSPCmp");
      make_label(labname2,lablabel2);
      gen("blt",labname2,"  ");  /* test result of ffp Cmp above */
      gen("move.l",cntbuf,"d0");   /* counter */
      gen("move.l",limbuf,"d1");   /* limit */
-     gen("move.l","_MathBase","a6");
-     gen("jsr","_LVOSPCmp(a6)","  ");
+     gen_ffp_call("_LVOSPCmp");
      gen("bgt","  ","  ");	  /* if STEP +ve -> counter>limit? */
      *cx1_out=curr_code;
      make_label(labname3,lablabel3); /* don't want to do -ve step test too! */
@@ -530,8 +526,7 @@ char labname3[80],lablabel3[80];
      gen(lablabel2,"  ","  ");
      gen("move.l",cntbuf,"d0");   /* counter */
      gen("move.l",limbuf,"d1");   /* limit */
-     gen("move.l","_MathBase","a6");
-     gen("jsr","_LVOSPCmp(a6)","  ");
+     gen_ffp_call("_LVOSPCmp");
      gen("blt","  ","  ");      /* if STEP -ve -> counter<limit? */
      *cx2_out=curr_code;
      gen(lablabel3,"  ","  ");    /* label for bypassing -ve step test */
@@ -552,11 +547,8 @@ char *stpbuf, *cntbuf, *counteraddr;
 			break;
      case singletype :  gen("move.l",stpbuf,"d0");
 			gen("move.l",cntbuf,"d1");
-			gen("move.l","_MathBase","a6");
-			gen("jsr","_LVOSPAdd(a6)","  ");
+			gen_ffp_call("_LVOSPAdd");
 			gen("move.l","d0",counteraddr);
-     			enter_XREF("_MathBase");
-     			enter_XREF("_LVOSPAdd");
 			break;
     }
 }
@@ -695,11 +687,11 @@ int  countertype,limittype,steptype;
     make_label(labname3,lablabel3);
     gen(lablabel3,"  ","  ");
 
-    /* POP the step & limit from stack */ 
+    /* POP the step & limit from stack */
     if (countertype == shorttype)
-       gen("addq","#4","sp");
+       gen_stack_cleanup(4);
     else
-       gen("addq","#8","sp");
+       gen_stack_cleanup(8);
 
     change(cx1,"bgt",labname3,"  ");
     change(cx2,"blt",labname3,"  ");
@@ -747,12 +739,12 @@ long i,opt=0;
 
      opt++;
 
-     sprintf(numbuf,"#%ld",opt);  
+     sprintf(numbuf,"#%ld",opt);
      gen("cmpi.l",numbuf,"(sp)");
      make_label(lab,lablabel);
      gen("bne.s",lab,"  ");  /* is opt equal to value on stack? */
 
-     gen("addq","#4","sp");  /* remove value from stack before branch */
+     gen_stack_cleanup(4);  /* remove value from stack before branch */
 
      switch(branch)
      {

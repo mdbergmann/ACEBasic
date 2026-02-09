@@ -254,7 +254,7 @@ BOOL  wants_return;
     {
      p_type[n_params] = shorttype;
      gen("move.w", "(sp)+", "d0");
-     gen("ext.l", "d0", "  ");
+     gen_ext_to_long(FALSE, "d0");
      make_temp_long();
      strcpy(p_temp[n_params], templongname);
      gen("move.l", "d0", templongname);
@@ -302,10 +302,7 @@ BOOL  wants_return;
     if (p_type[i] == shorttype) popcount += 2;
     else popcount += 4;
    }
-   strcpy(buf, "#\0");
-   itoa(popcount, numbuf, 10);
-   strcat(buf, numbuf);
-   gen("add.l", buf, "sp");
+   gen_stack_cleanup(popcount);
   }
 
   /* Return value handling for C path */

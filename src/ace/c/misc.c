@@ -239,38 +239,19 @@ char mulbuf[40],srcbuf[40];
  {
   sprintf(mulbuf,"#%ld",ndx_mult);
 
-  gen("move.w","(sp)+","d1");  	 
-  gen("ext.l","d1","  "); 
+  gen("move.w","(sp)+","d1");
+  gen_ext_to_long(FALSE, "d1");
   gen("move.l","d1","-(sp)");   /* push next index after coercing to long */
   gen("move.l",mulbuf,"-(sp)"); /* push cumulative index */
   gen_rt_call("lmulu");
-  gen("add.l","#8","sp");
+  gen_stack_cleanup(8);
   
   gen("add.l","d0","d7");  
   ndx_mult *= curr->index[i];
  }
 
  /* multiply offset by data type size */
- if (curr->type == stringtype)
- {
-  /* multiply d7 (containing absolute index) by string element size */
-
-  /* #string_element_size */
-  sprintf(srcbuf,"#%ld",curr->numconst.longnum);
-
-  /* calculate absolute offset */  
-  gen("move.l","d7","-(sp)");
-  gen("move.l",srcbuf,"-(sp)");
-  gen_rt_call("lmulu");	/* d7*MAXSTRLEN */
-  gen("add.l","#8","sp");
-  gen("move.l","d0","d7");
- }
- else
- if (curr->type == shorttype)
-    gen("lsl.l","#1","d7");  /* d7*2 */
- else
-    /* long or single */
-    gen("lsl.l","#2","d7");  /* d7*4 */
+ gen_index_scale(curr->type, curr->numconst.longnum);
 
 }
 
@@ -572,7 +553,7 @@ void MsgBox()
 		     
 	    			/* call the function */
 	    			gen_rt_call("_sysrequest");
-	    			gen("add.l","#12","sp");
+	    			gen_stack_cleanup(12);
 	    			enter_XREF("_IntuitionBase");
 	   		}
 	  	}

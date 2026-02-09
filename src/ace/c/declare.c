@@ -667,10 +667,7 @@ char  buf[40],numbuf[40];
 	   popcount += 4;
       }
       /* add popcount to sp */
-      strcpy(buf,"#\0");
-      itoa(popcount,numbuf,10);
-      strcat(buf,numbuf);
-      gen("add.l",buf,"sp");
+      gen_stack_cleanup(popcount);
      }
 
      /* restore registers */

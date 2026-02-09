@@ -351,15 +351,13 @@ BOOL fill=FALSE;
 
      /* convert x & y values to floats */
      gen("move.w","_shortx","d0");
-     gen("ext.l","d0","  ");
-     gen("move.l","_MathBase","a6");
-     gen("jsr","_LVOSPFlt(a6)","  ");
+     gen_ext_to_long(FALSE, "d0");
+     gen_ffp_call("_LVOSPFlt");
      gen("move.l","d0","_floatx");
 
      gen("move.w","_shorty","d0");
-     gen("ext.l","d0","  ");
-     gen("move.l","_MathBase","a6");
-     gen("jsr","_LVOSPFlt(a6)","  ");
+     gen_ext_to_long(FALSE, "d0");
+     gen_ffp_call("_LVOSPFlt");
      gen("move.l","d0","_floaty");
 
      gen("move.l","_floatx","d0");
@@ -922,7 +920,7 @@ int stype;
   {
   	if (make_integer(stype) == shorttype) make_long(); 
 	gen_rt_call("_change_text_style");
-	gen("addq","#4","sp");
+	gen_stack_cleanup(4);
 	enter_XREF("_GfxBase");
   }
 }
@@ -952,7 +950,7 @@ int ftype;
   			if (make_integer(ftype) == shorttype) make_long();
 
 			gen_rt_call("_change_text_font");
-			gen("addq","#8","sp");
+			gen_stack_cleanup(8);
 			enter_XREF("_GfxBase");
   		}
 	}		

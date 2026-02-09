@@ -90,7 +90,7 @@ CODE *cx[];
  if ((*typ2 == shorttype) && (*typ1 == longtype)) 
  {
   gen("move.w","(sp)+","d0");
-  gen("ext.l","d0","  ");
+  gen_ext_to_long(FALSE, "d0");
   gen("move.l","d0","-(sp)");
   *typ2=longtype;
   return(TRUE);
@@ -108,7 +108,7 @@ void make_short()
 void make_long()
 {
  gen("move.w","(sp)+","d0");
- gen("ext.l","d0","  ");
+ gen_ext_to_long(FALSE, "d0");
  gen("move.l","d0","-(sp)");
 }
 
@@ -203,7 +203,7 @@ CODE *cx[5];
    }
 
    gen_rt_call("_power");	/* - Call exponentiation function. */
-   gen("addq","#8","sp");	/* - Remove parameters from stack. */
+   gen_stack_cleanup(8);	/* - Remove parameters from stack. */
    gen("move.l","d0","-(sp)");  /* - Push the result. */
 
    enter_XREF("_MathTransBase"); /* opens FFP+IEEE SP transcendental libraries */
@@ -238,12 +238,9 @@ BOOL negate=FALSE;
 
    case longtype   : gen("neg.l","(sp)","  "); break;
 
-   case singletype : gen("move.l","(sp)+","d0"); 
-       gen("move.l","_MathBase","a6");
-       gen("jsr","_LVOSPNeg(a6)","  ");
+   case singletype : gen("move.l","(sp)+","d0");
+       gen_ffp_call("_LVOSPNeg");
        gen("move.l","d0","-(sp)");
-       enter_XREF("_MathBase");
-       enter_XREF("_LVOSPNeg");
        break;
    case stringtype : _error(4); break;
   }
@@ -323,15 +320,12 @@ CODE *cx[5];
 					else
 					{
 					    gen_rt_call("lmul");
-					    gen("add.l","#8","sp");
+					    gen_stack_cleanup(8);
 					}
 					localtype=longtype;
 					break;
 
-		     case singletype :  gen("movea.l","_MathBase","a6");
-					gen("jsr","_LVOSPMul(a6)","  ");
-					enter_XREF("_MathBase");
-      		     			enter_XREF("_LVOSPMul");
+		     case singletype :  gen_ffp_call("_LVOSPMul");
 					localtype=singletype;
       		     			break;
 		    }
@@ -339,10 +333,7 @@ CODE *cx[5];
 
     case fdiv     : gen("move.l","(sp)+","d1");  /* 2nd operand */
 		    gen("move.l","(sp)+","d0");  /* 1st operand */
-		    gen("movea.l","_MathBase","a6");
-		    gen("jsr","_LVOSPDiv(a6)","  ");  
-		    enter_XREF("_MathBase");
-      		    enter_XREF("_LVOSPDiv");
+		    gen_ffp_call("_LVOSPDiv");
 		    localtype=singletype;
       		    break;
    }
@@ -403,7 +394,7 @@ CODE *cx[5];
    else
    {
        gen_rt_call("ace_ldiv");
-       gen("add.l","#8","sp");
+       gen_stack_cleanup(8);
        gen("move.l","d0","-(sp)");
    }
   }
@@ -477,7 +468,7 @@ CODE *cx[5];
     else
     {
         gen_rt_call("ace_lrem");
-        gen("add.l","#8","sp");
+        gen_stack_cleanup(8);
         gen("move.l","d0","-(sp)");
     }
    }
@@ -541,10 +532,7 @@ CODE *cx[5];
     case longtype   :	gen("add.l","d1","d0");
     		    	break;
 
-    case singletype : 	gen("move.l","_MathBase","a6");
-        		gen("jsr","_LVOSPAdd(a6)","  ");
-        		enter_XREF("_LVOSPAdd");
-        		enter_XREF("_MathBase");
+    case singletype : 	gen_ffp_call("_LVOSPAdd");
         		break;
 
     case stringtype : 	/* copy source to temp string */
@@ -581,10 +569,7 @@ CODE *cx[5];
     case longtype   : 	gen("sub.l","d1","d0");
          		break;
 
-    case singletype :	gen("move.l","_MathBase","a6");
-        		gen("jsr","_LVOSPSub(a6)","  ");
-       			enter_XREF("_LVOSPSub");
-        		enter_XREF("_MathBase");
+    case singletype :	gen_ffp_call("_LVOSPSub");
         		break;
 
     case stringtype : 	_error(4); break;
@@ -683,10 +668,7 @@ CODE *cx[5];
     case singletype : 	gen_pop(singletype, "d1");  /* 2nd */
         		gen_pop(singletype, "d0");  /* 1st */
         		gen("moveq","#-1","d5");     /* assume true */
-        		gen("move.l","_MathBase","a6");
-        		gen("jsr","_LVOSPCmp(a6)","  ");
-        		enter_XREF("_LVOSPCmp");
-        		enter_XREF("_MathBase");
+        		gen_ffp_call("_LVOSPCmp");
         		break;
 
     case stringtype : 	gen("move.l","(sp)+","a1");  /* addr of 2nd string */
@@ -991,13 +973,10 @@ int typ;
 
   gen_pop(typ, "d0");
 
-  if (typ == shorttype) gen("ext.l","d0","  "); /* extend sign */
+  if (typ == shorttype) gen_ext_to_long(FALSE, "d0"); /* extend sign */
 
-  gen("move.l","_MathBase","a6");
-  gen("jsr","_LVOSPFlt(a6)","  ");
+  gen_ffp_call("_LVOSPFlt");
   gen("move.l","d0","-(sp)");
-  enter_XREF("_LVOSPFlt");
-  enter_XREF("_MathBase");
 }
 
 void change_Flt(exptyp,cx)

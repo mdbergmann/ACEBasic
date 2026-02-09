@@ -250,6 +250,84 @@ BOOL negate_constant()
 		return(FALSE);	    	
 }
 
+BOOL tst_for_zero()
+{
+/*
+** Remove redundant tst.l after move to data register.
+**
+**		move.l  X,dn		(sets condition codes)
+**		tst.l   dn		(redundant)
+**
+**	->	move.l  X,dn
+**		nop
+**
+** Only applies when destination is d0-d7.
+** movea to address registers does NOT set condition codes.
+*/
+	if (strcmp(first->opcode, "move.l") == 0 &&
+	    strcmp(second->opcode, "tst.l") == 0 &&
+	    first->destopr[0] == 'd' &&
+	    strcmp(first->destopr, second->srcopr) == 0)
+	{
+		change(second, "nop", "  ", "  ");
+		curr = second->next;
+		peep++;
+		return(TRUE);
+	}
+	else
+		return(FALSE);
+}
+
+BOOL addq_for_small_add()
+{
+/*
+** Replace add.l #N,reg with addq #N,reg when 1 <= N <= 8.
+** Safety net for any add.l #small not caught by gen_stack_cleanup.
+** addq saves 4 bytes per occurrence (2 vs 6 byte encoding).
+*/
+	if (strcmp(first->opcode, "add.l") == 0 &&
+	    first->srcopr[0] == '#' &&
+	    first->srcopr[1] >= '1' && first->srcopr[1] <= '8' &&
+	    first->srcopr[2] == '\0')
+	{
+		change(first, "addq", first->srcopr, first->destopr);
+		/* don't change curr - only first was transformed */
+		peep++;
+		return(TRUE);
+	}
+	else
+		return(FALSE);
+}
+
+BOOL extb_for_020()
+{
+/*
+** Replace ext.w dn + ext.l dn with extb.l dn + nop on 68020+.
+** Safety net for byte-to-long not caught by gen_ext_to_long.
+**
+**		ext.w   dn
+**		ext.l   dn		(same register)
+**
+**	->	extb.l  dn
+**		nop
+*/
+extern	BOOL	cpu020_opt;
+
+	if (cpu020_opt &&
+	    strcmp(first->opcode, "ext.w") == 0 &&
+	    strcmp(second->opcode, "ext.l") == 0 &&
+	    strcmp(first->srcopr, second->srcopr) == 0)
+	{
+		change(first, "extb.l", first->srcopr, "  ");
+		change(second, "nop", "  ", "  ");
+		curr = second->next;
+		peep++;
+		return(TRUE);
+	}
+	else
+		return(FALSE);
+}
+
 SHORT peephole()
 {
 /* 
@@ -261,7 +339,7 @@ int  opt_type;
 
   if (code == NULL) return;
 
-    for (opt_type=1;opt_type<=4;opt_type++)
+    for (opt_type=1;opt_type<=7;opt_type++)
     {
 	/* Start of code list */
 	curr = code;
@@ -306,6 +384,15 @@ int  opt_type;
 				 break;
 
 			case 4 : push_pop_pair();
+				 break;
+
+			case 5 : tst_for_zero();
+				 break;
+
+			case 6 : addq_for_small_add();
+				 break;
+
+			case 7 : extb_for_020();
 				 break;
 		}
 

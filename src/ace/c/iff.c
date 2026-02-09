@@ -60,7 +60,7 @@ int	itype;
 			{
 				/* call function */
 				gen_rt_call("_IFFPicOpen");
-				gen("addq","#8","sp");
+				gen_stack_cleanup(8);
 			}				
 		} 
 			
@@ -110,7 +110,7 @@ int	itype;
 
 		/* call function */
 		gen_rt_call("_IFFPicRead");
-		gen("addq","#8","sp");
+		gen_stack_cleanup(8);
 	}
 }
 
@@ -136,7 +136,7 @@ int	itype;
 
 		/* call function */
 		gen_rt_call("_IFFPicClose");
-		gen("addq","#4","sp");
+		gen_stack_cleanup(4);
 	}
 }
 

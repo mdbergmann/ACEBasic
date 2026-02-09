@@ -178,6 +178,87 @@ int count;
  }
 }
 
+/* Generate an FFP library call: move.l _MathBase,a6 / jsr func(a6)
+   + enter_XREF for the function and _MathBase. */
+void gen_ffp_call(funcname)
+char *funcname;
+{
+ char buf[80];
+ gen("move.l","_MathBase","a6");
+ strcpy(buf, funcname);
+ strcat(buf, "(a6)");
+ gen("jsr", buf, "  ");
+ enter_XREF(funcname);
+ enter_XREF("_MathBase");
+}
+
+/* Generate a boolean/zero test: tst.l reg.
+   Replaces cmpi.l #0,reg -- saves 2 bytes, identical flags. */
+void gen_bool_test(reg)
+char *reg;
+{
+ gen("tst.l", reg, "  ");
+}
+
+/* Clean up N bytes from the stack after a call.
+   Uses addq for N<=8 (2 bytes), add.l otherwise (6 bytes). */
+void gen_stack_cleanup(bytes)
+int bytes;
+{
+ char buf[12];
+ sprintf(buf, "#%d", bytes);
+ if (bytes <= 8)
+  gen("addq", buf, "sp");
+ else
+  gen("add.l", buf, "sp");
+}
+
+/* Scale array index in d7 by element size.
+   shorttype: d7*2, long/single: d7*4, string: d7*elem_size via lmulu. */
+void gen_index_scale(type, elem_size)
+int type;
+LONG elem_size;
+{
+ char buf[20];
+ if (type == shorttype)
+  gen("lsl.l", "#1", "d7");
+ else if (type == longtype || type == singletype)
+  gen("lsl.l", "#2", "d7");
+ else
+ {
+  /* string or other: use multiplication */
+  sprintf(buf, "#%ld", elem_size);
+  gen("move.l", "d7", "-(sp)");
+  gen("move.l", buf, "-(sp)");
+  gen_rt_call("lmulu");
+  gen_stack_cleanup(8);
+  gen("move.l", "d0", "d7");
+ }
+}
+
+/* Sign-extend a register to long.
+   from_byte=TRUE:  byte->long (extb.l on 68020+, ext.w+ext.l on 68000)
+   from_byte=FALSE: short->long (ext.l on all CPUs) */
+extern	BOOL	cpu020_opt;
+
+void gen_ext_to_long(from_byte, reg)
+BOOL from_byte;
+char *reg;
+{
+ if (from_byte)
+ {
+  if (cpu020_opt)
+   gen("extb.l", reg, "  ");
+  else
+  {
+   gen("ext.w", reg, "  ");
+   gen("ext.l", reg, "  ");
+  }
+ }
+ else
+  gen("ext.l", reg, "  ");
+}
+
 /* Emit startup assembly code (main program only).
    addr_lev is the value of addr[lev] for the stack frame size. */
 extern	BOOL	cli_args;
@@ -319,8 +400,6 @@ void gen_exit_code()
 }
 
 /* Emit assembly file header: optional 68020 machine directive + SECTION. */
-extern	BOOL	cpu020_opt;
-
 void gen_asm_header()
 {
  if (cpu020_opt) fprintf(dest,"\n\tmachine 68020\n");

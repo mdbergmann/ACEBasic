@@ -71,7 +71,7 @@ int code;
 
  /* call function */
  gen_rt_call("_Ucodeprint");
- gen("addq","#4","sp");
+ gen_stack_cleanup(4);
 }
 
 void print_statement()
@@ -121,19 +121,19 @@ do
   {
    case shorttype :  make_long();
 		     gen_rt_call("_Ushortprint");
-		     gen("addq","#4","sp");
+		     gen_stack_cleanup(4);
 		     break;
 
    case longtype :   gen_rt_call("_Ulongprint");
-		     gen("addq","#4","sp");
+		     gen_stack_cleanup(4);
 		     break;
 
    case singletype : gen_rt_call("_Usingleprint");
-		     gen("addq","#4","sp");
+		     gen_stack_cleanup(4);
 		     break;
 
    case stringtype : gen_rt_call("_Ustringprint");
-		     gen("addq","#4","sp");
+		     gen_stack_cleanup(4);
 		     break;
   }
 

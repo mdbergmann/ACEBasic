@@ -188,12 +188,12 @@ void close_gadget()
 	if (gadtoolsused)
 	{
 		gen_rt_call("_CloseGTGadget");
-		gen("addq","#4","sp");
+		gen_stack_cleanup(4);
 	}
 	else
 	{
 		gen_rt_call("_CloseGadget");
-		gen("addq","#4","sp");
+		gen_stack_cleanup(4);
 	}
 }
 
@@ -213,7 +213,7 @@ void gadget_output()
      	make_sure_long(expr());	/* gadget-id */
 
 	gen_rt_call("_SetCurrentGadget");
-	gen("addq","#4","sp");
+	gen_stack_cleanup(4);
 }
 
 void wait_gadget()
@@ -226,12 +226,12 @@ void wait_gadget()
 	if (gadtoolsused)
 	{
 		gen_rt_call("_WaitGTGadget");
-		gen("addq","#4","sp");
+		gen_stack_cleanup(4);
 	}
 	else
 	{
 		gen_rt_call("_WaitGadget");
-		gen("addq","#4","sp");
+		gen_stack_cleanup(4);
 	}
 }
 
@@ -256,7 +256,7 @@ void gadget_font()
 	make_sure_long(expr());  /* size */
 
 	gen_rt_call("_SetGTGadgetFont");
-	gen("addq","#8","sp");
+	gen_stack_cleanup(8);
 	gadtoolsused = TRUE;
 }
 
@@ -331,7 +331,7 @@ static int gtstrcount = 0;
 
 	    /* Call _SetGTGadgetAttrSingle(value, tag, id) */
 	    gen_rt_call("_SetGTGadgetAttrSingle");
-	    gen("add.l", "#12,sp", "  ");
+	    gen_stack_cleanup(12);
 
 	} while (sym == comma);
 
@@ -366,7 +366,7 @@ void modify_gadget()
 
 		/* call function */
 		gen_rt_call("_modify_gad");
-		gen("add.l","#12","sp");
+		gen_stack_cleanup(12);
 		enter_XREF("_GfxBase");
 	}
 }
@@ -433,7 +433,7 @@ int  gtype;
 			if (sym != comma)
 			{
 				gen_rt_call("_ChangeGadgetStatus");
-				gen("addq","#8","sp");
+				gen_stack_cleanup(8);
 				enter_XREF("_GfxBase");	
 				return;	
 			}
@@ -657,7 +657,7 @@ int  gtype;
 					    gen("move.l", numbuf,
 						"-(sp)");
 					    gen_rt_call("_BuildGTLabels");
-					    gen("add.l", "#12", "sp");
+					    gen_stack_cleanup(12);
 					    /* Patch tag value in DATA */
 					    sprintf(patchdst, "%s+%d",
 						    dataname, voff);
@@ -679,7 +679,7 @@ int  gtype;
 					  return;
 					}
 					gen_rt_call("_CreateGTGadget");
-					gen("add.l","#36","sp");
+					gen_stack_cleanup(36);
 					gadtoolsused = TRUE;
 					return;
 				}
@@ -780,7 +780,7 @@ int  gtype;
 
 	 /* call function */
 	 gen_rt_call("_CreateGadget");
-	 gen("add.l","#48","sp");
+	 gen_stack_cleanup(48);
 	 enter_XREF("_GfxBase");
 	}
 }
@@ -801,7 +801,7 @@ void	bevel_box()
 
 	 	/* call function */
 		gen_rt_call("_BevelBox");
-		gen("add.l","#20","sp");
+		gen_stack_cleanup(20);
 		enter_XREF("_GfxBase");
 	}
 }

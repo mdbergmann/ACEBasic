@@ -585,7 +585,7 @@ void files()
 
  /* call _files routine */
  gen_rt_call("_files");
- gen("addq","#4","sp");
+ gen_stack_cleanup(4);
 }
 
 char *push_struct_var_info(structVar)
@@ -677,7 +677,7 @@ SYM *structVar;
 			** Call function.
 			*/
 			gen_rt_call("_GetRecord");
- 			gen("add.l","#16","sp");
+ 			gen_stack_cleanup(16);
 		}
 	}	
 }
@@ -740,7 +740,7 @@ SYM *structVar;
 			** Call function.
 			*/
 			gen_rt_call("_PutRecord");
- 			gen("add.l","#16","sp");
+ 			gen_stack_cleanup(16);
 		}
 	}	
 }

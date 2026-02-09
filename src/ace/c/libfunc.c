@@ -200,7 +200,7 @@ char lab[80],lablabel[80];
      gen_rt_call("_open_library");
      make_library_base(libname);
      gen("move.l","d0",librarybase);
-     gen("cmpi.l","#0","d0");
+     gen_bool_test("d0");
      make_label(lab,lablabel);
      gen("bne.s",lab,"  ");
      gen("jmp","_EXIT_PROG","  "); /* quit program if can't open library */
