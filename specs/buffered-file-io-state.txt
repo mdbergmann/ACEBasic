@@ -8,9 +8,20 @@ Step 1: fgetline() with Read + Seek
 [x] Create branch buffered-file-io
 [x] Add Read/Seek declarations to fgets.c
 [x] Replace fgetline() body with bulk Read + Seek
-[ ] Build runtime on emulator (make -f Makefile-lib clean all)
-[ ] Test with verify/tests/cases/fileio/buffered_io.b
-[ ] Run benchmark examples/benchmarks/fileio.b
-[ ] Run full test suite (rx runner.rexx all)
+[x] Build runtime on emulator (make -f Makefile-lib clean all)
+[x] Test with verify/tests/cases/fileio/buffered_io.b
+[x] Run benchmark examples/benchmarks/fileio.b (9846 lines/sec)
+[x] Run full test suite (192 pass, 1 pre-existing failure)
 
-Status: Code changes complete, awaiting emulator verification.
+Status: Step 1 COMPLETE. Committed as dc0c410.
+
+Step 2: fgets() and fgetchars() with bulk Read
+-----------------------------------------------
+[x] Replace fgets() body with Read + Seek (same pattern as fgetline, keeps \n)
+[x] Replace fgetchars() body with single Read() call
+[x] Build runtime on emulator (make -f Makefile-lib clean all)
+[x] Test with verify/tests/cases/fileio/buffered_io.b (via full suite)
+[x] Run benchmark examples/benchmarks/fileio.b (12190 lines/sec, up from 9846)
+[x] Run full test suite (193 pass, 0 fail, 0 skip)
+
+Status: Step 2 COMPLETE.

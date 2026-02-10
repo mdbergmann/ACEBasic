@@ -41,15 +41,28 @@ char *s;
 unsigned long n;
 unsigned long iop;
 {
-int  c;
-char *cs;
- 
- cs = s;
- while (--n > 0 && (c = fgetc(iop)) != EOF)
-     if ((*cs++ = c) == '\n')
- 	break;
- *cs = '\0';
- return (c == EOF && cs == s) ? NULL : s;  
+long nread;
+char *p;
+
+ nread = Read(iop, s, n - 1);
+ if (nread <= 0) {
+     *s = '\0';
+     return NULL;
+ }
+
+ /* scan for newline */
+ for (p = s; p < s + nread; p++) {
+     if (*p == '\n') {
+         p++;  /* keep the newline */
+         /* seek back past unread portion */
+         Seek(iop, (long)(p - s - nread), OFFSET_CURRENT);
+         *p = '\0';
+         return s;
+     }
+ }
+ /* no newline found: EOF before line end */
+ s[nread] = '\0';
+ return s;
 }
 
 void fgetline(s,n,iop)
@@ -84,12 +97,14 @@ char *s;
 unsigned long n;
 unsigned long iop;
 {
-int  c;
-char *cs;
- 
- cs = s;
- while (--n > 0 && (c = fgetc(iop)) != EOF) *cs++ = c;
- *cs = '\0';
+long nread;
+
+ nread = Read(iop, s, n - 1);
+ if (nread <= 0) {
+     *s = '\0';
+     return;
+ }
+ s[nread] = '\0';
 }
 
 void fgetseqfld(s,n,iop)
