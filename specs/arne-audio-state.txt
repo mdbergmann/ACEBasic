@@ -1,0 +1,30 @@
+Arne Audio Submodule - Implementation State
+============================================
+Branch: arne-audio-submod
+Spec: specs/arne-audio-submod.txt
+
+Files created:
+  submods/arne/arne.b           - Module source (8 SUBs)
+  include/submods/Arne.h        - Header with DECLARE SUBs + constants
+  submods/arne/test_arne.b      - Sine wave tone test
+  submods/arne/test_arne_aiff.b - Raw PCM file playback test
+
+Implementation status:
+  [x] arne.b: ArnePlay, ArneStop, ArneStart, ArneVolume
+  [x] arne.b: ArneIsFree, ArneFindFree, ArneStopAll, ArnePeriod
+  [x] Arne.h: constants + DECLARE SUBs
+  [x] test_arne.b: sine wave generator + play on ch 0
+  [x] test_arne_aiff.b: raw PCM file loader + play via _Read
+
+Testing status:
+  [x] Compile arne.b as module (bas -m arne) - OK, 3.0 KB .o
+  [x] Compile test_arne.b (bas test_arne arne.o) - OK, 32.8 KB executable
+  [x] Compile test_arne_aiff.b (bas test_arne_aiff arne.o) - OK, 37 KB executable
+  [ ] Check generated .s assembly for correct register addresses
+  [ ] Functional test on Vampire hardware (future)
+
+Notes:
+  - Option A for alignment (user manages raw vs aligned addr)
+  - No ASSEM used, pure POKEW/POKEL/PEEKW
+  - dos _Read used for fast file loading in test_arne_aiff.b
+  - ACE uses ARG$(n) not COMMAND$(n)

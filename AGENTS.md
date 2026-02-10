@@ -8,7 +8,7 @@ ACE is a BASIC compiler for Amiga. It compiles BASIC source code (.b files) into
 
 **Build Pipeline:**
 ```
-Source (.b) → Preprocess (app) → Compile (ace) → Assemble (vasm) → Link (vlink) → Executable
+Source (.b) → Preprocess (yap) → Compile (ace) → Assemble (vasmm68k_mot) → Link (vlink) → Executable
 ```
 
 The `bas` wrapper script in `bin/` orchestrates this full pipeline.
@@ -201,7 +201,7 @@ bas myprogram           # Compile myprogram.b to executable
 
 # To debug compilation issues, run phases separately:
 ace myprogram.b         # Just compile to .s
-vasm -Fhunk -o myprogram.o myprogram.s   # Assemble
+vasmm68k_mot -Fhunk -o myprogram.o myprogram.s   # Assemble
 vlink -o myprogram myprogram.o ACElib:db.lib ACElib:startup.lib  # Link
 ```
 

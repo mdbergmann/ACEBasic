@@ -1,0 +1,381 @@
+Arne Audio Submodule for ACE BASIC
+===================================
+
+Status: DRAFT
+Date: 2026-02-10
+
+
+1. OVERVIEW
+-----------
+
+Add Vampire SAGA "Arne" 16-bit audio support to ACE as a self-contained
+submodule. Arne is the enhanced audio chip in the Vampire FPGA
+accelerator, replacing the classic Paula chip with:
+
+  - 16 audio channels (vs Paula's 4)
+  - 8-bit or 16-bit sample support per channel
+  - Stereo volume control (independent left/right, 0-255 each)
+  - Sample rates up to 56 kHz independent per channel
+  - Interleaved stereo sample format
+  - Access to all 512 MB of Vampire memory for sample data
+
+The submodule requires zero compiler or runtime changes. It uses
+POKEW/POKEL for direct register access and follows the established
+submod pattern (see submods/runprog, submods/easyrequest).
+
+ACE's existing SOUND/WAVE/BEEP commands continue to work unchanged
+via the classic Paula registers ($DFF0A0-$DFF0D0). The Arne submod
+provides a separate, modern API for Vampire-equipped systems.
+
+Source reference for register map:
+  https://github.com/ApolloTeam-dev/magicsoundsystem.V4
+  (apollo/ApolloCrossDev_Base.h, apollo/ApolloCrossDev_LibC.c)
+
+
+2. SAGA CHIPSET CONTEXT
+------------------------
+
+The Vampire SAGA chipset consists of:
+
+  - Arne    : Audio (replaces Paula)
+  - Isabel  : Video (replaces Lisa/Denise)
+  - Anni    : DMA + Blitter + Copper (replaces Alice/Agnus)
+  - Maggie  : 3D texture mapping unit (new)
+
+This spec covers Arne only. Maggie 3D support is a separate effort
+(see section 10).
+
+
+3. ARNE REGISTER MAP
+---------------------
+
+Arne uses a unified register block at $DFF400 with 16 channels,
+each occupying $10 (16) bytes:
+
+  Base address for channel N = $DFF400 + (N * $10)
+
+  Offset  Size  Register        Description
+  ------  ----  --------------  -------------------------------------------
+  +$00    LONG  AUD_POINTER     Sample data address (32-byte aligned)
+  +$04    LONG  AUD_LENGTH      Length in 64-bit chunks (= byte_size / 8)
+  +$08    WORD  AUD_VOLUME      Bits 15-8: left vol (0-$FF)
+                                Bits  7-0: right vol (0-$FF)
+  +$0A    WORD  AUD_MODE        Bit 0: 16-bit (1) vs 8-bit (0)
+                                Bit 1: one-shot (1) vs loop (0)
+                                Bit 2: stereo (1) vs mono (0)
+  +$0C    WORD  AUD_PERIOD      Playback period = PAL_CLOCK / sample_rate
+                                PAL_CLOCK = 3546895 Hz
+
+Channel register examples:
+  Channel 0:  $DFF400 pointer, $DFF404 length, $DFF408 volume, ...
+  Channel 1:  $DFF410 pointer, $DFF414 length, $DFF418 volume, ...
+  Channel 15: $DFF4F0 pointer, $DFF4F4 length, $DFF4F8 volume, ...
+
+DMA control:
+  Channels 0-3:   $DFF096 (classic DMACON)
+                   Enable: POKEW $DFF096, $8000 + (1 SHL channel)
+                   Disable: POKEW $DFF096, (1 SHL channel)
+  Channels 4-15:  $DFF296 (DMACON2, new)
+                   Enable: POKEW $DFF296, $8000 + (1 SHL (channel - 4))
+                   Disable: POKEW $DFF296, (1 SHL (channel - 4))
+
+DMA status (read-only):
+  Channels 0-3:   $DFF002 (classic DMACONR)
+                   Bit N set = channel N is active
+  Channels 4-15:  $DFF202 (DMACONR2, new)
+                   Bit N set = channel N+4 is active
+
+Common AUD_MODE values:
+  $00 = 8-bit mono loop
+  $01 = 16-bit mono loop
+  $05 = 16-bit mono loop + stereo    (interleaved L/R pairs)
+  $07 = 16-bit oneshot + stereo
+
+
+4. FILE LAYOUT
+--------------
+
+  submods/arne/arne.b                Module source
+  include/submods/Arne.h             DECLARE SUB header for users
+  submods/arne/test_arne.b           Test program (plays a tone)
+  submods/arne/test_arne_aiff.b      Test program (plays AIFF file)
+
+
+5. PUBLIC API
+-------------
+
+5.1 Constants (defined in Arne.h)
+
+  CONST ARNE_PAL_CLOCK  = 3546895   ' PAL clock frequency in Hz
+
+  ' Mode flags (combine with OR or +)
+  CONST ARNE_8BIT       = 0         ' 8-bit sample (default)
+  CONST ARNE_16BIT      = 1         ' 16-bit sample
+  CONST ARNE_ONESHOT    = 2         ' Play once then stop
+  CONST ARNE_STEREO     = 4         ' Stereo interleaved L/R
+
+  ' Common mode combinations
+  CONST ARNE_LOOP16S    = 5         ' 16-bit + stereo + loop
+  CONST ARNE_PLAY16S    = 7         ' 16-bit + stereo + oneshot
+  CONST ARNE_LOOP8      = 0         ' 8-bit mono loop
+  CONST ARNE_PLAY8      = 2         ' 8-bit mono oneshot
+
+  ' Maximum channels
+  CONST ARNE_MAX_CH     = 16
+
+5.2 Subroutines
+
+  SUB ArnePlay(channel%, bufAddr&, byteSize&, ~
+               period%, volLeft%, volRight%, mode%) EXTERNAL
+
+    Play a sample on a specific Arne channel.
+
+    channel%  : 0-15 (channel number)
+    bufAddr&  : Address of sample data (must be 32-byte aligned)
+    byteSize& : Size of sample data in bytes
+    period%   : Playback period (PAL_CLOCK / desired_sample_rate)
+                Example: 3546895 / 44100 = 80 for 44.1 kHz
+    volLeft%  : Left volume 0-255
+    volRight% : Right volume 0-255
+    mode%     : AUD_MODE flags (see constants above)
+
+  SUB ArneStop(channel%) EXTERNAL
+
+    Stop playback on a channel (disables DMA).
+
+  SUB ArneStart(channel%) EXTERNAL
+
+    Resume playback on a channel (re-enables DMA).
+
+  SUB ArneVolume(channel%, volLeft%, volRight%) EXTERNAL
+
+    Change volume on a playing channel without restarting it.
+
+  SUB SHORTINT ArneIsFree(channel%) EXTERNAL
+
+    Returns -1 (true) if channel is free, 0 (false) if busy.
+    Reads DMACONR / DMACONR2.
+
+  SUB SHORTINT ArneFindFree() EXTERNAL
+
+    Scan channels 0-15 and return the first free channel number.
+    Returns -1 if no channel is free.
+
+  SUB ArneStopAll() EXTERNAL
+
+    Stop all 16 channels. Convenience for cleanup.
+
+  SUB SHORTINT ArnePeriod(sampleRate&) EXTERNAL
+
+    Convenience: returns PAL_CLOCK / sampleRate& as a SHORT.
+    Example: ArnePeriod(44100) returns 80.
+
+
+6. IMPLEMENTATION DETAILS
+--------------------------
+
+6.1 Register access via POKEW/POKEL
+
+All register writes use computed addresses:
+
+  SUB ArnePlay(channel%, bufAddr&, byteSize&, ~
+               period%, volLeft%, volRight%, mode%) EXTERNAL
+    LONGINT base&
+    base& = &HDFF400 + (CLNG(channel%) * &H10)
+
+    POKEL base&,        bufAddr&            ' sample pointer
+    POKEL base& + &H4,  byteSize& / 8      ' length in 64-bit chunks
+    POKEW base& + &H8,  (volLeft% * 256) + volRight%  ' stereo volume
+    POKEW base& + &HA,  mode%              ' mode flags
+    POKEW base& + &HC,  period%            ' playback period
+
+    ' Enable DMA
+    IF channel% < 4 THEN
+      POKEW &HDFF096, &H8000 + (1 SHL channel%)
+    ELSE
+      POKEW &HDFF296, &H8000 + (1 SHL (channel% - 4))
+    END IF
+  END SUB
+
+6.2 Channel status via PEEKW
+
+  SUB SHORTINT ArneIsFree(channel%) EXTERNAL
+    SHORTINT dmaStatus%
+    IF channel% < 4 THEN
+      dmaStatus% = PEEKW(&HDFF002)
+      ArneIsFree = ((dmaStatus% AND (1 SHL channel%)) = 0)
+    ELSE
+      dmaStatus% = PEEKW(&HDFF202)
+      ArneIsFree = ((dmaStatus% AND (1 SHL (channel% - 4))) = 0)
+    END IF
+  END SUB
+
+6.3 Buffer alignment
+
+Arne requires sample buffers to be 32-byte aligned. ACE's ALLOC
+returns unaligned memory. Two approaches:
+
+  Option A - Over-allocate and align manually:
+
+    byteSize& = <actual sample size>
+    rawAddr& = ALLOC(byteSize& + 31)
+    alignedAddr& = (rawAddr& + 31) AND &HFFFFFFE0
+
+    The caller must keep rawAddr& for later FREE(rawAddr&).
+
+  Option B - Provide a helper SUB:
+
+    SUB LONGINT ArneAllocAligned(byteSize&) EXTERNAL
+      ' Allocates byteSize& + 31 bytes, returns 32-byte aligned address.
+      ' Stores raw address internally for ArneFreeMem.
+    END SUB
+
+    SUB ArneFreeMem(alignedAddr&) EXTERNAL
+      ' Frees the allocation associated with alignedAddr&.
+    END SUB
+
+  Option A is simpler and recommended for the first version. The user
+  manages raw vs aligned addresses. Option B can be added later if
+  the pattern proves cumbersome.
+
+6.4 No ASSEM needed
+
+All operations can be expressed with POKEW/POKEL/PEEKW. ASSEM is
+not required. This keeps the module portable and readable.
+
+If ASSEM were used, the main benefit would be avoiding the overhead
+of BASIC expression evaluation for address computation. But audio
+setup is not performance-critical (it runs once per sound start),
+so POKEW/POKEL is fine.
+
+
+7. USAGE EXAMPLES
+------------------
+
+7.1 Play a sine wave tone
+
+  #include <submods/Arne.h>
+  EXTERNAL Arne
+
+  ' Generate a 16-bit sine wave in memory
+  DIM sineData%(31)              ' 32 words = 64 bytes
+  FOR i% = 0 TO 31
+    sineData%(i%) = CINT(SIN(i% * 6.2832 / 32) * 32767)
+  NEXT
+
+  ' Calculate aligned address of array data
+  ' (DIM arrays may already be aligned, but be safe)
+  sampleAddr& = VARPTR(sineData%(0))
+
+  ' Play at ~440 Hz on channel 0, full volume, 16-bit mono loop
+  period% = ArnePeriod(440 * 32)  ' 32 samples per cycle
+  ArnePlay(0, sampleAddr&, 64, period%, 255, 255, ARNE_16BIT)
+
+  SLEEP
+  ArneStop(0)
+
+7.2 Play an AIFF file (conceptual)
+
+  #include <submods/Arne.h>
+  EXTERNAL Arne
+
+  ' Load AIFF into memory (BLOAD or manual file I/O)
+  ' Parse header for sample rate, data offset, data size
+  ' ...
+
+  period% = ArnePeriod(sampleRate&)
+  ch% = ArneFindFree()
+  IF ch% >= 0 THEN
+    ArnePlay(ch%, dataAddr&, dataSize&, period%, 200, 200, ARNE_PLAY16S)
+  END IF
+
+
+8. HEADER FILE (Arne.h)
+-------------------------
+
+  #ifndef ARNE_H
+  #define ARNE_H 1
+
+  {* Arne.h - Vampire SAGA Arne 16-bit audio submod for ACE BASIC *}
+
+  CONST ARNE_PAL_CLOCK = 3546895
+  CONST ARNE_8BIT      = 0
+  CONST ARNE_16BIT     = 1
+  CONST ARNE_ONESHOT   = 2
+  CONST ARNE_STEREO    = 4
+  CONST ARNE_LOOP16S   = 5
+  CONST ARNE_PLAY16S   = 7
+  CONST ARNE_LOOP8     = 0
+  CONST ARNE_PLAY8     = 2
+  CONST ARNE_MAX_CH    = 16
+
+  DECLARE SUB ArnePlay(SHORTINT ch, LONGINT buf, LONGINT sz, ~
+                       SHORTINT per, SHORTINT vl, SHORTINT vr, ~
+                       SHORTINT md) EXTERNAL
+  DECLARE SUB ArneStop(SHORTINT ch) EXTERNAL
+  DECLARE SUB ArneStart(SHORTINT ch) EXTERNAL
+  DECLARE SUB ArneVolume(SHORTINT ch, SHORTINT vl, SHORTINT vr) EXTERNAL
+  DECLARE SUB SHORTINT ArneIsFree(SHORTINT ch) EXTERNAL
+  DECLARE SUB SHORTINT ArneFindFree() EXTERNAL
+  DECLARE SUB ArneStopAll() EXTERNAL
+  DECLARE SUB SHORTINT ArnePeriod(LONGINT rate) EXTERNAL
+
+  #endif
+
+
+9. TESTING PLAN
+----------------
+
+Phase 1 - Structural (on emulator without Vampire):
+  - Compile arne.b as module: bas -m arne
+  - Compile test_arne.b linking arne.o
+  - Verify no compilation errors
+  - Verify generated .s assembly has correct POKEW/POKEL addresses
+
+Phase 2 - Functional (requires Vampire hardware):
+  - Play a generated sine wave, verify audio output
+  - Test all 16 channels (at least channels 0, 4, 15)
+  - Test mode flags: 8-bit vs 16-bit, mono vs stereo, loop vs oneshot
+  - Test ArneStop / ArneStart (pause/resume)
+  - Test ArneVolume (change volume while playing)
+  - Test ArneIsFree / ArneFindFree
+  - Test ArneStopAll
+
+
+10. FUTURE WORK
+----------------
+
+10.1 AIFF loader submod
+
+  A separate submod (or extension to Arne) that loads AIFF files,
+  parses the header (COMM chunk for sample rate, SSND chunk for
+  data), allocates aligned memory, and returns a ready-to-play
+  buffer. The MagicSoundSystem.V4 code has a working AIFF parser
+  that can serve as reference.
+
+10.2 Maggie 3D submod
+
+  The Maggie 3D unit has a proper Amiga shared library
+  (maggie.library) with an .fd file defining 56 functions.
+  Approach:
+    - Generate bmaps/maggie.bmap from the .fd file
+    - Create include/submods/Maggie.h with DECLARE FUNCTION
+    - Users access via LIBRARY "maggie.library" + function calls
+    - No compiler changes needed
+
+  Source: https://github.com/RMortenB/MaggieLibrary
+
+10.3 SAGA direct video
+
+  Direct chunky framebuffer access via SAGA registers:
+    $DFF1EC = framebuffer pointer
+    $DFF1F4 = display mode (resolution + color format)
+    $DFF1E6 = modulo (bytes skipped per row)
+  Could also be a POKEW/POKEL-based submod for bare-metal
+  SAGA graphics without going through P96.
+
+10.4 Integration with existing SOUND command
+
+  If the submod approach proves successful, a later phase could
+  integrate Arne support into the compiler's built-in SOUND command
+  with extended syntax, for users who prefer not to use EXTERNAL.
