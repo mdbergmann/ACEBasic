@@ -1,0 +1,373 @@
+SAGA Chunky Screen Submodule for ACE BASIC
+============================================
+
+Status: DRAFT
+Date: 2026-02-10
+
+
+1. OVERVIEW
+-----------
+
+Add direct SAGA chunky framebuffer support to ACE as a self-contained
+submodule. This provides bare-metal access to the Vampire's Isabel
+video chip for chunky pixel modes, bypassing the OS (no Intuition,
+no P96 driver needed).
+
+Use cases:
+  - Full-screen games and demos on Vampire hardware
+  - Direct pixel manipulation (plot, blit, fill)
+  - Double/triple buffered rendering
+  - Picture-in-Picture (PiP) overlay
+  - Integration with Maggie 3D (Maggie renders into a chunky buffer,
+    SAGA displays it)
+
+This is a POKEW/POKEL-based submod requiring zero compiler changes.
+
+Note: ACE already has P96/RTG support (SCREEN mode 13) which works on
+Vampire via the SAGA driver. This submod is for direct register access
+when OS-level screen management is not wanted.
+
+Source reference for register map:
+  https://github.com/ApolloTeam-dev/magicsoundsystem.V4
+  (apollo/ApolloCrossDev_Base.h)
+  https://github.com/RMortenB/MaggieLibrary
+  (samples/ImmediateDraw/immediate.c)
+
+
+2. ISABEL VIDEO REGISTER MAP
+------------------------------
+
+2.1 Main display registers
+
+  Address   Size  Register            Description
+  --------  ----  ------------------  -----------------------------------------
+  $DFF1EC   LONG  SAGA_POINTER        Chunky bitmap pointer (framebuffer addr)
+  $DFF1F4   WORD  SAGA_GFXMODE        Bits 8-15: resolution, Bits 0-7: color fmt
+  $DFF1E6   WORD  SAGA_MODULO         Bytes skipped after each row
+
+  $DFE1EC   LONG  SAGA_POINTER_READ   Read-back of current framebuffer pointer
+  $DFE1F4   WORD  SAGA_GFXMODE_READ   Read-back of current display mode
+
+2.2 Color registers (for indexed 8-bit mode)
+
+  $DFF380   LONG  SAGA_PLANAR_COL     Planar palette: N<<24 | R<<16 | G<<8 | B
+  $DFF388   LONG  SAGA_CHUNKY_COL     Chunky palette: N<<24 | R<<16 | G<<8 | B
+  $DFF38C   LONG  SAGA_PIPCHK_COL     PiP palette:    N<<24 | R<<16 | G<<8 | B
+
+2.3 Picture-in-Picture (PiP) registers
+
+  $DFF3D0   WORD  PIP_X_START         PiP X start position
+  $DFF3D2   WORD  PIP_Y_START         PiP Y start position
+  $DFF3D4   WORD  PIP_X_STOP          PiP X stop position
+  $DFF3D6   WORD  PIP_Y_STOP          PiP Y stop position
+  $DFF3D8   LONG  PIP_POINTER         PiP chunky bitmap pointer
+  $DFF3DC   WORD  PIP_GFXMODE         PiP mode (Bit 8=transparency, Bits 0-7=fmt)
+  $DFF3DE   WORD  PIP_MODULO          PiP modulo
+  $DFF3E0   WORD  PIP_CLRKEY          ColorKey: Bit15=enable, R4|G4|B4
+  $DFF3E2   WORD  PIP_DMAROWS         DMA fetch width in bytes (0=PiP disabled)
+
+2.4 Display resolution codes (Bits 8-15 of GFXMODE)
+
+  Code    Resolution
+  ------  -----------
+  $0100   320x200
+  $0200   320x240
+  $0300   320x256
+  $0400   640x400
+  $0500   640x480
+  $0600   640x512
+  $0700   960x540
+  $0800   480x270
+  $0900   304x224
+  $0A00   1280x720
+  $0B00   640x360
+  $0C00   800x600
+  $0D00   1024x768
+  $0E00   720x576
+  $0F00   848x480
+  $1000   640x200
+  $1100   1920x1080
+  $1200   1280x1024
+  $1300   1280x800
+  $1400   1440x900
+  $1500   720x405
+
+2.5 Color format codes (Bits 0-7 of GFXMODE)
+
+  Code  Format           Bytes/pixel
+  ----  ---------------  -----------
+  $01   8-bit indexed    1
+  $02   16-bit R5G6B5    2
+  $03   15-bit 1R5G5B5   2
+  $04   24-bit R8G8B8    3
+  $05   32-bit A8R8G8B8  4
+  $06   YUV 8:8:8        3
+
+
+3. FILE LAYOUT
+--------------
+
+  submods/saga/saga.b                Module source
+  include/submods/SAGA.h             DECLARE SUB header for users
+  submods/saga/test_saga.b           Test program (fill screen with color)
+
+
+4. PUBLIC API
+-------------
+
+4.1 Constants (defined in SAGA.h)
+
+  ' Color formats
+  CONST SAGA_FMT_8BIT     = &H01
+  CONST SAGA_FMT_16BIT    = &H02    ' R5G6B5
+  CONST SAGA_FMT_15BIT    = &H03    ' 1R5G5B5
+  CONST SAGA_FMT_24BIT    = &H04    ' R8G8B8
+  CONST SAGA_FMT_32BIT    = &H05    ' A8R8G8B8
+
+  ' Resolution codes
+  CONST SAGA_320x200      = &H0100
+  CONST SAGA_320x240      = &H0200
+  CONST SAGA_320x256      = &H0300
+  CONST SAGA_640x400      = &H0400
+  CONST SAGA_640x480      = &H0500
+  CONST SAGA_640x360      = &H0B00
+  CONST SAGA_800x600      = &H0C00
+  CONST SAGA_1024x768     = &H0D00
+  CONST SAGA_1280x720     = &H0A00
+  CONST SAGA_1920x1080    = &H1100
+
+  ' Bytes per pixel helpers
+  CONST SAGA_BPP_8        = 1
+  CONST SAGA_BPP_16       = 2
+  CONST SAGA_BPP_24       = 3
+  CONST SAGA_BPP_32       = 4
+
+4.2 Subroutines
+
+  SUB SagaOpen(bufAddr&, resolution%, colorFmt%) EXTERNAL
+
+    Save current display state and activate SAGA chunky mode.
+
+    bufAddr&     : Framebuffer address (should be 32-byte aligned)
+    resolution%  : Resolution code (e.g. SAGA_640x480)
+    colorFmt%    : Color format code (e.g. SAGA_FMT_16BIT)
+
+    Writes SAGA_POINTER, SAGA_GFXMODE. Saves old values for restore.
+
+  SUB SagaClose() EXTERNAL
+
+    Restore the display state saved by SagaOpen.
+
+  SUB SagaSetBuffer(bufAddr&) EXTERNAL
+
+    Switch the displayed framebuffer pointer. For double-buffering:
+    render into the back buffer, then call SagaSetBuffer to flip.
+
+  SUB SagaSetModulo(modulo%) EXTERNAL
+
+    Set row modulo (bytes to skip after each row). Normally 0.
+    Useful for displaying a sub-region of a larger buffer.
+
+  SUB SagaSetColor(index%, r%, g%, b%) EXTERNAL
+
+    Set a palette entry for 8-bit indexed mode.
+    Writes to SAGA_CHUNKY_COL register.
+    index%: 0-255, r%/g%/b%: 0-255.
+
+  SUB SagaWaitVBL() EXTERNAL
+
+    Wait for vertical blank. Needed for tear-free buffer swaps.
+    Uses ASSEM block: btst #5,$dff01f / beq loop / move.w #$0020,$dff09c
+
+  SUB SagaPipOpen(bufAddr&, x0%, y0%, x1%, y1%, colorFmt%) EXTERNAL
+
+    Enable Picture-in-Picture overlay.
+    Activates DMA fetch for the PiP region.
+
+  SUB SagaPipClose() EXTERNAL
+
+    Disable PiP overlay (writes 0 to PIP_DMAROWS).
+
+  SUB SagaPipSetKey(enable%, r%, g%, b%) EXTERNAL
+
+    Set PiP color key for transparency.
+
+
+5. IMPLEMENTATION
+------------------
+
+5.1 SagaOpen
+
+  SUB SagaOpen(bufAddr&, resolution%, colorFmt%) EXTERNAL
+    SHARED oldMode%, oldPointer&
+
+    ' Save current state
+    oldMode% = PEEKW(&HDFE1F4)
+    oldPointer& = PEEKL(&HDFE1EC)
+
+    ' Activate new mode
+    POKEW &HDFF1F4, resolution% OR colorFmt%
+    POKEW &HDFF1E6, 0               ' no modulo
+    POKEL &HDFF1EC, bufAddr&         ' set framebuffer
+  END SUB
+
+5.2 SagaClose
+
+  SUB SagaClose() EXTERNAL
+    SHARED oldMode%, oldPointer&
+
+    POKEW &HDFF1F4, oldMode%
+    POKEL &HDFF1EC, oldPointer&
+  END SUB
+
+5.3 SagaWaitVBL
+
+  This is the one SUB that benefits from ASSEM since the VBL polling
+  loop needs tight timing:
+
+  SUB SagaWaitVBL() EXTERNAL
+    ASSEM
+      .sagawait:
+        btst   #5,$dff01f
+        beq.s  .sagawait
+        move.w #$0020,$dff09c
+    END ASSEM
+  END SUB
+
+5.4 Double buffering pattern
+
+  The user allocates two framebuffers and alternates:
+
+    buf0& = ALLOC(width% * height% * bpp% + 31)
+    buf1& = ALLOC(width% * height% * bpp% + 31)
+    aligned0& = (buf0& + 31) AND &HFFFFFFE0
+    aligned1& = (buf1& + 31) AND &HFFFFFFE0
+
+    SagaOpen(aligned0&, SAGA_640x480, SAGA_FMT_16BIT)
+
+    ' Render loop
+    WHILE NOT done%
+      ' Draw into back buffer (aligned1&)
+      ' ...pixel writes via POKEW to aligned1& + offset...
+
+      SagaWaitVBL()
+      SagaSetBuffer(aligned1&)
+
+      ' Swap
+      SWAP aligned0&, aligned1&
+    WEND
+
+    SagaClose()
+    FREE buf0&
+    FREE buf1&
+
+
+6. PIXEL PLOTTING
+------------------
+
+For direct pixel manipulation, the user computes offsets manually:
+
+  ' Plot pixel at (x, y) in 16-bit R5G6B5 mode
+  offset& = (CLNG(y%) * CLNG(width%) + CLNG(x%)) * 2
+  POKEW aligned0& + offset&, color%
+
+  ' Plot pixel at (x, y) in 8-bit indexed mode
+  offset& = CLNG(y%) * CLNG(width%) + CLNG(x%)
+  POKE aligned0& + offset&, colorIndex%
+
+  ' Plot pixel at (x, y) in 32-bit ARGB mode
+  offset& = (CLNG(y%) * CLNG(width%) + CLNG(x%)) * 4
+  POKEL aligned0& + offset&, argbColor&
+
+A future enhancement could add helper SUBs like SagaPset(x, y, color)
+but the raw POKE approach is transparent and flexible.
+
+
+7. RELATIONSHIP TO EXISTING P96 SUPPORT
+-----------------------------------------
+
+ACE's SCREEN mode 13 uses P96 (Picasso96API.library) to open RTG
+screens. On Vampire, the SAGA driver makes P96 work with SAGA
+hardware. That path goes through the OS and Intuition.
+
+This SAGA submod bypasses the OS entirely:
+  - Pro: No library dependencies, no Intuition overhead, full control
+  - Pro: Works without SAGA driver installed
+  - Pro: Required for Maggie 3D integration (Maggie renders to a
+         raw chunky buffer, not an Intuition screen)
+  - Con: No mouse cursor, no Intuition windows/menus
+  - Con: Must save/restore display state manually
+  - Con: Only works on Vampire hardware
+
+Both approaches have their place. P96 mode 13 is best for
+applications. The SAGA submod is best for games and demos.
+
+
+8. HEADER FILE (SAGA.h)
+-------------------------
+
+  #ifndef SAGA_H
+  #define SAGA_H 1
+
+  {* SAGA.h - Vampire SAGA chunky screen submod for ACE BASIC *}
+
+  CONST SAGA_FMT_8BIT   = &H01
+  CONST SAGA_FMT_16BIT  = &H02
+  CONST SAGA_FMT_15BIT  = &H03
+  CONST SAGA_FMT_24BIT  = &H04
+  CONST SAGA_FMT_32BIT  = &H05
+
+  CONST SAGA_320x200    = &H0100
+  CONST SAGA_320x240    = &H0200
+  CONST SAGA_320x256    = &H0300
+  CONST SAGA_640x200    = &H1000
+  CONST SAGA_640x360    = &H0B00
+  CONST SAGA_640x400    = &H0400
+  CONST SAGA_640x480    = &H0500
+  CONST SAGA_640x512    = &H0600
+  CONST SAGA_800x600    = &H0C00
+  CONST SAGA_960x540    = &H0700
+  CONST SAGA_1024x768   = &H0D00
+  CONST SAGA_1280x720   = &H0A00
+  CONST SAGA_1280x800   = &H1300
+  CONST SAGA_1280x1024  = &H1200
+  CONST SAGA_1440x900   = &H1400
+  CONST SAGA_1920x1080  = &H1100
+
+  CONST SAGA_BPP_8      = 1
+  CONST SAGA_BPP_16     = 2
+  CONST SAGA_BPP_24     = 3
+  CONST SAGA_BPP_32     = 4
+
+  DECLARE SUB SagaOpen(LONGINT buf, SHORTINT res, SHORTINT fmt) EXTERNAL
+  DECLARE SUB SagaClose() EXTERNAL
+  DECLARE SUB SagaSetBuffer(LONGINT buf) EXTERNAL
+  DECLARE SUB SagaSetModulo(SHORTINT modulo) EXTERNAL
+  DECLARE SUB SagaSetColor(SHORTINT idx, SHORTINT r, ~
+                           SHORTINT g, SHORTINT b) EXTERNAL
+  DECLARE SUB SagaWaitVBL() EXTERNAL
+  DECLARE SUB SagaPipOpen(LONGINT buf, SHORTINT x0, SHORTINT y0, ~
+                          SHORTINT x1, SHORTINT y1, ~
+                          SHORTINT fmt) EXTERNAL
+  DECLARE SUB SagaPipClose() EXTERNAL
+  DECLARE SUB SagaPipSetKey(SHORTINT en, SHORTINT r, ~
+                            SHORTINT g, SHORTINT b) EXTERNAL
+
+  #endif
+
+
+9. TESTING PLAN
+----------------
+
+Phase 1 - Structural (on emulator without Vampire):
+  - Compile saga.b as module: bas -m saga
+  - Compile test_saga.b linking saga.o
+  - Verify no compilation errors
+
+Phase 2 - Functional (requires Vampire hardware):
+  - Open 320x240 8-bit mode, fill with gradient, verify display
+  - Open 640x480 16-bit mode, plot pixels, verify colors
+  - Test double buffering with SagaWaitVBL
+  - Test SagaSetColor palette changes in 8-bit mode
+  - Test SagaClose restores previous display
+  - Test PiP overlay

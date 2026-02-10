@@ -47,7 +47,7 @@ assign ACEinclude: ACE:include
 path ACE:bin add
 protect ACE:bin/bas +s
 
-; Arne submod - all compiled
+; SAGA submod - compiled and tested
 
 
 
