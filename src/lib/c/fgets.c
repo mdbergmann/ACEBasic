@@ -119,7 +119,7 @@ char *cs;
 
  --n;
 
- /* skip whitespace (incl. LF) and commas 
+ /* skip whitespace (incl. LF) and commas
     (latter from after a quote-delimited string) */
  while ((c = fgetc(iop)) != EOF && (c <= ' ' || c == ','));
 
@@ -135,11 +135,11 @@ char *cs;
 
   *cs='\0';
 
-  fgetc(iop);	/* - Assume next character is EOF, whitespace or comma. 
+  fgetc(iop);	/* - Assume next character is EOF, whitespace or comma.
 		   - The next test for EOF by ACE or this function will
 		     be positive if we're now at EOF. This prevents ACE
 		     from trying to read another line (say in a WHILE loop)
-		     and getting NULL strings. 
+		     and getting NULL strings.
 		*/
 
   return;
@@ -148,9 +148,9 @@ char *cs;
  /* get the next field: could be a non-delimited string, integer or float */
  while (n > 0 && c != EOF)
  {
-     if ((*cs++ = c) <= ' ' || c == ',')  
+     if ((*cs++ = c) <= ' ' || c == ',')
         break;	/* delimiters are: whitespace (incl. LF), comma */
- 
+
      --n;
 
      c = fgetc(iop);
