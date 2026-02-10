@@ -31,6 +31,11 @@
 #define EOF	(-1L)
 #define NULL	(0L)
 
+extern long Read();
+extern long Seek();
+
+#define OFFSET_CURRENT 0
+
 char *fgets(s,n,iop)
 char *s;
 unsigned long n;
@@ -52,15 +57,26 @@ char *s;
 unsigned long n;
 unsigned long iop;
 {
-int  c;
-char *cs;
- 
- cs = s;
- while (--n > 0 && (c = fgetc(iop)) != EOF)
-     if ((*cs++ = c) == '\n')
- 	break;
- if (cs != s) --cs;  /* overwrite the '\n' */
- *cs = '\0';
+long nread;
+char *p;
+
+ nread = Read(iop, s, n - 1);
+ if (nread <= 0) {
+     *s = '\0';
+     return;
+ }
+
+ /* scan for newline */
+ for (p = s; p < s + nread; p++) {
+     if (*p == '\n') {
+         /* seek back past unread portion */
+         Seek(iop, (long)((p - s) + 1 - nread), OFFSET_CURRENT);
+         *p = '\0';
+         return;
+     }
+ }
+ /* no newline found: EOF before line end */
+ s[nread] = '\0';
 }
 
 void fgetchars(s,n,iop)

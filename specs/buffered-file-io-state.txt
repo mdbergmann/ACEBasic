@@ -1,0 +1,16 @@
+Buffered File I/O Optimization
+===============================
+
+Branch: buffered-file-io
+
+Step 1: fgetline() with Read + Seek
+------------------------------------
+[x] Create branch buffered-file-io
+[x] Add Read/Seek declarations to fgets.c
+[x] Replace fgetline() body with bulk Read + Seek
+[ ] Build runtime on emulator (make -f Makefile-lib clean all)
+[ ] Test with verify/tests/cases/fileio/buffered_io.b
+[ ] Run benchmark examples/benchmarks/fileio.b
+[ ] Run full test suite (rx runner.rexx all)
+
+Status: Code changes complete, awaiting emulator verification.
