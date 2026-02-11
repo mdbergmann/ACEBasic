@@ -1,5 +1,5 @@
 {* HTTPClient - HTTP/1.1 client submodule for ACE BASIC *}
-{* Phase 3: Chunked transfer decoding *}
+{* Phase 4: POST/PUT and request bodies *}
 
 { ============== Library Declarations ============== }
 
@@ -236,6 +236,28 @@ END SUB
 
 SUB LONGINT _HttpSendStr(LONGINT slot, STRING msg$)
   _HttpSendStr = _HttpSendRaw(slot, SADD(msg$), LEN(msg$))
+END SUB
+
+SUB STRING _HttpLongToHex(LONGINT v)
+  STRING hexDig$ SIZE 20
+  STRING result$ SIZE 12
+  LONGINT digit
+
+  hexDig$ = "0123456789ABCDEF"
+
+  IF v = 0 THEN
+    _HttpLongToHex = "0"
+    EXIT SUB
+  END IF
+
+  result$ = ""
+  WHILE v > 0
+    digit = v AND 15
+    result$ = MID$(hexDig$, digit + 1, 1) + result$
+    v = v \ 16
+  WEND
+
+  _HttpLongToHex = result$
 END SUB
 
 SUB _HttpParseUrl(STRING url$)
@@ -873,6 +895,114 @@ SUB LONGINT HttpReadBody(LONGINT h, LONGINT dataBuf, ~
   HttpReadBody = totalRd
 END SUB
 
+{ ============== Public API - Low-level write ============== }
+
+SUB LONGINT HttpWriteBody(LONGINT h, LONGINT dataBuf, ~
+                          LONGINT bodyLen) EXTERNAL
+  SHARED connState%
+  LONGINT slot, rc
+
+  slot = h - 1
+  IF slot < 0 OR slot > 3 THEN
+    HttpWriteBody = HTTP_ERR_SOCKET
+    EXIT SUB
+  END IF
+  IF connState%(slot) <> CONN_OPEN THEN
+    HttpWriteBody = HTTP_ERR_SOCKET
+    EXIT SUB
+  END IF
+
+  rc = _HttpSendRaw(slot, dataBuf, bodyLen)
+  IF rc < 0 THEN
+    HttpWriteBody = HTTP_ERR_SEND
+  ELSE
+    HttpWriteBody = HTTP_OK
+  END IF
+END SUB
+
+SUB LONGINT HttpWriteBodyChunked(LONGINT h, LONGINT dataBuf, ~
+                                 LONGINT bodyLen) EXTERNAL
+  SHARED connState%, _crlf$
+  LONGINT slot, rc
+
+  slot = h - 1
+  IF slot < 0 OR slot > 3 THEN
+    HttpWriteBodyChunked = HTTP_ERR_SOCKET
+    EXIT SUB
+  END IF
+  IF connState%(slot) <> CONN_OPEN THEN
+    HttpWriteBodyChunked = HTTP_ERR_SOCKET
+    EXIT SUB
+  END IF
+
+  IF bodyLen = 0 THEN
+    ' Final chunk terminator: "0\r\n\r\n"
+    rc = _HttpSendStr(slot, "0" + _crlf$ + _crlf$)
+    IF rc < 0 THEN
+      HttpWriteBodyChunked = HTTP_ERR_SEND
+    ELSE
+      HttpWriteBodyChunked = HTTP_OK
+    END IF
+    EXIT SUB
+  END IF
+
+  ' Send chunk: hex(len) + CRLF + data + CRLF
+  rc = _HttpSendStr(slot, _HttpLongToHex(bodyLen) + _crlf$)
+  IF rc < 0 THEN
+    HttpWriteBodyChunked = HTTP_ERR_SEND
+    EXIT SUB
+  END IF
+
+  rc = _HttpSendRaw(slot, dataBuf, bodyLen)
+  IF rc < 0 THEN
+    HttpWriteBodyChunked = HTTP_ERR_SEND
+    EXIT SUB
+  END IF
+
+  rc = _HttpSendStr(slot, _crlf$)
+  IF rc < 0 THEN
+    HttpWriteBodyChunked = HTTP_ERR_SEND
+  ELSE
+    HttpWriteBodyChunked = HTTP_OK
+  END IF
+END SUB
+
+{ ============== Public API - Utility ============== }
+
+SUB STRING UrlEncode(STRING raw) EXTERNAL
+  STRING hexDig$ SIZE 20
+  STRING result$ SIZE 1024
+  STRING ch$ SIZE 4
+  LONGINT i, c, hi, lo
+
+  hexDig$ = "0123456789ABCDEF"
+  result$ = ""
+
+  FOR i = 1 TO LEN(raw)
+    c = ASC(MID$(raw, i, 1))
+    IF (c >= 65 AND c <= 90) THEN
+      ' A-Z
+      result$ = result$ + CHR$(c)
+    ELSEIF (c >= 97 AND c <= 122) THEN
+      ' a-z
+      result$ = result$ + CHR$(c)
+    ELSEIF (c >= 48 AND c <= 57) THEN
+      ' 0-9
+      result$ = result$ + CHR$(c)
+    ELSEIF c = 45 OR c = 95 OR c = 46 OR c = 126 THEN
+      ' - _ . ~
+      result$ = result$ + CHR$(c)
+    ELSE
+      ' Percent-encode
+      hi = (c \ 16) AND 15
+      lo = c AND 15
+      result$ = result$ + "%" + MID$(hexDig$, hi + 1, 1) + MID$(hexDig$, lo + 1, 1)
+    END IF
+  NEXT i
+
+  UrlEncode = result$
+END SUB
+
 { ============== Public API - High-level convenience ============== }
 
 SUB LONGINT HttpGet(STRING url, ADDRESS respBuf) EXTERNAL
@@ -959,23 +1089,103 @@ SUB LONGINT HttpHead(STRING url) EXTERNAL
   HttpHead = statusCode
 END SUB
 
-{ ============== Stubs - Remaining API ============== }
+SUB LONGINT HttpRequest(STRING url, STRING meth, ~
+                        STRING ct, STRING body, ~
+                        ADDRESS respBuf) EXTERNAL
+  SHARED _urlHost$, _urlPort, _urlPath$, _urlSSL
+  LONGINT hConn, statusCode, rc
+  LONGINT totalLen, bytesGot, rdDone
+  LONGINT hasBody
+  STRING clenStr$ SIZE 16
+
+  _HttpInit
+
+  _HttpParseUrl(url)
+  IF LEN(_urlHost$) = 0 THEN
+    HttpRequest = HTTP_ERR_PARSE
+    EXIT SUB
+  END IF
+
+  hConn = HttpOpen(_urlHost$, _urlPort, _urlSSL)
+  IF hConn < 1 THEN
+    HttpRequest = hConn
+    EXIT SUB
+  END IF
+
+  ' Determine if this method sends a body
+  hasBody = 0
+  IF meth <> "GET" AND meth <> "HEAD" AND meth <> "DELETE" THEN
+    IF LEN(body) > 0 THEN
+      hasBody = 1
+    END IF
+  END IF
+
+  ' Set Content-Type and Content-Length for body-bearing requests
+  IF hasBody THEN
+    IF LEN(ct) > 0 THEN
+      HttpSetHeader(hConn, "Content-Type", ct)
+    END IF
+    clenStr$ = MID$(STR$(LEN(body)), 2)
+    HttpSetHeader(hConn, "Content-Length", clenStr$)
+  END IF
+
+  rc = HttpSendRequest(hConn, meth, _urlPath$)
+  IF rc < 0 THEN
+    HttpClose(hConn)
+    HttpRequest = rc
+    EXIT SUB
+  END IF
+
+  ' Send body if present
+  IF hasBody THEN
+    rc = HttpWriteBody(hConn, SADD(body), LEN(body))
+    IF rc < 0 THEN
+      HttpClose(hConn)
+      HttpRequest = rc
+      EXIT SUB
+    END IF
+  END IF
+
+  statusCode = HttpReadStatus(hConn)
+  IF statusCode < 0 THEN
+    HttpClose(hConn)
+    HttpRequest = statusCode
+    EXIT SUB
+  END IF
+
+  ' Read response body (unless HEAD)
+  IF meth <> "HEAD" THEN
+    totalLen = 0
+    rdDone = 0
+    WHILE rdDone = 0
+      bytesGot = HttpReadBody(hConn, respBuf + totalLen, ~
+                              MAX_GET_BODY - totalLen)
+      IF bytesGot > 0 THEN
+        totalLen = totalLen + bytesGot
+        IF totalLen >= MAX_GET_BODY THEN rdDone = 1
+      ELSE
+        rdDone = 1
+      END IF
+    WEND
+    ' Null-terminate
+    POKE respBuf + totalLen, 0
+  END IF
+
+  HttpClose(hConn)
+  HttpRequest = statusCode
+END SUB
 
 SUB LONGINT HttpPost(STRING url, STRING ct, ~
                      STRING body, ADDRESS respBuf) EXTERNAL
-  HttpPost = HTTP_ERR_SOCKET
+  HttpPost = HttpRequest(url, "POST", ct, body, respBuf)
 END SUB
 
 SUB LONGINT HttpPut(STRING url, STRING ct, ~
                     STRING body, ADDRESS respBuf) EXTERNAL
-  HttpPut = HTTP_ERR_SOCKET
+  HttpPut = HttpRequest(url, "PUT", ct, body, respBuf)
 END SUB
 
-SUB LONGINT HttpRequest(STRING url, STRING meth, ~
-                        STRING ct, STRING body, ~
-                        ADDRESS respBuf) EXTERNAL
-  HttpRequest = HTTP_ERR_SOCKET
-END SUB
+{ ============== Stubs - Streaming API ============== }
 
 SUB LONGINT HttpGetStream(STRING url, ADDRESS onRecv) EXTERNAL
   HttpGetStream = HTTP_ERR_SOCKET
@@ -995,18 +1205,4 @@ SUB LONGINT HttpRequestStream(STRING url, STRING meth, ~
                               STRING ct, ADDRESS onSend, ~
                               ADDRESS onRecv) EXTERNAL
   HttpRequestStream = HTTP_ERR_SOCKET
-END SUB
-
-SUB LONGINT HttpWriteBody(LONGINT h, LONGINT dataBuf, ~
-                          LONGINT bodyLen) EXTERNAL
-  HttpWriteBody = HTTP_ERR_SOCKET
-END SUB
-
-SUB LONGINT HttpWriteBodyChunked(LONGINT h, LONGINT dataBuf, ~
-                                 LONGINT bodyLen) EXTERNAL
-  HttpWriteBodyChunked = HTTP_ERR_SOCKET
-END SUB
-
-SUB STRING UrlEncode(STRING raw) EXTERNAL
-  UrlEncode = raw
 END SUB

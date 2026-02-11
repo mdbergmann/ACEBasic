@@ -62,7 +62,20 @@ Phase 3 - Chunked Transfer Decoding: COMPLETE
   Verified: chunked responses from www.google.com decoded transparently
   Bug found: ACE loses function return value when assigned inside WHILE loop;
     fix: use local retVal variable, assign to function name after WEND
-Phase 4 - POST/PUT Bodies: NOT STARTED
+Phase 4 - POST/PUT Bodies: COMPLETE
+  Branch: http-phase4-post-put
+  Module: submods/httpclient/httpclient.b (~1150 lines, was ~1020)
+  New internal helpers:
+    - _HttpLongToHex: LONGINT to hex string (for chunked sending)
+  Implemented (previously stubs):
+    - HttpWriteBody: validate slot, send raw data via _HttpSendRaw
+    - HttpWriteBodyChunked: send hex(len)+CRLF+data+CRLF, or final "0\r\n\r\n"
+    - UrlEncode: percent-encode per RFC 3986 (unreserved chars pass through)
+    - HttpRequest: generic high-level (URL parse, open, optional body+headers, send, read response)
+    - HttpPost: wrapper → HttpRequest(url, "POST", ct, body, respBuf)
+    - HttpPut: wrapper → HttpRequest(url, "PUT", ct, body, respBuf)
+  Test: test_post.b - UrlEncode, POST httpbin.org/post, PUT httpbin.org/put, GET httpbin.org/get
+  Verified: all 4 tests pass on emulator (UrlEncode, POST, PUT, GET via HttpRequest)
 Phase 5 - Streaming Callbacks: NOT STARTED
 Phase 6 - AmiSSL Integration: NOT STARTED
 Phase 7 - Polish: NOT STARTED
