@@ -1,0 +1,172 @@
+IDCMP / Event Trapping Internals
+==================================
+
+Status: Reference document
+Date: 2026-02-11
+
+
+1. OVERVIEW
+-----------
+
+IDCMP (Intuition Direct Communication Message Port) is the standard
+Amiga mechanism for receiving user input events. In ACE, IDCMP is
+used for menu selection, gadget interaction, window close, and
+keyboard input.
+
+IDCMP requires Intuition Windows. No windows = no IDCMP.
+
+Key files:
+  src/ace/c/event.c          Compiler: event trap parsing & code gen
+  src/lib/c/intuievent.c     Runtime: IDCMP message retrieval
+  src/lib/c/menu.c           Runtime: menu event detection
+  src/lib/c/gadget.c         Runtime: gadget event detection
+  src/lib/c/window.c         Runtime: window creation with IDCMP flags
+  src/lib/c/input.c          Runtime: keyboard input via UserPort
+
+
+2. IDCMP FLAGS ON WINDOWS
+--------------------------
+
+Every window ACE opens gets these IDCMP flags on its UserPort:
+
+  INTUITICKS      Timer tick events (filtered out by GetIntuiEvent)
+  VANILLAKEY      Keyboard input (ASCII codes)
+  MENUPICK        Menu selection events
+  GADGETUP        Gadget released events
+  ACTIVEWINDOW    Window activation
+
+Conditionally added:
+  CLOSEWINDOW     Only if window type includes close gadget (type & 8)
+
+Set in: src/lib/c/window.c (struct NewWindow)
+
+
+3. MESSAGE FLOW
+----------------
+
+  1. Intuition sends IntuiMessage to Wdw->UserPort
+  2. Runtime calls GetMsg(Wdw->UserPort) to poll
+  3. Extracts message class (MENUPICK, GADGETUP, CLOSEWINDOW, etc.)
+  4. ReplyMsg() immediately to unblock Intuition
+  5. Returns cached result in an IntuiInfo struct
+
+Core retrieval function: GetIntuiEvent() in src/lib/c/intuievent.c
+
+  IntuiInfo *GetIntuiEvent(UserPort)
+  struct MsgPort *UserPort;
+  {
+    msg = (struct IntuiMessage *)GetMsg(UserPort);
+    if (msg != NULL) {
+      if (msg->Class != INTUITICKS) {
+        IntuiEvent.Class = msg->Class;
+        if (msg->Class & GADGETUP)
+          IntuiEvent.GadgetID = GadPtr->GadgetID;
+        else
+          IntuiEvent.Code = msg->Code;
+      }
+      ReplyMsg(msg);
+    }
+    return(the_event);
+  }
+
+INTUITICKS are silently consumed and discarded.
+
+
+4. EVENT TRAPPING
+------------------
+
+ACE supports 7 event types through ON event GOSUB/GOTO/CALL:
+
+  Event     Runtime test function     What it checks
+  --------  ------------------------  -------------------------
+  MENU      _menu_test()              GetMsg for MENUPICK
+  GADGET    _gadget_event_test()      GetMsg for GADGETUP
+  WINDOW    _wdw_close_test()         GetMsg for CLOSEWINDOW
+  MOUSE     _mouse                    CIA hardware (NOT IDCMP)
+  TIMER     _ontimer                  Elapsed time via mathffp
+  BREAK     _tbreak                   Ctrl-C signal
+  ERROR     _testerror                I/O error state
+
+Syntax:
+  ON <event> GOSUB <label>
+  ON <event> GOTO <label>
+  ON <event> CALL <subname>
+  ON TIMER(n) GOSUB <label>     (n = seconds interval)
+  <event> ON                    Enable trapping
+  <event> OFF                   Disable permanently
+  <event> STOP                  Suspend (re-enable with ON)
+
+The compiler (event.c) injects hidden polling code at strategic
+points in the generated assembly: before NEXT, WEND, RETURN, PRINT,
+and other statements that could block. When the runtime test returns
+nonzero, a JSR/JMP to the trap label is emitted.
+
+Compiler state per event:
+  - Flag: enabled/disabled (e.g. menu_event)
+  - Label: target label name (e.g. menu_event_label)
+  - Branch type: GOSUB, GOTO, or CALL (e.g. menu_event_branch)
+  - Label exists flag: whether ON event was seen
+
+
+5. KEYBOARD INPUT
+------------------
+
+Keyboard input uses VANILLAKEY IDCMP messages:
+
+  src/lib/c/input.c:
+
+  char input_char() {
+    do {
+      WaitPort(Wdw->UserPort);
+      msg = (struct IntuiMessage *)GetMsg(Wdw->UserPort);
+      if (msg && msg->Class & VANILLAKEY) {
+        ch = (msg->Code & 0xff);
+        ReplyMsg(msg);
+        return(ch);
+      }
+      if (msg) ReplyMsg(msg);
+    } while (no_key_press);
+  }
+
+This is a blocking wait on the window's UserPort.
+INKEY$ uses a non-blocking variant (polls without WaitPort).
+
+
+6. MENU AND GADGET EVENTS
+---------------------------
+
+Menu events:
+  - MENU WAIT blocks on GetMsg looking for MENUPICK
+  - ON MENU GOSUB polls via _menu_test() at trap check points
+  - Menu number/item extracted with MENUNUM()/ITEMNUM() macros
+  - Accessible via MENU(0) = menu number, MENU(1) = item number
+
+Gadget events:
+  - GADGET WAIT blocks on GetMsg looking for GADGETUP
+  - ON GADGET GOSUB polls via _gadget_event_test()
+  - GadTools gadgets use _gt_gadget_event_test() variant
+  - Gadget ID extracted from msg->IAddress->GadgetID
+
+
+7. SAGA TAKEOVER IMPLICATIONS
+-------------------------------
+
+IDCMP WILL NOT WORK in SAGA takeover mode.
+
+Without Intuition windows there is no UserPort, no GetMsg, and no
+message passing. The entire event trap system is unavailable:
+  - ON MENU, ON GADGET, ON WINDOW: broken (no IDCMP)
+  - MENU WAIT, GADGET WAIT: broken (no IDCMP)
+  - INKEY$, INPUT: broken (depends on VANILLAKEY IDCMP)
+  - MOUSE(1/2): broken (reads Intuition Window struct)
+
+What DOES work in SAGA takeover:
+  - STICK/STRIG: direct hardware polling (see joystick-internals.txt)
+  - SagaRawKey: CIA keyboard polling (SAGA submodule)
+  - MOUSE(0): CIA button read (bit 6 of $BFE001)
+  - POTX/POTY: direct hardware polling
+
+Note: MOUSE, TIMER, BREAK, and ERROR event traps do NOT use IDCMP
+internally (they check hardware or runtime state directly), but the
+compiler's trap injection mechanism still works. These traps could
+function in SAGA takeover if the program has an active polling loop.

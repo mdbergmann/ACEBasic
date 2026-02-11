@@ -1,0 +1,121 @@
+Joystick / Input Function Internals
+=====================================
+
+Status: Reference document
+Date: 2026-02-11
+
+
+1. OVERVIEW
+-----------
+
+All joystick functions poll hardware registers directly. No OS layer
+(gameport.device, lowlevel.library, input.device) is involved.
+
+Implementation: src/lib/asm/misc.s (runtime library)
+Compiler side:  src/ace/c/basfun.c (generates gen_rt_call)
+
+Only port 2 (game port B) is implemented. Port 1 stubs return 0.
+
+
+2. FUNCTIONS AND REGISTERS
+---------------------------
+
+  Function       What it reads          Register      Address
+  -----------    --------------------   -----------   --------
+  STICK(2/3)     Joystick direction     JOY1DAT       $DFF00C
+  STRIG(3)       Fire button            CIA-A Port A   $BFE001
+  POTX(1)        Analog paddle X        POTGO/POT1DAT $DFF034/$DFF014
+  POTY(1)        Analog paddle Y        POTGO/POT1DAT $DFF034/$DFF014
+  MOUSE(0)       Left mouse button      CIA-A Port A   $BFE001
+  MOUSE(1/2)     Mouse X/Y coords       Intuition Wdw  offsets 108/110
+
+
+3. STICK - JOYSTICK DIRECTION (misc.s lines 215-288)
+------------------------------------------------------
+
+STICK(n) returns -1, 0, or 1 for axis direction.
+
+  STICK(0), STICK(1): Always return 0 (port 1 not implemented).
+  STICK(2): Port 2 X-axis
+  STICK(3): Port 2 Y-axis
+
+Reads the 16-bit value from JOY1DAT ($DFF00C):
+
+  X-axis (STICK(2)):
+    - bit 1 set  -> right  -> returns 1
+    - bit 9 set  -> left   -> returns -1
+    - neither    -> center -> returns 0
+
+  Y-axis (STICK(3)):
+    - XOR-based quadrature decode of adjacent bits (8/9 and 0/1)
+    - bits 9,8 XOR result = 256 -> up   -> returns 1
+    - bits 1,0 XOR result != 0  -> down -> returns -1
+    - neither                   -> center -> returns 0
+
+
+4. STRIG - FIRE BUTTON (misc.s lines 298-338)
+-----------------------------------------------
+
+STRIG(n) returns -1 (pressed) or 0 (not pressed).
+
+  STRIG(0), STRIG(1), STRIG(2): Always return 0 (not implemented).
+  STRIG(3): Port 2 fire button.
+
+Reads byte from CIA-A data register ($BFE001).
+Tests if value == 124 (decimal) for button pressed.
+
+
+5. POTX / POTY - ANALOG PADDLE (misc.s lines 444-503)
+-------------------------------------------------------
+
+POTX(n) and POTY(n) return A/D converter values (0-255).
+
+  POTX(0), POTY(0): Always return 0 (port 1 not implemented).
+  POTX(1): Port 2 horizontal pot (pin 5) - low byte of POT1DAT.
+  POTY(1): Port 2 vertical pot (pin 9) - high byte of POT1DAT.
+
+Procedure:
+  1. Strobe POTGO register ($DFF034) to start A/D conversion
+  2. Read POT1DAT ($DFF014) for result
+  3. POTX: result AND $00FF
+  4. POTY: (result AND $FF00) >> 8
+
+
+6. MOUSE - MOUSE INPUT (misc.s lines 347-380)
+-----------------------------------------------
+
+  MOUSE(0): Left button state. Reads CIA-A port ($BFE001), bit 6.
+            Returns -1 (pressed) or 0.
+  MOUSE(1): Mouse X coordinate within window.
+            Reads GZZMouseX (offset 108) from Intuition Window struct.
+  MOUSE(2): Mouse Y coordinate within window.
+            Reads GZZMouseY (offset 110) from Intuition Window struct.
+
+MOUSE is the only input function that touches the OS (Intuition).
+
+
+7. COMPILER CODE GENERATION (basfun.c)
+----------------------------------------
+
+The compiler pushes the argument (port number) onto the stack and
+generates a runtime call:
+
+  STICK(n)  -> gen_rt_call("_stick")    (basfun.c ~line 1533)
+  STRIG(n)  -> gen_rt_call("_strig")    (basfun.c ~line 1540)
+  MOUSE(n)  -> gen_rt_call("_mouse")    (basfun.c ~line 1241)
+  POTX(n)   -> gen_rt_call("_potx")     (basfun.c ~line 1381)
+  POTY(n)   -> gen_rt_call("_poty")     (basfun.c ~line 1397)
+
+
+8. NOTES FOR SAGA TAKEOVER MODE
+---------------------------------
+
+STICK, STRIG, and POTX/POTY read hardware registers directly and do
+NOT depend on the OS display state. They work fine when the OS screen
+is bypassed (e.g. SAGA chunky mode takeover).
+
+MOUSE(1/2) depends on Intuition's Window structure and will NOT work
+when the OS is bypassed. MOUSE(0) reads CIA directly and still works.
+
+For SAGA takeover scenarios, use STICK/STRIG for joystick input and
+SagaRawKey (from the SAGA submodule) for keyboard input.
