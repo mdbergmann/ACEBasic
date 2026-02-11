@@ -1,8 +1,27 @@
-HTTP Submodule Implementation State
-=====================================
+HTTP Client Submodule Implementation State
+============================================
 
 Phase 0 - BMAP Generation: COMPLETE
-Phase 1 - TCP Foundation: NOT STARTED
+  Branch: http-phase0-bmaps
+  Generated: bsdsocket.BMAP (768B), amisslmaster.BMAP (117B), amissl.BMAP (123KB)
+  Verified: test_bmap.b compiles against bsdsocket.bmap
+  Scaffolding: submods/httpclient/, include/submods/HTTPClient.h
+Phase 1 - TCP Foundation: COMPLETE
+  Branch: http-phase1-tcp
+  Module: submods/httpclient/httpclient.b (314 lines)
+    - Library declarations (bsdsocket: socket, connect, send, recv, CloseSocket, gethostbyname, inet_addr)
+    - Connection table: 4 slots with parallel arrays (connSocket&, connState%, connSSL&)
+    - _HttpInit: opens bsdsocket.library, inits connection table
+    - _HttpAllocSlot: finds free connection slot
+    - _HttpResolve: inet_addr then gethostbyname DNS lookup
+    - _HttpConnectTCP: socket + sockaddr_in + connect
+    - _HttpSendRaw/_HttpRecvRaw: thin wrappers over send/recv
+    - HttpOpen/HttpClose: public API (1-based handles)
+    - HttpSendRawBytes/HttpRecvRawBytes: public test helpers
+    - Stubs for all remaining API functions (return error codes)
+  Header: include/submods/HTTPClient.h updated (reserved-word fixes)
+  Test: submods/httpclient/test_tcp.b - connects to www.google.com:80, HTTP GET, verified 200 OK
+  Verified: module compiles, test compiles+links+runs, HTTP response received
 Phase 2 - HTTP/1.1 GET: NOT STARTED
 Phase 3 - Chunked Transfer: NOT STARTED
 Phase 4 - POST/PUT Bodies: NOT STARTED

@@ -50,22 +50,22 @@ DECLARE SUB LONGINT HttpRequestStream(STRING url, STRING meth, ~
 
 ' --- Low-level handle API ---
 DECLARE SUB LONGINT HttpOpen(STRING host, LONGINT port, ~
-                             LONGINT ssl) EXTERNAL
-DECLARE SUB HttpSetHeader(LONGINT h, STRING name, ~
-                          STRING val) EXTERNAL
+                             LONGINT useSSL) EXTERNAL
+DECLARE SUB HttpSetHeader(LONGINT h, STRING hdrName, ~
+                          STRING hdrVal) EXTERNAL
 DECLARE SUB LONGINT HttpSendRequest(LONGINT h, STRING meth, ~
                                     STRING path) EXTERNAL
-DECLARE SUB LONGINT HttpWriteBody(LONGINT h, LONGINT buf, ~
-                                  LONGINT len) EXTERNAL
+DECLARE SUB LONGINT HttpWriteBody(LONGINT h, LONGINT dataBuf, ~
+                                  LONGINT bodyLen) EXTERNAL
 DECLARE SUB LONGINT HttpWriteBodyChunked(LONGINT h, ~
-                                         LONGINT buf, ~
-                                         LONGINT len) EXTERNAL
+                                         LONGINT dataBuf, ~
+                                         LONGINT bodyLen) EXTERNAL
 DECLARE SUB LONGINT HttpReadStatus(LONGINT h) EXTERNAL
 DECLARE SUB STRING HttpGetResponseHeader(LONGINT h, ~
-                                         STRING name) EXTERNAL
-DECLARE SUB LONGINT HttpReadBody(LONGINT h, LONGINT buf, ~
-                                 LONGINT sz, ~
-                                 LONGINT rd) EXTERNAL
+                                         STRING hdrName) EXTERNAL
+DECLARE SUB LONGINT HttpReadBody(LONGINT h, LONGINT dataBuf, ~
+                                 LONGINT bufSize, ~
+                                 LONGINT bytesRead) EXTERNAL
 DECLARE SUB HttpClose(LONGINT h) EXTERNAL
 
 ' --- Utility ---
