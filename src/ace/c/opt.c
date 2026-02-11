@@ -328,6 +328,256 @@ extern	BOOL	cpu020_opt;
 		return(FALSE);
 }
 
+/*
+** Check if destopr is a negative sp-relative offset: "-N(sp)"
+** but NOT "-(sp)" (which is a push).
+*/
+static BOOL is_sp_offset(str)
+char *str;
+{
+ int len;
+ if (str[0] != '-') return(FALSE);
+ if (str[1] < '0' || str[1] > '9') return(FALSE);
+ len = strlen(str);
+ if (len < 5) return(FALSE);
+ if (strcmp(str + len - 4, "(sp)") != 0) return(FALSE);
+ return(TRUE);
+}
+
+/*
+** Try to optimize a self-recursive tail call.
+** jsr_node points to a "jsr _SUB_X" instruction that matches
+** the current SUB.  lb[] is the lookback buffer, lb_pos is the
+** next-write index.
+**
+** Returns TRUE if the tail call was successfully optimized.
+*/
+#define LB_SIZE 50
+
+static BOOL try_tco(jsr_node, lb, lb_pos, sub_name)
+CODE *jsr_node;
+CODE *lb[];
+int  lb_pos;
+char *sub_name;
+{
+ CODE *c, *node, *push_node, *pop_node;
+ CODE *forbid_jsr, *forbid_movea;
+ char tcr_name[80];
+ char new_dest[40];
+ char save_opc[40], save_src[40];
+ int  i, offset;
+
+ push_node = NULL;
+ pop_node  = NULL;
+ forbid_jsr   = NULL;
+ forbid_movea = NULL;
+
+ /* --- Forward scan: verify tail position --- */
+ c = jsr_node->next;
+ while (c != NULL)
+ {
+  /* Skip NOPs */
+  if (strcmp(c->opcode, "nop") == 0) { c = c->next; continue; }
+
+  /* Allow labels */
+  if (strchr(c->opcode, ':') != NULL) { c = c->next; continue; }
+
+  /* Push (return value from level-0 storage) */
+  if (is_a_move(c->opcode) &&
+      strcmp(c->destopr, "-(sp)") == 0 &&
+      push_node == NULL)
+  {
+   push_node = c;
+   c = c->next;
+   continue;
+  }
+
+  /* Pop (return value assignment back to same storage) */
+  if (is_a_move(c->opcode) &&
+      strcmp(c->srcopr, "(sp)+") == 0 &&
+      push_node != NULL && pop_node == NULL)
+  {
+   pop_node = c;
+   c = c->next;
+   continue;
+  }
+
+  /* UNLK a5 -> the SUB exit */
+  if (strcmp(c->opcode, "unlk") == 0 &&
+      strcmp(c->srcopr, "a5") == 0)
+  {
+   /* verify RTS follows (skip NOPs) */
+   {
+   CODE *rts;
+   rts = c->next;
+   while (rts && strcmp(rts->opcode, "nop") == 0)
+    rts = rts->next;
+   if (rts == NULL || strcmp(rts->opcode, "rts") != 0)
+    return(FALSE);
+   }
+   break; /* tail position verified */
+  }
+
+  /* Any other instruction -> not a tail call */
+  return(FALSE);
+ }
+
+ if (c == NULL) return(FALSE);
+
+ /* --- Backward scan through lookback: find Forbid + param moves --- */
+ i = (lb_pos - 1 + LB_SIZE) % LB_SIZE;
+ while (i != lb_pos && lb[i] != NULL)
+ {
+  node = lb[i];
+
+  /* Skip NOPs */
+  if (strcmp(node->opcode, "nop") == 0)
+  {
+   i = (i - 1 + LB_SIZE) % LB_SIZE;
+   continue;
+  }
+
+  /* Param move: move.X temp, -N(sp) */
+  if (is_a_move(node->opcode) && is_sp_offset(node->destopr))
+  {
+   /* remap -N(sp) to -(N-8)(a5) -- copy strings before change()
+      frees the old CODE members */
+   strcpy(save_opc, node->opcode);
+   strcpy(save_src, node->srcopr);
+   offset = atoi(node->destopr);
+   offset += 8;
+   sprintf(new_dest, "%d(a5)", offset);
+   change(node, save_opc, save_src, new_dest);
+
+   i = (i - 1 + LB_SIZE) % LB_SIZE;
+   continue;
+  }
+
+  /* Forbid JSR */
+  if (strcmp(node->opcode, "jsr") == 0 &&
+      strcmp(node->srcopr, "_LVOForbid(a6)") == 0)
+  {
+   forbid_jsr = node;
+   i = (i - 1 + LB_SIZE) % LB_SIZE;
+   continue;
+  }
+
+  /* Forbid MOVEA */
+  if (strcmp(node->opcode, "movea.l") == 0 &&
+      strcmp(node->srcopr, "_AbsExecBase") == 0)
+  {
+   forbid_movea = node;
+   break;
+  }
+
+  /* Unknown instruction -> stop backward scan */
+  break;
+ }
+
+ /* --- Apply transformation --- */
+
+ /* NOP out Forbid block */
+ if (forbid_jsr)   change(forbid_jsr,   "nop", "  ", "  ");
+ if (forbid_movea) change(forbid_movea, "nop", "  ", "  ");
+
+ /* Change jsr _SUB_X to jmp _SUB_X_tcr */
+ strcpy(tcr_name, sub_name);
+ strcat(tcr_name, "_tcr");
+ change(jsr_node, "jmp", tcr_name, "  ");
+
+ /* NOP out return-value push/pop */
+ if (push_node) change(push_node, "nop", "  ", "  ");
+ if (pop_node)  change(pop_node,  "nop", "  ", "  ");
+
+ return(TRUE);
+}
+
+/*
+** Tail-Call Optimization for self-recursive SUBs.
+**
+** Scans the code list for self-recursive JSR instructions in
+** tail position.  When found, transforms:
+**   - NOP out the Forbid block (not needed for self-jump)
+**   - Remap param moves from sp-relative to a5-relative
+**   - Change "jsr _SUB_X" to "jmp _SUB_X_tcr"
+**   - NOP out the return-value push/pop pair
+**
+** Returns the number of tail calls optimized.
+*/
+SHORT optimize_tail_calls()
+{
+ CODE *c;
+ char cur_sub[80];
+ char tcr_label[80];
+ BOOL tco_eligible;
+ SHORT tco_count;
+ CODE *lb[LB_SIZE];
+ int  lb_pos, i;
+
+ if (code == NULL) return(0);
+
+ cur_sub[0] = '\0';
+ tcr_label[0] = '\0';
+ tco_eligible = FALSE;
+ tco_count = 0;
+ lb_pos = 0;
+
+ for (i = 0; i < LB_SIZE; i++) lb[i] = NULL;
+
+ c = code;
+ while (c != NULL)
+ {
+  /* Track current SUB via _SUB_X: labels */
+  if (c->opcode[0] == '_' &&
+      strncmp(c->opcode, "_SUB_", 5) == 0 &&
+      strchr(c->opcode, ':') != NULL &&
+      strstr(c->opcode, "_tcr:") == NULL &&
+      strstr(c->opcode, "_EXIT") == NULL)
+  {
+   /* new SUB label -- extract base name (strip colon) */
+   {
+   int len;
+   len = strlen(c->opcode);
+   if (len < 80)
+   {
+    strcpy(cur_sub, c->opcode);
+    cur_sub[len - 1] = '\0';  /* strip colon */
+   }
+   }
+   tco_eligible = FALSE;
+
+   /* build expected _tcr label name */
+   strcpy(tcr_label, cur_sub);
+   strcat(tcr_label, "_tcr:");
+  }
+
+  /* Detect _tcr label -> SUB is TCO-eligible */
+  if (!tco_eligible &&
+      tcr_label[0] != '\0' &&
+      strcmp(c->opcode, tcr_label) == 0)
+  {
+   tco_eligible = TRUE;
+  }
+
+  /* Check for self-recursive call */
+  if (tco_eligible &&
+      strcmp(c->opcode, "jsr") == 0 &&
+      strcmp(c->srcopr, cur_sub) == 0)
+  {
+   if (try_tco(c, lb, lb_pos, cur_sub))
+    tco_count++;
+  }
+
+  /* Update lookback buffer */
+  lb[lb_pos] = c;
+  lb_pos = (lb_pos + 1) % LB_SIZE;
+
+  c = c->next;
+ }
+
+ return(tco_count);
+}
+
 SHORT peephole()
 {
 /* 
@@ -408,12 +658,17 @@ int  opt_type;
 void optimise()
 {
 SHORT peep;
+SHORT tco;
 
  printf("\noptimising...\n");
+ tco = optimize_tail_calls();
  peep = peephole();
  printf("%d peephole ",peep);
- if (peep == 1) 
-    printf("removal.");  
+ if (peep == 1)
+    printf("removal, ");
  else
-    printf("removals."); /* peep==0 or peep>1 */
+    printf("removals, "); /* peep==0 or peep>1 */
+ printf("%d tail call",tco);
+ if (tco != 1) printf("s");
+ printf(" optimized.");
 }
