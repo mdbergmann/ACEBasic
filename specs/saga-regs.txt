@@ -1,0 +1,226 @@
+SAGA Chipset Register Map (SAGA-only extensions)
+=================================================
+Source: http://www.apollo-core.com/sagadoc/
+
+This file lists registers that are new or extended in the Vampire SAGA
+chipset. Classic OCS/ECS/AGA registers are omitted (see sagadoc for full list).
+
+
+1. VIDEO CONTROL (Isabel)
+--------------------------
+
+  Address  Name        RW  Description
+  -------  ----------  --  -------------------------------------------
+  $DFF1E6  BPLHMOD     W   Chunky plane modulo
+  $DFF1EC  BPLHPTH     W   Chunky framebuffer pointer (hi 16 bits)
+  $DFF1EE  BPLHPTL     W   Chunky framebuffer pointer (lo 16 bits)
+  $DFF1F4  GFXMODE     W   Pixel format + resolution
+
+  GFXMODE word: high byte = resolution ID, low byte = pixel format.
+  Setting $DFF1EC/$DFF1EE + $DFF1F4 displays a chunky framebuffer.
+
+  Pixel formats:
+    0x00  Planar     1-8 bpp    Classic Amiga bitplanes
+    0x01  CLUT8      8 bpp      Chunky 256-color (palette indexed)
+    0x02  RGB16      16 bpp     R5G6B5
+    0x03  RGB15      16 bpp     0RRRRRGGGGGBBBBB
+    0x04  RGB24      24 bpp     R8G8B8
+    0x05  RGB32      32 bpp     A8R8G8B8
+    0x06  YUV422     16 bpp     YUYVYUYV (video color space)
+
+  Resolution IDs (V4):
+    0x01  320x200     0x0C  800x600
+    0x02  320x240     0x0D  1024x768
+    0x03  320x256     0x0E  720x576
+    0x04  640x400     0x0F  848x480
+    0x05  640x480     0x10  640x200
+    0x06  640x512     0x11  1920x1080
+    0x07  960x540     0x12  1280x1024
+    0x08  480x270     0x13  1280x800
+    0x09  304x224     0x14  1440x900
+    0x0A  1280x720    0x15  720x405
+    0x0B  640x360
+
+
+2. PALETTE PORTS
+-----------------
+
+  Address  Name        RW  Description
+  -------  ----------  --  -------------------------------------------
+  $DFF380  PlanarCOLH  W   Planar palette port register
+  $DFF382  PlanarCOLL  W   Format [ID,RR,GG,BB]
+  $DFF384  SpriteCOLH  W   Sprite palette port register
+  $DFF386  SpriteCOLL  W   Format [ID,RR,GG,BB]
+  $DFF388  ChunkyCOLH  W   Chunky palette port register
+  $DFF38A  ChunkyCOLL  W   Format [ID,RR,GG,BB]
+  $DFF38C  PIPCOLH     W   PiP palette port register
+  $DFF38E  PIPCOLL     W   Format [ID,RR,GG,BB]
+
+
+3. PiP (PICTURE-IN-PICTURE)
+-----------------------------
+
+  Address  Name          RW  Description
+  -------  ------------  --  -------------------------------------------
+  $DFF3D0  PipXStrt      W   PiP window X start position
+  $DFF3D2  PipYStrt      W   PiP window Y start position
+  $DFF3D4  PipXStop      W   PiP window X stop position
+  $DFF3D6  PipYStop      W   PiP window Y stop position
+  $DFF3D8  PipPtr        W   PiP framebuffer pointer (32-bit)
+  $DFF3DC  PipFormat     W   PiP color format (8bit/16bit/15bit/YUV)
+  $DFF3DE  PipModulo     W   PiP row modulo
+  $DFF3E0  PipColorKey   W   PiP color key: 1000,RRRR,GGGG,BBBB
+  $DFF3E2  PipDMARowLen  W   PiP DMA row length
+
+  PiP is a hardware overlay - a second chunky playfield composited
+  on top of the main display. It has its own framebuffer pointer,
+  position, size, pixel format, palette, and color key transparency.
+
+  PipFormat uses the same pixel format IDs as GFXMODE (section 1).
+  PipColorKey bit 15 enables color keying (transparent color).
+
+
+4. SPRITE (extended)
+---------------------
+
+  Address  Name        RW  Description
+  -------  ----------  --  -------------------------------------------
+  $DFF1D0  SPRHSTRT    W   SAGA Sprite X position
+  $DFF1D2  SPRHSTOP    W   SAGA Sprite Y position
+  $DFF1E8  SPRHPTH     W   SAGA sprite pointer (high 5 bits)
+  $DFF1EA  SPRHPTL     W   SAGA sprite pointer (low 15 bits)
+  $DFF3A2  Sprite Col1 W   Sprite color 1 RGB (12-bit, bits 11..0)
+  $DFF3A4  Sprite Col2 W   Sprite color 2 RGB (12-bit, bits 11..0)
+  $DFF3A6  Sprite Col3 W   Sprite color 3 RGB (12-bit, bits 11..0)
+
+  Per-sprite collision detection (SAGA-only):
+  $DFF230  clxdat0     R   Sprite 0 detailed collision
+  $DFF232  clxdat1     R   Sprite 1 detailed collision
+  $DFF234  clxdat2     R   Sprite 2 detailed collision
+  $DFF236  clxdat3     R   Sprite 3 detailed collision
+  $DFF238  clxdat4     R   Sprite 4 detailed collision
+  $DFF23A  clxdat5     R   Sprite 5 detailed collision
+  $DFF23C  clxdat6     R   Sprite 6 detailed collision
+  $DFF23E  clxdat7     R   Sprite 7 detailed collision
+
+  Classic sprites (SPR0-SPR7) at $DFF120-$DFF17E also work on SAGA.
+
+
+5. JOYSTICK / INPUT (extended)
+-------------------------------
+
+  Address  Name         RW  Description
+  -------  -----------  --  -------------------------------------------
+  $DFF20A  JOY0DAT      R   Vanilla DB9 Joystick-mouse 0 (vert, horiz)
+  $DFF20C  JOY1DAT      R   Vanilla DB9 Joystick-mouse 1 (vert, horiz)
+  $DFF212  Mouse Wheel  R   Mouse wheel read register
+  $DFF220  joy0buttons  R   Joystick 0 buttons (0=active)
+  $DFF222  joy1buttons  R   Joystick 1 buttons (0=active)
+  $DFF224  joy2buttons  R   Joystick 2 buttons (0=active)
+  $DFF226  joy3buttons  R   Joystick 3 buttons (0=active)
+
+
+6. DMA / INTERRUPTS (extended)
+-------------------------------
+
+  Address  Name        RW  Description
+  -------  ----------  --  -------------------------------------------
+  $DFF202  DMACON2R    R   DMA control 2 read (channels 4-15)
+  $DFF296  DMACON2     W   DMA control 2 write (channels 4-15)
+  $DFF21C  INTENA2R    R   Interrupt enable 2 read
+  $DFF21E  INTREQ2R    R   Interrupt request 2 read
+  $DFF29A  INTENA2     W   Interrupt enable 2 write
+  $DFF29C  INTREQ2     W   Interrupt request 2 write
+
+
+7. MAGGIE 3D (texture mapping unit)
+-------------------------------------
+
+  Address  Name          RW  Description
+  -------  ------------  --  -------------------------------------------
+  $DFF250  TEXTPT        W   Texture source address
+  $DFF254  TEXDPT        W   Destination screen address
+  $DFF258  TEXZPT        W   3D Z-buffer address
+  $DFF25E  TEXSTRT       W   Start + length (bit15=continue, bits10..0=pixels)
+  $DFF260  TEXMIP        W   Texture size (bits3..0: $A=1024...$5=32),
+                              bit4=auto mipmap mode
+  $DFF262  TEXMODE       W   Texture mode flags:
+                              bit0=bilinear, bit1=use zbuffer,
+                              bit2=16bit output, bit3=inhibit zbuf write,
+                              bit4=24bit output, bit5=quadratic mode,
+                              bits7-6=blend (00=copy, 01=add, 10=mul)
+  $DFF266  TEXDMOD       W   Destination step/modulo
+  $DFF268  TEXddUU       W   Quadratic delta-delta U
+  $DFF26C  TEXddVV       W   Quadratic delta-delta V
+  $DFF270  TEXUUuuuu     W   3D 24-bit U coordinate
+  $DFF274  TEXVVvvvv     W   3D 24-bit V coordinate
+  $DFF278  TEXdUUuuuu    W   3D 24-bit delta U
+  $DFF27C  TEXdVVvvvv    W   3D 24-bit delta V
+  $DFF280  TEXLight      W   Light level
+  $DFF282  TEXdLight     W   Delta light level
+  $DFF284  TEXLightcolor W   Light color
+  $DFF288  TEXZZzz       W   3D 32-bit Z value
+  $DFF28C  TEXdZZzz      W   3D 32-bit delta Z
+
+
+8. AUDIO (Arne/SagaSound, 16 channels)
+----------------------------------------
+
+  Channel N base = $DFF400 + (N * $10),  N = 0..15
+
+  Offset  Size   Name       Description
+  ------  -----  ---------  -------------------------------------------
+  +$00    LONG   AUD_PTR    Sample address (32-bit pointer)
+  +$04    LONG   AUD_LEN    Sample length (32-bit)
+  +$08    WORD   AUD_VOL    Volume: bits 15-8 = left, bits 7-0 = right
+  +$0A    WORD   AUD_CTRL   Mode: bit2=stereo, bit1=oneshot, bit0=16bit
+  +$0C    WORD   AUD_PER    Period (PAL_CLOCK / sample_rate)
+
+  DMA control:
+    Channels 0-3:   $DFF096 (DMACON)  / $DFF002 (DMACONR)
+    Channels 4-15:  $DFF296 (DMACON2) / $DFF202 (DMACON2R)
+
+
+9. SCREEN MODE ADJUST
+-----------------------
+
+  Address  Name           RW  Description
+  -------  -------------  --  -------------------------------------------
+  $DFF390  SCREENMODE_Y   W   Adjust Y position for screen modes
+  $DFF392  SCREENMODE_X   W   Adjust X position for screen modes
+
+
+10. SYSTEM / IDENTIFICATION
+-----------------------------
+
+  Address  Name            RW  Description
+  -------  --------------  --  -------------------------------------------
+  $DFF1DC  BEAMCON0        W   Beam counter control (SHRES, UHRES, PAL)
+  $DFF3EA  CORE_REVISION   R   SAGA core revision (reserved)
+  $DFF3EC  SAGA_CONTROL    R   SAGA control register (reserved)
+  $DFF3EE  SCREEN_SHIFT    R   Screen shift (reserved)
+  $DFF3F0  CHIP_ID         R   Chip identification (4 words)
+  $DFF3FC  VAMPIRE_VER     R   Vampire version / 8-bit clock multiplier
+
+
+11. MFP TIMERS (68901 compatible)
+----------------------------------
+
+  Address  Name        RW   Description
+  -------  ----------  ---  -------------------------------------------
+  $DFFA07  MFP_IERA    R/W  MFP interrupt enable A
+  $DFFA09  MFP_IERB    R/W  MFP interrupt enable B
+  $DFFA0B  MFP_IPRA    R/W  MFP interrupt pending A
+  $DFFA0D  MFP_IPRB    R/W  MFP interrupt pending B
+  $DFFA0F  MFP_ISRA    R/W  MFP interrupt in-service A
+  $DFFA11  MFP_ISRB    R/W  MFP interrupt in-service B
+  $DFFA13  MFP_IMRA    R/W  MFP interrupt mask A
+  $DFFA15  MFP_IMRB    R/W  MFP interrupt mask B
+  $DFFA17  MFP_VEC     R/W  MFP vector register
+  $DFFA19  MFP_TACR    R/W  MFP timer A control
+  $DFFA1B  MFP_TBCR    R/W  MFP timer B control
+  $DFFA1D  MFP_TCDCR   R/W  MFP timer C/D control
+  $DFFA1F  MFP_TADR    R/W  MFP timer A data
+  $DFFA21  MFP_TBDR    R/W  MFP timer B data
+  $DFFA23  MFP_TCDR    R/W  MFP timer C data
+  $DFFA25  MFP_TDDR    R/W  MFP timer D data

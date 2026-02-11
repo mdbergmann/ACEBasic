@@ -1,0 +1,722 @@
+P96/RTG Graphics Helper Submodules - Detailed Spec
+====================================================
+
+Detailed specifications for two graphics helper submodules:
+1. GfxBlit  - Portable blit operations (graphics.library)
+2. P96Gfx   - P96 direct pixel access & PiP overlays
+
+Status: DRAFT
+Date: 2026-02-11
+
+
+========================================================================
+1. GfxBlit - Portable RTG/Native Blit Operations
+========================================================================
+
+1.1 Purpose
+-----------
+
+Wraps graphics.library blit functions with a simple interface.
+Works on any screen type: native planar (OCS/ECS/AGA), P96/RTG,
+and SAGA. Hides the DECLARE FUNCTION ... LIBRARY graphics boilerplate
+and the register-based calling conventions.
+
+Main value: block copies (sprite stamping, double buffering,
+screen-to-screen transfers) which ACE doesn't have built-in
+statements for. ACE already has LINE ... ,bf for filled rects
+and basic drawing primitives, so this fills the remaining gap.
+
+
+1.2 API
+-------
+
+  EXTERNAL gfxblit
+
+  '--- Block Copy ---
+  ' Copy a rectangular region between rastports.
+  ' Uses ClipBlit() internally - respects layer clipping.
+  ' minterm $C0 = copy source (standard blit).
+  GfxBlitCopy(srcRP&, sx%, sy%, dstRP&, dx%, dy%, w%, h%)
+
+  '--- Same-RastPort Copy ---
+  ' Shorthand: copy within the same rastport (e.g. scrolling,
+  ' duplicating a tile). Calls ClipBlit with src=dst rastport.
+  GfxBlitCopySelf(rp&, sx%, sy%, dx%, dy%, w%, h%)
+
+  '--- Masked Blit (Cookie-Cut) ---
+  ' Copy source to dest, but only where the mask has bits set.
+  ' Uses BltMaskBitMapRastPort() from graphics.library.
+  ' The mask is a single-plane bitplane with the same dimensions.
+  ' maskAddr& points to the raw mask bitplane data (CHIP RAM).
+  GfxBlitMasked(srcBM&, sx%, sy%, dstRP&, dx%, dy%, ~
+                w%, h%, maskAddr&)
+
+  '--- Rect Fill ---
+  ' Fill a rectangle in the current pen color.
+  ' Uses RectFill() internally.
+  ' Set pen before calling: SetAPen(rp, color) or COLOR statement.
+  GfxBlitFill(rp&, x1%, y1%, x2%, y2%)
+
+  '--- Scroll ---
+  ' Scroll a region by (dx, dy) pixels. Exposed area is filled
+  ' with the current background pen. Uses ScrollRasterBF().
+  GfxBlitScroll(rp&, dx%, dy%, x1%, y1%, x2%, y2%)
+
+  '--- WaitBlit ---
+  ' Wait for any pending hardware blits to complete.
+  ' Call before swapping buffers or reading blit results.
+  GfxBlitWait()
+
+
+1.3 Implementation Details
+--------------------------
+
+Each SUB wraps a single graphics.library function:
+
+  GfxBlitCopy     -> ClipBlit(srcRP,sx,sy, dstRP,dx,dy, w,h, $C0)
+  GfxBlitCopySelf -> ClipBlit(rp,sx,sy, rp,dx,dy, w,h, $C0)
+  GfxBlitMasked   -> BltMaskBitMapRastPort(srcBM,sx,sy, dstRP,dx,dy,
+                       w,h, $E0, maskAddr)
+  GfxBlitFill     -> RectFill(rp, x1,y1, x2,y2)
+  GfxBlitScroll   -> ScrollRasterBF(rp, dx,dy, x1,y1, x2,y2)
+  GfxBlitWait     -> WaitBlit()
+
+Minterm values:
+  $C0 = straight copy (A->D)
+  $E0 = masked copy (cookie-cut: where mask=1, use source)
+
+The DECLARE FUNCTION statements go inside the submod .b file:
+  LIBRARY "graphics.library"
+  DECLARE FUNCTION ClipBlit LIBRARY graphics
+  DECLARE FUNCTION BltMaskBitMapRastPort LIBRARY graphics
+  DECLARE FUNCTION RectFill LIBRARY graphics
+  DECLARE FUNCTION ScrollRasterBF LIBRARY graphics
+  DECLARE FUNCTION WaitBlit LIBRARY graphics
+
+All functions are available in the existing bmaps/graphics.bmap.
+
+Notes:
+- ClipBlit works on RastPorts (window/screen drawing context).
+  It respects Intuition layer clipping, so blits into windows
+  work correctly even with overlapping windows.
+- BltMaskBitMapRastPort takes a BitMap (not RastPort) as source.
+  Caller must get the BitMap from the RastPort via PEEKL(rp + 4).
+  Alternatively, the SUB could accept a RastPort and extract the
+  BitMap internally. We choose to take BitMap directly since the
+  caller may have a standalone BitMap (e.g. a loaded image).
+- The mask for BltMaskBitMapRastPort must be in CHIP RAM and
+  must be word-aligned. It is a single bitplane matching the
+  blit dimensions.
+- P96 intercepts all these graphics.library calls transparently.
+  No P96-specific code is needed.
+
+
+1.4 Double Buffering
+--------------------
+
+ACE already has DoubleBuffer.h (include/ace/DoubleBuffer.h) which
+provides DbufInit/DbufSwap/DbufCleanup. It works by:
+
+  1. AllocBitMap() a second bitmap ("friend" of original)
+  2. Swap RastPort->BitMap and RasInfo->BitMap pointers
+  3. ScrollVPort() + WaitTOF() to update the copper list
+
+This approach has limitations for RTG/P96:
+  - ScrollVPort() regenerates the copper list, which is a chipset
+    concept. P96 intercepts it but it's not ideal.
+  - The bitmap swap is done at the RasInfo/ViewPort level, which
+    is low-level Amiga internals.
+
+A better approach for P96 uses ChangeVPBitMap() from graphics.library
+(V39+, AmigaOS 3.0+), which P96 handles properly:
+
+  1. AllocBitMap() two displayable bitmaps (BMF_DISPLAYABLE|BMF_CLEAR)
+     using the screen's bitmap as "friend" for format compatibility
+  2. AllocDBufInfo(ViewPort) for synchronization
+  3. In the loop: draw to back buffer, then ChangeVPBitMap(vp, bm, dbi)
+  4. Toggle which bitmap is "back"
+
+GfxBlit provides a higher-level double buffering wrapper that
+uses ChangeVPBitMap under the hood:
+
+  '--- Initialize double buffering for the active screen ---
+  ' Allocates a second bitmap and sets up DBufInfo.
+  ' Returns -1 (true) on success, 0 on failure.
+  result% = GfxDbufInit%
+
+  '--- Swap front and back buffers ---
+  ' Presents the back buffer and makes the old front buffer
+  ' available for drawing. Waits for vertical blank.
+  GfxDbufSwap
+
+  '--- Get the back buffer RastPort ---
+  ' Returns the RastPort you should draw into.
+  ' After GfxDbufSwap, this points to the new back buffer.
+  rp& = GfxDbufBackRP&
+
+  '--- Cleanup ---
+  ' Restores original display, frees allocated resources.
+  ' MUST be called before SCREEN CLOSE.
+  GfxDbufCleanup
+
+Advantages over current DoubleBuffer.h:
+  - Uses ChangeVPBitMap (proper OS API) instead of manual
+    pointer surgery on RasInfo
+  - Works correctly on both native and RTG screens
+  - AllocDBufInfo provides proper synchronization
+  - Could later support triple buffering
+
+Implementation:
+
+  LIBRARY "graphics.library"
+  DECLARE FUNCTION AllocBitMap& LIBRARY graphics
+  DECLARE FUNCTION FreeBitMap LIBRARY graphics
+  DECLARE FUNCTION AllocDBufInfo& LIBRARY graphics
+  DECLARE FUNCTION FreeDBufInfo LIBRARY graphics
+  DECLARE FUNCTION ChangeVPBitMap LIBRARY graphics
+  DECLARE FUNCTION WaitTOF LIBRARY graphics
+  DECLARE FUNCTION GetBitMapAttr& LIBRARY graphics
+  DECLARE FUNCTION InitRastPort LIBRARY graphics
+
+  Module state (SHARED variables):
+    dbuf.bm(1)    ' two BitMap pointers (LONGINT array)
+    dbuf.rp(1)    ' two RastPort structures (allocated)
+    dbuf.dbi      ' DBufInfo pointer
+    dbuf.vp       ' ViewPort pointer
+    dbuf.current  ' index of current back buffer (0 or 1)
+    dbuf.origBM   ' original screen BitMap (to restore)
+    dbuf.origRP   ' original screen RastPort pointer
+
+  GfxDbufInit:
+    1. vp = SCREEN(3)              ' ViewPort
+    2. origBM = SCREEN(4)          ' screen's embedded BitMap
+    3. Read w, h, d from origBM
+    4. bm(0) = AllocBitMap(w, h, d, BMF_DISPLAYABLE|BMF_CLEAR, origBM)
+    5. bm(1) = AllocBitMap(w, h, d, BMF_DISPLAYABLE|BMF_CLEAR, origBM)
+    6. dbi = AllocDBufInfo(vp)
+    7. Init two private RastPort structs pointing to bm(0) and bm(1)
+    8. current = 0 (back = bm(0), front = origBM initially)
+    9. Return success/failure
+
+  GfxDbufSwap:
+    1. WaitBlit()                ' finish any pending blits
+    2. ChangeVPBitMap(vp, bm(current), dbi)
+    3. current = 1 - current    ' toggle
+    ' Note: caller draws into bm(current) via GfxDbufBackRP
+
+  GfxDbufCleanup:
+    1. ChangeVPBitMap(vp, origBM, dbi)
+    2. WaitTOF()
+    3. FreeDBufInfo(dbi)
+    4. FreeBitMap(bm(0))
+    5. FreeBitMap(bm(1))
+
+Comparison with current DoubleBuffer.h:
+
+  Feature                 | DoubleBuffer.h      | GfxBlit dbuf
+  ----------------------- | ------------------- | -------------------
+  Buffer swap mechanism   | Manual ptr surgery  | ChangeVPBitMap (OS)
+  Sync mechanism          | ScrollVPort+WaitTOF | DBufInfo + vblank
+  Native chipset screens  | Yes                 | Yes (V39+)
+  P96/RTG screens         | Fragile             | Proper (P96 hooks)
+  SAGA screens            | Fragile             | Proper
+  AmigaOS version needed  | 3.0+ (AllocBitMap)  | 3.0+ (ChangeVPBitMap)
+  Drawing target          | Shared RastPort     | Dedicated back RP
+  Triple buffering        | No                  | Possible (future)
+
+
+1.5 Typical Usage Example
+-------------------------
+
+  #include <submods/GfxBlit.h>
+  EXTERNAL gfxblit
+
+  SCREEN 1, 800, 600, 8, 13
+  WINDOW 1,"",(0,0)-(799,599),0,1
+
+  ' --- Double buffered animation ---
+  IF GfxDbufInit% THEN
+    WHILE INKEY$ = ""
+      rp& = GfxDbufBackRP&
+
+      ' Clear back buffer
+      GfxBlitFill(rp&, 0, 0, 799, 599)
+
+      ' Draw sprites by blitting from a source bitmap
+      GfxBlitCopy(spriteRP&, 0, 0, rp&, playerX%, playerY%, 32, 32)
+
+      ' Masked sprite (transparent background)
+      GfxBlitMasked(enemyBM&, 0, 0, rp&, ex%, ey%, 32, 32, maskAddr&)
+
+      ' Scroll a tile map region
+      GfxBlitScroll(rp&, -2, 0, 0, 0, 799, 599)
+
+      GfxDbufSwap
+    WEND
+    GfxDbufCleanup
+  END IF
+
+  WINDOW CLOSE 1
+  SCREEN CLOSE 1
+
+
+========================================================================
+2. P96Gfx - P96 Direct Pixel & PiP Operations
+========================================================================
+
+2.1 Purpose
+-----------
+
+Provides direct pixel-level access to P96 screen framebuffers and
+wraps the P96 PiP (Picture-in-Picture) overlay API.
+
+Works on ALL P96-compatible hardware: Vampire/SAGA, Picasso boards,
+UAE RTG, etc. Not SAGA-specific.
+
+Two sub-areas:
+  A) Direct pixel operations via p96LockBitMap for bulk rendering
+  B) Bulk pixel transfer with format conversion (WritePixelArray)
+  C) PiP windows for video overlay, live preview, scaled display
+
+
+2.2 Direct Pixel API
+--------------------
+
+Uses p96LockBitMap/p96UnlockBitMap for safe direct framebuffer
+access with proper format handling. Unlike raw POKE (which assumes
+you know the framebuffer layout), these functions provide the
+actual buffer address, pitch, and pixel format.
+
+  EXTERNAL p96gfx
+
+  '--- Lock the screen for direct pixel access ---
+  ' Returns a handle (>0) on success, 0 on failure.
+  ' After locking, use P96GfxAddr, P96GfxPitch, P96GfxFormat
+  ' to get framebuffer parameters.
+  ' WARNING: Do not hold the lock for more than ~1 second.
+  ' No graphics.library calls while locked!
+  handle& = P96GfxLock&(bitmap&)
+
+  '--- Get locked framebuffer properties ---
+  addr& = P96GfxAddr&          ' base address of pixel data
+  pitch% = P96GfxPitch%        ' bytes per row (may differ from w*bpp)
+  fmt% = P96GfxFormat%         ' RGBFTYPE enum value
+
+  '--- Unlock ---
+  P96GfxUnlock(bitmap&, handle&)
+
+  '--- Plot a single pixel (8-bit CLUT) ---
+  ' For 8-bit indexed screens. Writes directly to locked buffer.
+  P96GfxPlot8(addr&, pitch%, x%, y%, colorIndex%)
+
+  '--- Plot a pixel (32-bit ARGB) ---
+  P96GfxPlot32(addr&, pitch%, x%, y%, argb&)
+
+  '--- Horizontal line (8-bit, fast fill) ---
+  P96GfxHLine8(addr&, pitch%, x1%, x2%, y%, colorIndex%)
+
+  '--- Horizontal line (32-bit) ---
+  P96GfxHLine32(addr&, pitch%, x1%, x2%, y%, argb&)
+
+  '--- Fill rectangle (8-bit) ---
+  P96GfxRect8(addr&, pitch%, x%, y%, w%, h%, colorIndex%)
+
+  '--- Fill rectangle (32-bit) ---
+  P96GfxRect32(addr&, pitch%, x%, y%, w%, h%, argb&)
+
+  '--- Block copy within framebuffer ---
+  ' Copies a rectangular region. Handles overlapping regions
+  ' correctly (copies in the right direction).
+  P96GfxCopy(addr&, pitch%, sx%, sy%, dx%, dy%, w%, h%, bpp%)
+
+  '--- Read a pixel (8-bit) ---
+  color% = P96GfxGet8%(addr&, pitch%, x%, y%)
+
+  '--- Read a pixel (32-bit) ---
+  argb& = P96GfxGet32&(addr&, pitch%, x%, y%)
+
+
+2.3 Bulk Pixel Transfer API (WritePixelArray/ReadPixelArray)
+------------------------------------------------------------
+
+P96 provides p96WritePixelArray and p96ReadPixelArray which handle
+format conversion automatically. These are better when:
+- You have pixel data in a known format (e.g. R8G8B8) and want
+  to write it to a screen regardless of the screen's native format
+- You want to read screen pixels into a specific format
+
+  '--- Write a pixel buffer to a RastPort ---
+  ' Writes from a memory buffer to a RastPort.
+  ' P96 handles format conversion automatically.
+  ' bufAddr&  = pointer to pixel data in memory
+  ' bpr%      = bytes per row of the source buffer
+  ' fmt%      = source RGBFTYPE (e.g. RGBFB_R8G8B8 = 2)
+  P96GfxWriteArray(bufAddr&, bpr%, fmt%, sx%, sy%, ~
+                   rp&, dx%, dy%, w%, h%)
+
+  '--- Read pixels from a RastPort to a buffer ---
+  P96GfxReadArray(bufAddr&, bpr%, fmt%, dx%, dy%, ~
+                  rp&, sx%, sy%, w%, h%)
+
+These wrap p96WritePixelArray/p96ReadPixelArray, which internally
+use a RenderInfo struct:
+  Offset 0: APTR   Memory       ' pixel data pointer
+  Offset 4: WORD   BytesPerRow  ' row stride
+  Offset 6: WORD   pad          ' unused
+  Offset 8: LONG   RGBFormat    ' RGBFTYPE enum
+
+The SUBs build a RenderInfo on the stack from the provided params
+and call the P96 functions.
+
+This is powerful for image display: load image data into a buffer
+in any format, and p96WritePixelArray converts it to the screen's
+native format on the fly.
+
+
+2.4 Implementation Details (Direct Pixel)
+------------------------------------------
+
+Library requirements:
+  LIBRARY "Picasso96API.library"
+  DECLARE FUNCTION p96LockBitMap& LIBRARY Picasso96API
+  DECLARE FUNCTION p96UnlockBitMap LIBRARY Picasso96API
+  DECLARE FUNCTION p96WritePixelArray LIBRARY Picasso96API
+  DECLARE FUNCTION p96ReadPixelArray LIBRARY Picasso96API
+
+All functions are in the existing bmaps/Picasso96API.bmap.
+
+The lock/unlock pattern requires a RenderInfo struct (12 bytes).
+After p96LockBitMap, the submod reads the RenderInfo fields and
+stores them in SHARED module variables for the accessor functions.
+
+The pixel plotting/filling SUBs use POKE/PEEK on the locked
+buffer. For 8-bit: offset = y * pitch + x. For 32-bit:
+offset = y * pitch + x * 4. For 16-bit: offset = y * pitch + x * 2.
+
+Overlap-safe copy (P96GfxCopy) must check direction:
+  If dy > sy (copying downward): iterate rows bottom-to-top
+  If dy < sy (copying upward): iterate rows top-to-bottom
+  If dy = sy and dx > sx: iterate right-to-left per row
+
+
+2.5 PiP (Picture-in-Picture) API
+---------------------------------
+
+P96's PiP system provides hardware-accelerated overlay windows.
+A PiP window displays a source bitmap scaled and format-converted
+in real time by the graphics hardware. Ideal for:
+  - Video playback overlays
+  - Live camera/preview windows
+  - Scaled display of a different pixel format than the screen
+  - Multi-buffered rendering with automatic vblank sync
+
+The PiP window is a standard Intuition window (supports dragging,
+resizing, close gadget, IDCMP). The hardware scales the source
+bitmap to fit the window interior.
+
+API:
+
+  '--- Open a PiP window ---
+  ' Opens a PiP overlay window on the specified screen.
+  ' srcFmt%   = RGBFTYPE of source data (e.g. RGBFB_R5G6B5 = 10)
+  ' srcW%, srcH% = dimensions of the source bitmap
+  ' winX%, winY% = window position on screen
+  ' winW%, winH% = window interior size (PiP scales to fit)
+  ' screen&   = Screen pointer (use SCREEN(1) for current screen)
+  ' flags%    = window flags bitmask:
+  '             bit 0: close gadget
+  '             bit 1: drag bar
+  '             bit 2: size gadget
+  '             bit 3: depth gadget
+  ' numBufs%  = number of buffers (1=single, 2=double, 3=triple)
+  ' Returns the Intuition Window pointer, or 0 on failure.
+  win& = P96PipOpen&(srcFmt%, srcW%, srcH%, ~
+                     winX%, winY%, winW%, winH%, ~
+                     screen&, flags%, numBufs%)
+
+  '--- Get the PiP source bitmap ---
+  ' Returns the BitMap pointer for the PiP source.
+  ' Draw into this (via lock, or p96WritePixelArray) to update
+  ' the PiP display.
+  bm& = P96PipBitMap&(win&)
+
+  '--- Get the PiP source RastPort ---
+  ' Returns an unclipped RastPort for the source bitmap.
+  ' You can use standard graphics.library calls on this.
+  rp& = P96PipRastPort&(win&)
+
+  '--- Swap buffers (multi-buffered PiP) ---
+  ' For double/triple buffered PiP: makes the current work buffer
+  ' visible and advances to the next work buffer.
+  ' Synchronized to vblank (no tearing).
+  P96PipSwap(win&)
+
+  '--- Get current work buffer's bitmap ---
+  ' After P96PipSwap, the work buffer changes. Use this to get
+  ' the new work buffer's bitmap for rendering.
+  bm& = P96PipWorkBM&(win&)
+
+  '--- Set brightness ---
+  ' 0 = darkest, 255 = brightest. Default = 0 (normal).
+  P96PipBrightness(win&, level%)
+
+  '--- Close the PiP window ---
+  P96PipClose(win&)
+
+  '--- Error code from last open attempt ---
+  ' PIPERR values:
+  '   1 = NOMEMORY       (out of memory)
+  '   2 = ATTACHFAIL     (failed to attach to screen)
+  '   3 = NOTAVAILABLE   (PiP not available on this hardware)
+  '   4 = OUTOFPENS      (no free pen for color key)
+  '   5 = BADDIMENSIONS  (invalid format/size)
+  '   6 = NOWINDOW       (couldn't open window)
+  '   7 = BADALIGNMENT   (alignment not supported)
+  '   8 = CROPPED        (would be cropped, not allowed)
+  err% = P96PipError%
+
+
+2.6 Implementation Details (PiP)
+---------------------------------
+
+Uses the P96 PiP API from Picasso96API.library:
+
+  DECLARE FUNCTION p96PIP_OpenTagList& LIBRARY Picasso96API
+  DECLARE FUNCTION p96PIP_Close LIBRARY Picasso96API
+  DECLARE FUNCTION p96PIP_GetTagList& LIBRARY Picasso96API
+  DECLARE FUNCTION p96PIP_SetTagList& LIBRARY Picasso96API
+
+All available in bmaps/Picasso96API.bmap.
+
+P96PipOpen builds a tag list in a LONGINT array:
+  P96PIP_SourceFormat,    srcFmt%
+  P96PIP_SourceWidth,     srcW%
+  P96PIP_SourceHeight,    srcH%
+  P96PIP_NumberOfBuffers, numBufs%   ' if > 1
+  P96PIP_ErrorCode,       @errVar%   ' to capture error
+  WA_CustomScreen,        screen&
+  WA_InnerWidth,          winW%
+  WA_InnerHeight,         winH%
+  WA_Left,                winX%
+  WA_Top,                 winY%
+  WA_IDCMP,               IDCMP_CLOSEWINDOW
+  WA_CloseGadget,         (flags bit 0)
+  WA_DragBar,             (flags bit 1)
+  WA_SizeGadget,          (flags bit 2)
+  WA_DepthGadget,         (flags bit 3)
+  WA_Activate,            TRUE
+  TAG_DONE
+
+Tag list is built in a DIM tags&(40) array and passed to
+p96PIP_OpenTagList.
+
+Key tag values (from Picasso96.h):
+  P96PIP base = &H80030060
+  P96PIP_SourceFormat      = &H80030061
+  P96PIP_SourceBitMap      = &H80030062
+  P96PIP_SourceRPort       = &H80030063
+  P96PIP_SourceWidth       = &H80030064
+  P96PIP_SourceHeight      = &H80030065
+  P96PIP_Type              = &H80030066
+  P96PIP_ErrorCode         = &H80030067
+  P96PIP_Brightness        = &H80030068
+  P96PIP_NumberOfBuffers   = (newer P96 versions)
+  P96PIP_WorkBuffer        = (newer P96 versions)
+  P96PIP_VisibleBuffer     = (newer P96 versions)
+  P96PIP_DisplayedBuffer   = (newer P96 versions)
+
+P96PipBitMap and P96PipRastPort use p96PIP_GetTagList with
+P96PIP_SourceBitMap / P96PIP_SourceRPort tags.
+
+P96PipSwap uses p96PIP_GetTagList to read current WorkBuffer and
+DisplayedBuffer, then p96PIP_SetTagList to set:
+  P96PIP_VisibleBuffer = current work buffer
+  P96PIP_WorkBuffer = next buffer
+With WaitTOF if next work buffer == displayed buffer (avoid
+writing to the buffer being scanned out).
+
+Note on p96PIP_GetIMsg/p96PIP_ReplyIMsg: these are OBSOLETE.
+Standard GetMsg()/ReplyMsg() from exec.library work for PiP
+window IDCMP messages.
+
+Note: The PiP multi-buffering tags (NumberOfBuffers, WorkBuffer,
+VisibleBuffer, DisplayedBuffer) may not be available on older P96
+versions. The submod should handle this gracefully by falling back
+to single-buffer mode if the open fails with multi-buffer tags.
+
+
+2.7 RGBFTYPE Constants
+-----------------------
+
+Provided as constants in the header file (include/submods/P96Gfx.h):
+
+  CONST RGBFB_NONE       = 0
+  CONST RGBFB_CLUT       = 1   ' 8-bit indexed
+  CONST RGBFB_R8G8B8     = 2   ' 24-bit RGB (3 bytes/pixel)
+  CONST RGBFB_B8G8R8     = 3   ' 24-bit BGR
+  CONST RGBFB_R5G6B5PC   = 4   ' 16-bit HiColor (byte-swapped)
+  CONST RGBFB_R5G5B5PC   = 5   ' 15-bit HiColor (byte-swapped)
+  CONST RGBFB_A8R8G8B8   = 6   ' 32-bit ARGB (4 bytes/pixel)
+  CONST RGBFB_A8B8G8R8   = 7   ' 32-bit ABGR
+  CONST RGBFB_R8G8B8A8   = 8   ' 32-bit RGBA
+  CONST RGBFB_B8G8R8A8   = 9   ' 32-bit BGRA
+  CONST RGBFB_R5G6B5     = 10  ' 16-bit HiColor (big-endian, Amiga native)
+  CONST RGBFB_R5G5B5     = 11  ' 15-bit HiColor (big-endian)
+
+For Amiga/68k (big-endian), the non-PC variants (R5G6B5, R5G5B5)
+are typically preferred. SAGA uses R5G6B5 for 16-bit mode and
+A8R8G8B8 for 32-bit mode.
+
+PiP error constants:
+  CONST PIPERR_NOMEMORY      = 1
+  CONST PIPERR_ATTACHFAIL    = 2
+  CONST PIPERR_NOTAVAILABLE  = 3
+  CONST PIPERR_OUTOFPENS     = 4
+  CONST PIPERR_BADDIMENSIONS = 5
+  CONST PIPERR_NOWINDOW      = 6
+  CONST PIPERR_BADALIGNMENT  = 7
+  CONST PIPERR_CROPPED       = 8
+
+
+2.8 Typical Usage Examples
+--------------------------
+
+Example A: Direct pixel rendering on a P96 screen
+
+  #include <submods/P96Gfx.h>
+  EXTERNAL p96gfx
+
+  SCREEN 1, 800, 600, 8, 13
+  WINDOW 1,"",(0,0)-(799,599),0,1
+
+  ' Get the screen's bitmap
+  bm& = SCREEN(4)
+
+  ' Lock for direct access
+  handle& = P96GfxLock&(bm&)
+  IF handle& THEN
+    addr& = P96GfxAddr&
+    pitch% = P96GfxPitch%
+
+    ' Draw a gradient
+    FOR y% = 0 TO 599
+      P96GfxHLine8(addr&, pitch%, 0, 799, y%, y% / 3)
+    NEXT
+
+    ' Plot some pixels
+    FOR x% = 100 TO 700
+      P96GfxPlot8(addr&, pitch%, x%, 300, 255)
+    NEXT
+
+    P96GfxUnlock(bm&, handle&)
+  END IF
+
+  WHILE INKEY$ = "" : WEND
+  WINDOW CLOSE 1
+  SCREEN CLOSE 1
+
+
+Example B: PiP overlay for video-style display
+
+  #include <submods/P96Gfx.h>
+  EXTERNAL p96gfx
+
+  ' Open a workbench-sized P96 screen
+  SCREEN 1, 800, 600, 8, 13
+  WINDOW 1,"",(0,0)-(799,599),0,1
+
+  ' Open a PiP window with double-buffered 16-bit source
+  ' The PiP hardware scales 320x240 source to 640x480 display
+  ' flags = 3 means close gadget (bit 0) + drag bar (bit 1)
+  win& = P96PipOpen&(RGBFB_R5G6B5, 320, 240, ~
+                     80, 60, 640, 480, ~
+                     SCREEN(1), 3, 2)
+
+  IF win& THEN
+    ' Render into the PiP source
+    bm& = P96PipBitMap&(win&)
+    handle& = P96GfxLock&(bm&)
+    IF handle& THEN
+      addr& = P96GfxAddr&
+      pitch% = P96GfxPitch%
+
+      ' Draw 16-bit pixels (rrrrrggggggbbbbb)
+      FOR y% = 0 TO 239
+        FOR x% = 0 TO 319
+          POKEW addr& + CLNG(y%) * CLNG(pitch%) + CLNG(x%) * 2, ~
+                SHL(x% AND 31, 11) OR SHL(y% AND 63, 5)
+        NEXT
+      NEXT
+
+      P96GfxUnlock(bm&, handle&)
+    END IF
+
+    ' Wait then close
+    WHILE INKEY$ = "" : WEND
+    P96PipClose(win&)
+  END IF
+
+  WINDOW CLOSE 1
+  SCREEN CLOSE 1
+
+
+Example C: Bulk pixel transfer with format conversion
+
+  #include <submods/P96Gfx.h>
+  EXTERNAL p96gfx
+
+  ' Open a 32-bit TrueColor screen
+  SCREEN 1, 800, 600, 32, 13
+  WINDOW 1,"",(0,0)-(799,599),0,1
+
+  ' Allocate a 24-bit RGB buffer (3 bytes per pixel)
+  CONST IMG_W = 256
+  CONST IMG_H = 256
+  LONGINT bufSize&, bufAddr&
+  bufSize& = CLNG(IMG_W) * CLNG(IMG_H) * 3
+  bufAddr& = ALLOC(bufSize&)
+
+  ' Fill with RGB gradient data...
+  ' (application-specific code here)
+
+  ' Write the 24-bit buffer to the 32-bit screen.
+  ' P96 handles R8G8B8 -> screen format conversion automatically.
+  rp& = SCREEN(2)
+  P96GfxWriteArray(bufAddr&, IMG_W * 3, RGBFB_R8G8B8, ~
+                   0, 0, rp&, 100, 100, IMG_W, IMG_H)
+
+  WHILE INKEY$ = "" : WEND
+  WINDOW CLOSE 1
+  SCREEN CLOSE 1
+
+
+========================================================================
+Summary
+========================================================================
+
+  Module  | Priority | Scope         | Key Features
+  ------- | -------- | ------------- | ----------------------------
+  GfxBlit | HIGH     | All screens   | Block copy, masked blit,
+          |          | (native+RTG)  | scroll, fill, double buffer
+          |          |               | via ChangeVPBitMap
+  P96Gfx  | HIGH     | All P96/RTG   | Direct pixel access via
+          |          | hardware      | Lock/Unlock, bulk transfer
+          |          |               | via WritePixelArray, PiP
+          |          |               | overlay windows
+
+Both rated HIGH priority - they are complementary:
+  - GfxBlit works through graphics.library (OS abstraction layer)
+  - P96Gfx works through Picasso96API.library (hardware direct)
+  - Use GfxBlit when OS drawing primitives suffice
+  - Use P96Gfx when you need raw pixel access or PiP overlays
+  - Both can be used together (e.g. P96Gfx for rendering into a
+    buffer, GfxBlit for blitting that buffer to screen)
+
+Files to create:
+  submods/gfxblit/gfxblit.b           ' GfxBlit submod source
+  include/submods/GfxBlit.h           ' GfxBlit header (constants)
+  submods/gfxblit/test_gfxblit.b      ' GfxBlit test program
+  submods/p96gfx/p96gfx.b            ' P96Gfx submod source
+  include/submods/P96Gfx.h            ' P96Gfx header (constants)
+  submods/p96gfx/test_p96gfx.b       ' P96Gfx test program
+  submods/p96gfx/test_pip.b          ' PiP test program

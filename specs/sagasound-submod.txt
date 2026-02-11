@@ -50,6 +50,8 @@ effort (see section 10).
 3. SAGA AUDIO REGISTER MAP
 ----------------------------
 
+Full SAGA register documentation: http://www.apollo-core.com/sagadoc/
+
 The SAGA audio unit uses a unified register block at $DFF400 with 16
 channels, each occupying $10 (16) bytes:
 

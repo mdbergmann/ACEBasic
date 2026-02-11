@@ -1,0 +1,529 @@
+SagaPip - SAGA Picture-in-Picture Submodule for ACE BASIC
+==========================================================
+
+Status: DRAFT
+Date: 2026-02-11
+
+
+1. OVERVIEW
+-----------
+
+Add Vampire SAGA PiP (Picture-in-Picture) support to ACE as a
+self-contained submodule. The SAGA video chipset "Isabel" provides a
+hardware overlay plane that composites a second chunky framebuffer on
+top of the main display, with independent position, size, pixel format,
+palette, and color key transparency.
+
+Key features:
+
+  - Hardware-composited overlay (zero CPU cost)
+  - Arbitrary position and size on screen
+  - Independent pixel format (CLUT8, RGB16, RGB15, RGB32, YUV422)
+  - Independent 256-entry palette (for CLUT8 mode)
+  - Hardware color key transparency
+  - Independent framebuffer pointer (enables double buffering)
+
+The submodule requires zero compiler or runtime changes. It uses
+POKEW/POKEL for direct register access, following the same pattern
+as the SagaSound submodule.
+
+Register reference: http://www.apollo-core.com/sagadoc/
+Local register extract: specs/saga-regs.txt (section 3)
+
+
+2. SAGA CHIPSET CONTEXT
+------------------------
+
+The Vampire SAGA chipset consists of:
+
+  - Arne    : Audio (replaces Paula)         -> SagaSound submod
+  - Isabel  : Video (replaces Lisa/Denise)   -> SagaPip submod (this spec)
+  - Anni    : DMA + Blitter + Copper (replaces Alice/Agnus)
+  - Maggie  : 3D texture mapping unit (new)  -> Maggie submod (separate)
+
+The main SAGA video output is typically managed by P96 (via saga.card)
+or by direct register access ($DFF1EC framebuffer pointer + $DFF1F4
+mode). The PiP plane is a second, independent video layer that sits
+on top of the main display.
+
+
+3. PiP REGISTER MAP
+---------------------
+
+  Address  Name          Size   RW  Description
+  -------  ------------  -----  --  -------------------------------------------
+  $DFF3D0  PipXStrt      WORD   W   X start position (pixels from left)
+  $DFF3D2  PipYStrt      WORD   W   Y start position (pixels from top)
+  $DFF3D4  PipXStop      WORD   W   X stop position (right edge)
+  $DFF3D6  PipYStop      WORD   W   Y stop position (bottom edge)
+  $DFF3D8  PipPtr        LONG   W   Framebuffer address (32-bit)
+  $DFF3DC  PipFormat     WORD   W   Pixel format (see below)
+  $DFF3DE  PipModulo     WORD   W   Row modulo in bytes
+  $DFF3E0  PipColorKey   WORD   W   Color key: bit15=enable, bits11-0=RRRR,GGGG,BBBB
+  $DFF3E2  PipDMARowLen  WORD   W   DMA row length
+
+  PiP palette port (separate from main and sprite palettes):
+  $DFF38C  PIPCOLH       WORD   W   Palette port high word [ID byte, RR byte]
+  $DFF38E  PIPCOLL       WORD   W   Palette port low word  [GG byte, BB byte]
+
+3.1 PipFormat values
+
+  Same pixel format IDs as GFXMODE ($DFF1F4):
+
+  Value  Format    Bits/pixel  Layout
+  -----  --------  ----------  ------------------------------------
+  $01    CLUT8     8           Chunky 256-color (palette indexed)
+  $02    RGB16     16          R5G6B5
+  $03    RGB15     16          0RRRRRGGGGGBBBBB
+  $05    RGB32     32          A8R8G8B8
+  $06    YUV422    16          YUYVYUYV (video color space)
+
+3.2 PipColorKey format
+
+  Bit 15 (mask $8000): enable color key (1=on, 0=off)
+  Bits 11-8: red   (4 bits)
+  Bits  7-4: green (4 bits)
+  Bits  3-0: blue  (4 bits)
+
+  When enabled, pixels matching the color key are transparent,
+  showing the main display underneath.
+
+3.3 PipModulo
+
+  Bytes to skip at the end of each row to reach the next row.
+  Typically 0 when the PiP framebuffer width matches the PiP
+  window width. Set to (buffer_row_bytes - pip_row_bytes) when
+  the framebuffer is wider than the PiP window (e.g., showing
+  a sub-region of a larger buffer).
+
+3.4 PipDMARowLen
+
+  Number of bytes per row for DMA transfer. This should match
+  the PiP window width in bytes:
+    CLUT8:  width
+    RGB16:  width * 2
+    RGB32:  width * 4
+
+3.5 Enabling / disabling PiP
+
+  PiP is enabled by writing a valid framebuffer address to PipPtr
+  and setting PipFormat. It is disabled by writing 0 to PipPtr
+  (no framebuffer = no overlay).
+
+
+4. FILE LAYOUT
+--------------
+
+  submods/sagapip/sagapip.b              Module source
+  include/submods/SagaPip.h              DECLARE SUB header for users
+  submods/sagapip/test_sagapip.b         Test: colored rectangle overlay
+  submods/sagapip/test_sagapip_move.b    Test: moving overlay with joystick
+  submods/sagapip/test_sagapip_ckey.b    Test: color key transparency
+
+
+5. PUBLIC API
+-------------
+
+5.1 Constants (defined in SagaPip.h)
+
+  ' Pixel formats
+  CONST SAGAPIP_CLUT8   = 1    ' 8-bit palette indexed
+  CONST SAGAPIP_RGB16   = 2    ' 16-bit R5G6B5
+  CONST SAGAPIP_RGB15   = 3    ' 15-bit 0RRRRRGGGGGBBBBB
+  CONST SAGAPIP_RGB32   = 5    ' 32-bit A8R8G8B8
+  CONST SAGAPIP_YUV422  = 6    ' 16-bit YUV (video)
+
+  ' Bytes per pixel for each format
+  CONST SAGAPIP_BPP8    = 1
+  CONST SAGAPIP_BPP16   = 2
+  CONST SAGAPIP_BPP32   = 4
+
+5.2 Subroutines
+
+  SUB SagaPipOpen(x%, y%, w%, h%, bufAddr&, fmt%) EXTERNAL
+
+    Enable PiP overlay at position (x%, y%) with size (w% x h%).
+    bufAddr& is the framebuffer address, fmt% is the pixel format.
+
+    Internally sets:
+      PipXStrt  = x%
+      PipYStrt  = y%
+      PipXStop  = x% + w%
+      PipYStop  = y% + h%
+      PipFormat = fmt%
+      PipModulo = 0 (assumes buffer width = window width)
+      PipDMARowLen = w% * bytes_per_pixel(fmt%)
+      PipPtr    = bufAddr&   (enables PiP)
+
+    The buffer must be large enough: w% * h% * bpp bytes minimum.
+
+  SUB SagaPipClose() EXTERNAL
+
+    Disable PiP overlay by writing 0 to PipPtr.
+
+  SUB SagaPipMove(x%, y%) EXTERNAL
+
+    Reposition the PiP window without changing size or buffer.
+    Adjusts PipXStrt, PipYStrt, PipXStop, PipYStop based on
+    current width/height (stored as module-level variables).
+
+  SUB SagaPipBuffer(bufAddr&) EXTERNAL
+
+    Point PiP to a different framebuffer address. Useful for
+    double buffering: render to back buffer, then swap by calling
+    SagaPipBuffer with the new address.
+
+  SUB SagaPipColorKey(enable%, r%, g%, b%) EXTERNAL
+
+    Set or clear color key transparency.
+    enable%: -1 (true) to enable, 0 to disable
+    r%, g%, b%: 0-15 each (4-bit color components)
+
+    When enabled, pixels matching this color are transparent.
+
+  SUB SagaPipModulo(modulo%) EXTERNAL
+
+    Set row modulo for displaying a sub-region of a larger buffer.
+    Default is 0 (set by SagaPipOpen).
+
+  SUB SagaPipPalette(index%, r%, g%, b%) EXTERNAL
+
+    Set a palette entry for CLUT8 mode PiP.
+    index%: 0-255
+    r%, g%, b%: 0-255 each
+
+    Writes to $DFF38C/$DFF38E (PiP palette port).
+
+
+6. IMPLEMENTATION DETAILS
+--------------------------
+
+6.1 Module-level state
+
+  The module tracks current position and size so that SagaPipMove
+  can adjust stop positions without the caller re-specifying the
+  size:
+
+    DIM SHARED pipW%, pipH%, pipBpp%
+
+  These are set by SagaPipOpen and read by SagaPipMove.
+
+6.2 SagaPipOpen implementation
+
+  SUB SagaPipOpen(x%, y%, w%, h%, bufAddr&, fmt%) EXTERNAL
+    SHARED pipW%, pipH%, pipBpp%
+
+    pipW% = w%
+    pipH% = h%
+
+    IF fmt% = SAGAPIP_RGB32 THEN
+      pipBpp% = 4
+    ELSEIF fmt% = SAGAPIP_CLUT8 THEN
+      pipBpp% = 1
+    ELSE
+      pipBpp% = 2
+    END IF
+
+    POKEW &HDFF3D0, x%               ' PipXStrt
+    POKEW &HDFF3D2, y%               ' PipYStrt
+    POKEW &HDFF3D4, x% + w%          ' PipXStop
+    POKEW &HDFF3D6, y% + h%          ' PipYStop
+    POKEW &HDFF3DC, fmt%             ' PipFormat
+    POKEW &HDFF3DE, 0                ' PipModulo (0 = no skip)
+    POKEW &HDFF3E2, w% * pipBpp%     ' PipDMARowLen
+    POKEL &HDFF3D8, bufAddr&         ' PipPtr (enables PiP)
+  END SUB
+
+6.3 SagaPipClose implementation
+
+  SUB SagaPipClose() EXTERNAL
+    POKEL &HDFF3D8, 0                ' PipPtr = 0 disables PiP
+  END SUB
+
+6.4 SagaPipMove implementation
+
+  SUB SagaPipMove(x%, y%) EXTERNAL
+    SHARED pipW%, pipH%
+
+    POKEW &HDFF3D0, x%               ' PipXStrt
+    POKEW &HDFF3D2, y%               ' PipYStrt
+    POKEW &HDFF3D4, x% + pipW%       ' PipXStop
+    POKEW &HDFF3D6, y% + pipH%       ' PipYStop
+  END SUB
+
+6.5 SagaPipBuffer implementation
+
+  SUB SagaPipBuffer(bufAddr&) EXTERNAL
+    POKEL &HDFF3D8, bufAddr&         ' PipPtr
+  END SUB
+
+6.6 SagaPipColorKey implementation
+
+  SUB SagaPipColorKey(enable%, r%, g%, b%) EXTERNAL
+    SHORTINT val%
+
+    val% = (r% AND &HF) * 256 + (g% AND &HF) * 16 + (b% AND &HF)
+    IF enable% THEN val% = val% OR &H8000
+
+    POKEW &HDFF3E0, val%             ' PipColorKey
+  END SUB
+
+6.7 SagaPipModulo implementation
+
+  SUB SagaPipModulo(modulo%) EXTERNAL
+    POKEW &HDFF3DE, modulo%          ' PipModulo
+  END SUB
+
+6.8 SagaPipPalette implementation
+
+  SUB SagaPipPalette(index%, r%, g%, b%) EXTERNAL
+    POKEW &HDFF38C, (index% * 256) + r%   ' PIPCOLH [ID, RR]
+    POKEW &HDFF38E, (g% * 256) + b%       ' PIPCOLL [GG, BB]
+  END SUB
+
+6.9 No ASSEM needed
+
+  All operations use POKEW/POKEL/PEEKW. Same rationale as SagaSound:
+  register setup runs once per open/move/close, not in a hot loop.
+
+
+7. USAGE EXAMPLES
+------------------
+
+7.1 Basic overlay - red rectangle on screen
+
+  #include <submods/SagaPip.h>
+  EXTERNAL sagapip
+
+  ' Allocate a 160x120 RGB16 framebuffer
+  DIM pipBufSize&
+  pipBufSize& = 160& * 120& * 2       ' 38400 bytes
+  pipBuf& = ALLOC(pipBufSize&)
+
+  ' Fill with red (R5G6B5: R=31, G=0, B=0 = $F800)
+  FOR i& = 0 TO pipBufSize& - 2 STEP 2
+    POKEW pipBuf& + i&, &HF800
+  NEXT
+
+  ' Show PiP at position (100, 50)
+  SagaPipOpen(100, 50, 160, 120, pipBuf&, SAGAPIP_RGB16)
+
+  SLEEP
+  SagaPipClose()
+  FREE(pipBuf&)
+
+7.2 Moving overlay with joystick
+
+  #include <submods/SagaPip.h>
+  EXTERNAL sagapip
+
+  ' Allocate and fill a 64x64 CLUT8 buffer
+  pipBuf& = ALLOC(64& * 64&)
+  FOR i& = 0 TO 4095
+    POKE pipBuf& + i&, (i& AND 255)   ' gradient pattern
+  NEXT
+
+  ' Set some palette colors for PiP
+  FOR i% = 0 TO 255
+    SagaPipPalette(i%, i%, 255 - i%, 128)
+  NEXT
+
+  SagaPipOpen(100, 100, 64, 64, pipBuf&, SAGAPIP_CLUT8)
+
+  ' Move with joystick until button pressed
+  px% = 100 : py% = 100
+  WHILE STICK(0) <> 0 OR STRIG(0) = 0
+    jx% = STICK(1) : jy% = STICK(0)
+    IF jx% = 7 OR jx% = 8 OR jx% = 9 THEN px% = px% + 2
+    IF jx% = 1 OR jx% = 2 OR jx% = 3 THEN px% = px% - 2
+    IF jy% = 1 OR jy% = 4 OR jy% = 7 THEN py% = py% - 2
+    IF jy% = 3 OR jy% = 6 OR jy% = 9 THEN py% = py% + 2
+    SagaPipMove(px%, py%)
+    SLEEP FOR .02    ' ~50 fps
+  WEND
+
+  SagaPipClose()
+  FREE(pipBuf&)
+
+7.3 Color key transparency
+
+  #include <submods/SagaPip.h>
+  EXTERNAL sagapip
+
+  ' Allocate 80x60 RGB16 buffer
+  pipBuf& = ALLOC(80& * 60& * 2)
+
+  ' Fill with a circle on a green background
+  ' Green = $07E0 in R5G6B5, used as transparent color key
+  FOR y% = 0 TO 59
+    FOR x% = 0 TO 79
+      dx% = x% - 40 : dy% = y% - 30
+      IF dx%*dx% + dy%*dy% < 400 THEN
+        POKEW pipBuf& + (y% * 160) + (x% * 2), &HF800  ' red circle
+      ELSE
+        POKEW pipBuf& + (y% * 160) + (x% * 2), &H07E0  ' green bg
+      END IF
+    NEXT
+  NEXT
+
+  SagaPipOpen(200, 100, 80, 60, pipBuf&, SAGAPIP_RGB16)
+
+  ' Enable color key: green ($07E0 -> R=0, G=15, B=0 in 4-bit)
+  SagaPipColorKey(-1, 0, 15, 0)
+
+  SLEEP
+  SagaPipClose()
+  FREE(pipBuf&)
+
+7.4 Double buffering
+
+  #include <submods/SagaPip.h>
+  EXTERNAL sagapip
+
+  bufSize& = 160& * 120& * 2
+  buf0& = ALLOC(bufSize&)
+  buf1& = ALLOC(bufSize&)
+  frontBuf& = buf0&
+
+  SagaPipOpen(100, 50, 160, 120, frontBuf&, SAGAPIP_RGB16)
+
+  ' Render loop: draw to back buffer, then swap
+  FOR frame% = 0 TO 99
+    IF frontBuf& = buf0& THEN
+      backBuf& = buf1&
+    ELSE
+      backBuf& = buf0&
+    END IF
+
+    ' ... render into backBuf& ...
+
+    ' Swap
+    SagaPipBuffer(backBuf&)
+    frontBuf& = backBuf&
+  NEXT
+
+  SagaPipClose()
+  FREE(buf0&)
+  FREE(buf1&)
+
+
+8. HEADER FILE (SagaPip.h)
+----------------------------
+
+  #ifndef SAGAPIP_H
+  #define SAGAPIP_H 1
+
+  {* SagaPip.h - Vampire SAGA PiP overlay submod for ACE BASIC *}
+
+  CONST SAGAPIP_CLUT8   = 1
+  CONST SAGAPIP_RGB16   = 2
+  CONST SAGAPIP_RGB15   = 3
+  CONST SAGAPIP_RGB32   = 5
+  CONST SAGAPIP_YUV422  = 6
+
+  CONST SAGAPIP_BPP8    = 1
+  CONST SAGAPIP_BPP16   = 2
+  CONST SAGAPIP_BPP32   = 4
+
+  DECLARE SUB SagaPipOpen(SHORTINT x, SHORTINT y, ~
+                     SHORTINT w, SHORTINT h, ~
+                     LONGINT buf, SHORTINT fmt) EXTERNAL
+  DECLARE SUB SagaPipClose() EXTERNAL
+  DECLARE SUB SagaPipMove(SHORTINT x, SHORTINT y) EXTERNAL
+  DECLARE SUB SagaPipBuffer(LONGINT buf) EXTERNAL
+  DECLARE SUB SagaPipColorKey(SHORTINT en, SHORTINT r, ~
+                         SHORTINT g, SHORTINT b) EXTERNAL
+  DECLARE SUB SagaPipModulo(SHORTINT m) EXTERNAL
+  DECLARE SUB SagaPipPalette(SHORTINT idx, SHORTINT r, ~
+                        SHORTINT g, SHORTINT b) EXTERNAL
+
+  #endif
+
+
+9. TESTING PLAN
+----------------
+
+Phase 1 - Structural (on emulator, no Vampire needed):
+  - Compile sagapip.b as module: bas -m sagapip
+  - Compile test_sagapip.b linking sagapip.o
+  - Verify no compilation errors
+  - Verify generated .s assembly has correct POKEW/POKEL addresses
+
+Phase 2 - Functional (requires Vampire hardware):
+  - test_sagapip.b: open PiP overlay, verify colored rectangle appears
+  - test_sagapip_move.b: move PiP with joystick, verify smooth repositioning
+  - test_sagapip_ckey.b: verify color key makes background transparent
+  - Test all pixel formats: CLUT8, RGB16, RGB15, RGB32
+  - Test CLUT8 palette: verify SagaPipPalette sets colors correctly
+  - Test double buffering: verify no tearing
+  - Test SagaPipModulo: display sub-region of larger buffer
+  - Test edge cases: PiP at screen edge, PiP larger than screen,
+    PiP at position (0,0), PiP moved off-screen
+
+
+10. USE CASES
+--------------
+
+10.1 Video playback overlay
+
+  YUV422 format allows hardware video playback without CPU color
+  space conversion. A video decoder writes YUV frames to the PiP
+  buffer and the hardware displays them composited over the main
+  screen.
+
+10.2 Game mini-map / HUD
+
+  A small CLUT8 or RGB16 PiP window showing a mini-map or status
+  overlay on top of the main game screen. Zero CPU cost for the
+  compositing means no frame rate penalty.
+
+10.3 Debug / status overlay
+
+  A small text-mode overlay showing FPS counters, register values,
+  or debug output on top of any running application.
+
+10.4 Image viewer thumbnail
+
+  Display a zoomed/cropped sub-region using PipModulo to show a
+  window into a larger loaded image.
+
+10.5 Maggie 3D + PiP
+
+  The Maggie 3D unit renders into a chunky framebuffer. PiP can
+  overlay a 2D HUD or UI on top of the 3D-rendered main screen
+  without requiring the 3D engine to composite 2D elements.
+
+
+11. RELATION TO OTHER SPECS
+-----------------------------
+
+  - specs/saga-regs.txt: Full SAGA register reference (section 3 = PiP)
+  - specs/sagasound-submod.txt: Same pattern, audio unit
+  - specs/p96-screen-support.txt: P96 SCREEN mode 13 (main display)
+  - specs/maggie-3d-submod.txt: Maggie 3D (section 13 has SAGA overview)
+
+  PiP works alongside P96 screens. The main display can be managed
+  by P96 (SCREEN mode 13) while PiP is controlled independently
+  via direct register access. They do not conflict.
+
+
+12. OPEN QUESTIONS
+-------------------
+
+  Q1: Does PipPtr need any alignment (e.g., 32-byte like audio)?
+      The register documentation does not specify. Testing needed.
+
+  Q2: What happens when PiP extends beyond screen boundaries?
+      Does the hardware clip, or does it wrap/corrupt?
+
+  Q3: Is there a maximum PiP size? Can it cover the full screen?
+
+  Q4: Does PiP work in all main display modes (planar, chunky,
+      all resolutions), or only when the main display is chunky?
+
+  Q5: The PipColorKey format shows 4-bit RGB (12-bit color).
+      How does this map to 16-bit or 32-bit pixel data?
+      Presumably the hardware compares only the top 4 bits of
+      each color component.
+
+  These should be answered by testing on Vampire hardware.

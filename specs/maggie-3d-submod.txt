@@ -1,0 +1,540 @@
+Maggie 3D Submodule for ACE BASIC
+===================================
+
+Status: DRAFT
+Date: 2026-02-10
+
+
+1. OVERVIEW
+-----------
+
+Add Vampire Maggie 3D hardware support to ACE via a submodule that
+wraps maggie.library. Maggie is a hardware texture mapping unit in the
+Vampire FPGA that provides:
+
+  - Perspective-correct texture mapping
+  - Nearest-neighbor and bilinear filtering
+  - Hardware Z-buffering
+  - DXT texture compression
+  - 32-bit color output
+  - Gouraud shading
+  - Hardware lighting (8 lights)
+  - Sprite rendering
+  - Up to 1920x1080 output
+
+Maggie is accessed through maggie.library, an Amiga shared library
+with a standard .fd file defining 56 functions. The library handles
+all hardware register access internally.
+
+Source: https://github.com/RMortenB/MaggieLibrary (MIT license)
+Chip registers at: $DFF250 (managed by library, not user)
+
+
+2. THE FPU REGISTER PROBLEM
+-----------------------------
+
+ACE's LIBRARY call mechanism (libfunc.c) only supports passing
+parameters in d0-d7 and a0-a5 registers. It uses move.l for all
+parameter loading.
+
+However, many Maggie functions require FPU registers (fp0-fp2):
+
+  magVertex(x,y,z)                    -> fp0, fp1, fp2
+  magNormal(x,y,z)                    -> fp0, fp1, fp2
+  magTexCoord(texReg,u,v)             -> d0, fp0, fp1
+  magTexCoord3(texReg,u,v,w)          -> d0, fp0, fp1, fp2
+  magSetLightPosition(light,x,y,z)    -> d0, fp0, fp1, fp2
+  magSetLightDirection(light,x,y,z)   -> d0, fp0, fp1, fp2
+  magSetLightCone(light,phi)          -> d0, fp0
+  magSetLightAttenuation(light,att)   -> d0, fp0
+  magDrawSprites(start,n,size)        -> d0, d1, fp0
+  magDrawSpritesUP(vtx,n,size)        -> a0, d0, fp0
+
+Functions that use ONLY d/a registers work with ACE today:
+
+  magSetScreenMemory(pixels,xres,yres) -> a0, d0, d1      OK
+  magSetTexture(unit,data)             -> d0, d1           OK
+  magSetDrawMode(mode)                 -> d0               OK
+  magSetRGB(rgb)                       -> d0               OK
+  magGetDepthBuffer()                  -> (none)           OK
+  magSetWorldMatrix(matrix)            -> a0               OK
+  magSetViewMatrix(matrix)             -> a0               OK
+  magSetPerspectiveMatrix(matrix)      -> a0               OK
+  magDrawTrianglesUP(vtx,nVerts)       -> a0, d0           OK
+  magDrawIndexedTrianglesUP(...)       -> a0, d0, a1, d1   OK
+  magDrawIndexedPolygonsUP(...)        -> a0, d0, a1, d1   OK
+  magSetVertexBuffer(vBuffer)          -> d0               OK
+  magSetIndexBuffer(iBuffer)           -> d0               OK
+  magDrawTriangles(start,n)            -> d0, d1           OK
+  magDrawIndexedTriangles(...)         -> d0-d3            OK
+  magDrawIndexedPolygons(...)          -> d0-d3            OK
+  magAllocateVertexBuffer(n)           -> d0               OK
+  magUploadVertexBuffer(...)           -> d0, a0, d1, d2   OK
+  magFreeVertexBuffer(vBuffer)         -> d0               OK
+  magAllocateIndexBuffer(n)            -> d0               OK
+  magUploadIndexBuffer(...)            -> d0, a0, d1, d2   OK
+  magFreeIndexBuffer(iBuffer)          -> d0               OK
+  magAllocateTexture(size)             -> d0               OK
+  magUploadTexture(...)                -> d0, d1, a0, d2   OK
+  magFreeTexture(txtr)                 -> d0               OK
+  magBeginScene()                      -> (none)           OK
+  magEndScene()                        -> (none)           OK
+  magBegin()                           -> (none)           OK
+  magEnd()                             -> (none)           OK
+  magColour(col)                       -> d0               OK
+  magClear(buffers)                    -> d0               OK
+  magSetLightType(light,colour)        -> d0, d1           OK
+  magSetLightColour(light,colour)      -> d0, d1           OK
+  magClearColour(colour)               -> d0               OK
+  magClearDepth(depth)                 -> d0               OK
+  magScissor(x0,y0,x1,y1)             -> d0-d3            OK
+  magUploadVertexPositions(...)        -> d0, a0, d1, d2   OK
+  magUploadVertexNormals(...)          -> d0, a0, d1, d2   OK
+  magUploadVertexTexCoords2(...)       -> d0, a0, d1, d2   OK
+  magUploadVertexTexCoords3(...)       -> d0, a0, d1, d2   OK
+  magUploadVertexColours(...)          -> d0, a0, d1, d2   OK
+
+That is 40 out of 56 functions that work without any changes.
+
+
+3. APPROACH: TWO-TIER ACCESS
+------------------------------
+
+3.1 Tier 1 - BMAP + DECLARE FUNCTION (d/a register funcs only)
+
+Generate a maggie.bmap from the .fd file and provide a header with
+DECLARE FUNCTION statements. This gives immediate access to the 40
+functions that only use d/a registers.
+
+This covers: scene management, buffer allocation, texture management,
+indexed drawing, scissor, clearing, lighting type/colour, and the
+critical buffer-based rendering path (magDrawTriangles,
+magDrawIndexedTriangles, magUploadVertexBuffer, etc.).
+
+The buffer-based path is actually the FASTEST rendering method and
+does not need FPU registers at all. The user builds vertex data in
+memory (struct arrays) and uploads via magUploadVertexBuffer.
+
+3.2 Tier 2 - ASSEM wrappers for FPU-register functions
+
+For the 16 functions requiring fp0-fp2, provide wrapper SUBs in a
+submodule that use ASSEM blocks to load FPU registers manually:
+
+  SUB MagVertex(x!, y!, z!) EXTERNAL
+    ASSEM
+      fmove.s  -8(a5),fp0     ; x (first SINGLE param)
+      fmove.s -12(a5),fp1     ; y
+      fmove.s -16(a5),fp2     ; z
+    END ASSEM
+    ' Then call the library function via its LVO
+    ASSEM
+      move.l   _maggieBase,a6
+      jsr      -168(a6)       ; magVertex LVO
+    END ASSEM
+  END SUB
+
+The exact stack offsets depend on ACE's SUB calling convention
+(parameters on the stack frame via a5). This needs verification
+by examining generated assembly for a test SUB.
+
+Alternative: the wrapper could accept LONGINT parameters containing
+the IEEE 754 bit pattern of the float, avoiding SINGLE on the stack:
+
+  SUB MagVertex(xBits&, yBits&, zBits&) EXTERNAL
+    ASSEM
+      move.l   -8(a5),d0
+      fmove.s  d0,fp0
+      move.l  -12(a5),d1
+      fmove.s  d1,fp1
+      move.l  -16(a5),d2
+      fmove.s  d2,fp2
+      move.l   _maggieBase,a6
+      jsr      -168(a6)
+    END ASSEM
+  END SUB
+
+
+4. LVO TABLE (from maggie.fd, bias 30)
+----------------------------------------
+
+  Function                       LVO     Registers
+  -----------------------------  ------  ---------------
+  magSetScreenMemory              -30    a0,d0,d1
+  magSetTexture                   -36    d0,d1
+  magSetDrawMode                  -42    d0
+  magSetRGB                       -48    d0
+  magGetDepthBuffer               -54    (none)
+  magSetWorldMatrix               -60    a0
+  magSetViewMatrix                -66    a0
+  magSetPerspectiveMatrix         -72    a0
+  magDrawTrianglesUP              -78    a0,d0
+  magDrawIndexedTrianglesUP       -84    a0,d0,a1,d1
+  magDrawIndexedPolygonsUP        -90    a0,d0,a1,d1
+  magSetVertexBuffer              -96    d0
+  magSetIndexBuffer              -102    d0
+  magDrawTriangles               -108    d0,d1
+  magDrawIndexedTriangles        -114    d0,d1,d2,d3
+  magDrawIndexedPolygons         -120    d0,d1,d2,d3
+  magDrawLinearSpan              -126    a0,a1
+  magDrawSpan                    -132    a0,a1
+  magAllocateVertexBuffer        -138    d0
+  magUploadVertexBuffer          -144    d0,a0,d1,d2
+  magFreeVertexBuffer            -150    d0
+  magAllocateIndexBuffer         -156    d0
+  magUploadIndexBuffer           -162    d0,a0,d1,d2
+  magFreeIndexBuffer             -168    d0
+  magAllocateTexture             -174    d0
+  magUploadTexture               -180    d0,d1,a0,d2
+  magFreeTexture                 -186    d0
+  magBeginScene                  -192    (none)
+  magEndScene                    -198    (none)
+  magBegin                       -204    (none)
+  magEnd                         -210    (none)
+  magVertex                      -216    fp0,fp1,fp2      *FPU*
+  magNormal                      -222    fp0,fp1,fp2      *FPU*
+  magTexCoord                    -228    d0,fp0,fp1       *FPU*
+  magTexCoord3                   -234    d0,fp0,fp1,fp2   *FPU*
+  magColour                      -240    d0
+  magClear                       -246    (none) -> d0
+  magSetLightType                -252    d0,d1
+  magSetLightPosition            -258    d0,fp0,fp1,fp2   *FPU*
+  magSetLightDirection           -264    d0,fp0,fp1,fp2   *FPU*
+  magSetLightCone                -270    d0,fp0           *FPU*
+  magSetLightAttenuation         -276    d0,fp0           *FPU*
+  magSetLightColour              -282    d0,d1
+  magClearColour                 -288    d0
+  magClearDepth                  -294    d0
+  magScissor                     -300    d0,d1,d2,d3
+  magDrawSprites                 -306    d0,d1,fp0        *FPU*
+  magDrawSpritesUP               -312    a0,d0,fp0        *FPU*
+  magUploadVertexPositions       -318    d0,a0,d1,d2
+  magUploadVertexNormals         -324    d0,a0,d1,d2
+  magUploadVertexTexCoords2      -330    d0,a0,d1,d2
+  magUploadVertexTexCoords3      -336    d0,a0,d1,d2
+  magUploadVertexColours         -342    d0,a0,d1,d2
+
+
+5. FILE LAYOUT
+--------------
+
+  bmaps/maggie.bmap                  Generated from maggie.fd
+  include/submods/Maggie3D.h         Constants + DECLARE FUNCTIONs
+  submods/maggie/maggie3d.b          ASSEM wrappers for FPU functions
+  submods/maggie/test_maggie.b       Test program (textured cube)
+
+
+6. PUBLIC API
+--------------
+
+6.1 Direct library functions (via DECLARE FUNCTION in header)
+
+The header file provides DECLARE FUNCTION for all 40 d/a-only
+functions. These are called directly like any Amiga library function.
+
+Example:
+
+  LIBRARY "maggie.library"
+  DECLARE FUNCTION magBeginScene() LIBRARY maggie
+  DECLARE FUNCTION magEndScene() LIBRARY maggie
+  DECLARE FUNCTION magSetScreenMemory&(ADDRESS pixels, ~
+                   LONGINT xres, LONGINT yres) LIBRARY maggie
+  ' ... etc
+
+6.2 Wrapper SUBs for FPU functions (in maggie3d.b submod)
+
+  SUB MagVertex(x!, y!, z!) EXTERNAL
+  SUB MagNormal(x!, y!, z!) EXTERNAL
+  SUB MagTexCoord(texReg%, u!, v!) EXTERNAL
+  SUB MagTexCoord3(texReg%, u!, v!, w!) EXTERNAL
+  SUB MagLightPos(light%, x!, y!, z!) EXTERNAL
+  SUB MagLightDir(light%, x!, y!, z!) EXTERNAL
+  SUB MagLightCone(light%, phi!) EXTERNAL
+  SUB MagLightAtten(light%, att!) EXTERNAL
+  SUB MagDrawSprites(startVtx%, nSprites%, spriteSize!) EXTERNAL
+  SUB MagDrawSpritesUP(ADDRESS vtx, nSprites%, spriteSize!) EXTERNAL
+
+
+7. VERTEX DATA FORMAT
+-----------------------
+
+Maggie's MaggieVertex structure (40 bytes):
+
+  Offset  Size   Field          Description
+  ------  -----  -------------  ---------------------------
+  +0      12     pos (vec3)     3 x SINGLE (x, y, z)
+  +12     12     normal (vec3)  3 x SINGLE (nx, ny, nz)
+  +24     12     tex            3 x SINGLE (u, v, w)
+  +36     4      colour         ULONG (ARGB)
+
+In ACE BASIC, this can be built with a STRUCT:
+
+  STRUCT MaggieVertex
+    SINGLE vx
+    SINGLE vy
+    SINGLE vz
+    SINGLE nx
+    SINGLE ny
+    SINGLE nz
+    SINGLE tu
+    SINGLE tv
+    SINGLE tw
+    LONGINT colour
+  END STRUCT
+
+Index buffers use WORD (16-bit) entries. Use $FFFF as polygon
+separator for magDrawIndexedPolygons.
+
+
+8. USAGE EXAMPLE
+-----------------
+
+8.1 Buffer-based rendering (no FPU wrappers needed)
+
+Display uses a P96/RTG chunky screen (SCREEN mode 13). This works on
+any P96-compatible hardware: Vampire SAGA, Picasso boards, UAE RTG.
+No separate SAGA submodule is needed - SAGA is just P96 underneath.
+
+  #include <submods/Maggie3D.h>
+  EXTERNAL Maggie3D
+
+  CONST XRES = 640
+  CONST YRES = 480
+
+  ' Open a P96 chunky screen + backdrop window for IDCMP
+  SCREEN 1, XRES, YRES, 8, 13
+  WINDOW 1,"",(0,0)-(XRES-1,YRES-1),0,1
+
+  ' Get the linear framebuffer address from the screen's BitMap
+  bitmapAddr& = SCREEN(4)
+  frameAddr& = PEEKL(bitmapAddr& + 8)
+
+  ' Open maggie.library
+  LIBRARY "maggie.library"
+
+  ' Set up Maggie - point it at the P96 framebuffer
+  magBeginScene()
+  magSetScreenMemory(frameAddr&, XRES, YRES)
+  magSetDrawMode(MAG_DRAWMODE_DEPTHBUFFER OR MAG_DRAWMODE_BILINEAR)
+  magClear(MAG_CLEAR_COLOUR OR MAG_CLEAR_DEPTH)
+
+  ' Upload vertex data (pre-built in memory)
+  vBuf% = magAllocateVertexBuffer(24)
+  magUploadVertexBuffer(vBuf%, vertexDataAddr&, 0, 24)
+
+  ' Upload index data
+  iBuf% = magAllocateIndexBuffer(29)
+  magUploadIndexBuffer(iBuf%, indexDataAddr&, 0, 29)
+
+  ' Set matrices (pre-computed 4x4 float arrays)
+  magSetWorldMatrix(worldAddr&)
+  magSetViewMatrix(viewAddr&)
+  magSetPerspectiveMatrix(projAddr&)
+
+  ' Draw
+  magSetVertexBuffer(vBuf%)
+  magSetIndexBuffer(iBuf%)
+  magDrawIndexedPolygons(0, 24, 0, 29)
+
+  magEndScene()
+
+  ' Wait for keypress (IDCMP works via the backdrop window)
+  WHILE INKEY$ = ""
+  WEND
+
+  ' Cleanup
+  magFreeVertexBuffer(vBuf%)
+  magFreeIndexBuffer(iBuf%)
+  LIBRARY CLOSE maggie
+  WINDOW CLOSE 1
+  SCREEN CLOSE 1
+
+
+9. GENERATING THE BMAP FILE
+-----------------------------
+
+The bmap file must be generated from maggie.fd. ACE uses a binary
+format where each entry is:
+
+  - Function name (null-terminated string)
+  - 2-byte LVO offset (big-endian, negative value as unsigned)
+  - Register list (sequence of register index bytes, null-terminated)
+    Register indices: 1=d0, 2=d1, ..., 8=d7, 9=a0, 10=a1, ..., 14=a5
+
+For FPU-register functions, we have a problem: ACE's bmap format
+has no encoding for fp0-fp7. These functions CANNOT be in the bmap.
+This is why they need the ASSEM wrapper approach.
+
+A tool or script must be written to convert the .fd file to .bmap,
+skipping functions that use FPU registers (or including only the
+d/a-register parameter subset).
+
+
+10. DRAW MODES AND CLEAR FLAGS
+--------------------------------
+
+Draw mode flags (for magSetDrawMode):
+
+  CONST MAG_DRAWMODE_NORMAL      = &H0000
+  CONST MAG_DRAWMODE_DEPTHBUFFER = &H0001
+  CONST MAG_DRAWMODE_BILINEAR    = &H0002
+  CONST MAG_DRAWMODE_32BIT       = &H0004
+  CONST MAG_DRAWMODE_LIGHTING    = &H0008
+
+Clear flags (for magClear):
+
+  CONST MAG_CLEAR_COLOUR = &H0001
+  CONST MAG_CLEAR_DEPTH  = &H0002
+
+
+11. IMPLEMENTATION PHASES
+--------------------------
+
+Phase 1 - BMAP + Header (d/a-register functions only)
+  - Write fd-to-bmap converter (skip FPU functions)
+  - Generate bmaps/maggie.bmap
+  - Write include/submods/Maggie3D.h with DECLARE FUNCTIONs
+  - Test: open library, allocate buffers, upload data
+  - No compiler changes needed
+
+Phase 2 - ASSEM wrappers for FPU functions
+  - Write submods/maggie/maggie3d.b with wrapper SUBs
+  - Verify ACE's SINGLE parameter stack layout
+  - Test: immediate mode rendering with MagVertex/MagTexCoord
+  - Test: lighting with MagLightPos/MagLightDir
+
+Phase 3 - Integration with P96 chunky screen
+  - Combine Maggie rendering + P96 display (SCREEN mode 13)
+  - Double-buffered 3D rendering demo
+  - Test on Vampire hardware
+
+Phase 4 (future) - Compiler enhancement
+  - Add FPU register support to ACE's library call mechanism
+  - This would eliminate the need for ASSEM wrappers
+  - Requires changes to libfunc.c (reg[] array, parameter loading)
+  - Would benefit any library using FPU registers, not just Maggie
+
+
+12. TESTING PLAN
+-----------------
+
+Phase 1 - Structural (emulator):
+  - Compile maggie3d.b as module
+  - Verify bmap file loads correctly
+  - Verify DECLARE FUNCTION declarations compile
+
+Phase 2 - Functional (Vampire with maggie.library installed):
+  - Open/close library
+  - Allocate and free buffers
+  - Upload vertex and texture data
+  - Render textured polygon to screen buffer
+  - Verify visual output via P96 chunky screen
+
+
+13. SAGA HARDWARE FEATURES REFERENCE
+--------------------------------------
+
+The Vampire's SAGA (Super AGA) video chipset "Isabel" provides
+features beyond what P96/RTG exposes. For Maggie 3D, P96 SCREEN
+mode 13 is the recommended display path, but the underlying SAGA
+registers are documented here for reference.
+
+Source: ApolloOS sagagfx driver
+  https://github.com/ApolloTeam-dev/ApolloOS
+  arch/m68k-amiga/hidd/sagagfx/sagagfx_hw_v4.h
+
+Full SAGA register documentation:
+  http://www.apollo-core.com/sagadoc/
+
+13.1 Core video registers
+
+  Register   Size    Access  Purpose
+  ---------  ------  ------  ----------------------------------
+  $DFF1EC    ULONG   W       Framebuffer address
+  $DFF1F4    UWORD   W       Video mode (resolution | pixfmt)
+  $DFF1F6    UWORD   W       Video ON (V4 only)
+  $DFF1E6    UWORD   W       Horizontal modulo (bytes per row)
+  $DFF388    ULONG   W       CLUT palette (V4: index in bits 31-24)
+  $DFF400+   ULONG   W       CLUT palette (V2: 256 entries)
+
+Video mode word: high byte = resolution ID, low byte = pixel format.
+Setting $DFF1EC + $DFF1F4 is all that's needed to display a chunky
+framebuffer (this is what the P96 saga.card driver does internally).
+
+13.2 Pixel formats
+
+  ID    Format     Bits/pixel  Layout
+  ----  ---------  ----------  ------------------------------------
+  0x00  Planar     1-8         Classic Amiga bitplanes
+  0x01  CLUT8      8           Chunky 256-color (palette indexed)
+  0x02  RGB16      16          R5G6B5
+  0x03  RGB15      16          0RRRRRGGGGGBBBBB
+  0x04  RGB24      24          R8G8B8
+  0x05  RGB32      32          A8R8G8B8
+  0x06  YUV422     16          YUYVYUYV (video color space)
+
+YUV422 encodes luminance (Y) at full resolution and chrominance
+(U/V) at half horizontal resolution. Useful for hardware video
+playback without CPU color space conversion. Not relevant for
+Maggie 3D (which outputs RGB16 or RGB32).
+
+13.3 Resolution IDs (V4)
+
+  ID    Resolution      ID    Resolution
+  ----  --------------  ----  --------------
+  0x01  320x200         0x0C  800x600
+  0x02  320x240         0x0D  1024x768
+  0x03  320x256         0x0E  720x576
+  0x04  640x400         0x0F  848x480
+  0x05  640x480         0x10  640x200
+  0x06  640x512         0x11  1920x1080
+  0x07  960x540         0x12  1280x1024
+  0x08  480x270         0x13  1280x800
+  0x09  304x224         0x14  1440x900
+  0x0A  1280x720        0x15  720x405
+  0x0B  640x360
+
+13.4 Hardware sprite
+
+  Register       Size    Purpose
+  -------------  ------  ----------------------------------
+  $DFF1D0        UWORD   Sprite X position
+  $DFF1D2        UWORD   Sprite Y position
+  $DFF3A0        UWORD   Sprite CLUT (4 entries, 2 bytes each)
+  $DFF800        UWORD   Sprite pixel data (16x16, 2bpp)
+
+The sprite is 16x16 pixels, 4 colors (2 bits per pixel, classic
+Amiga bitplane format). Color 0 = transparent. Position offset:
+X+16, Y+8 from register value. Hide by setting X/Y to 16383.
+
+The V4+ product page claims 16 sprite channels at 32px wide, but
+only one channel is documented in the open-source driver. The extra
+channels may use adjacent register ranges not yet published.
+
+When using P96 SCREEN mode 13, the OS manages the sprite
+automatically (mouse pointer), so no manual sprite handling is
+needed for typical Maggie 3D applications.
+
+13.5 Undocumented / unimplemented features
+
+The Apollo V4+ product page lists these SAGA features for which
+no public register documentation exists:
+
+  - PiP (Picture-in-Picture) chunky video mode
+  - Third chunky playfield
+  - 16 sprite DMA channels, 32px wide
+  - 10 bitplanes (vs AGA's 8)
+
+These features may be accessible through proprietary APIs or
+future SAGA core updates. The full SAGA register reference at
+http://www.apollo-core.com/sagadoc/ may contain additional
+details on Sprite PiP, extra sprite channels, and other features
+not yet covered in the open-source driver.
+
+
+14. DEPENDENCIES
+-----------------
+
+  - maggie.library must be installed on the Vampire (LIBS:)
+  - Vampire V4 hardware (Maggie is V4-only feature)
+  - Picasso96 RTG (for display output via SCREEN mode 13)
+  - FPU must be available (Vampire 68080 has built-in FPU)
