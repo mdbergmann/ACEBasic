@@ -267,6 +267,28 @@ int  sub_type,def_expr_type;
     /* SUB or DEF FN code? */
     if (subprog == subsym)
     {
+      /* emit TCO re-entry label for eligible SUBs */
+      if (sub_ptr->address != extfunc)
+      {
+	BOOL tco_ok = TRUE;
+	int pi;
+	for (pi = 0; pi < sub_ptr->no_of_params; pi++)
+	{
+	  if (sub_ptr->p_type[pi] == stringtype)
+	  {
+	    tco_ok = FALSE;
+	    break;
+	  }
+	}
+	if (tco_ok)
+	{
+	  char tcr_label[80];
+	  strcpy(tcr_label, sub_name);
+	  strcat(tcr_label, "_tcr:");
+	  gen(tcr_label, "  ", "  ");
+	}
+      }
+
       while ((sym != endsym) && (!end_of_source)) 
       {
        if (sym == sharedsym) parse_shared_vars();

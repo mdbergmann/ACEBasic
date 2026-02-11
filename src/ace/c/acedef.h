@@ -545,6 +545,7 @@ extern	char	*frame_ptr[];
 
 /* opt.c */
 BOOL 	is_a_move();
+SHORT	optimize_tail_calls();
 SHORT	peephole();
 void	optimise();
 
