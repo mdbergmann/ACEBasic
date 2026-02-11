@@ -22,7 +22,31 @@ Phase 1 - TCP Foundation: COMPLETE
   Header: include/submods/HTTPClient.h updated (reserved-word fixes)
   Test: submods/httpclient/test_tcp.b - connects to www.google.com:80, HTTP GET, verified 200 OK
   Verified: module compiles, test compiles+links+runs, HTTP response received
-Phase 2 - HTTP/1.1 GET: NOT STARTED
+Phase 2 - HTTP/1.1 GET: COMPLETE
+  Branch: http-phase2-get
+  Module: submods/httpclient/httpclient.b (~860 lines, was 314)
+  Header: include/submods/HTTPClient.h updated (HttpReadBody 4->3 params)
+  Step 2.1 - Data Structures + Internal Helpers:
+    - Per-connection arrays: connHost$, connPort%, connContentLen&, connBodyLeft&, connXfer%
+    - Read buffer: _bufAddr (4096), _bufPos, _bufLen, _bufSlot
+    - Response headers: _rHdrName$/Val$ (32 slots), request headers: _qHdrName$/Val$ (16 slots)
+    - URL parse: _urlHost$, _urlPort, _urlPath$, _urlSSL
+    - Buffered line reader: _lineBuf, _lineResult$, _lineOk
+    - _HttpSendStr: send string wrapper
+    - _HttpParseUrl: http://host[:port]/path parser
+    - _HttpRecvLine: buffered line reader with CRLF stripping
+    - Updated _HttpInit, HttpOpen (stores host/port), HttpClose (clears per-conn state)
+  Step 2.2 - Low-level API:
+    - HttpSetHeader: case-insensitive header storage
+    - HttpSendRequest: sends request line + Host + custom headers + Connection: close
+    - HttpReadStatus: reads status line + all headers, detects Content-Length/chunked
+    - HttpGetResponseHeader: case-insensitive header lookup
+    - HttpReadBody: drains read buffer leftovers then recv, respects Content-Length/close modes
+  Step 2.3 - High-level API:
+    - HttpGet: URL parse, open, send GET, read status+body, return status code
+    - HttpHead: URL parse, open, send HEAD, read status, return status code
+  Tests: test_lowlevel.b, test_http_get.b
+  Transfer modes: XFER_CLOSE (default), XFER_LENGTH, XFER_CHUNKED (deferred to Phase 3)
 Phase 3 - Chunked Transfer: NOT STARTED
 Phase 4 - POST/PUT Bodies: NOT STARTED
 Phase 5 - Streaming Callbacks: NOT STARTED

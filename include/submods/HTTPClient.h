@@ -25,15 +25,16 @@ CONST HTTP_SSL             = 1
 CONST HTTP_PLAIN           = 0
 
 ' --- High-level convenience API ---
-DECLARE SUB LONGINT HttpGet(STRING url, STRING resp) EXTERNAL
+' Note: respBuf is ADDRESS (pass SADD(str$)); null-terminated after call
+DECLARE SUB LONGINT HttpGet(STRING url, ADDRESS respBuf) EXTERNAL
 DECLARE SUB LONGINT HttpHead(STRING url) EXTERNAL
 DECLARE SUB LONGINT HttpPost(STRING url, STRING ct, ~
-                             STRING body, STRING resp) EXTERNAL
+                             STRING body, ADDRESS respBuf) EXTERNAL
 DECLARE SUB LONGINT HttpPut(STRING url, STRING ct, ~
-                            STRING body, STRING resp) EXTERNAL
+                            STRING body, ADDRESS respBuf) EXTERNAL
 DECLARE SUB LONGINT HttpRequest(STRING url, STRING meth, ~
                                 STRING ct, STRING body, ~
-                                STRING resp) EXTERNAL
+                                ADDRESS respBuf) EXTERNAL
 
 ' --- Streaming API ---
 DECLARE SUB LONGINT HttpGetStream(STRING url, ~
@@ -64,8 +65,7 @@ DECLARE SUB LONGINT HttpReadStatus(LONGINT h) EXTERNAL
 DECLARE SUB STRING HttpGetResponseHeader(LONGINT h, ~
                                          STRING hdrName) EXTERNAL
 DECLARE SUB LONGINT HttpReadBody(LONGINT h, LONGINT dataBuf, ~
-                                 LONGINT bufSize, ~
-                                 LONGINT bytesRead) EXTERNAL
+                                 LONGINT bufSz) EXTERNAL
 DECLARE SUB HttpClose(LONGINT h) EXTERNAL
 
 ' --- Utility ---
