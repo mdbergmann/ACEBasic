@@ -42,7 +42,8 @@
 	Command line and Workbench arguments........1098    18
  
 	Subprograms.................................1149    18
-	Function Pointers and Closures..............1378    22
+	Tail-Call Optimisation......................1390    22
+	Function Pointers and Closures..............1434    23
 	Structures..................................1484    24
 	Shared library function calls...............1539    25
 	Machine code calls..........................1680    27
@@ -414,8 +415,10 @@ The "O" switch causes the assembly source code produced by ACE to be optimised.
 A range of peephole optimisations is currently carried out. Assembly code size
 reductions of around 5% to 10% are usual. Speed improvements vary, depending
 upon the program, however I recommend the use of the -O switch for all programs
-where speed is the least bit important. ACE's optimiser has been improved since 
-v2.0 and it will continue to be improved.
+where speed is the least bit important. ACE's optimiser has been improved since
+v2.0 and it will continue to be improved. In addition to peephole optimisation,
+the -O switch enables tail-call optimisation for eligible recursive SUBs (see
+the "Tail-Call Optimisation" section below).
  
 The "w" switch tells ACE to include checks for window close-gadget clicks.
 ACE checks all open windows and upon detecting a close-gadget click, the
@@ -1381,8 +1384,60 @@ variables in ACE:
 | STRUCTURE	      |	YES	| NO	      |	YES - See "Structures" below |
 +---------------------+---------+-------------+------------------------------+
  
-Note: In the above table, "addr" is a long integer address. VARPTR or @ 
+Note: In the above table, "addr" is a long integer address. VARPTR or @
 can be used to obtain this.
+
+
+Tail-Call Optimisation
+---------------------
+When the -O switch (or OPTION O+) is active, ACE performs tail-call
+optimisation (TCO) on eligible self-recursive SUBs. A tail call is a
+recursive call whose return value is immediately returned to the caller
+without further computation. TCO converts such calls into jumps back to
+the top of the SUB, reusing the current stack frame instead of creating
+a new one. This eliminates stack growth and allows arbitrarily deep
+recursion.
+
+For example, the following GCD function is tail-recursive because each
+recursive call is in tail position (the result is returned directly):
+
+	SUB LONGINT Gcd(a&, b&)
+	  IF b& = 0 THEN
+	    Gcd = a&
+	  ELSE
+	    Gcd = Gcd(b&, a& MOD b&)
+	  END IF
+	END SUB
+
+With TCO, Gcd(1000000, 3) succeeds despite requiring over 300,000
+iterations - something that would overflow the stack without optimisation.
+
+A common technique is the accumulator pattern, which transforms non-tail
+recursion into tail recursion by carrying the result as a parameter:
+
+	REM Non-tail: n% * Factorial(n%-1) -- multiplication AFTER the call
+	REM Tail:     FactAcc(n%-1, n% * acc&) -- result passed forward
+
+	SUB LONGINT FactAcc(n%, acc&)
+	  IF n% <= 1 THEN
+	    FactAcc = acc&
+	  ELSE
+	    FactAcc = FactAcc(n% - 1, n% * acc&)
+	  END IF
+	END SUB
+
+	PRINT FactAcc(12, 1)   ' prints 479001600
+
+TCO applies when all of the following hold:
+  - The SUB calls itself (self-recursion only, not mutual recursion)
+  - The recursive call is in tail position (its return value is assigned
+    directly to the SUB name with no further operations)
+  - All parameters are numeric (SHORT, LONG, SINGLE, or ADDRESS)
+  - The SUB is not declared EXTERNAL, CALLBACK, or INVOKABLE
+
+Calls that are NOT in tail position (such as n% * Factorial(n%-1), where
+multiplication occurs after the call) are left unchanged and continue to
+use normal recursion.
 
 
 Function Pointers and Closures
