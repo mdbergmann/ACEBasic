@@ -1,0 +1,11 @@
+HTTP Submodule Implementation State
+=====================================
+
+Phase 0 - BMAP Generation: COMPLETE
+Phase 1 - TCP Foundation: NOT STARTED
+Phase 2 - HTTP/1.1 GET: NOT STARTED
+Phase 3 - Chunked Transfer: NOT STARTED
+Phase 4 - POST/PUT Bodies: NOT STARTED
+Phase 5 - Streaming Callbacks: NOT STARTED
+Phase 6 - AmiSSL Integration: NOT STARTED
+Phase 7 - Polish: NOT STARTED

@@ -49,3 +49,11 @@ protect ACE:bin/bas +s
 
 
 
+;BEGIN AmiSSL
+Assign AmiSSL: "SYS:AmiSSL"
+If Exists AmiSSL:Libs
+  Assign LIBS: AmiSSL:Libs ADD
+EndIf
+Path AmiSSL: ADD
+;END AmiSSL
+
