@@ -1,5 +1,5 @@
 {* HTTPClient - HTTP/1.1 client submodule for ACE BASIC *}
-{* Phase 2: HTTP/1.1 GET + request/response handling *}
+{* Phase 3: Chunked transfer decoding *}
 
 { ============== Library Declarations ============== }
 
@@ -39,11 +39,17 @@ CONST XFER_CLOSE    = 0
 CONST XFER_LENGTH   = 1
 CONST XFER_CHUNKED  = 2
 
+' Chunk decoder states
+CONST CHK_SIZE    = 0
+CONST CHK_DATA    = 1
+CONST CHK_TRAIL   = 2
+CONST CHK_DONE    = 3
+
 ' Buffer/header limits
 CONST READ_BUF_SIZE = 4096
 CONST MAX_REQ_HDRS  = 16
 CONST MAX_RSP_HDRS  = 32
-CONST MAX_GET_BODY  = 16384
+CONST MAX_GET_BODY  = 65536
 CONST MAX_LINE_LEN  = 1024
 
 { ============== Module Data ============== }
@@ -61,6 +67,10 @@ DIM connContentLen&(3)
 DIM connBodyLeft&(3)
 DIM connXfer%(3)
 
+' Chunked decoder state (Phase 3)
+DIM connChunkState%(3)
+DIM connChunkLeft&(3)
+
 ' Shared read buffer
 ADDRESS _bufAddr
 LONGINT _bufPos
@@ -68,15 +78,15 @@ LONGINT _bufLen
 LONGINT _bufSlot
 
 ' Response headers
-DIM _rHdrName$(31) SIZE 64
-DIM _rHdrVal$(31) SIZE 256
-LONGINT _rHdrCount
-LONGINT _rHdrSlot
+DIM _respHdrName$(31) SIZE 64
+DIM _respHdrVal$(31) SIZE 256
+LONGINT _respHdrCount
+LONGINT _respHdrSlot
 
 ' Request headers
-DIM _qHdrName$(15) SIZE 64
-DIM _qHdrVal$(15) SIZE 256
-LONGINT _qHdrCount
+DIM _reqHdrName$(15) SIZE 64
+DIM _reqHdrVal$(15) SIZE 256
+LONGINT _reqHdrCount
 
 ' URL parse results
 STRING _urlHost$ SIZE 128
@@ -92,18 +102,17 @@ LONGINT _lineOk
 ' CRLF constant
 STRING _crlf$ SIZE 4
 
-' Body read buffer for HttpGet
-ADDRESS _bodyBuf
 
 { ============== Init ============== }
 
 SUB _HttpInit
   SHARED connSocket&, connState%, connSSL&, _httpInited
   SHARED connHost$, connPort%, connContentLen&, connBodyLeft&, connXfer%
+  SHARED connChunkState%, connChunkLeft&
   SHARED _bufAddr, _bufPos, _bufLen, _bufSlot
-  SHARED _rHdrCount, _rHdrSlot, _qHdrCount
+  SHARED _respHdrCount, _respHdrSlot, _reqHdrCount
   SHARED _lineBuf, _lineResult$, _lineOk
-  SHARED _crlf$, _bodyBuf
+  SHARED _crlf$
   LONGINT i
 
   IF _httpInited = 1 THEN EXIT SUB
@@ -119,6 +128,8 @@ SUB _HttpInit
     connContentLen&(i) = 0
     connBodyLeft&(i) = 0
     connXfer%(i) = XFER_CLOSE
+    connChunkState%(i) = CHK_SIZE
+    connChunkLeft&(i) = 0
   NEXT i
 
   ' Allocate read buffer
@@ -130,13 +141,10 @@ SUB _HttpInit
   ' Allocate line buffer
   _lineBuf = ALLOC(MAX_LINE_LEN + 1)
 
-  ' Allocate body buffer for HttpGet
-  _bodyBuf = ALLOC(MAX_GET_BODY + 1)
-
   ' Init header counts
-  _rHdrCount = 0
-  _rHdrSlot = -1
-  _qHdrCount = 0
+  _respHdrCount = 0
+  _respHdrSlot = -1
+  _reqHdrCount = 0
 
   ' Init line reader
   _lineResult$ = ""
@@ -355,6 +363,142 @@ SUB _HttpRecvLine(LONGINT slot)
   END IF
 END SUB
 
+{ ============== Internal Helpers - Chunked Decoder (Phase 3) ============== }
+
+SUB LONGINT _HttpParseHex(STRING hx$)
+  LONGINT result, i, c, dgt, done
+
+  result = 0
+  i = 1
+  done = 0
+  WHILE i <= LEN(hx$) AND done = 0
+    c = ASC(MID$(hx$, i, 1))
+    IF c >= 48 AND c <= 57 THEN
+      dgt = c - 48
+    ELSEIF c >= 65 AND c <= 70 THEN
+      dgt = c - 55
+    ELSEIF c >= 97 AND c <= 102 THEN
+      dgt = c - 87
+    ELSE
+      done = 1
+    END IF
+    IF done = 0 THEN
+      result = result * 16 + dgt
+    END IF
+    i = i + 1
+  WEND
+
+  _HttpParseHex = result
+END SUB
+
+SUB LONGINT _HttpReadBuf(LONGINT slot, LONGINT destAddr, LONGINT maxBytes)
+  SHARED _bufAddr, _bufPos, _bufLen, _bufSlot
+  LONGINT avail, n, i
+
+  IF maxBytes <= 0 THEN
+    _HttpReadBuf = 0
+    EXIT SUB
+  END IF
+
+  IF _bufSlot <> slot THEN
+    _bufSlot = slot
+    _bufPos = 0
+    _bufLen = 0
+  END IF
+
+  ' If buffer has data, drain up to maxBytes
+  IF _bufPos < _bufLen THEN
+    avail = _bufLen - _bufPos
+    IF avail > maxBytes THEN avail = maxBytes
+    FOR i = 0 TO avail - 1
+      POKE destAddr + i, PEEK(_bufAddr + _bufPos + i)
+    NEXT i
+    _bufPos = _bufPos + avail
+    _HttpReadBuf = avail
+    EXIT SUB
+  END IF
+
+  ' Buffer empty - refill from socket
+  _bufPos = 0
+  _bufLen = 0
+  n = _HttpRecvRaw(slot, _bufAddr, READ_BUF_SIZE)
+  IF n <= 0 THEN
+    _HttpReadBuf = 0
+    EXIT SUB
+  END IF
+  _bufLen = n
+
+  ' Copy up to maxBytes from freshly filled buffer
+  avail = n
+  IF avail > maxBytes THEN avail = maxBytes
+  FOR i = 0 TO avail - 1
+    POKE destAddr + i, PEEK(_bufAddr + i)
+  NEXT i
+  _bufPos = avail
+  _HttpReadBuf = avail
+END SUB
+
+SUB LONGINT _HttpReadChunked(LONGINT slot, LONGINT bufAddr, LONGINT bufSz)
+  SHARED connChunkState%, connChunkLeft&
+  SHARED _lineResult$, _lineOk
+  LONGINT toRead, nRead, retVal
+  LONGINT looping
+
+  retVal = 0
+  looping = 1
+  WHILE looping = 1
+    IF connChunkState%(slot) = CHK_DONE THEN
+      retVal = 0
+      looping = 0
+    ELSEIF connChunkState%(slot) = CHK_TRAIL THEN
+      ' Consume trailing CRLF after chunk data
+      _HttpRecvLine(slot)
+      connChunkState%(slot) = CHK_SIZE
+    ELSEIF connChunkState%(slot) = CHK_SIZE THEN
+      ' Read hex chunk size line
+      _HttpRecvLine(slot)
+      IF _lineOk = 0 THEN
+        retVal = 0
+        looping = 0
+      ELSE
+        connChunkLeft&(slot) = _HttpParseHex(_lineResult$)
+        IF connChunkLeft&(slot) = 0 THEN
+          ' Final zero-length chunk - consume trailing CRLF
+          _HttpRecvLine(slot)
+          connChunkState%(slot) = CHK_DONE
+          retVal = 0
+          looping = 0
+        ELSE
+          connChunkState%(slot) = CHK_DATA
+        END IF
+      END IF
+    ELSEIF connChunkState%(slot) = CHK_DATA THEN
+      toRead = bufSz
+      IF toRead > connChunkLeft&(slot) THEN
+        toRead = connChunkLeft&(slot)
+      END IF
+      nRead = _HttpReadBuf(slot, bufAddr, toRead)
+      IF nRead <= 0 THEN
+        retVal = 0
+        looping = 0
+      ELSE
+        connChunkLeft&(slot) = connChunkLeft&(slot) - nRead
+        IF connChunkLeft&(slot) = 0 THEN
+          connChunkState%(slot) = CHK_TRAIL
+        END IF
+        retVal = nRead
+        looping = 0
+      END IF
+    ELSE
+      ' Unknown state
+      retVal = 0
+      looping = 0
+    END IF
+  WEND
+
+  _HttpReadChunked = retVal
+END SUB
+
 { ============== Public API - Core ============== }
 
 SUB LONGINT HttpOpen(STRING host, LONGINT port, LONGINT useSSL) EXTERNAL
@@ -392,8 +536,9 @@ END SUB
 SUB HttpClose(LONGINT hConn) EXTERNAL
   SHARED connSocket&, connState%
   SHARED connHost$, connPort%, connContentLen&, connBodyLeft&, connXfer%
+  SHARED connChunkState%, connChunkLeft&
   SHARED _bufSlot, _bufPos, _bufLen
-  SHARED _rHdrSlot, _rHdrCount
+  SHARED _respHdrSlot, _respHdrCount
   LONGINT slot
 
   slot = hConn - 1
@@ -408,6 +553,8 @@ SUB HttpClose(LONGINT hConn) EXTERNAL
   connContentLen&(slot) = 0
   connBodyLeft&(slot) = 0
   connXfer%(slot) = XFER_CLOSE
+  connChunkState%(slot) = CHK_SIZE
+  connChunkLeft&(slot) = 0
 
   ' Release buffer/header ownership if this slot owned them
   IF _bufSlot = slot THEN
@@ -415,9 +562,9 @@ SUB HttpClose(LONGINT hConn) EXTERNAL
     _bufPos = 0
     _bufLen = 0
   END IF
-  IF _rHdrSlot = slot THEN
-    _rHdrSlot = -1
-    _rHdrCount = 0
+  IF _respHdrSlot = slot THEN
+    _respHdrSlot = -1
+    _respHdrCount = 0
   END IF
 END SUB
 
@@ -460,32 +607,32 @@ END SUB
 { ============== Public API - Low-level handle API ============== }
 
 SUB HttpSetHeader(LONGINT h, STRING hdrNm$, STRING hdrVl$) EXTERNAL
-  SHARED _qHdrName$, _qHdrVal$, _qHdrCount
+  SHARED _reqHdrName$, _reqHdrVal$, _reqHdrCount
   LONGINT i
   STRING upperNm$ SIZE 64
 
   upperNm$ = UCASE$(hdrNm$)
 
   ' Overwrite if header already exists (case-insensitive)
-  FOR i = 0 TO _qHdrCount - 1
-    IF UCASE$(_qHdrName$(i)) = upperNm$ THEN
-      _qHdrVal$(i) = hdrVl$
+  FOR i = 0 TO _reqHdrCount - 1
+    IF UCASE$(_reqHdrName$(i)) = upperNm$ THEN
+      _reqHdrVal$(i) = hdrVl$
       EXIT SUB
     END IF
   NEXT i
 
   ' Add new header
-  IF _qHdrCount < MAX_REQ_HDRS THEN
-    _qHdrName$(_qHdrCount) = hdrNm$
-    _qHdrVal$(_qHdrCount) = hdrVl$
-    _qHdrCount = _qHdrCount + 1
+  IF _reqHdrCount < MAX_REQ_HDRS THEN
+    _reqHdrName$(_reqHdrCount) = hdrNm$
+    _reqHdrVal$(_reqHdrCount) = hdrVl$
+    _reqHdrCount = _reqHdrCount + 1
   END IF
 END SUB
 
 SUB LONGINT HttpSendRequest(LONGINT h, STRING meth$, ~
                             STRING reqPath$) EXTERNAL
   SHARED connState%, connHost$, connPort%
-  SHARED _qHdrName$, _qHdrVal$, _qHdrCount, _crlf$
+  SHARED _reqHdrName$, _reqHdrVal$, _reqHdrCount, _crlf$
   LONGINT slot, i, rc
   STRING portStr$ SIZE 8
 
@@ -515,8 +662,8 @@ SUB LONGINT HttpSendRequest(LONGINT h, STRING meth$, ~
   END IF
 
   ' Custom request headers
-  FOR i = 0 TO _qHdrCount - 1
-    _HttpSendStr(slot, _qHdrName$(i) + ": " + _qHdrVal$(i) + _crlf$)
+  FOR i = 0 TO _reqHdrCount - 1
+    _HttpSendStr(slot, _reqHdrName$(i) + ": " + _reqHdrVal$(i) + _crlf$)
   NEXT i
 
   ' Connection: close
@@ -526,7 +673,7 @@ SUB LONGINT HttpSendRequest(LONGINT h, STRING meth$, ~
   _HttpSendStr(slot, _crlf$)
 
   ' Clear request headers for next use
-  _qHdrCount = 0
+  _reqHdrCount = 0
 
   HttpSendRequest = HTTP_OK
 END SUB
@@ -534,8 +681,9 @@ END SUB
 SUB LONGINT HttpReadStatus(LONGINT h) EXTERNAL
   SHARED connState%
   SHARED connContentLen&, connBodyLeft&, connXfer%
+  SHARED connChunkState%, connChunkLeft&
   SHARED _bufSlot, _bufPos, _bufLen
-  SHARED _rHdrName$, _rHdrVal$, _rHdrCount, _rHdrSlot
+  SHARED _respHdrName$, _respHdrVal$, _respHdrCount, _respHdrSlot
   SHARED _lineResult$, _lineOk
   LONGINT slot, spPos, statusCode
   LONGINT colonPos, gotBlank
@@ -556,6 +704,8 @@ SUB LONGINT HttpReadStatus(LONGINT h) EXTERNAL
   connXfer%(slot) = XFER_CLOSE
   connContentLen&(slot) = 0
   connBodyLeft&(slot) = 0
+  connChunkState%(slot) = CHK_SIZE
+  connChunkLeft&(slot) = 0
 
   ' Claim read buffer for this slot
   _bufSlot = slot
@@ -582,8 +732,8 @@ SUB LONGINT HttpReadStatus(LONGINT h) EXTERNAL
   END IF
 
   ' Read headers until blank line
-  _rHdrCount = 0
-  _rHdrSlot = slot
+  _respHdrCount = 0
+  _respHdrSlot = slot
   gotBlank = 0
 
   WHILE gotBlank = 0
@@ -595,7 +745,7 @@ SUB LONGINT HttpReadStatus(LONGINT h) EXTERNAL
     ELSE
       ' Parse "Name: Value" (handle optional space after colon)
       colonPos = INSTR(_lineResult$, ":")
-      IF colonPos > 0 AND _rHdrCount < MAX_RSP_HDRS THEN
+      IF colonPos > 0 AND _respHdrCount < MAX_RSP_HDRS THEN
         tmpNm$ = LEFT$(_lineResult$, colonPos - 1)
         tmpVl$ = MID$(_lineResult$, colonPos + 1)
         ' Trim leading space
@@ -603,8 +753,8 @@ SUB LONGINT HttpReadStatus(LONGINT h) EXTERNAL
           tmpVl$ = MID$(tmpVl$, 2)
         END IF
 
-        _rHdrName$(_rHdrCount) = tmpNm$
-        _rHdrVal$(_rHdrCount) = tmpVl$
+        _respHdrName$(_respHdrCount) = tmpNm$
+        _respHdrVal$(_respHdrCount) = tmpVl$
 
         ' Detect Content-Length
         IF UCASE$(tmpNm$) = "CONTENT-LENGTH" THEN
@@ -620,7 +770,7 @@ SUB LONGINT HttpReadStatus(LONGINT h) EXTERNAL
           END IF
         END IF
 
-        _rHdrCount = _rHdrCount + 1
+        _respHdrCount = _respHdrCount + 1
       END IF
     END IF
   WEND
@@ -629,20 +779,20 @@ SUB LONGINT HttpReadStatus(LONGINT h) EXTERNAL
 END SUB
 
 SUB STRING HttpGetResponseHeader(LONGINT h, STRING hdrNm$) EXTERNAL
-  SHARED _rHdrName$, _rHdrVal$, _rHdrCount, _rHdrSlot
+  SHARED _respHdrName$, _respHdrVal$, _respHdrCount, _respHdrSlot
   LONGINT slot, i
   STRING upperNm$ SIZE 64
 
   slot = h - 1
-  IF slot <> _rHdrSlot THEN
+  IF slot <> _respHdrSlot THEN
     HttpGetResponseHeader = ""
     EXIT SUB
   END IF
 
   upperNm$ = UCASE$(hdrNm$)
-  FOR i = 0 TO _rHdrCount - 1
-    IF UCASE$(_rHdrName$(i)) = upperNm$ THEN
-      HttpGetResponseHeader = _rHdrVal$(i)
+  FOR i = 0 TO _respHdrCount - 1
+    IF UCASE$(_respHdrName$(i)) = upperNm$ THEN
+      HttpGetResponseHeader = _respHdrVal$(i)
       EXIT SUB
     END IF
   NEXT i
@@ -663,6 +813,12 @@ SUB LONGINT HttpReadBody(LONGINT h, LONGINT dataBuf, ~
   END IF
   IF connState%(slot) <> CONN_OPEN THEN
     HttpReadBody = HTTP_ERR_SOCKET
+    EXIT SUB
+  END IF
+
+  ' Chunked mode - use chunk decoder
+  IF connXfer%(slot) = XFER_CHUNKED THEN
+    HttpReadBody = _HttpReadChunked(slot, dataBuf, bufSz)
     EXIT SUB
   END IF
 

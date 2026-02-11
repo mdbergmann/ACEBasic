@@ -47,7 +47,21 @@ Phase 2 - HTTP/1.1 GET: COMPLETE
     - HttpHead: URL parse, open, send HEAD, read status, return status code
   Tests: test_lowlevel.b, test_http_get.b
   Transfer modes: XFER_CLOSE (default), XFER_LENGTH, XFER_CHUNKED (deferred to Phase 3)
-Phase 3 - Chunked Transfer: NOT STARTED
+Phase 3 - Chunked Transfer Decoding: COMPLETE
+  Branch: http-phase3-chunked
+  Module: submods/httpclient/httpclient.b (~1020 lines, was ~860)
+  New per-connection state: connChunkState% (CHK_SIZE/DATA/TRAIL/DONE), connChunkLeft&
+  New internal helpers:
+    - _HttpParseHex: hex string to LONGINT (handles chunk extensions via ; stop)
+    - _HttpReadBuf: buffered byte reader (drains shared buffer, refills from socket)
+    - _HttpReadChunked: chunk decoder state machine
+  Modified:
+    - HttpReadBody: XFER_CHUNKED branch delegates to _HttpReadChunked
+    - _HttpInit/HttpClose/HttpReadStatus: init/reset chunk state
+  Test: test_chunked.b - low-level (50355 bytes decoded) + HttpGet high-level (16384 capped)
+  Verified: chunked responses from www.google.com decoded transparently
+  Bug found: ACE loses function return value when assigned inside WHILE loop;
+    fix: use local retVal variable, assign to function name after WEND
 Phase 4 - POST/PUT Bodies: NOT STARTED
 Phase 5 - Streaming Callbacks: NOT STARTED
 Phase 6 - AmiSSL Integration: NOT STARTED
