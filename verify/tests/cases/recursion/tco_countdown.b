@@ -1,5 +1,6 @@
 REM Test: Tail-Call Optimized Countdown
 REM Simplest possible tail call: single param, decrements to 0
+OPTION O+
 
 SUB LONGINT CountDown(n&)
   IF n& = 0 THEN

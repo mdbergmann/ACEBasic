@@ -2,6 +2,7 @@ REM Test: Tail-Call Optimized GCD
 REM With TCO, GCD can handle arbitrarily deep recursion
 REM GCD(1000000, 3) requires ~333K iterations - would
 REM crash without TCO due to stack overflow
+OPTION O+
 
 SUB LONGINT Gcd(a&, b&)
   IF b& = 0 THEN

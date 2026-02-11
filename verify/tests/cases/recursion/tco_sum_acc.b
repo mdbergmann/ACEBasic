@@ -1,5 +1,6 @@
 REM Test: Tail-Call Optimized Sum with Accumulator
 REM Demonstrates accumulator pattern for TCO
+OPTION O+
 
 SUB LONGINT SumAcc(n%, acc&)
   IF n% <= 0 THEN

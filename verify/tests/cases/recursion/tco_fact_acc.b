@@ -1,5 +1,6 @@
 REM Test: Tail-Call Optimized Factorial with Accumulator
 REM Uses accumulator pattern to make factorial tail-recursive
+OPTION O+
 
 SUB LONGINT FactAcc(n%, acc&)
   IF n% <= 1 THEN
