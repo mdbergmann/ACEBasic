@@ -28,8 +28,9 @@ The `bas` wrapper script in `bin/` orchestrates this full pipeline.
 | `submods/` | Submodules (reusable BASIC libraries) |
 | `verify/tests/` | Test suite (cases/, expected/, results/) |
 | `verify/scripts/otherthenamiga/` | Emulator and Amiga system files |
-| `docs/` | Documentation (ref.txt for language reference) |
+| `docs/` | Documentation (ref.txt for language reference, quickref.txt) |
 | `examples/` | Example programs by category |
+| `IDE/CubicIDE-ACE/` | CubicIDE integration (syntax highlighting, autocase, quickinfo) |
 
 ## Workflow - CRITICAL
 
@@ -185,6 +186,17 @@ make -f Makefile-lib clean     # Clean first if needed
 1. Identify if C (`src/lib/c/`) or assembly (`src/lib/asm/`)
 2. Rebuild: `make -f Makefile-lib` from `src/make/`
 3. Test with example programs - runtime changes affect all compiled programs
+
+### Adding or Removing BASIC Commands/Functions
+
+When adding or removing keywords, commands, or functions from the language, the following CubicIDE IDE files must also be updated:
+
+- `IDE/CubicIDE-ACE/add-ons/ace/autocase/basic` - auto-case rules
+- `IDE/CubicIDE-ACE/add-ons/ace/syntax/dictionaries/commands` - syntax highlighting (commands)
+- `IDE/CubicIDE-ACE/add-ons/ace/syntax/dictionaries/functions` - syntax highlighting (functions)
+- `docs/quickref.txt` - quick reference documentation
+
+Additionally, `IDE/CubicIDE-ACE/add-ons/ace/quickinfo/ace.words` is a copy of `docs/quickref.txt` and should be updated whenever quickref.txt changes.
 
 ### Adding Tests
 
