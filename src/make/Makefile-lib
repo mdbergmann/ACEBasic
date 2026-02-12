@@ -83,7 +83,8 @@ C_SOURCES = aceports.c alloc.c arg.c base.c bevel.c c_string.c ffpstr.c \
 ASM_SOURCES = assert.s common_data.s csrpos.s ffp.s file.s file_data.s gfx.s \
               lmath.s locate.s logic.s misc.s scroll.s scrwin.s \
               scrwin_data.s simple_str.s sound.s sound_data.s string.s \
-              string_data.s time.s turtle.s turtle_data.s ver.s windowfunc.s
+              string2.s string_data.s time.s turtle.s turtle_data.s \
+              ver.s windowfunc.s
 
 # Object files (pattern substitution from source lists)
 C_OBJECTS = $(patsubst %.c,$(LIB_OBJ)/%.o,$(C_SOURCES))

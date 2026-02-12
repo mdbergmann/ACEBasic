@@ -119,10 +119,12 @@ BOOL strfunc()
   case lcasestrsym  	: return(TRUE);
   case leftstrsym  	: return(TRUE);
   case lensym	   	: return(TRUE);
+  case ltrimstrsym	: return(TRUE);
   case midstrsym   	: return(TRUE);
   case octstrsym   	: return(TRUE);
   case ptabsym		: return(TRUE);
   case rightstrsym 	: return(TRUE);
+  case rtrimstrsym	: return(TRUE);
   case saddsym		: return(TRUE);
   case spacestrsym	: return(TRUE);
   case spcsym		: return(TRUE);
@@ -130,6 +132,7 @@ BOOL strfunc()
   case stringstrsym	: return(TRUE);
   case tabsym 		: return(TRUE);
   case translatestrsym 	: return(TRUE);
+  case trimstrsym	: return(TRUE);
   case ucasestrsym 	: return(TRUE);
   case valsym      	: return(TRUE);
  }
@@ -696,6 +699,45 @@ BOOL offset_on_stack;
 			}
 			else { _error(4); sftype=undefined; }
    			break;
+
+    /* LTRIM$ */
+    case ltrimstrsym  :	if (sftype == stringtype)
+			{
+			 gen("move.l","(sp)+","a1");
+			 make_temp_string();
+			 gen("lea",tempstrname,"a0");
+			 gen_rt_call("_ltrimstr");
+			 gen("move.l","a0","-(sp)");
+			 sftype=stringtype;
+			}
+			else { _error(4); sftype=undefined; }
+			break;
+
+    /* RTRIM$ */
+    case rtrimstrsym  :	if (sftype == stringtype)
+			{
+			 gen("move.l","(sp)+","a1");
+			 make_temp_string();
+			 gen("lea",tempstrname,"a0");
+			 gen_rt_call("_rtrimstr");
+			 gen("move.l","a0","-(sp)");
+			 sftype=stringtype;
+			}
+			else { _error(4); sftype=undefined; }
+			break;
+
+    /* TRIM$ */
+    case trimstrsym  :	if (sftype == stringtype)
+			{
+			 gen("move.l","(sp)+","a1");
+			 make_temp_string();
+			 gen("lea",tempstrname,"a0");
+			 gen_rt_call("_trimstr");
+			 gen("move.l","a0","-(sp)");
+			 sftype=stringtype;
+			}
+			else { _error(4); sftype=undefined; }
+			break;
 
     /* VAL */
     case valsym :	if (sftype == stringtype)
