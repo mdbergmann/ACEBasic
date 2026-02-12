@@ -16,6 +16,9 @@
 	xdef	_ltrimstr
 	xdef	_rtrimstr
 	xdef	_trimstr
+	xdef	_startswith
+	xdef	_endswith
+	xdef	_rinstr
 
 	; external references
 	xref	_strlen
@@ -166,6 +169,163 @@ _trimstr:
 
 .ttrimdone:
 	move.l	a3,a0
+	rts
+
+;
+; STARTSWITH(str$, prefix$) - Test if str$ starts with prefix$.
+; a0 = str$, a1 = prefix$.
+; Returns -1 (TRUE) in d0 if match, 0 (FALSE) otherwise.
+;
+_startswith:
+.swloop:
+	move.b	(a1),d1		; get prefix char
+	tst.b	d1
+	beq.s	.swtrue		; end of prefix = match
+
+	move.b	(a0),d0		; get str char
+	tst.b	d0
+	beq.s	.swfalse	; str shorter than prefix
+
+	cmp.b	d1,d0
+	bne.s	.swfalse	; mismatch
+
+	addq	#1,a0
+	addq	#1,a1
+	bra.s	.swloop
+
+.swtrue:
+	moveq	#-1,d0		; TRUE
+	rts
+
+.swfalse:
+	moveq	#0,d0		; FALSE
+	rts
+
+;
+; ENDSWITH(str$, suffix$) - Test if str$ ends with suffix$.
+; a0 = str$, a1 = suffix$.
+; Returns -1 (TRUE) in d0 if match, 0 (FALSE) otherwise.
+;
+_endswith:
+	; get length of str$
+	move.l	a0,d2		; save str$ ptr
+	move.l	a1,d3		; save suffix$ ptr
+	move.l	a0,a2
+	jsr	_strlen
+	move.l	d0,d4		; d4 = strlen(str$)
+
+	; get length of suffix$
+	move.l	d3,a2
+	jsr	_strlen		; d0 = strlen(suffix$)
+
+	; if suffix longer than str, false
+	cmp.l	d4,d0
+	bgt.s	.ewfalse
+
+	; compare from offset = strlen(str) - strlen(suffix)
+	move.l	d4,d1
+	sub.l	d0,d1		; d1 = offset into str$
+	move.l	d2,a0		; restore str$
+	add.l	d1,a0		; a0 = str$ + offset
+	move.l	d3,a1		; restore suffix$
+
+.ewloop:
+	move.b	(a1),d1
+	tst.b	d1
+	beq.s	.ewtrue		; end of suffix = match
+
+	move.b	(a0),d0
+	cmp.b	d1,d0
+	bne.s	.ewfalse	; mismatch
+
+	addq	#1,a0
+	addq	#1,a1
+	bra.s	.ewloop
+
+.ewtrue:
+	moveq	#-1,d0
+	rts
+
+.ewfalse:
+	moveq	#0,d0
+	rts
+
+;
+; RINSTR([offset,] str$, find$) - Reverse INSTR.
+; a0 = str$, a1 = find$, d0 = offset (0 = search from end).
+; Returns position (1-based) in d0, or 0 if not found.
+;
+_rinstr:
+	move.l	d0,d5		; d5 = offset (0=from end)
+	move.l	a0,d2		; d2 = str$ ptr saved
+	move.l	a1,d3		; d3 = find$ ptr saved
+
+	; get strlen(find$)
+	move.l	a1,a2
+	jsr	_strlen
+	move.l	d0,d4		; d4 = findlen
+
+	; if find$ is empty, return 0
+	tst.l	d4
+	beq.s	.rifail
+
+	; get strlen(str$)
+	move.l	d2,a2
+	jsr	_strlen		; d0 = strlen(str$)
+
+	; if str$ shorter than find$, fail
+	cmp.l	d4,d0
+	blt.s	.rifail
+
+	; determine start position for search
+	; startpos = last valid position = strlen - findlen
+	move.l	d0,d6		; d6 = strlen
+	sub.l	d4,d6		; d6 = max start index (0-based)
+
+	; if offset > 0, limit start position
+	tst.l	d5
+	beq.s	.risearch	; 0 = from end, use max
+
+	; offset is 1-based position, convert to 0-based
+	subq.l	#1,d5
+	cmp.l	d6,d5
+	bgt.s	.risearch	; offset beyond max, use max
+	move.l	d5,d6		; use offset as start
+
+.risearch:
+	; d6 = current search position (0-based), searching backward
+	tst.l	d6
+	blt.s	.rifail		; gone past start
+
+	; compare find$ at str$[d6]
+	move.l	d2,a0		; str$
+	add.l	d6,a0		; str$ + pos
+	move.l	d3,a1		; find$
+	move.l	d4,d1		; findlen
+
+.ricmploop:
+	tst.l	d1
+	beq.s	.rifound	; all chars matched
+
+	move.b	(a0)+,d0
+	cmp.b	(a1)+,d0
+	bne.s	.rinext		; mismatch
+
+	subq.l	#1,d1
+	bra.s	.ricmploop
+
+.rifound:
+	; found at d6 (0-based), return 1-based
+	move.l	d6,d0
+	addq.l	#1,d0
+	rts
+
+.rinext:
+	subq.l	#1,d6
+	bra.s	.risearch
+
+.rifail:
+	moveq	#0,d0
 	rts
 
 	END

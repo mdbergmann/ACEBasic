@@ -115,6 +115,7 @@ BOOL strfunc()
   case inputboxsym	: return(TRUE);	/* this is here for convenience */
   case inputboxstrsym	: return(TRUE);
   case inputstrsym 	: return(TRUE);
+  case endswithsym	: return(TRUE);
   case instrsym		: return(TRUE);
   case lcasestrsym  	: return(TRUE);
   case leftstrsym  	: return(TRUE);
@@ -124,10 +125,12 @@ BOOL strfunc()
   case octstrsym   	: return(TRUE);
   case ptabsym		: return(TRUE);
   case rightstrsym 	: return(TRUE);
+  case rinstrsym	: return(TRUE);
   case rtrimstrsym	: return(TRUE);
   case saddsym		: return(TRUE);
   case spacestrsym	: return(TRUE);
   case spcsym		: return(TRUE);
+  case startswithsym	: return(TRUE);
   case strstrsym   	: return(TRUE);
   case stringstrsym	: return(TRUE);
   case tabsym 		: return(TRUE);
@@ -391,6 +394,27 @@ BOOL offset_on_stack;
 		       else { _error(4); sftype=undefined; }
 		       break;     
 		
+    /* ENDSWITH(str$, suffix$) -> returns -1 or 0 */
+    case endswithsym :	if (sftype == stringtype)
+			{
+			 if (sym == comma)
+			 {
+			  insymbol();
+			  if (expr() == stringtype)
+			  {
+			   gen("movea.l","(sp)+","a1");	/* suffix$ */
+			   gen("movea.l","(sp)+","a0");	/* str$ */
+			   gen_rt_call("_endswith");
+			   gen("move.l","d0","-(sp)");
+			   sftype=longtype;
+			  }
+			  else { _error(4); sftype=undefined; }
+			 }
+			 else { _error(16); sftype=undefined; }
+			}
+			else { _error(4); sftype=undefined; }
+			break;
+
     /* INSTR$([I,]X$,Y$) */
     case instrsym  :	if (sftype != stringtype)
 			{
@@ -433,7 +457,69 @@ BOOL offset_on_stack;
 			}
 			else { _error(4); sftype=undefined; }
 			break;
-			
+
+    /* RINSTR([I,]X$,Y$) - reverse INSTR */
+    case rinstrsym  :	if (sftype != stringtype)
+			{
+			 if (make_integer(sftype) == shorttype) make_long();
+
+			 if (sym == comma)
+			 {
+			  offset_on_stack=TRUE;
+			  insymbol(); sftype=expr();
+			 }
+			 else
+			     { _error(16); sftype=undefined; }
+			}
+			else
+			    offset_on_stack=FALSE;
+
+			if (sftype == stringtype)
+			{
+			 if (sym == comma)
+			 {
+			  insymbol();
+			  if (expr() == stringtype)
+			  {
+			   gen("movea.l","(sp)+","a1");	/* Y$ */
+			   gen("movea.l","(sp)+","a0");	/* X$ */
+			   if (offset_on_stack)
+			      gen("move.l","(sp)+","d0");	/* I */
+			   else
+			      gen("moveq","#0","d0");		/* 0=from end */
+
+			   gen_rt_call("_rinstr");
+			   gen("move.l","d0","-(sp)");
+			   sftype=longtype;
+			  }
+			  else { _error(4); sftype=undefined; }
+			 }
+			 else { _error(16); sftype=undefined; }
+			}
+			else { _error(4); sftype=undefined; }
+			break;
+
+    /* STARTSWITH(str$, prefix$) -> returns -1 or 0 */
+    case startswithsym : if (sftype == stringtype)
+			{
+			 if (sym == comma)
+			 {
+			  insymbol();
+			  if (expr() == stringtype)
+			  {
+			   gen("movea.l","(sp)+","a1");	/* prefix$ */
+			   gen("movea.l","(sp)+","a0");	/* str$ */
+			   gen_rt_call("_startswith");
+			   gen("move.l","d0","-(sp)");
+			   sftype=longtype;
+			  }
+			  else { _error(4); sftype=undefined; }
+			 }
+			 else { _error(16); sftype=undefined; }
+			}
+			else { _error(4); sftype=undefined; }
+			break;
+
     /* LEFT$ */
     case leftstrsym :	if (sftype == stringtype)
 			{
