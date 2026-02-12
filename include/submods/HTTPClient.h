@@ -21,7 +21,7 @@
  * Thread safety:
  *   This module is NOT thread-safe. All calls must be made from a
  *   single thread/process. The module uses shared global state for
- *   buffers, connection table, header storage, and SSL context.
+ *   buffers, connection state, header storage, and SSL context.
  *
  * Limitations:
  *   - Single connection at a time (call HttpClose before re-opening)

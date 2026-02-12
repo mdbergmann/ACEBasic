@@ -1005,7 +1005,7 @@ SUB HttpClose(LONGINT hConn) EXTERNAL
   SHARED _connHost$, _connPort, _connContentLen, _connBodyLeft, _connXfer
   SHARED _connChunkState, _connChunkLeft
   SHARED _bufPos, _bufLen
-  SHARED _respHdrCount
+  SHARED _respHdrCount, _reqHdrCount
 
   IF hConn <> 1 THEN EXIT SUB
   IF _connState = CONN_FREE THEN EXIT SUB
@@ -1028,6 +1028,7 @@ SUB HttpClose(LONGINT hConn) EXTERNAL
   _bufPos = 0
   _bufLen = 0
   _respHdrCount = 0
+  _reqHdrCount = 0
 END SUB
 
 { ============== Public API - Raw byte helpers (Phase 1 testing) ============== }
