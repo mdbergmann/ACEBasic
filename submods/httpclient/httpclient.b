@@ -49,7 +49,6 @@ CONST CHK_DONE    = 3
 CONST READ_BUF_SIZE = 4096
 CONST MAX_REQ_HDRS  = 16
 CONST MAX_RSP_HDRS  = 32
-CONST MAX_GET_BODY  = 65536
 CONST MAX_LINE_LEN  = 1024
 
 { ============== Module Data ============== }
@@ -1155,22 +1154,42 @@ SUB LONGINT HttpSendRequest(LONGINT h, STRING meth$, ~
 
   ' Host header (with port if non-standard)
   IF connPort%(slot) = 80 OR connPort%(slot) = 443 THEN
-    _HttpSendStr(slot, "Host: " + connHost$(slot) + _crlf$)
+    rc = _HttpSendStr(slot, "Host: " + connHost$(slot) + _crlf$)
   ELSE
     portStr$ = MID$(STR$(connPort%(slot)), 2)
-    _HttpSendStr(slot, "Host: " + connHost$(slot) + ":" + portStr$ + _crlf$)
+    rc = _HttpSendStr(slot, "Host: " + connHost$(slot) + ":" + portStr$ + _crlf$)
+  END IF
+  IF rc < 0 THEN
+    _reqHdrCount = 0
+    HttpSendRequest = HTTP_ERR_SEND
+    EXIT SUB
   END IF
 
   ' Custom request headers
   FOR i = 0 TO _reqHdrCount - 1
-    _HttpSendStr(slot, _reqHdrName$(i) + ": " + _reqHdrVal$(i) + _crlf$)
+    rc = _HttpSendStr(slot, _reqHdrName$(i) + ": " + _reqHdrVal$(i) + _crlf$)
+    IF rc < 0 THEN
+      _reqHdrCount = 0
+      HttpSendRequest = HTTP_ERR_SEND
+      EXIT SUB
+    END IF
   NEXT i
 
   ' Connection: close
-  _HttpSendStr(slot, "Connection: close" + _crlf$)
+  rc = _HttpSendStr(slot, "Connection: close" + _crlf$)
+  IF rc < 0 THEN
+    _reqHdrCount = 0
+    HttpSendRequest = HTTP_ERR_SEND
+    EXIT SUB
+  END IF
 
   ' Blank line ends headers
-  _HttpSendStr(slot, _crlf$)
+  rc = _HttpSendStr(slot, _crlf$)
+  IF rc < 0 THEN
+    _reqHdrCount = 0
+    HttpSendRequest = HTTP_ERR_SEND
+    EXIT SUB
+  END IF
 
   ' Clear request headers for next use
   _reqHdrCount = 0
@@ -1483,7 +1502,8 @@ END SUB
 
 { ============== Public API - High-level convenience ============== }
 
-SUB LONGINT HttpGet(STRING url, ADDRESS respBuf) EXTERNAL
+SUB LONGINT HttpGet(STRING url, ADDRESS respBuf, ~
+                    LONGINT bufSz) EXTERNAL
   SHARED _urlHost$, _urlPort, _urlPath$, _urlSSL
   LONGINT hConn, statusCode, rc
   LONGINT totalLen, bytesGot, rdDone
@@ -1516,15 +1536,15 @@ SUB LONGINT HttpGet(STRING url, ADDRESS respBuf) EXTERNAL
     EXIT SUB
   END IF
 
-  ' Read body directly into caller's buffer
+  ' Read body directly into caller's buffer (reserve 1 byte for null)
   totalLen = 0
   rdDone = 0
   WHILE rdDone = 0
     bytesGot = HttpReadBody(hConn, respBuf + totalLen, ~
-                            MAX_GET_BODY - totalLen)
+                            bufSz - 1 - totalLen)
     IF bytesGot > 0 THEN
       totalLen = totalLen + bytesGot
-      IF totalLen >= MAX_GET_BODY THEN rdDone = 1
+      IF totalLen >= bufSz - 1 THEN rdDone = 1
     ELSE
       rdDone = 1
     END IF
@@ -1569,7 +1589,7 @@ END SUB
 
 SUB LONGINT HttpRequest(STRING url, STRING meth, ~
                         STRING ct, STRING body, ~
-                        ADDRESS respBuf) EXTERNAL
+                        ADDRESS respBuf, LONGINT bufSz) EXTERNAL
   SHARED _urlHost$, _urlPort, _urlPath$, _urlSSL
   LONGINT hConn, statusCode, rc
   LONGINT totalLen, bytesGot, rdDone
@@ -1637,10 +1657,10 @@ SUB LONGINT HttpRequest(STRING url, STRING meth, ~
     rdDone = 0
     WHILE rdDone = 0
       bytesGot = HttpReadBody(hConn, respBuf + totalLen, ~
-                              MAX_GET_BODY - totalLen)
+                              bufSz - 1 - totalLen)
       IF bytesGot > 0 THEN
         totalLen = totalLen + bytesGot
-        IF totalLen >= MAX_GET_BODY THEN rdDone = 1
+        IF totalLen >= bufSz - 1 THEN rdDone = 1
       ELSE
         rdDone = 1
       END IF
@@ -1654,13 +1674,15 @@ SUB LONGINT HttpRequest(STRING url, STRING meth, ~
 END SUB
 
 SUB LONGINT HttpPost(STRING url, STRING ct, ~
-                     STRING body, ADDRESS respBuf) EXTERNAL
-  HttpPost = HttpRequest(url, "POST", ct, body, respBuf)
+                     STRING body, ADDRESS respBuf, ~
+                     LONGINT bufSz) EXTERNAL
+  HttpPost = HttpRequest(url, "POST", ct, body, respBuf, bufSz)
 END SUB
 
 SUB LONGINT HttpPut(STRING url, STRING ct, ~
-                    STRING body, ADDRESS respBuf) EXTERNAL
-  HttpPut = HttpRequest(url, "PUT", ct, body, respBuf)
+                    STRING body, ADDRESS respBuf, ~
+                    LONGINT bufSz) EXTERNAL
+  HttpPut = HttpRequest(url, "PUT", ct, body, respBuf, bufSz)
 END SUB
 
 { ============== Public API - Streaming ============== }

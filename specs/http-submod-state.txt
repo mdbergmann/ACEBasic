@@ -113,8 +113,24 @@ Phase 6 - AmiSSL/HTTPS Integration: COMPLETE
     - ACE uppercases all variable names internally, BSS labels are UPPERCASE
     - Trailing ASSEM block in module only for data not accessible via BASIC (e.g. _sslTagList)
   Verified: HTTPS GET 200 (198 bytes), HTTPS POST 200 (376 bytes), low-level SSL 200 (198 bytes)
-Phase 7 - Polish: NOT STARTED
-  Review items:
-    - Audit error handling: ensure sockets are closed on all error paths
-    - Check for ALLOC'd memory that is never freed (e.g. sockaddr_in in _HttpConnectTCP)
-    - Verify no resource leaks in high-level functions (HttpGet, HttpRequest, etc.)
+Phase 7 - Polish: COMPLETE
+  Branch: http-phase8-polish2 (branched from Phase 6 commit 059c7e3)
+  Buffer overflow fix:
+    - Removed MAX_GET_BODY constant (was 65536, caused overflow with smaller buffers)
+    - Added LONGINT bufSz parameter to HttpGet, HttpRequest, HttpPost, HttpPut
+    - Caller now controls response buffer limit; reads capped to bufSz-1 (reserves null terminator)
+    - Updated HTTPClient.h declarations to match new signatures
+  HttpSendRequest error checking:
+    - All _HttpSendStr calls in HttpSendRequest now check return values
+    - Early return with HTTP_ERR_SEND on any mid-stream send failure
+    - Request headers cleared on error paths to prevent stale state
+  Test fixes:
+    - test_http_get.b: capped low-level read loop to remaining buffer space (was off-by-one)
+    - test_chunked.b, test_post.b, test_https.b: updated to pass bufSz parameter
+  Verified: all 6 tests pass (15 individual test cases)
+    - test_tcp: connect + raw HTTP GET - PASS
+    - test_http_get: HttpHead 200 PASS, low-level GET 200 (16383 bytes) PASS
+    - test_chunked: low-level chunked 50328 bytes PASS, HttpGet chunked 16383 bytes PASS
+    - test_post: UrlEncode PASS, POST 200 PASS, PUT 200 PASS, HttpRequest GET 200 PASS
+    - test_stream: HttpGetStream 200 (197 bytes) PASS, HttpPostStream 200 (396 bytes) PASS
+    - test_https: HTTPS GET 200 PASS, HTTPS POST 200 PASS, low-level SSL 200 PASS

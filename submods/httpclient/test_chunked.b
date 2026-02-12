@@ -63,7 +63,7 @@ HttpClose(hConn)
 ' --- Test 2: High-level HttpGet with chunked ---
 PRINT "--- Test 2: HttpGet (chunked transparent) ---"
 
-statusCode = HttpGet("http://www.google.com/", SADD(resp$))
+statusCode = HttpGet("http://www.google.com/", SADD(resp$), 16384)
 PRINT "GET status:"; statusCode
 PRINT "Body length:"; LEN(resp$)
 IF LEN(resp$) > 0 THEN

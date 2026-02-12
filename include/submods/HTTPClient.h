@@ -26,15 +26,20 @@ CONST HTTP_PLAIN           = 0
 
 ' --- High-level convenience API ---
 ' Note: respBuf is ADDRESS (pass SADD(str$)); null-terminated after call
-DECLARE SUB LONGINT HttpGet(STRING url, ADDRESS respBuf) EXTERNAL
+' bufSz is the total size of the response buffer in bytes
+DECLARE SUB LONGINT HttpGet(STRING url, ADDRESS respBuf, ~
+                            LONGINT bufSz) EXTERNAL
 DECLARE SUB LONGINT HttpHead(STRING url) EXTERNAL
 DECLARE SUB LONGINT HttpPost(STRING url, STRING ct, ~
-                             STRING body, ADDRESS respBuf) EXTERNAL
+                             STRING body, ADDRESS respBuf, ~
+                             LONGINT bufSz) EXTERNAL
 DECLARE SUB LONGINT HttpPut(STRING url, STRING ct, ~
-                            STRING body, ADDRESS respBuf) EXTERNAL
+                            STRING body, ADDRESS respBuf, ~
+                            LONGINT bufSz) EXTERNAL
 DECLARE SUB LONGINT HttpRequest(STRING url, STRING meth, ~
                                 STRING ct, STRING body, ~
-                                ADDRESS respBuf) EXTERNAL
+                                ADDRESS respBuf, ~
+                                LONGINT bufSz) EXTERNAL
 
 ' --- Streaming API ---
 DECLARE SUB LONGINT HttpGetStream(STRING url, ~

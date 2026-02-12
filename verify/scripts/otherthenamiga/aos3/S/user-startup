@@ -57,22 +57,72 @@ Path AmiSSL: ADD
 
 cd ace:submods/httpclient
 
-; Module already compiled from previous run, reuse httpclient.o
+; Compile module
+echo "=== Compiling httpclient module ===" >ace:test-output.txt
+yap httpclient.b T:httpclient.b >>ace:test-output.txt
+ace -m T:httpclient >>ace:test-output.txt
+vasmm68k_mot -Fhunk -quiet -o httpclient.o T:httpclient.s >>ace:test-output.txt
+echo "module done" >>ace:test-output.txt
+delete >NIL: T:httpclient.#?
 
-; Compile HTTPS test (split phases)
-echo "=== Compiling test_https ===" >ace:test-output.txt
+; --- test_tcp ---
+echo "=== test_tcp ===" >>ace:test-output.txt
+yap test_tcp.b T:test_tcp.b >>ace:test-output.txt
+ace T:test_tcp >>ace:test-output.txt
+vasmm68k_mot -Fhunk -quiet -o T:test_tcp.o T:test_tcp.s >>ace:test-output.txt
+vlink -bamigahunk -x -Bstatic -nostdlib -mrel -s -o test_tcp T:test_tcp.o httpclient.o ACElib:startup.lib ACElib:ami.lib ACElib:db.lib >>ace:test-output.txt
+delete >NIL: T:test_tcp.#?
+echo "running test_tcp" >>ace:test-output.txt
+test_tcp >>ace:test-output.txt
+
+; --- test_http_get ---
+echo "=== test_http_get ===" >>ace:test-output.txt
+yap test_http_get.b T:test_http_get.b >>ace:test-output.txt
+ace T:test_http_get >>ace:test-output.txt
+vasmm68k_mot -Fhunk -quiet -o T:test_http_get.o T:test_http_get.s >>ace:test-output.txt
+vlink -bamigahunk -x -Bstatic -nostdlib -mrel -s -o test_http_get T:test_http_get.o httpclient.o ACElib:startup.lib ACElib:ami.lib ACElib:db.lib >>ace:test-output.txt
+delete >NIL: T:test_http_get.#?
+echo "running test_http_get" >>ace:test-output.txt
+test_http_get >>ace:test-output.txt
+
+; --- test_chunked ---
+echo "=== test_chunked ===" >>ace:test-output.txt
+yap test_chunked.b T:test_chunked.b >>ace:test-output.txt
+ace T:test_chunked >>ace:test-output.txt
+vasmm68k_mot -Fhunk -quiet -o T:test_chunked.o T:test_chunked.s >>ace:test-output.txt
+vlink -bamigahunk -x -Bstatic -nostdlib -mrel -s -o test_chunked T:test_chunked.o httpclient.o ACElib:startup.lib ACElib:ami.lib ACElib:db.lib >>ace:test-output.txt
+delete >NIL: T:test_chunked.#?
+echo "running test_chunked" >>ace:test-output.txt
+test_chunked >>ace:test-output.txt
+
+; --- test_post ---
+echo "=== test_post ===" >>ace:test-output.txt
+yap test_post.b T:test_post.b >>ace:test-output.txt
+ace T:test_post >>ace:test-output.txt
+vasmm68k_mot -Fhunk -quiet -o T:test_post.o T:test_post.s >>ace:test-output.txt
+vlink -bamigahunk -x -Bstatic -nostdlib -mrel -s -o test_post T:test_post.o httpclient.o ACElib:startup.lib ACElib:ami.lib ACElib:db.lib >>ace:test-output.txt
+delete >NIL: T:test_post.#?
+echo "running test_post" >>ace:test-output.txt
+test_post >>ace:test-output.txt
+
+; --- test_stream ---
+echo "=== test_stream ===" >>ace:test-output.txt
+yap test_stream.b T:test_stream.b >>ace:test-output.txt
+ace T:test_stream >>ace:test-output.txt
+vasmm68k_mot -Fhunk -quiet -o T:test_stream.o T:test_stream.s >>ace:test-output.txt
+vlink -bamigahunk -x -Bstatic -nostdlib -mrel -s -o test_stream T:test_stream.o httpclient.o ACElib:startup.lib ACElib:ami.lib ACElib:db.lib >>ace:test-output.txt
+delete >NIL: T:test_stream.#?
+echo "running test_stream" >>ace:test-output.txt
+test_stream >>ace:test-output.txt
+
+; --- test_https ---
+echo "=== test_https ===" >>ace:test-output.txt
 yap test_https.b T:test_https.b >>ace:test-output.txt
-echo "yap done" >>ace:test-output.txt
 ace T:test_https >>ace:test-output.txt
-echo "ace done" >>ace:test-output.txt
 vasmm68k_mot -Fhunk -quiet -o T:test_https.o T:test_https.s >>ace:test-output.txt
-echo "vasm done" >>ace:test-output.txt
 vlink -bamigahunk -x -Bstatic -nostdlib -mrel -s -o test_https T:test_https.o httpclient.o ACElib:startup.lib ACElib:ami.lib ACElib:db.lib >>ace:test-output.txt
-echo "vlink done" >>ace:test-output.txt
 delete >NIL: T:test_https.#?
-
-; Run HTTPS test
-echo "=== Running test_https ===" >>ace:test-output.txt
+echo "running test_https" >>ace:test-output.txt
 test_https >>ace:test-output.txt
 
 echo "ALL DONE" >>ace:test-output.txt

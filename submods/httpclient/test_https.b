@@ -16,7 +16,7 @@ PRINT
 
 ' --- Test 1: HTTPS GET ---
 PRINT "Test 1: HttpGet https://httpbin.org/get"
-statusCode = HttpGet("https://httpbin.org/get", respBuf)
+statusCode = HttpGet("https://httpbin.org/get", respBuf, 8192)
 IF statusCode = HTTP_ERR_NO_LIB THEN
   PRINT "  SKIP (AmiSSL not installed)"
   PRINT
@@ -40,7 +40,7 @@ PRINT
 PRINT "Test 2: HttpPost https://httpbin.org/post"
 statusCode = HttpPost("https://httpbin.org/post", ~
                       "application/x-www-form-urlencoded", ~
-                      "greeting=hello", respBuf)
+                      "greeting=hello", respBuf, 8192)
 PRINT "  Status: "; statusCode
 IF statusCode = 200 THEN
   PRINT "  Body length: "; LEN(CSTR(respBuf))

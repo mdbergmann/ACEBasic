@@ -23,7 +23,7 @@ PRINT "Test 2: POST to httpbin.org/post"
 statusCode = HttpPost("http://httpbin.org/post", ~
                       "application/x-www-form-urlencoded", ~
                       "greeting=hello&who=world", ~
-                      SADD(resp$))
+                      SADD(resp$), 32768)
 PRINT "  Status: "; statusCode
 IF statusCode = 200 THEN
   PRINT "  PASS - got 200"
@@ -48,7 +48,7 @@ jsonBody$ = "{" + q$ + "key" + q$ + ":" + q$ + "value" + q$ + "}"
 statusCode = HttpPut("http://httpbin.org/put", ~
                      "application/json", ~
                      jsonBody$, ~
-                     SADD(resp$))
+                     SADD(resp$), 32768)
 PRINT "  Status: "; statusCode
 IF statusCode = 200 THEN
   PRINT "  PASS - got 200"
@@ -65,7 +65,7 @@ PRINT
 ' --- Test 4: HttpRequest with GET (generic) ---
 PRINT "Test 4: HttpRequest GET httpbin.org/get"
 resp$ = ""
-statusCode = HttpRequest("http://httpbin.org/get", "GET", "", "", SADD(resp$))
+statusCode = HttpRequest("http://httpbin.org/get", "GET", "", "", SADD(resp$), 32768)
 PRINT "  Status: "; statusCode
 IF statusCode = 200 THEN
   PRINT "  PASS - got 200"

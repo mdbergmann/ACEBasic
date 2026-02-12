@@ -55,13 +55,19 @@ END IF
 PRINT "  reading body..."
 totalLen = 0
 rdDone = 0
+LONGINT maxRead
 WHILE rdDone = 0
-  bytesGot = HttpReadBody(hConn, respBuf + totalLen, 4096)
-  IF bytesGot > 0 THEN
-    totalLen = totalLen + bytesGot
-    IF totalLen >= 15000 THEN rdDone = 1
-  ELSE
+  maxRead = 16383 - totalLen
+  IF maxRead <= 0 THEN
     rdDone = 1
+  ELSE
+    IF maxRead > 4096 THEN maxRead = 4096
+    bytesGot = HttpReadBody(hConn, respBuf + totalLen, maxRead)
+    IF bytesGot > 0 THEN
+      totalLen = totalLen + bytesGot
+    ELSE
+      rdDone = 1
+    END IF
   END IF
 WEND
 POKE respBuf + totalLen, 0
