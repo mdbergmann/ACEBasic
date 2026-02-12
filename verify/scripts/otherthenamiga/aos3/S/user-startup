@@ -55,6 +55,26 @@ EndIf
 Path AmiSSL: ADD
 ;END AmiSSL
 
+cd ace:submods/httpclient
 
+; Module already compiled from previous run, reuse httpclient.o
 
+; Compile HTTPS test (split phases)
+echo "=== Compiling test_https ===" >ace:test-output.txt
+yap test_https.b T:test_https.b >>ace:test-output.txt
+echo "yap done" >>ace:test-output.txt
+ace T:test_https >>ace:test-output.txt
+echo "ace done" >>ace:test-output.txt
+vasmm68k_mot -Fhunk -quiet -o T:test_https.o T:test_https.s >>ace:test-output.txt
+echo "vasm done" >>ace:test-output.txt
+vlink -bamigahunk -x -Bstatic -nostdlib -mrel -s -o test_https T:test_https.o httpclient.o ACElib:startup.lib ACElib:ami.lib ACElib:db.lib >>ace:test-output.txt
+echo "vlink done" >>ace:test-output.txt
+delete >NIL: T:test_https.#?
 
+; Run HTTPS test
+echo "=== Running test_https ===" >>ace:test-output.txt
+test_https >>ace:test-output.txt
+
+echo "ALL DONE" >>ace:test-output.txt
+
+LAB endall

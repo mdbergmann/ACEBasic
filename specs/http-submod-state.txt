@@ -91,7 +91,28 @@ Phase 5 - Streaming Callbacks: COMPLETE
   Callbacks use INVOKABLE SUBs + BIND closures + INVOKE dispatch
   Test: test_stream.b - HttpGetStream + HttpPostStream against httpbin.org
   Verified: both tests pass on emulator (GET 197 bytes, POST 396 bytes streamed)
-Phase 6 - AmiSSL Integration: NOT STARTED
+Phase 6 - AmiSSL/HTTPS Integration: COMPLETE
+  Branch: http-phase6-ssl
+  Module: submods/httpclient/httpclient.b (~1786 lines, was ~1308)
+  New module data: _sslInited, _masterBase, _amisslBase, _sslCtx
+  ASSEM temporaries (module-level + SHARED): _asmA0, _asmA1, _asmA6, _asmD0, _asmD1, _asmSockBase
+  Trailing ASSEM block: _sslTagList (16 bytes for AmiSSL init tag list)
+  New ASSEM wrapper SUBs (exec): _ExecOpenLib, _ExecCloseLib
+  New ASSEM wrapper SUBs (amisslmaster): _MasterInit, _MasterOpen, _MasterClose
+  New ASSEM wrapper SUBs (amissl): _AmiSSLInit, _SslCtxNew, _SslCtxFree,
+    _SslCtxSetVerify, _SslNew, _SslFree, _SslSetFd, _SslConnect,
+    _SslRead, _SslWrite, _SslShutdown
+  New SSL lifecycle: _HttpInitSSL (lazy), _HttpSSLHandshake, _HttpSSLShutdown
+  Modified: _HttpSendRaw/_HttpRecvRaw (SSL branch), HttpOpen (SSL init+handshake),
+    HttpClose (SSL shutdown before socket close)
+  Test: test_https.b - HTTPS GET, POST, low-level; all 3 PASS
+  Test: test_http_get.b - plain HTTP regression; PASS (HttpHead + low-level GET)
+  Key learnings:
+    - EXTERNAL LONGINT cannot be re-declared in multiple SUBs (error 54, early_exit=TRUE)
+    - Solution: module-level LONGINTs + SHARED; ASSEM references BSS labels (_modv__VARNAME)
+    - ACE uppercases all variable names internally, BSS labels are UPPERCASE
+    - Trailing ASSEM block in module only for data not accessible via BASIC (e.g. _sslTagList)
+  Verified: HTTPS GET 200 (198 bytes), HTTPS POST 200 (376 bytes), low-level SSL 200 (198 bytes)
 Phase 7 - Polish: NOT STARTED
   Review items:
     - Audit error handling: ensure sockets are closed on all error paths

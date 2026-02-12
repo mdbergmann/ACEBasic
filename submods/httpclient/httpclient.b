@@ -1,5 +1,5 @@
 {* HTTPClient - HTTP/1.1 client submodule for ACE BASIC *}
-{* Phase 5: Streaming callbacks *}
+{* Phase 6: AmiSSL/HTTPS integration *}
 
 { ============== Library Declarations ============== }
 
@@ -105,6 +105,20 @@ ADDRESS _streamBuf
 ' CRLF constant
 STRING _crlf$ SIZE 4
 
+' SSL global state (Phase 6)
+LONGINT _sslInited
+LONGINT _masterBase
+LONGINT _amisslBase
+LONGINT _sslCtx
+
+' ASSEM temporaries (module-level, BSS names: _modv__asm*)
+LONGINT _asmA0
+LONGINT _asmA1
+LONGINT _asmA6
+LONGINT _asmD0
+LONGINT _asmD1
+LONGINT _asmSockBase
+
 
 { ============== Init ============== }
 
@@ -161,6 +175,427 @@ SUB _HttpInit
   _crlf$ = CHR$(13) + CHR$(10)
 
   _httpInited = 1
+END SUB
+
+{ ============== Internal Helpers - SSL ASSEM Wrappers (Phase 6) ============== }
+' Module-level _asm* vars (SHARED) pass values to/from ASSEM blocks.
+' ASSEM references BSS labels: _modv__ASMA0, _modv__ASMD0, etc.
+
+' --- exec library calls (base at absolute address 4) ---
+
+SUB LONGINT _ExecOpenLib(ADDRESS libName, LONGINT ver)
+  SHARED _asmA1, _asmD0
+
+  _asmA1 = libName
+  _asmD0 = ver
+
+  ASSEM
+    movem.l d0-d1/a0-a1/a6,-(sp)
+    move.l  _modv__ASMA1,a1
+    move.l  _modv__ASMD0,d0
+    move.l  4,a6
+    jsr     -552(a6)
+    move.l  d0,_modv__ASMD0
+    movem.l (sp)+,d0-d1/a0-a1/a6
+  END ASSEM
+
+  _ExecOpenLib = _asmD0
+END SUB
+
+SUB _ExecCloseLib(ADDRESS libBase)
+  SHARED _asmA1
+
+  _asmA1 = libBase
+
+  ASSEM
+    movem.l d0-d1/a0-a1/a6,-(sp)
+    move.l  _modv__ASMA1,a1
+    move.l  4,a6
+    jsr     -414(a6)
+    movem.l (sp)+,d0-d1/a0-a1/a6
+  END ASSEM
+END SUB
+
+' --- amisslmaster library calls ---
+
+SUB LONGINT _MasterInit(LONGINT ver, LONGINT usesStructs)
+  SHARED _asmA6, _asmD0, _asmD1, _masterBase
+
+  _asmA6 = _masterBase
+  _asmD0 = ver
+  _asmD1 = usesStructs
+
+  ASSEM
+    movem.l d0-d1/a0-a1/a6,-(sp)
+    move.l  _modv__ASMD0,d0
+    move.l  _modv__ASMD1,d1
+    move.l  _modv__ASMA6,a6
+    jsr     -30(a6)
+    move.l  d0,_modv__ASMD0
+    movem.l (sp)+,d0-d1/a0-a1/a6
+  END ASSEM
+
+  _MasterInit = _asmD0
+END SUB
+
+SUB LONGINT _MasterOpen
+  SHARED _asmA6, _asmD0, _masterBase
+
+  _asmA6 = _masterBase
+
+  ASSEM
+    movem.l d0-d1/a0-a1/a6,-(sp)
+    move.l  _modv__ASMA6,a6
+    jsr     -36(a6)
+    move.l  d0,_modv__ASMD0
+    movem.l (sp)+,d0-d1/a0-a1/a6
+  END ASSEM
+
+  _MasterOpen = _asmD0
+END SUB
+
+SUB _MasterClose
+  SHARED _asmA6, _masterBase
+
+  _asmA6 = _masterBase
+
+  ASSEM
+    movem.l d0-d1/a0-a1/a6,-(sp)
+    move.l  _modv__ASMA6,a6
+    jsr     -42(a6)
+    movem.l (sp)+,d0-d1/a0-a1/a6
+  END ASSEM
+END SUB
+
+' --- amissl library calls ---
+
+SUB LONGINT _AmiSSLInit
+  SHARED _asmA6, _asmD0, _asmSockBase, _amisslBase
+
+  _asmA6 = _amisslBase
+
+  ' Build tag list: [AmiSSL_SocketBase=$80000001, sockBase, TAG_DONE=0, 0]
+  ASSEM
+    movem.l d0-d1/a0-a1/a6,-(sp)
+    lea     _sslTagList,a0
+    move.l  #$80000001,(a0)
+    move.l  _modv__ASMSOCKBASE,4(a0)
+    clr.l   8(a0)
+    clr.l   12(a0)
+    move.l  _modv__ASMA6,a6
+    jsr     -36(a6)
+    move.l  d0,_modv__ASMD0
+    movem.l (sp)+,d0-d1/a0-a1/a6
+  END ASSEM
+
+  _AmiSSLInit = _asmD0
+END SUB
+
+SUB LONGINT _SslCtxNew
+  SHARED _asmA6, _asmD0, _amisslBase
+
+  _asmA6 = _amisslBase
+
+  ' First call TLS_client_method (LVO -26934), then SSL_CTX_new (LVO -8208)
+  ASSEM
+    movem.l d0-d1/a0-a1/a6,-(sp)
+    move.l  _modv__ASMA6,a6
+    jsr     -26934(a6)
+    move.l  d0,a0
+    move.l  _modv__ASMA6,a6
+    jsr     -8208(a6)
+    move.l  d0,_modv__ASMD0
+    movem.l (sp)+,d0-d1/a0-a1/a6
+  END ASSEM
+
+  _SslCtxNew = _asmD0
+END SUB
+
+SUB _SslCtxFree(LONGINT ctx)
+  SHARED _asmA0, _asmA6, _amisslBase
+
+  _asmA0 = ctx
+  _asmA6 = _amisslBase
+
+  ASSEM
+    movem.l d0-d1/a0-a1/a6,-(sp)
+    move.l  _modv__ASMA0,a0
+    move.l  _modv__ASMA6,a6
+    jsr     -8214(a6)
+    movem.l (sp)+,d0-d1/a0-a1/a6
+  END ASSEM
+END SUB
+
+SUB _SslCtxSetVerify(LONGINT ctx, LONGINT md)
+  SHARED _asmA0, _asmA6, _asmD0, _amisslBase
+
+  _asmA0 = ctx
+  _asmD0 = md
+  _asmA6 = _amisslBase
+
+  ' a1=callback (NULL=0)
+  ASSEM
+    movem.l d0-d1/a0-a1/a6,-(sp)
+    move.l  _modv__ASMA0,a0
+    move.l  _modv__ASMD0,d0
+    sub.l   a1,a1
+    move.l  _modv__ASMA6,a6
+    jsr     -8700(a6)
+    movem.l (sp)+,d0-d1/a0-a1/a6
+  END ASSEM
+END SUB
+
+SUB LONGINT _SslNew(LONGINT ctx)
+  SHARED _asmA0, _asmA6, _asmD0, _amisslBase
+
+  _asmA0 = ctx
+  _asmA6 = _amisslBase
+
+  ASSEM
+    movem.l d0-d1/a0-a1/a6,-(sp)
+    move.l  _modv__ASMA0,a0
+    move.l  _modv__ASMA6,a6
+    jsr     -8784(a6)
+    move.l  d0,_modv__ASMD0
+    movem.l (sp)+,d0-d1/a0-a1/a6
+  END ASSEM
+
+  _SslNew = _asmD0
+END SUB
+
+SUB _SslFree(LONGINT ssl)
+  SHARED _asmA0, _asmA6, _amisslBase
+
+  _asmA0 = ssl
+  _asmA6 = _amisslBase
+
+  ASSEM
+    movem.l d0-d1/a0-a1/a6,-(sp)
+    move.l  _modv__ASMA0,a0
+    move.l  _modv__ASMA6,a6
+    jsr     -8820(a6)
+    movem.l (sp)+,d0-d1/a0-a1/a6
+  END ASSEM
+END SUB
+
+SUB LONGINT _SslSetFd(LONGINT ssl, LONGINT fd)
+  SHARED _asmA0, _asmA6, _asmD0, _amisslBase
+
+  _asmA0 = ssl
+  _asmD0 = fd
+  _asmA6 = _amisslBase
+
+  ASSEM
+    movem.l d0-d1/a0-a1/a6,-(sp)
+    move.l  _modv__ASMA0,a0
+    move.l  _modv__ASMD0,d0
+    move.l  _modv__ASMA6,a6
+    jsr     -8358(a6)
+    move.l  d0,_modv__ASMD0
+    movem.l (sp)+,d0-d1/a0-a1/a6
+  END ASSEM
+
+  _SslSetFd = _asmD0
+END SUB
+
+SUB LONGINT _SslConnect(LONGINT ssl)
+  SHARED _asmA0, _asmA6, _asmD0, _amisslBase
+
+  _asmA0 = ssl
+  _asmA6 = _amisslBase
+
+  ASSEM
+    movem.l d0-d1/a0-a1/a6,-(sp)
+    move.l  _modv__ASMA0,a0
+    move.l  _modv__ASMA6,a6
+    jsr     -8832(a6)
+    move.l  d0,_modv__ASMD0
+    movem.l (sp)+,d0-d1/a0-a1/a6
+  END ASSEM
+
+  _SslConnect = _asmD0
+END SUB
+
+SUB LONGINT _SslRead(LONGINT ssl, ADDRESS buf, LONGINT num)
+  SHARED _asmA0, _asmA1, _asmA6, _asmD0, _amisslBase
+
+  _asmA0 = ssl
+  _asmA1 = buf
+  _asmD0 = num
+  _asmA6 = _amisslBase
+
+  ASSEM
+    movem.l d0-d1/a0-a1/a6,-(sp)
+    move.l  _modv__ASMA0,a0
+    move.l  _modv__ASMA1,a1
+    move.l  _modv__ASMD0,d0
+    move.l  _modv__ASMA6,a6
+    jsr     -8838(a6)
+    move.l  d0,_modv__ASMD0
+    movem.l (sp)+,d0-d1/a0-a1/a6
+  END ASSEM
+
+  _SslRead = _asmD0
+END SUB
+
+SUB LONGINT _SslWrite(LONGINT ssl, ADDRESS buf, LONGINT num)
+  SHARED _asmA0, _asmA1, _asmA6, _asmD0, _amisslBase
+
+  _asmA0 = ssl
+  _asmA1 = buf
+  _asmD0 = num
+  _asmA6 = _amisslBase
+
+  ASSEM
+    movem.l d0-d1/a0-a1/a6,-(sp)
+    move.l  _modv__ASMA0,a0
+    move.l  _modv__ASMA1,a1
+    move.l  _modv__ASMD0,d0
+    move.l  _modv__ASMA6,a6
+    jsr     -8850(a6)
+    move.l  d0,_modv__ASMD0
+    movem.l (sp)+,d0-d1/a0-a1/a6
+  END ASSEM
+
+  _SslWrite = _asmD0
+END SUB
+
+SUB LONGINT _SslShutdown(LONGINT ssl)
+  SHARED _asmA0, _asmA6, _asmD0, _amisslBase
+
+  _asmA0 = ssl
+  _asmA6 = _amisslBase
+
+  ASSEM
+    movem.l d0-d1/a0-a1/a6,-(sp)
+    move.l  _modv__ASMA0,a0
+    move.l  _modv__ASMA6,a6
+    jsr     -8994(a6)
+    move.l  d0,_modv__ASMD0
+    movem.l (sp)+,d0-d1/a0-a1/a6
+  END ASSEM
+
+  _SslShutdown = _asmD0
+END SUB
+
+{ ============== Internal Helpers - SSL Init/Handshake (Phase 6) ============== }
+
+SUB LONGINT _HttpInitSSL
+  SHARED _sslInited, _masterBase, _amisslBase, _sslCtx
+  LONGINT rc
+
+  ' Already initialized?
+  IF _sslInited = 1 THEN
+    _HttpInitSSL = HTTP_OK
+    EXIT SUB
+  END IF
+  IF _sslInited = -1 THEN
+    _HttpInitSSL = HTTP_ERR_NO_LIB
+    EXIT SUB
+  END IF
+
+  ' Open amisslmaster.library via exec (not LIBRARY - would exit on fail)
+  _masterBase = _ExecOpenLib(SADD("amisslmaster.library"), 0)
+  IF _masterBase = 0 THEN
+    _sslInited = -1
+    _HttpInitSSL = HTTP_ERR_NO_LIB
+    EXIT SUB
+  END IF
+
+  ' InitAmiSSLMaster(version=21 for OpenSSL 3.x, usesStructs=1)
+  rc = _MasterInit(21, 1)
+  IF rc = 0 THEN
+    _ExecCloseLib(_masterBase)
+    _masterBase = 0
+    _sslInited = -1
+    _HttpInitSSL = HTTP_ERR_SSL_INIT
+    EXIT SUB
+  END IF
+
+  ' OpenAmiSSL -> amissl library base
+  _amisslBase = _MasterOpen
+  IF _amisslBase = 0 THEN
+    _ExecCloseLib(_masterBase)
+    _masterBase = 0
+    _sslInited = -1
+    _HttpInitSSL = HTTP_ERR_SSL_INIT
+    EXIT SUB
+  END IF
+
+  ' Copy bsdsocket.library base to ASSEM-accessible storage
+  ' _BSDSOCKETBase is created by ACE's LIBRARY statement
+  ASSEM
+    move.l  _BSDSOCKETBase,d0
+    move.l  d0,_modv__ASMSOCKBASE
+  END ASSEM
+
+  ' InitAmiSSLA with socket base tag
+  rc = _AmiSSLInit
+  IF rc <> 0 THEN
+    _MasterClose
+    _ExecCloseLib(_masterBase)
+    _masterBase = 0
+    _amisslBase = 0
+    _sslInited = -1
+    _HttpInitSSL = HTTP_ERR_SSL_INIT
+    EXIT SUB
+  END IF
+
+  ' Create shared SSL context
+  _sslCtx = _SslCtxNew
+  IF _sslCtx = 0 THEN
+    _MasterClose
+    _ExecCloseLib(_masterBase)
+    _masterBase = 0
+    _amisslBase = 0
+    _sslInited = -1
+    _HttpInitSSL = HTTP_ERR_SSL_INIT
+    EXIT SUB
+  END IF
+
+  ' Disable certificate verification (no CA bundle on Amiga)
+  _SslCtxSetVerify(_sslCtx, 0)
+
+  _sslInited = 1
+  _HttpInitSSL = HTTP_OK
+END SUB
+
+SUB LONGINT _HttpSSLHandshake(LONGINT slot)
+  SHARED connSocket&, connSSL&, _sslCtx
+  LONGINT ssl, rc
+
+  ssl = _SslNew(_sslCtx)
+  IF ssl = 0 THEN
+    _HttpSSLHandshake = HTTP_ERR_SSL_INIT
+    EXIT SUB
+  END IF
+
+  rc = _SslSetFd(ssl, connSocket&(slot))
+  IF rc = 0 THEN
+    _SslFree(ssl)
+    _HttpSSLHandshake = HTTP_ERR_SSL_CONNECT
+    EXIT SUB
+  END IF
+
+  rc = _SslConnect(ssl)
+  IF rc <> 1 THEN
+    _SslFree(ssl)
+    _HttpSSLHandshake = HTTP_ERR_SSL_CONNECT
+    EXIT SUB
+  END IF
+
+  connSSL&(slot) = ssl
+  _HttpSSLHandshake = HTTP_OK
+END SUB
+
+SUB _HttpSSLShutdown(LONGINT slot)
+  SHARED connSSL&
+
+  IF connSSL&(slot) <> 0 THEN
+    _SslShutdown(connSSL&(slot))
+    _SslFree(connSSL&(slot))
+    connSSL&(slot) = 0
+  END IF
 END SUB
 
 { ============== Internal Helpers - TCP ============== }
@@ -230,13 +665,23 @@ SUB LONGINT _HttpConnectTCP(LONGINT ipAddr, LONGINT port)
 END SUB
 
 SUB LONGINT _HttpSendRaw(LONGINT slot, ADDRESS buf, LONGINT bufLen)
-  SHARED connSocket&
-  _HttpSendRaw = send(connSocket&(slot), buf, bufLen, 0)
+  SHARED connSocket&, connSSL&
+
+  IF connSSL&(slot) <> 0 THEN
+    _HttpSendRaw = _SslWrite(connSSL&(slot), buf, bufLen)
+  ELSE
+    _HttpSendRaw = send(connSocket&(slot), buf, bufLen, 0)
+  END IF
 END SUB
 
 SUB LONGINT _HttpRecvRaw(LONGINT slot, ADDRESS buf, LONGINT bufLen)
-  SHARED connSocket&
-  _HttpRecvRaw = recv(connSocket&(slot), buf, bufLen, 0)
+  SHARED connSocket&, connSSL&
+
+  IF connSSL&(slot) <> 0 THEN
+    _HttpRecvRaw = _SslRead(connSSL&(slot), buf, bufLen)
+  ELSE
+    _HttpRecvRaw = recv(connSocket&(slot), buf, bufLen, 0)
+  END IF
 END SUB
 
 { ============== Internal Helpers - HTTP ============== }
@@ -532,9 +977,18 @@ END SUB
 
 SUB LONGINT HttpOpen(STRING host, LONGINT port, LONGINT useSSL) EXTERNAL
   SHARED connSocket&, connState%, connHost$, connPort%
-  LONGINT slot, ipAddr, sock
+  LONGINT slot, ipAddr, sock, rc
 
   _HttpInit
+
+  ' SSL init on first HTTPS request (lazy)
+  IF useSSL = 1 THEN
+    rc = _HttpInitSSL
+    IF rc < 0 THEN
+      HttpOpen = rc
+      EXIT SUB
+    END IF
+  END IF
 
   slot = _HttpAllocSlot
   IF slot < 0 THEN
@@ -559,6 +1013,20 @@ SUB LONGINT HttpOpen(STRING host, LONGINT port, LONGINT useSSL) EXTERNAL
   connHost$(slot) = host
   connPort%(slot) = port
 
+  ' SSL handshake after TCP connect
+  IF useSSL = 1 THEN
+    rc = _HttpSSLHandshake(slot)
+    IF rc < 0 THEN
+      CloseSocket(sock)
+      connSocket&(slot) = -1
+      connState%(slot) = CONN_FREE
+      connHost$(slot) = ""
+      connPort%(slot) = 0
+      HttpOpen = rc
+      EXIT SUB
+    END IF
+  END IF
+
   HttpOpen = slot + 1
 END SUB
 
@@ -573,6 +1041,9 @@ SUB HttpClose(LONGINT hConn) EXTERNAL
   slot = hConn - 1
   IF slot < 0 OR slot > 3 THEN EXIT SUB
   IF connState%(slot) = CONN_FREE THEN EXIT SUB
+
+  ' SSL shutdown before closing socket
+  _HttpSSLShutdown(slot)
 
   CloseSocket(connSocket&(slot))
   connSocket&(slot) = -1
@@ -1305,3 +1776,11 @@ SUB LONGINT HttpPutStream(STRING url, STRING ct, ~
                           ADDRESS onSend, ADDRESS onRecv) EXTERNAL
   HttpPutStream = HttpRequestStream(url, "PUT", ct, onSend, onRecv)
 END SUB
+
+{ ============== ASSEM Storage (Phase 6) ============== }
+' Tag list for AmiSSL init (4 longints = 16 bytes).
+' Referenced directly in _AmiSSLInit ASSEM block via LEA.
+
+ASSEM
+_sslTagList: dc.l 0,0,0,0
+END ASSEM
