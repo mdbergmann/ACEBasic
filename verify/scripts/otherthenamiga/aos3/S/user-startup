@@ -55,5 +55,3 @@ EndIf
 Path AmiSSL: ADD
 ;END AmiSSL
 
-cd ace:submods/httpclient
-execute RunTests ace:test-output.txt

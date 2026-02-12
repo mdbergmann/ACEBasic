@@ -25,6 +25,7 @@
 	xdef	_lpadstr
 	xdef	_rpadstr
 	xdef	_fmtstr
+	xdef	_setmidstr
 
 	; external references
 	xref	_strlen
@@ -765,6 +766,76 @@ _fmtstr:
 .fmdone:
 	move.b	#0,(a3)		; null-terminate dest
 	move.l	d5,a0		; return dest start
+	rts
+
+;
+; MID$(x$, pos, len) = rhs$ -- in-place string modification.
+; a0 = target string, d0 = pos (1-based), d1 = len (-1 = use rhs len), a1 = rhs$.
+; Overwrites bytes in target starting at pos. Does not change string length.
+;
+_setmidstr:
+	; validate pos >= 1
+	tst.l	d0
+	ble.s	.smexit		; invalid pos
+
+	; get target length
+	move.l	a0,d2		; d2 = target ptr saved
+	move.l	d0,d3		; d3 = pos saved
+	move.l	d1,d4		; d4 = len saved
+	move.l	a1,d5		; d5 = rhs ptr saved
+
+	move.l	a0,a2
+	jsr	_strlen		; d0 = target length
+	move.l	d0,d6		; d6 = target length
+
+	; validate pos <= target length
+	cmp.l	d6,d3
+	bgt.s	.smexit		; pos beyond string end
+
+	; get rhs length
+	move.l	d5,a2
+	jsr	_strlen		; d0 = rhs length
+
+	; determine copy count
+	; if d4 == -1, use rhs length
+	cmpi.l	#-1,d4
+	bne.s	.smhavelen
+	move.l	d0,d4		; use rhs length
+
+.smhavelen:
+	; copylen = min(d4, d0)  (min of requested len and rhs len)
+	cmp.l	d4,d0
+	bge.s	.smchkroom
+	move.l	d0,d4		; rhs shorter than requested
+
+.smchkroom:
+	; also cap at remaining room: target_len - pos + 1
+	move.l	d6,d0
+	sub.l	d3,d0
+	addq.l	#1,d0		; d0 = chars from pos to end of target
+	cmp.l	d4,d0
+	bge.s	.smcopy
+	move.l	d0,d4		; cap at remaining room
+
+.smcopy:
+	; if nothing to copy, exit
+	tst.l	d4
+	beq.s	.smexit
+
+	; point to target[pos-1]
+	move.l	d2,a0
+	add.l	d3,a0
+	subq	#1,a0		; a0 = &target[pos-1]
+
+	; copy d4 bytes from rhs to target
+	move.l	d5,a1		; a1 = rhs
+
+.smloop:
+	move.b	(a1)+,(a0)+
+	subq.l	#1,d4
+	bne.s	.smloop
+
+.smexit:
 	rts
 
 	END

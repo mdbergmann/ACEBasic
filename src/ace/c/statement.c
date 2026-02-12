@@ -387,6 +387,58 @@ int   oldobj, oldtyp;
   else _error(7);
 }
 
+static void handle_mid_statement()
+{
+/* MID$(x$, pos[, len]) = rhs$
+   Overwrites bytes in x$ starting at pos with rhs$.
+*/
+int sftype;
+
+  insymbol();  /* consume MID$ */
+  if (sym != lparen) { _error(14); return; }
+  insymbol();
+
+  /* parse target string - must be stringtype */
+  sftype = expr();
+  if (sftype != stringtype) { _error(4); return; }
+  /* target string address is on stack */
+
+  if (sym != comma) { _error(16); return; }
+  insymbol();
+
+  /* parse position */
+  make_sure_long(expr());
+  /* position is on stack */
+
+  /* optional length */
+  if (sym == comma)
+  {
+    insymbol();
+    make_sure_long(expr());
+  }
+  else
+  {
+    gen("move.l","#-1","-(sp)");  /* -1 = use full rhs length */
+  }
+  /* length is on stack */
+
+  if (sym != rparen) { _error(9); return; }
+  insymbol();
+
+  if (sym != equal) { _error(5); return; }
+  insymbol();
+
+  /* parse RHS string expression */
+  if (expr() != stringtype) { _error(4); return; }
+
+  /* stack: target, pos, len, rhs (top) */
+  gen("movea.l","(sp)+","a1");  /* rhs$ */
+  gen("move.l","(sp)+","d1");   /* len */
+  gen("move.l","(sp)+","d0");   /* pos */
+  gen("movea.l","(sp)+","a0");  /* target$ */
+  gen_rt_call("_setmidstr");
+}
+
 static void handle_assert()
 {
   insymbol();
@@ -1052,6 +1104,9 @@ char  idholder[50];
  else
  /* menu */
  if (sym == menusym) menu();
+ else
+ /* MID$ statement: MID$(x$, pos[, len]) = rhs$ */
+ if (sym == midstrsym) handle_mid_statement();
  else
  /* message */
  if (sym == messagesym) message();
