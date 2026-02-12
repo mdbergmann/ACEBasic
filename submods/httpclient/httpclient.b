@@ -101,6 +101,9 @@ LONGINT _lineOk
 ' Streaming buffer (shared for send/receive, not concurrent)
 ADDRESS _streamBuf
 
+' Reusable sockaddr_in buffer (16 bytes, allocated once)
+ADDRESS _sockAddr
+
 ' CRLF constant
 STRING _crlf$ SIZE 4
 
@@ -128,7 +131,7 @@ SUB _HttpInit
   SHARED _bufAddr, _bufPos, _bufLen, _bufSlot
   SHARED _respHdrCount, _respHdrSlot, _reqHdrCount
   SHARED _lineBuf, _lineResult$, _lineOk
-  SHARED _streamBuf
+  SHARED _streamBuf, _sockAddr
   SHARED _crlf$
   LONGINT i
 
@@ -160,6 +163,9 @@ SUB _HttpInit
 
   ' Allocate streaming buffer
   _streamBuf = ALLOC(READ_BUF_SIZE)
+
+  ' Allocate reusable sockaddr_in buffer
+  _sockAddr = ALLOC(16)
 
   ' Init header counts
   _respHdrCount = 0
@@ -638,8 +644,8 @@ SUB LONGINT _HttpResolve(host$)
 END SUB
 
 SUB LONGINT _HttpConnectTCP(LONGINT ipAddr, LONGINT port)
+  SHARED _sockAddr
   LONGINT sock, rc
-  ADDRESS sa
 
   sock = socket(AF_INET, SOCK_STREAM, 0)
   IF sock < 0 THEN
@@ -647,13 +653,12 @@ SUB LONGINT _HttpConnectTCP(LONGINT ipAddr, LONGINT port)
     EXIT SUB
   END IF
 
-  sa = ALLOC(16)
-  POKE sa, 16
-  POKE sa + 1, 2
-  POKEW sa + 2, port
-  POKEL sa + 4, ipAddr
+  POKE _sockAddr, 16
+  POKE _sockAddr + 1, 2
+  POKEW _sockAddr + 2, port
+  POKEL _sockAddr + 4, ipAddr
 
-  rc = connect(sock, sa, 16)
+  rc = connect(sock, _sockAddr, 16)
   IF rc < 0 THEN
     CloseSocket(sock)
     _HttpConnectTCP = -1
