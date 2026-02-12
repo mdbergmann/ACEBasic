@@ -765,8 +765,17 @@ END		- Closes standard libraries, performs other cleanup operations
 		  instead which is functionally equivalent in ACE.
  
 --------------------------------------------------------------------------------
+ENDSWITH *	- syntax: ENDSWITH(<string-expression>, <suffix-expression>)
+		- Returns -1 (TRUE) if <string-expression> ends with
+		  <suffix-expression>, 0 (FALSE) otherwise.
+		- If <suffix-expression> is empty, always returns -1 (TRUE).
+		- If <suffix-expression> is longer than <string-expression>,
+		  returns 0 (FALSE).
+		- See also STARTSWITH.
+
+--------------------------------------------------------------------------------
 ERR		- syntax: ERR
-		- This parameterless function returns the error code 
+		- This parameterless function returns the error code
 		  corresponding to a failed operation (or zero if no
 		  error has occurred) and then *immediately* clears the 
 		  error code (sets it to zero).
@@ -964,6 +973,28 @@ FIX		- syntax: FIX(n)
 		- PRINT USING will obviate the need for this command in
 		  a future release in any case.
  
+--------------------------------------------------------------------------------
+FMT$ *		- syntax: FMT$(<format$>[, <arg1>, <arg2>, ...])
+		- Returns a formatted string using sprintf-style format
+		  specifiers.
+		- Supported specifiers:
+		    %d, %ld  - signed decimal integer
+		    %u, %lu  - unsigned decimal integer
+		    %x, %lx  - hexadecimal (uppercase output)
+		    %s       - string
+		    %c       - single character (from ASCII code)
+		    %%       - literal percent sign
+		- Width and zero-padding modifiers are supported for integer
+		  specifiers (e.g. %08x for zero-padded hex).
+		- Up to 8 arguments can be passed after the format string.
+		- String arguments are passed by address automatically.
+
+		  Examples:
+			FMT$("hello %s", "world")    -> "hello world"
+			FMT$("%d items", 42)         -> "42 items"
+			FMT$("%08x", 255)            -> "000000FF"
+			FMT$("100%%")               -> "100%"
+
 --------------------------------------------------------------------------------
 FONT *		- syntax: FONT <name>,<size>
 		- Changes the font for the current output window. 
@@ -1756,6 +1787,22 @@ LONGINT	*	- syntax: LONGINT <identifier>[,..]
  		- See also VAL.
 
 --------------------------------------------------------------------------------
+LPAD$ *		- syntax: LPAD$(<string-expression>, <width>, <pad-char$>)
+		- Returns <string-expression> left-padded with <pad-char$>
+		  to a total width of <width> characters.
+		- Only the first character of <pad-char$> is used for padding.
+		- If the string is already <width> characters or longer,
+		  the original string is returned unchanged.
+		- Useful for formatting numbers: LPAD$(STR$(n), 5, "0").
+		- See also RPAD$.
+
+--------------------------------------------------------------------------------
+LTRIM$ *	- syntax: LTRIM$(<string-expression>)
+		- Returns <string-expression> with all leading whitespace
+		  (spaces and tabs) removed.
+		- See also RTRIM$, TRIM$.
+
+--------------------------------------------------------------------------------
 MENU		- syntax: MENU menu-id,item-id,state[,title[,command-key]]
 		- This command creates or modifies the state of a menu or 
 		  menu item as per AmigaBASIC.
@@ -1867,14 +1914,25 @@ MESSAGE WRITE *	- syntax: MESSAGE WRITE [#]channel,buffer
 
 --------------------------------------------------------------------------------
 MID$		- syntax: MID$(X$,I[,J])
-		- Only the MID$ _function_ is currently implemented in ACE.
-		- Returns a string containing J characters from X$ starting 
-		  from the Ith character.
-		- If J is omitted or there are fewer than J characters 
-		  to the right of (and including) the Ith character, all 
-		  characters from the Ith position to the end of the string 
+		- As a function, returns a string containing J characters
+		  from X$ starting from the Ith character.
+		- If J is omitted or there are fewer than J characters
+		  to the right of (and including) the Ith character, all
+		  characters from the Ith position to the end of the string
 		  are returned.
 		- If I > len(X$), MID$ returns the NULL string.
+
+		- syntax: MID$(X$,I[,J]) = Y$   (statement form)
+		- As a statement, overwrites characters in X$ starting at
+		  position I with the contents of Y$.
+		- If J is specified, at most J characters are replaced.
+		  If J is omitted, the length of Y$ determines the count.
+		- The actual number of characters replaced is the minimum of:
+		  J (if given), len(Y$), and the remaining room in X$ from
+		  position I to the end.
+		- The length of X$ is never changed; only existing characters
+		  are overwritten.
+		- If I < 1 or I > len(X$), no modification is made.
   
 --------------------------------------------------------------------------------
 MOD		- Modulo arithmetic operator: X MOD Y.
@@ -2234,6 +2292,29 @@ REPEAT..UNTIL *	- syntax: REPEAT
 		- The loop is always executed at least once.
  
 --------------------------------------------------------------------------------
+REPEAT$ *	- syntax: REPEAT$(<string-expression>, <count>)
+		- Returns a string consisting of <string-expression>
+		  repeated <count> times.
+		- If <count> is 0 or negative, the empty string is returned.
+		- If the source string is empty, the empty string is returned.
+		- The result is capped at 1023 characters (MAXSTRINGSIZE-1).
+
+--------------------------------------------------------------------------------
+REPLACE$ *	- syntax: REPLACE$(<string-expression>, <find$>, <repl$>)
+		- Returns a new string where all occurrences of <find$> in
+		  <string-expression> are replaced with <repl$>.
+		- If <find$> is empty, the original string is returned.
+		- If <find$> is not found, the original string is returned.
+		- To delete occurrences, pass an empty string for <repl$>.
+		- The result is capped at 1023 characters (MAXSTRINGSIZE-1).
+
+--------------------------------------------------------------------------------
+REVERSE$ *	- syntax: REVERSE$(<string-expression>)
+		- Returns <string-expression> with the character order reversed.
+		- If the string is empty or has one character, it is returned
+		  unchanged.
+
+--------------------------------------------------------------------------------
 RESTORE		- syntax: RESTORE
 		- Resets the DATA pointer to the first DATA statement
 		  in the program.
@@ -2247,6 +2328,32 @@ RIGHT$		- syntax: RIGHT$(X$,I)
 		- If I > len(X$), the whole string (X$) is returned.
 		- If I = 0, the NULL string is returned.
  
+--------------------------------------------------------------------------------
+RINSTR *	- syntax: RINSTR([I,]X$,Y$)
+		- RINSTR searches for the last occurrence of Y$ in X$ and
+		  returns the character position (1-based).
+		- If the optional offset I is specified, the search starts
+		  backward from that position. If omitted, the search starts
+		  from the end of X$.
+		- If Y$ is not found in X$, or X$ or Y$ is empty, RINSTR
+		  returns 0.
+		- See also INSTR.
+
+--------------------------------------------------------------------------------
+RPAD$ *		- syntax: RPAD$(<string-expression>, <width>, <pad-char$>)
+		- Returns <string-expression> right-padded with <pad-char$>
+		  to a total width of <width> characters.
+		- Only the first character of <pad-char$> is used for padding.
+		- If the string is already <width> characters or longer,
+		  the original string is returned unchanged.
+		- See also LPAD$.
+
+--------------------------------------------------------------------------------
+RTRIM$ *	- syntax: RTRIM$(<string-expression>)
+		- Returns <string-expression> with all trailing whitespace
+		  (spaces and tabs) removed.
+		- See also LTRIM$, TRIM$.
+
 --------------------------------------------------------------------------------
 RND		- syntax: RND[(X)]
 		- The RND function takes an optional parameter and always 
@@ -2827,6 +2934,15 @@ STRING$		- syntax: STRING$(I,J) or STRING(I,X$).
 		  with ASCII code J or ASC(MID$(X$,1,1)).
  
 --------------------------------------------------------------------------------
+STARTSWITH *	- syntax: STARTSWITH(<string-expression>, <prefix-expression>)
+		- Returns -1 (TRUE) if <string-expression> begins with
+		  <prefix-expression>, 0 (FALSE) otherwise.
+		- If <prefix-expression> is empty, always returns -1 (TRUE).
+		- If <prefix-expression> is longer than <string-expression>,
+		  returns 0 (FALSE).
+		- See also ENDSWITH.
+
+--------------------------------------------------------------------------------
 STRUCT *	- Defines a new structure data type, thus:
  
 		  STRUCT <ident>
@@ -3039,6 +3155,14 @@ TRANSLATE$	- syntax: TRANSLATE$(<string-expression>)
 		- Returns the phoneme-string equivalent of <string-expression> 
 		  where the latter contains words.
  
+--------------------------------------------------------------------------------
+TRIM$ *		- syntax: TRIM$(<string-expression>)
+		- Returns <string-expression> with all leading and trailing
+		  whitespace (spaces and tabs) removed.
+		- If the string contains only whitespace, the empty string
+		  is returned.
+		- See also LTRIM$, RTRIM$.
+
 --------------------------------------------------------------------------------
 TURN *		- syntax: TURN n
 		- Rotates the turtle by n degrees.
