@@ -120,6 +120,7 @@ BOOL strfunc()
   case lcasestrsym  	: return(TRUE);
   case leftstrsym  	: return(TRUE);
   case lensym	   	: return(TRUE);
+  case lpadstrsym	: return(TRUE);
   case ltrimstrsym	: return(TRUE);
   case midstrsym   	: return(TRUE);
   case octstrsym   	: return(TRUE);
@@ -129,6 +130,7 @@ BOOL strfunc()
   case reversestrsym	: return(TRUE);
   case rightstrsym 	: return(TRUE);
   case rinstrsym	: return(TRUE);
+  case rpadstrsym	: return(TRUE);
   case rtrimstrsym	: return(TRUE);
   case saddsym		: return(TRUE);
   case spacestrsym	: return(TRUE);
@@ -789,6 +791,36 @@ BOOL offset_on_stack;
 			else { _error(4); sftype=undefined; }
    			break;
 
+    /* LPAD$(str$, width, pad$) */
+    case lpadstrsym :	if (sftype == stringtype)
+			{
+			 if (sym == comma)
+			 {
+			  insymbol();
+			  make_sure_long(expr());	/* width */
+			  if (sym == comma)
+			  {
+			   insymbol();
+			   if (expr() == stringtype)	/* pad$ */
+			   {
+			    gen("movea.l","(sp)+","a1");	/* pad$ */
+			    gen("move.l","(sp)+","d0");	/* width */
+			    gen("movea.l","(sp)+","a0");	/* str$ */
+			    make_temp_string();
+			    gen("lea",tempstrname,"a2");	/* dest */
+			    gen_rt_call("_lpadstr");
+			    gen("move.l","a0","-(sp)");
+			    sftype=stringtype;
+			   }
+			   else { _error(4); sftype=undefined; }
+			  }
+			  else { _error(16); sftype=undefined; }
+			 }
+			 else { _error(16); sftype=undefined; }
+			}
+			else { _error(4); sftype=undefined; }
+			break;
+
     /* LTRIM$ */
     case ltrimstrsym  :	if (sftype == stringtype)
 			{
@@ -864,6 +896,36 @@ BOOL offset_on_stack;
 			 gen_rt_call("_reversestr");
 			 gen("move.l","a0","-(sp)");
 			 sftype=stringtype;
+			}
+			else { _error(4); sftype=undefined; }
+			break;
+
+    /* RPAD$(str$, width, pad$) */
+    case rpadstrsym :	if (sftype == stringtype)
+			{
+			 if (sym == comma)
+			 {
+			  insymbol();
+			  make_sure_long(expr());	/* width */
+			  if (sym == comma)
+			  {
+			   insymbol();
+			   if (expr() == stringtype)	/* pad$ */
+			   {
+			    gen("movea.l","(sp)+","a1");	/* pad$ */
+			    gen("move.l","(sp)+","d0");	/* width */
+			    gen("movea.l","(sp)+","a0");	/* str$ */
+			    make_temp_string();
+			    gen("lea",tempstrname,"a2");	/* dest */
+			    gen_rt_call("_rpadstr");
+			    gen("move.l","a0","-(sp)");
+			    sftype=stringtype;
+			   }
+			   else { _error(4); sftype=undefined; }
+			  }
+			  else { _error(16); sftype=undefined; }
+			 }
+			 else { _error(16); sftype=undefined; }
 			}
 			else { _error(4); sftype=undefined; }
 			break;

@@ -22,6 +22,8 @@
 	xdef	_reversestr
 	xdef	_repeatstr
 	xdef	_replacestr
+	xdef	_lpadstr
+	xdef	_rpadstr
 
 	; external references
 	xref	_strlen
@@ -516,6 +518,110 @@ _replacestr:
 .rdone:
 	move.b	#0,(a3)		; null-terminate
 	move.l	d5,a0		; return dest address
+	rts
+
+;
+; LPAD$(str$, width, pad$) - Left-pad string to given width.
+; a0 = str$, d0 = width, a1 = pad$, a2 = dest buffer.
+; Returns dest address in a0.
+;
+_lpadstr:
+	move.l	a2,a3		; save dest
+	move.l	d0,d2		; d2 = target width
+	move.l	a0,d3		; d3 = str$ saved
+	move.l	a1,d4		; d4 = pad$ saved
+
+	; get str$ length
+	move.l	a0,a2
+	jsr	_strlen		; d0 = strlen(str$)
+	move.l	d0,d5		; d5 = srclen
+
+	; if srclen >= width, just copy str$
+	cmp.l	d2,d5
+	bge.s	.lpcopy
+
+	; get pad char (first char of pad$)
+	move.l	d4,a1
+	move.b	(a1),d1		; d1 = pad char
+	tst.b	d1
+	beq.s	.lpcopy		; empty pad string, just copy
+
+	; fill (width - srclen) pad chars
+	move.l	d2,d0
+	sub.l	d5,d0		; d0 = pad count
+	move.l	a3,a0		; a0 = dest write ptr
+
+.lpfill:
+	tst.l	d0
+	beq.s	.lpcopyrest
+	move.b	d1,(a0)+
+	subq.l	#1,d0
+	bra.s	.lpfill
+
+.lpcopyrest:
+	; now copy str$ after padding
+	move.l	d3,a1		; a1 = str$
+	jsr	_strcpy
+	move.l	a3,a0		; return dest
+	rts
+
+.lpcopy:
+	; just copy str$ to dest (no padding needed)
+	move.l	a3,a0
+	move.l	d3,a1
+	jsr	_strcpy
+	move.l	a3,a0
+	rts
+
+;
+; RPAD$(str$, width, pad$) - Right-pad string to given width.
+; a0 = str$, d0 = width, a1 = pad$, a2 = dest buffer.
+; Returns dest address in a0.
+;
+_rpadstr:
+	move.l	a2,a3		; save dest
+	move.l	d0,d2		; d2 = target width
+	move.l	a0,d3		; d3 = str$ saved
+	move.l	a1,d4		; d4 = pad$ saved
+
+	; copy str$ to dest first
+	move.l	a3,a0
+	move.l	d3,a1
+	jsr	_strcpy
+
+	; get dest length (= srclen)
+	move.l	a3,a2
+	jsr	_strlen		; d0 = current length
+	move.l	d0,d5		; d5 = srclen
+
+	; if srclen >= width, done
+	cmp.l	d2,d5
+	bge.s	.rpdone
+
+	; get pad char
+	move.l	d4,a1
+	move.b	(a1),d1		; d1 = pad char
+	tst.b	d1
+	beq.s	.rpdone		; empty pad, done
+
+	; fill pad chars from end of string to width
+	move.l	a3,a0
+	add.l	d5,a0		; a0 = &dest[srclen]
+	move.l	d2,d0
+	sub.l	d5,d0		; d0 = pad count
+
+.rpfill:
+	tst.l	d0
+	beq.s	.rpterm
+	move.b	d1,(a0)+
+	subq.l	#1,d0
+	bra.s	.rpfill
+
+.rpterm:
+	move.b	#0,(a0)		; null-terminate
+
+.rpdone:
+	move.l	a3,a0
 	rts
 
 	END
