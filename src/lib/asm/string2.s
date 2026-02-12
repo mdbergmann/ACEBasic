@@ -19,10 +19,15 @@
 	xdef	_startswith
 	xdef	_endswith
 	xdef	_rinstr
+	xdef	_reversestr
+	xdef	_repeatstr
+	xdef	_replacestr
 
 	; external references
 	xref	_strlen
 	xref	_strcpy
+
+MAXSTRINGSIZE	equ	1024
 
 	SECTION string2_code,CODE
 
@@ -326,6 +331,191 @@ _rinstr:
 
 .rifail:
 	moveq	#0,d0
+	rts
+
+;
+; REVERSE$(str$) - Reverse a string.
+; a0 = destination buffer, a1 = source string.
+; Returns destination address in a0.
+;
+_reversestr:
+	move.l	a0,a3		; save dest address
+
+	; get length of source
+	move.l	a1,a2
+	jsr	_strlen		; d0 = length
+
+	; null-terminate dest at position d0
+	move.l	a3,a0
+	move.b	#0,0(a0,d0.l)
+
+	; if empty, done
+	tst.l	d0
+	beq.s	.revdone
+
+	; point a1 to last char of source
+	move.l	a1,a0		; a0 = src start (reuse)
+	add.l	d0,a0
+	subq	#1,a0		; a0 = &src[len-1]
+
+	; copy backward from src to forward in dest
+	move.l	a3,a1		; a1 = dest start
+
+.revloop:
+	cmp.l	a1,a3		; safety check (shouldn't need)
+	move.b	(a0),(a1)+	; dest[i] = src[len-1-i]
+	subq	#1,a0
+	subq.l	#1,d0
+	bne.s	.revloop
+
+.revdone:
+	move.l	a3,a0
+	rts
+
+;
+; REPEAT$(str$, count) - Repeat string N times.
+; a0 = destination buffer, a1 = source string, d0 = count.
+; Returns destination address in a0.
+;
+_repeatstr:
+	move.l	a0,a3		; save dest address
+	move.l	d0,d2		; d2 = count
+	move.l	a1,d3		; d3 = source ptr saved
+
+	; null-terminate dest
+	move.b	#0,(a3)
+
+	; if count <= 0, return empty
+	tst.l	d2
+	ble.s	.repdone
+
+	; get source length
+	move.l	a1,a2
+	jsr	_strlen		; d0 = srclen
+	move.l	d0,d4		; d4 = srclen
+
+	; if source empty, return empty
+	tst.l	d4
+	beq.s	.repdone
+
+	; calculate total length needed: srclen * count
+	; cap at MAXSTRINGSIZE-1
+	move.l	a3,a0		; a0 = dest write pointer
+	moveq	#0,d5		; d5 = bytes written so far
+
+.reploop:
+	tst.l	d2
+	beq.s	.repterm	; all repetitions done
+
+	; check if we have room for another copy
+	move.l	d5,d0
+	add.l	d4,d0		; would-be new length
+	cmpi.l	#MAXSTRINGSIZE-1,d0
+	bgt.s	.repterm	; would exceed max, stop
+
+	; copy source to dest
+	move.l	d3,a1		; restore source ptr
+.repcopy:
+	move.b	(a1)+,d0
+	tst.b	d0
+	beq.s	.repnext
+	move.b	d0,(a0)+
+	addq.l	#1,d5
+	bra.s	.repcopy
+
+.repnext:
+	subq.l	#1,d2
+	bra.s	.reploop
+
+.repterm:
+	move.b	#0,(a0)		; null-terminate
+
+.repdone:
+	move.l	a3,a0
+	rts
+
+;
+; REPLACE$(str$, find$, repl$) - Replace all occurrences of find$ with repl$.
+; a0 = str$, a1 = find$, a2 = repl$, a3 = dest buffer.
+; Returns dest address in a0.
+;
+_replacestr:
+	; save all params to data regs (we need address regs for _strlen)
+	move.l	a0,d2		; d2 = str$
+	move.l	a1,d3		; d3 = find$
+	move.l	a2,d4		; d4 = repl$ (use d4 since d3 is find)
+	move.l	a3,d5		; d5 = dest
+
+	; get find$ length
+	move.l	a1,a2
+	jsr	_strlen		; d0 = findlen
+	move.l	d0,d6		; d6 = findlen
+
+	; if find$ is empty, just copy str$ to dest
+	tst.l	d6
+	beq.s	.rjustcopy
+
+	; walk str$, comparing at each position
+	move.l	d2,a0		; a0 = current position in str$
+	move.l	d5,a3		; a3 = current write position in dest
+	moveq	#0,d1		; d1 = dest bytes written
+
+.rwalk:
+	tst.b	(a0)
+	beq.s	.rdone		; EOS
+
+	; try to match find$ at current position
+	move.l	a0,a1		; a1 = str$ cursor
+	move.l	d3,a2		; a2 = find$
+
+.rcmploop:
+	tst.b	(a2)
+	beq.s	.rmatch		; end of find$ = full match
+
+	tst.b	(a1)
+	beq.s	.rnomatch	; str$ ended before full match
+
+	cmpm.b	(a1)+,(a2)+
+	beq.s	.rcmploop
+	bra.s	.rnomatch
+
+.rmatch:
+	; found match - copy repl$ to dest
+	move.l	d4,a2		; a2 = repl$
+.rcopyrep:
+	move.b	(a2)+,d0
+	tst.b	d0
+	beq.s	.radvance
+	cmpi.l	#MAXSTRINGSIZE-1,d1
+	bge.s	.rdone		; dest full
+	move.b	d0,(a3)+
+	addq.l	#1,d1
+	bra.s	.rcopyrep
+
+.radvance:
+	; advance str$ past the matched find$
+	add.l	d6,a0
+	bra.s	.rwalk
+
+.rnomatch:
+	; no match - copy single char from str$
+	cmpi.l	#MAXSTRINGSIZE-1,d1
+	bge.s	.rdone
+	move.b	(a0)+,(a3)+
+	addq.l	#1,d1
+	bra.s	.rwalk
+
+.rjustcopy:
+	; find$ empty - just copy str$
+	move.l	d5,a0		; dest
+	move.l	d2,a1		; src
+	jsr	_strcpy
+	move.l	d5,a0
+	rts
+
+.rdone:
+	move.b	#0,(a3)		; null-terminate
+	move.l	d5,a0		; return dest address
 	rts
 
 	END

@@ -124,6 +124,9 @@ BOOL strfunc()
   case midstrsym   	: return(TRUE);
   case octstrsym   	: return(TRUE);
   case ptabsym		: return(TRUE);
+  case repeatstrsym	: return(TRUE);
+  case replacestrsym	: return(TRUE);
+  case reversestrsym	: return(TRUE);
   case rightstrsym 	: return(TRUE);
   case rinstrsym	: return(TRUE);
   case rtrimstrsym	: return(TRUE);
@@ -793,6 +796,72 @@ BOOL offset_on_stack;
 			 make_temp_string();
 			 gen("lea",tempstrname,"a0");
 			 gen_rt_call("_ltrimstr");
+			 gen("move.l","a0","-(sp)");
+			 sftype=stringtype;
+			}
+			else { _error(4); sftype=undefined; }
+			break;
+
+    /* REPEAT$(str$, count) */
+    case repeatstrsym :	if (sftype == stringtype)
+			{
+			 if (sym == comma)
+			 {
+			  insymbol();
+			  make_sure_long(expr());
+			  gen("move.l","(sp)+","d0");	/* count */
+			  gen("movea.l","(sp)+","a1");	/* str$ */
+			  make_temp_string();
+			  gen("lea",tempstrname,"a0");
+			  gen_rt_call("_repeatstr");
+			  gen("move.l","a0","-(sp)");
+			  sftype=stringtype;
+			 }
+			 else { _error(16); sftype=undefined; }
+			}
+			else { _error(4); sftype=undefined; }
+			break;
+
+    /* REPLACE$(str$, find$, repl$) */
+    case replacestrsym : if (sftype == stringtype)
+			{
+			 if (sym == comma)
+			 {
+			  insymbol();
+			  if (expr() == stringtype)	/* find$ */
+			  {
+			   if (sym == comma)
+			   {
+			    insymbol();
+			    if (expr() == stringtype)	/* repl$ */
+			    {
+			     gen("movea.l","(sp)+","a2");  /* repl$ */
+			     gen("movea.l","(sp)+","a1");  /* find$ */
+			     gen("movea.l","(sp)+","a0");  /* str$ */
+			     make_temp_string();
+			     gen("lea",tempstrname,"a3");  /* dest */
+			     gen_rt_call("_replacestr");
+			     gen("move.l","a0","-(sp)");
+			     sftype=stringtype;
+			    }
+			    else { _error(4); sftype=undefined; }
+			   }
+			   else { _error(16); sftype=undefined; }
+			  }
+			  else { _error(4); sftype=undefined; }
+			 }
+			 else { _error(16); sftype=undefined; }
+			}
+			else { _error(4); sftype=undefined; }
+			break;
+
+    /* REVERSE$(str$) */
+    case reversestrsym : if (sftype == stringtype)
+			{
+			 gen("move.l","(sp)+","a1");
+			 make_temp_string();
+			 gen("lea",tempstrname,"a0");
+			 gen_rt_call("_reversestr");
 			 gen("move.l","a0","-(sp)");
 			 sftype=stringtype;
 			}
