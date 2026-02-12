@@ -1,5 +1,5 @@
 {* HTTPClient - HTTP/1.1 client submodule for ACE BASIC *}
-{* Phase 4: POST/PUT and request bodies *}
+{* Phase 5: Streaming callbacks *}
 
 { ============== Library Declarations ============== }
 
@@ -99,6 +99,9 @@ ADDRESS _lineBuf
 STRING _lineResult$ SIZE 1025
 LONGINT _lineOk
 
+' Streaming buffer (shared for send/receive, not concurrent)
+ADDRESS _streamBuf
+
 ' CRLF constant
 STRING _crlf$ SIZE 4
 
@@ -112,6 +115,7 @@ SUB _HttpInit
   SHARED _bufAddr, _bufPos, _bufLen, _bufSlot
   SHARED _respHdrCount, _respHdrSlot, _reqHdrCount
   SHARED _lineBuf, _lineResult$, _lineOk
+  SHARED _streamBuf
   SHARED _crlf$
   LONGINT i
 
@@ -140,6 +144,9 @@ SUB _HttpInit
 
   ' Allocate line buffer
   _lineBuf = ALLOC(MAX_LINE_LEN + 1)
+
+  ' Allocate streaming buffer
+  _streamBuf = ALLOC(READ_BUF_SIZE)
 
   ' Init header counts
   _respHdrCount = 0
@@ -1185,24 +1192,116 @@ SUB LONGINT HttpPut(STRING url, STRING ct, ~
   HttpPut = HttpRequest(url, "PUT", ct, body, respBuf)
 END SUB
 
-{ ============== Stubs - Streaming API ============== }
-
-SUB LONGINT HttpGetStream(STRING url, ADDRESS onRecv) EXTERNAL
-  HttpGetStream = HTTP_ERR_SOCKET
-END SUB
-
-SUB LONGINT HttpPostStream(STRING url, STRING ct, ~
-                           ADDRESS onSend, ADDRESS onRecv) EXTERNAL
-  HttpPostStream = HTTP_ERR_SOCKET
-END SUB
-
-SUB LONGINT HttpPutStream(STRING url, STRING ct, ~
-                          ADDRESS onSend, ADDRESS onRecv) EXTERNAL
-  HttpPutStream = HTTP_ERR_SOCKET
-END SUB
+{ ============== Public API - Streaming ============== }
 
 SUB LONGINT HttpRequestStream(STRING url, STRING meth, ~
                               STRING ct, ADDRESS onSend, ~
                               ADDRESS onRecv) EXTERNAL
-  HttpRequestStream = HTTP_ERR_SOCKET
+  SHARED _urlHost$, _urlPort, _urlPath$, _urlSSL
+  SHARED _streamBuf, _crlf$
+  LONGINT hConn, statusCode, rc
+  LONGINT hasBody, sendLen, bytesGot, cbRet
+  LONGINT rdDone
+
+  _HttpInit
+
+  _HttpParseUrl(url)
+  IF LEN(_urlHost$) = 0 THEN
+    HttpRequestStream = HTTP_ERR_PARSE
+    EXIT SUB
+  END IF
+
+  hConn = HttpOpen(_urlHost$, _urlPort, _urlSSL)
+  IF hConn < 1 THEN
+    HttpRequestStream = hConn
+    EXIT SUB
+  END IF
+
+  ' Determine if this method sends a body
+  hasBody = 0
+  IF meth <> "GET" AND meth <> "HEAD" AND meth <> "DELETE" THEN
+    IF onSend <> 0 THEN
+      hasBody = 1
+    END IF
+  END IF
+
+  ' Set up headers for body-bearing requests with chunked encoding
+  IF hasBody THEN
+    IF LEN(ct) > 0 THEN
+      HttpSetHeader(hConn, "Content-Type", ct)
+    END IF
+    HttpSetHeader(hConn, "Transfer-Encoding", "chunked")
+  END IF
+
+  rc = HttpSendRequest(hConn, meth, _urlPath$)
+  IF rc < 0 THEN
+    HttpClose(hConn)
+    HttpRequestStream = rc
+    EXIT SUB
+  END IF
+
+  ' Send body via callback in chunked mode
+  IF hasBody THEN
+    sendLen = 1
+    WHILE sendLen > 0
+      sendLen = INVOKE onSend(_streamBuf, READ_BUF_SIZE)
+      IF sendLen > 0 THEN
+        rc = HttpWriteBodyChunked(hConn, _streamBuf, sendLen)
+        IF rc < 0 THEN
+          HttpClose(hConn)
+          HttpRequestStream = HTTP_ERR_SEND
+          EXIT SUB
+        END IF
+      END IF
+    WEND
+    ' Send final zero-length chunk
+    rc = HttpWriteBodyChunked(hConn, _streamBuf, 0)
+    IF rc < 0 THEN
+      HttpClose(hConn)
+      HttpRequestStream = HTTP_ERR_SEND
+      EXIT SUB
+    END IF
+  END IF
+
+  statusCode = HttpReadStatus(hConn)
+  IF statusCode < 0 THEN
+    HttpClose(hConn)
+    HttpRequestStream = statusCode
+    EXIT SUB
+  END IF
+
+  ' Read response body via callback (unless HEAD or no callback)
+  IF meth <> "HEAD" AND onRecv <> 0 THEN
+    rdDone = 0
+    WHILE rdDone = 0
+      bytesGot = HttpReadBody(hConn, _streamBuf, READ_BUF_SIZE)
+      IF bytesGot > 0 THEN
+        cbRet = INVOKE onRecv(_streamBuf, bytesGot)
+        IF cbRet = HTTP_ABORT THEN
+          HttpClose(hConn)
+          HttpRequestStream = HTTP_ERR_CALLBACK
+          EXIT SUB
+        END IF
+      ELSE
+        rdDone = 1
+      END IF
+    WEND
+  END IF
+
+  HttpClose(hConn)
+  HttpRequestStream = statusCode
+END SUB
+
+SUB LONGINT HttpGetStream(STRING url, ADDRESS onRecv) EXTERNAL
+  HttpGetStream = HttpRequestStream(url, "GET", "", 0&, onRecv)
+END SUB
+
+SUB LONGINT HttpPostStream(STRING url, STRING ct, ~
+                           ADDRESS onSend, ADDRESS onRecv) EXTERNAL
+  HttpPostStream = HttpRequestStream(url, "POST", ct, onSend, onRecv)
+END SUB
+
+SUB LONGINT HttpPutStream(STRING url, STRING ct, ~
+                          ADDRESS onSend, ADDRESS onRecv) EXTERNAL
+  HttpPutStream = HttpRequestStream(url, "PUT", ct, onSend, onRecv)
 END SUB

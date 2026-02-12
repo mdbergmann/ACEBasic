@@ -76,6 +76,24 @@ Phase 4 - POST/PUT Bodies: COMPLETE
     - HttpPut: wrapper → HttpRequest(url, "PUT", ct, body, respBuf)
   Test: test_post.b - UrlEncode, POST httpbin.org/post, PUT httpbin.org/put, GET httpbin.org/get
   Verified: all 4 tests pass on emulator (UrlEncode, POST, PUT, GET via HttpRequest)
-Phase 5 - Streaming Callbacks: NOT STARTED
+Phase 5 - Streaming Callbacks: COMPLETE
+  Branch: http-phase5-streaming
+  Module: submods/httpclient/httpclient.b (~1300 lines, was ~1208)
+  New module data: _streamBuf (4096-byte buffer shared between send/receive phases)
+  Implemented (previously stubs):
+    - HttpRequestStream: core streaming function with INVOKE callbacks
+      - Send phase: chunked Transfer-Encoding via onSend callback loop
+      - Receive phase: HttpReadBody loop invoking onRecv callback
+      - Callback abort support (HTTP_ABORT -> HTTP_ERR_CALLBACK)
+    - HttpGetStream: wrapper -> HttpRequestStream(url, "GET", "", 0, onRecv)
+    - HttpPostStream: wrapper -> HttpRequestStream(url, "POST", ct, onSend, onRecv)
+    - HttpPutStream: wrapper -> HttpRequestStream(url, "PUT", ct, onSend, onRecv)
+  Callbacks use INVOKABLE SUBs + BIND closures + INVOKE dispatch
+  Test: test_stream.b - HttpGetStream + HttpPostStream against httpbin.org
+  Verified: both tests pass on emulator (GET 197 bytes, POST 396 bytes streamed)
 Phase 6 - AmiSSL Integration: NOT STARTED
 Phase 7 - Polish: NOT STARTED
+  Review items:
+    - Audit error handling: ensure sockets are closed on all error paths
+    - Check for ALLOC'd memory that is never freed (e.g. sockaddr_in in _HttpConnectTCP)
+    - Verify no resource leaks in high-level functions (HttpGet, HttpRequest, etc.)
