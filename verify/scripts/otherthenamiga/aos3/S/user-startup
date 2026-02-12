@@ -47,5 +47,13 @@ assign ACEinclude: ACE:include
 path ACE:bin add
 protect ACE:bin/bas +s
 
+;BEGIN AmiSSL
+Assign AmiSSL: "SYS:AmiSSL"
+If Exists AmiSSL:Libs
+  Assign LIBS: AmiSSL:Libs ADD
+EndIf
+Path AmiSSL: ADD
+;END AmiSSL
 
-
+cd ace:submods/httpclient
+execute RunTests ace:test-output.txt

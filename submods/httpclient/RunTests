@@ -1,0 +1,112 @@
+.key outfile
+; RunTests - HTTP client test runner
+; Run from ace:submods/httpclient/
+;
+; Usage (from user-startup):
+;   cd ace:submods/httpclient
+;   execute RunTests ace:test-output.txt
+
+IF "<outfile>" EQ ""
+  SET ofile "*"
+ELSE
+  SET ofile "<outfile>"
+ENDIF
+
+FAILAT 11
+STACK 65000
+
+echo "" >>$ofile
+echo "=======================================" >>$ofile
+echo "  HTTPClient Test Suite" >>$ofile
+echo "=======================================" >>$ofile
+echo "" >>$ofile
+
+echo "Building httpclient module..." >>$ofile
+bas -m httpclient >>$ofile
+IF WARN
+  echo "*** MODULE BUILD FAILED ***" >>$ofile
+  SKIP end
+ENDIF
+echo "Module built OK" >>$ofile
+echo "" >>$ofile
+
+echo "=== Building and running tests ===" >>$ofile
+echo "" >>$ofile
+
+echo "--- test_tcp ---" >>$ofile
+bas test_tcp >>$ofile
+IF NOT WARN
+  test_tcp >>$ofile
+ELSE
+  echo "  BUILD FAILED" >>$ofile
+ENDIF
+echo "" >>$ofile
+
+echo "--- test_lowlevel ---" >>$ofile
+bas test_lowlevel >>$ofile
+IF NOT WARN
+  test_lowlevel >>$ofile
+ELSE
+  echo "  BUILD FAILED" >>$ofile
+ENDIF
+echo "" >>$ofile
+
+echo "--- test_lowlevel_full ---" >>$ofile
+bas test_lowlevel_full >>$ofile
+IF NOT WARN
+  test_lowlevel_full >>$ofile
+ELSE
+  echo "  BUILD FAILED" >>$ofile
+ENDIF
+echo "" >>$ofile
+
+echo "--- test_http_get ---" >>$ofile
+bas test_http_get >>$ofile
+IF NOT WARN
+  test_http_get >>$ofile
+ELSE
+  echo "  BUILD FAILED" >>$ofile
+ENDIF
+echo "" >>$ofile
+
+echo "--- test_chunked ---" >>$ofile
+bas test_chunked >>$ofile
+IF NOT WARN
+  test_chunked >>$ofile
+ELSE
+  echo "  BUILD FAILED" >>$ofile
+ENDIF
+echo "" >>$ofile
+
+echo "--- test_post ---" >>$ofile
+bas test_post httpclient.o >>$ofile
+IF NOT WARN
+  test_post >>$ofile
+ELSE
+  echo "  BUILD FAILED" >>$ofile
+ENDIF
+echo "" >>$ofile
+
+echo "--- test_stream ---" >>$ofile
+bas test_stream >>$ofile
+IF NOT WARN
+  test_stream >>$ofile
+ELSE
+  echo "  BUILD FAILED" >>$ofile
+ENDIF
+echo "" >>$ofile
+
+echo "--- test_https ---" >>$ofile
+bas test_https >>$ofile
+IF NOT WARN
+  test_https >>$ofile
+ELSE
+  echo "  BUILD FAILED" >>$ofile
+ENDIF
+echo "" >>$ofile
+
+echo "=======================================" >>$ofile
+echo "  All tests complete" >>$ofile
+echo "=======================================" >>$ofile
+
+LAB end

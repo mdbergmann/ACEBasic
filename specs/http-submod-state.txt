@@ -1,0 +1,136 @@
+HTTP Client Submodule Implementation State
+============================================
+
+Phase 0 - BMAP Generation: COMPLETE
+  Branch: http-phase0-bmaps
+  Generated: bsdsocket.BMAP (768B), amisslmaster.BMAP (117B), amissl.BMAP (123KB)
+  Verified: test_bmap.b compiles against bsdsocket.bmap
+  Scaffolding: submods/httpclient/, include/submods/HTTPClient.h
+Phase 1 - TCP Foundation: COMPLETE
+  Branch: http-phase1-tcp
+  Module: submods/httpclient/httpclient.b (314 lines)
+    - Library declarations (bsdsocket: socket, connect, send, recv, CloseSocket, gethostbyname, inet_addr)
+    - Connection table: 4 slots with parallel arrays (connSocket&, connState%, connSSL&)
+    - _HttpInit: opens bsdsocket.library, inits connection table
+    - _HttpAllocSlot: finds free connection slot
+    - _HttpResolve: inet_addr then gethostbyname DNS lookup
+    - _HttpConnectTCP: socket + sockaddr_in + connect
+    - _HttpSendRaw/_HttpRecvRaw: thin wrappers over send/recv
+    - HttpOpen/HttpClose: public API (1-based handles)
+    - HttpSendRawBytes/HttpRecvRawBytes: public test helpers
+    - Stubs for all remaining API functions (return error codes)
+  Header: include/submods/HTTPClient.h updated (reserved-word fixes)
+  Test: submods/httpclient/test_tcp.b - connects to www.google.com:80, HTTP GET, verified 200 OK
+  Verified: module compiles, test compiles+links+runs, HTTP response received
+Phase 2 - HTTP/1.1 GET: COMPLETE
+  Branch: http-phase2-get
+  Module: submods/httpclient/httpclient.b (~860 lines, was 314)
+  Header: include/submods/HTTPClient.h updated (HttpReadBody 4->3 params)
+  Step 2.1 - Data Structures + Internal Helpers:
+    - Per-connection arrays: connHost$, connPort%, connContentLen&, connBodyLeft&, connXfer%
+    - Read buffer: _bufAddr (4096), _bufPos, _bufLen, _bufSlot
+    - Response headers: _rHdrName$/Val$ (32 slots), request headers: _qHdrName$/Val$ (16 slots)
+    - URL parse: _urlHost$, _urlPort, _urlPath$, _urlSSL
+    - Buffered line reader: _lineBuf, _lineResult$, _lineOk
+    - _HttpSendStr: send string wrapper
+    - _HttpParseUrl: http://host[:port]/path parser
+    - _HttpRecvLine: buffered line reader with CRLF stripping
+    - Updated _HttpInit, HttpOpen (stores host/port), HttpClose (clears per-conn state)
+  Step 2.2 - Low-level API:
+    - HttpSetHeader: case-insensitive header storage
+    - HttpSendRequest: sends request line + Host + custom headers + Connection: close
+    - HttpReadStatus: reads status line + all headers, detects Content-Length/chunked
+    - HttpGetResponseHeader: case-insensitive header lookup
+    - HttpReadBody: drains read buffer leftovers then recv, respects Content-Length/close modes
+  Step 2.3 - High-level API:
+    - HttpGet: URL parse, open, send GET, read status+body, return status code
+    - HttpHead: URL parse, open, send HEAD, read status, return status code
+  Tests: test_lowlevel.b, test_http_get.b
+  Transfer modes: XFER_CLOSE (default), XFER_LENGTH, XFER_CHUNKED (deferred to Phase 3)
+Phase 3 - Chunked Transfer Decoding: COMPLETE
+  Branch: http-phase3-chunked
+  Module: submods/httpclient/httpclient.b (~1020 lines, was ~860)
+  New per-connection state: connChunkState% (CHK_SIZE/DATA/TRAIL/DONE), connChunkLeft&
+  New internal helpers:
+    - _HttpParseHex: hex string to LONGINT (handles chunk extensions via ; stop)
+    - _HttpReadBuf: buffered byte reader (drains shared buffer, refills from socket)
+    - _HttpReadChunked: chunk decoder state machine
+  Modified:
+    - HttpReadBody: XFER_CHUNKED branch delegates to _HttpReadChunked
+    - _HttpInit/HttpClose/HttpReadStatus: init/reset chunk state
+  Test: test_chunked.b - low-level (50355 bytes decoded) + HttpGet high-level (16384 capped)
+  Verified: chunked responses from www.google.com decoded transparently
+  Bug found: ACE loses function return value when assigned inside WHILE loop;
+    fix: use local retVal variable, assign to function name after WEND
+Phase 4 - POST/PUT Bodies: COMPLETE
+  Branch: http-phase4-post-put
+  Module: submods/httpclient/httpclient.b (~1150 lines, was ~1020)
+  New internal helpers:
+    - _HttpLongToHex: LONGINT to hex string (for chunked sending)
+  Implemented (previously stubs):
+    - HttpWriteBody: validate slot, send raw data via _HttpSendRaw
+    - HttpWriteBodyChunked: send hex(len)+CRLF+data+CRLF, or final "0\r\n\r\n"
+    - UrlEncode: percent-encode per RFC 3986 (unreserved chars pass through)
+    - HttpRequest: generic high-level (URL parse, open, optional body+headers, send, read response)
+    - HttpPost: wrapper → HttpRequest(url, "POST", ct, body, respBuf)
+    - HttpPut: wrapper → HttpRequest(url, "PUT", ct, body, respBuf)
+  Test: test_post.b - UrlEncode, POST httpbin.org/post, PUT httpbin.org/put, GET httpbin.org/get
+  Verified: all 4 tests pass on emulator (UrlEncode, POST, PUT, GET via HttpRequest)
+Phase 5 - Streaming Callbacks: COMPLETE
+  Branch: http-phase5-streaming
+  Module: submods/httpclient/httpclient.b (~1300 lines, was ~1208)
+  New module data: _streamBuf (4096-byte buffer shared between send/receive phases)
+  Implemented (previously stubs):
+    - HttpRequestStream: core streaming function with INVOKE callbacks
+      - Send phase: chunked Transfer-Encoding via onSend callback loop
+      - Receive phase: HttpReadBody loop invoking onRecv callback
+      - Callback abort support (HTTP_ABORT -> HTTP_ERR_CALLBACK)
+    - HttpGetStream: wrapper -> HttpRequestStream(url, "GET", "", 0, onRecv)
+    - HttpPostStream: wrapper -> HttpRequestStream(url, "POST", ct, onSend, onRecv)
+    - HttpPutStream: wrapper -> HttpRequestStream(url, "PUT", ct, onSend, onRecv)
+  Callbacks use INVOKABLE SUBs + BIND closures + INVOKE dispatch
+  Test: test_stream.b - HttpGetStream + HttpPostStream against httpbin.org
+  Verified: both tests pass on emulator (GET 197 bytes, POST 396 bytes streamed)
+Phase 6 - AmiSSL/HTTPS Integration: COMPLETE
+  Branch: http-phase6-ssl
+  Module: submods/httpclient/httpclient.b (~1786 lines, was ~1308)
+  New module data: _sslInited, _masterBase, _amisslBase, _sslCtx
+  ASSEM temporaries (module-level + SHARED): _asmA0, _asmA1, _asmA6, _asmD0, _asmD1, _asmSockBase
+  Trailing ASSEM block: _sslTagList (16 bytes for AmiSSL init tag list)
+  New ASSEM wrapper SUBs (exec): _ExecOpenLib, _ExecCloseLib
+  New ASSEM wrapper SUBs (amisslmaster): _MasterInit, _MasterOpen, _MasterClose
+  New ASSEM wrapper SUBs (amissl): _AmiSSLInit, _SslCtxNew, _SslCtxFree,
+    _SslCtxSetVerify, _SslNew, _SslFree, _SslSetFd, _SslConnect,
+    _SslRead, _SslWrite, _SslShutdown
+  New SSL lifecycle: _HttpInitSSL (lazy), _HttpSSLHandshake, _HttpSSLShutdown
+  Modified: _HttpSendRaw/_HttpRecvRaw (SSL branch), HttpOpen (SSL init+handshake),
+    HttpClose (SSL shutdown before socket close)
+  Test: test_https.b - HTTPS GET, POST, low-level; all 3 PASS
+  Test: test_http_get.b - plain HTTP regression; PASS (HttpHead + low-level GET)
+  Key learnings:
+    - EXTERNAL LONGINT cannot be re-declared in multiple SUBs (error 54, early_exit=TRUE)
+    - Solution: module-level LONGINTs + SHARED; ASSEM references BSS labels (_modv__VARNAME)
+    - ACE uppercases all variable names internally, BSS labels are UPPERCASE
+    - Trailing ASSEM block in module only for data not accessible via BASIC (e.g. _sslTagList)
+  Verified: HTTPS GET 200 (198 bytes), HTTPS POST 200 (376 bytes), low-level SSL 200 (198 bytes)
+Phase 7 - Polish: COMPLETE
+  Branch: http-phase8-polish2 (branched from Phase 6 commit 059c7e3)
+  Buffer overflow fix:
+    - Removed MAX_GET_BODY constant (was 65536, caused overflow with smaller buffers)
+    - Added LONGINT bufSz parameter to HttpGet, HttpRequest, HttpPost, HttpPut
+    - Caller now controls response buffer limit; reads capped to bufSz-1 (reserves null terminator)
+    - Updated HTTPClient.h declarations to match new signatures
+  HttpSendRequest error checking:
+    - All _HttpSendStr calls in HttpSendRequest now check return values
+    - Early return with HTTP_ERR_SEND on any mid-stream send failure
+    - Request headers cleared on error paths to prevent stale state
+  Test fixes:
+    - test_http_get.b: capped low-level read loop to remaining buffer space (was off-by-one)
+    - test_chunked.b, test_post.b, test_https.b: updated to pass bufSz parameter
+  Verified: all 6 tests pass (15 individual test cases)
+    - test_tcp: connect + raw HTTP GET - PASS
+    - test_http_get: HttpHead 200 PASS, low-level GET 200 (16383 bytes) PASS
+    - test_chunked: low-level chunked 50328 bytes PASS, HttpGet chunked 16383 bytes PASS
+    - test_post: UrlEncode PASS, POST 200 PASS, PUT 200 PASS, HttpRequest GET 200 PASS
+    - test_stream: HttpGetStream 200 (197 bytes) PASS, HttpPostStream 200 (396 bytes) PASS
+    - test_https: HTTPS GET 200 PASS, HTTPS POST 200 PASS, low-level SSL 200 PASS

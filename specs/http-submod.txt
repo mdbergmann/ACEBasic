@@ -1,0 +1,829 @@
+HTTP Submodule for ACE BASIC
+============================
+
+Status: DRAFT
+Date: 2026-02-11
+
+
+1. OVERVIEW
+-----------
+
+Add HTTP/1.1 client support to ACE as a self-contained submodule, with
+optional HTTPS via AmiSSL. The module provides three API tiers:
+
+  - High-level convenience functions (string-based, one-call)
+  - Streaming functions (callback-based, for binary/large data)
+  - Low-level handle-based API (full control over connection lifecycle)
+
+The module uses bsdsocket.library for TCP networking and optionally
+amisslmaster.library + amissl.library for TLS/SSL.
+
+No compiler or runtime changes are required.
+
+
+2. DEPENDENCIES
+---------------
+
+2.1 Amiga Libraries
+
+  bsdsocket.library     TCP/IP stack (AmiTCP, Roadshow, or compatible)
+  amisslmaster.library  AmiSSL master (optional, for HTTPS only)
+  amissl.library        AmiSSL main (optional, for HTTPS only)
+
+2.2 FD Files (for BMAP generation)
+
+  Source FD                           Location in emulator
+  ---------------------------------  -------------------------------------------
+  socket_lib.fd                      aos3/Tools/Devel/ThirdParty-Libs/
+                                       AmiTCP-SDK-4.3/netinclude/fd/
+  amisslmaster_lib.fd                aos3/AmiSSL/Developer/fd/
+  amissl_lib.fd                      aos3/AmiSSL/Developer/fd/
+
+2.3 BMAPs to Generate
+
+  bmaps/bsdsocket.bmap     from socket_lib.fd
+  bmaps/amisslmaster.bmap  from amisslmaster_lib.fd
+  bmaps/amissl.bmap        from amissl_lib.fd
+
+  Generated using the existing utils/fd2bmap/ tool.
+
+
+3. FILE LAYOUT
+--------------
+
+  submods/http/http.b               Module source
+  submods/http/Make                 Build script
+  submods/http/test_http.b          Test: plain HTTP GET (text)
+  submods/http/test_http_post.b     Test: HTTP POST
+  submods/http/test_http_stream.b   Test: streaming download
+  submods/http/test_https.b         Test: HTTPS via AmiSSL
+  include/submods/HTTP.h            DECLARE SUB header for users
+  bmaps/bsdsocket.bmap              New
+  bmaps/amisslmaster.bmap           New
+  bmaps/amissl.bmap                 New
+
+
+4. PUBLIC API
+-------------
+
+4.1 Constants (defined in HTTP.h)
+
+  ' Error codes
+  CONST HTTP_SUCCESS              = 0    ' Success
+  CONST HTTP_ERR_SOCKET      = -1   ' Socket creation/connect failed
+  CONST HTTP_ERR_DNS         = -2   ' Host name resolution failed
+  CONST HTTP_ERR_SEND        = -3   ' Send failed
+  CONST HTTP_ERR_RECV        = -4   ' Receive failed
+  CONST HTTP_ERR_SSL_INIT    = -5   ' AmiSSL initialization failed
+  CONST HTTP_ERR_SSL_CONNECT = -6   ' SSL handshake failed
+  CONST HTTP_ERR_PARSE       = -7   ' Malformed HTTP response
+  CONST HTTP_ERR_OVERFLOW    = -8   ' Response exceeds buffer
+  CONST HTTP_ERR_CALLBACK    = -9   ' Callback signalled abort
+  CONST HTTP_ERR_NO_LIB      = -10  ' Required library not available
+
+  ' Callback return values
+  CONST HTTP_CONTINUE        = 0    ' Continue receiving/sending
+  CONST HTTP_ABORT           = 1    ' Abort transfer
+
+  ' SSL flag
+  CONST HTTP_SSL             = 1    ' Use SSL/TLS
+  CONST HTTP_PLAIN           = 0    ' Plain TCP
+
+4.2 High-Level Convenience API
+
+  These functions open a connection, perform the request, read the
+  full response, close the connection, and return the HTTP status code.
+  The response body is written to the caller's buffer (passed as ADDRESS
+  via SADD(str$)). The bufSz parameter specifies the total buffer size
+  in bytes; reads are capped to bufSz-1 to reserve space for the null
+  terminator. The buffer is null-terminated after the call.
+
+  For methods that don't carry a request body (GET, HEAD, DELETE), the
+  body and contentType parameters are ignored.
+
+  SUB LONGINT HttpGet(STRING url$, ADDRESS respBuf, ~
+                      LONGINT bufSz) EXTERNAL
+
+    Perform an HTTP GET request. Response body written to respBuf.
+    bufSz is the total size of the buffer in bytes.
+    Returns HTTP status code (200, 404, etc.) or negative error code.
+
+  SUB LONGINT HttpHead(STRING url$) EXTERNAL
+
+    Perform an HTTP HEAD request. No response body.
+    Returns HTTP status code or negative error code.
+    Use the low-level API if response headers are needed.
+
+  SUB LONGINT HttpPost(STRING url$, STRING contentType$, ~
+                       STRING body$, ADDRESS respBuf, ~
+                       LONGINT bufSz) EXTERNAL
+
+    Perform an HTTP POST with string body. Sets Content-Length
+    automatically. Returns HTTP status code or negative error code.
+
+  SUB LONGINT HttpPut(STRING url$, STRING contentType$, ~
+                      STRING body$, ADDRESS respBuf, ~
+                      LONGINT bufSz) EXTERNAL
+
+    Perform an HTTP PUT with string body. Sets Content-Length
+    automatically. Returns HTTP status code or negative error code.
+
+  SUB LONGINT HttpRequest(STRING url$, STRING method$, ~
+                          STRING contentType$, STRING body$, ~
+                          ADDRESS respBuf, LONGINT bufSz) EXTERNAL
+
+    Generic request with arbitrary method. For GET/HEAD/DELETE the
+    body is not sent. For POST/PUT/PATCH the body is sent with
+    Content-Length. Returns HTTP status code or negative error code.
+
+4.3 Streaming API (callback-based)
+
+  These functions use INVOKABLE callbacks for sending and receiving
+  data. This supports binary data (which cannot be held in strings)
+  and arbitrarily large transfers.
+
+  Callback signatures:
+
+    SUB LONGINT OnReceive(LONGINT bufAddr, LONGINT bufLen) INVOKABLE
+      ' Called with each chunk of received data.
+      ' bufAddr = address of data buffer
+      ' bufLen  = number of bytes in buffer
+      ' Return HTTP_CONTINUE (0) to continue, HTTP_ABORT (1) to stop.
+    END SUB
+
+    SUB LONGINT OnSend(LONGINT bufAddr, LONGINT bufSize) INVOKABLE
+      ' Called to fill buffer with data to send.
+      ' bufAddr = address of buffer to fill
+      ' bufSize = maximum bytes that can be written
+      ' Return number of bytes written, or 0 when done.
+    END SUB
+
+  Functions:
+
+  SUB LONGINT HttpGetStream(STRING url$, ADDRESS onReceive) EXTERNAL
+
+    Streaming GET. Response body delivered via onReceive callback.
+    Returns HTTP status code or negative error code.
+
+  SUB LONGINT HttpPostStream(STRING url$, STRING contentType$, ~
+                             ADDRESS onSend, ~
+                             ADDRESS onReceive) EXTERNAL
+
+    Streaming POST with chunked Transfer-Encoding. Request body
+    supplied by onSend callback, response delivered via onReceive.
+    Returns HTTP status code or negative error code.
+
+  SUB LONGINT HttpPutStream(STRING url$, STRING contentType$, ~
+                            ADDRESS onSend, ~
+                            ADDRESS onReceive) EXTERNAL
+
+    Streaming PUT with chunked Transfer-Encoding.
+    Returns HTTP status code or negative error code.
+
+  SUB LONGINT HttpRequestStream(STRING url$, STRING method$, ~
+                                STRING contentType$, ~
+                                ADDRESS onSend, ~
+                                ADDRESS onReceive) EXTERNAL
+
+    Generic streaming request with arbitrary method.
+    For methods without a body, pass 0& for onSend.
+    For methods without a response body (HEAD), pass 0& for onReceive.
+    Uses chunked Transfer-Encoding when onSend is provided.
+    Returns HTTP status code or negative error code.
+
+4.4 Low-Level Handle API
+
+  For full control over the request/response lifecycle, including
+  access to response headers and custom request headers.
+
+  SUB LONGINT HttpOpen(STRING host$, LONGINT port, ~
+                       LONGINT useSSL) EXTERNAL
+
+    Open a TCP connection (and optionally SSL handshake) to host:port.
+    Returns a handle (positive LONGINT) or negative error code.
+
+  SUB HttpSetHeader(LONGINT handle, STRING name$, ~
+                    STRING value$) EXTERNAL
+
+    Set a request header. Must be called before HttpSendRequest.
+    Overwrites any previous value for the same header name.
+    Host and Content-Length are set automatically.
+
+  SUB LONGINT HttpSendRequest(LONGINT handle, STRING method$, ~
+                              STRING path$) EXTERNAL
+
+    Send the request line and headers. For GET/HEAD/DELETE this
+    completes the request. For POST/PUT/PATCH, follow with
+    HttpWriteBody or HttpWriteBodyChunked.
+    Returns HTTP_SUCCESS or negative error code.
+
+  SUB LONGINT HttpWriteBody(LONGINT handle, LONGINT bufAddr, ~
+                            LONGINT bufLen) EXTERNAL
+
+    Send a fixed-length request body. Content-Length must have been
+    set via HttpSetHeader before HttpSendRequest.
+    Returns HTTP_SUCCESS or negative error code.
+
+  SUB LONGINT HttpWriteBodyChunked(LONGINT handle, ~
+                                   LONGINT bufAddr, ~
+                                   LONGINT bufLen) EXTERNAL
+
+    Send one chunk of a chunked request body. Call repeatedly with
+    data, then call once with bufLen=0 to send the final chunk.
+    Transfer-Encoding: chunked is added automatically on first call.
+    Returns HTTP_SUCCESS or negative error code.
+
+  SUB LONGINT HttpReadStatus(LONGINT handle) EXTERNAL
+
+    Read and parse the HTTP response status line.
+    Returns HTTP status code (200, 404, etc.) or negative error code.
+
+  SUB STRING HttpGetResponseHeader(LONGINT handle, ~
+                                   STRING name$) EXTERNAL
+
+    Return the value of a response header (case-insensitive lookup).
+    Returns empty string if header not present.
+    Must be called after HttpReadStatus.
+
+  SUB LONGINT HttpReadBody(LONGINT handle, LONGINT bufAddr, ~
+                           LONGINT bufSize, ~
+                           LONGINT bytesRead) EXTERNAL
+
+    Read a chunk of the response body into buffer. Handles both
+    Content-Length and chunked Transfer-Encoding transparently.
+    Sets bytesRead to number of bytes written to buffer.
+    Returns HTTP_SUCCESS while data remains, or HTTP_ERR_RECV when done.
+
+  SUB HttpClose(LONGINT handle) EXTERNAL
+
+    Close the connection (SSL shutdown if applicable) and free
+    all resources associated with the handle.
+
+4.5 Utility Functions
+
+  SUB STRING UrlEncode(STRING raw$) EXTERNAL
+
+    URL-encode a string. Spaces become %20, special characters
+    become %XX hex escapes. Letters, digits, and -_.~ pass through.
+    Suitable for query parameters and form-urlencoded body values.
+
+    Example:
+      encoded$ = UrlEncode("hello world!")
+      ' encoded$ = "hello%20world%21"
+
+      body$ = "name=" + UrlEncode("John Doe") + ~
+              "&city=" + UrlEncode("München")
+
+
+5. URL PARSING
+--------------
+
+The high-level and streaming APIs accept a full URL string:
+
+  http://host[:port]/path[?query]
+  https://host[:port]/path[?query]
+
+The module parses the URL internally to extract:
+  - Scheme (http or https) -> determines SSL flag
+  - Host -> for DNS resolution and Host header
+  - Port -> defaults to 80 (http) or 443 (https)
+  - Path + query -> for the request line
+
+The low-level API takes host, port, and path separately.
+
+
+6. TRANSFER ENCODING
+---------------------
+
+6.1 Receiving
+
+The module detects the response transfer mode from headers and
+decodes transparently:
+
+  Response header                  Strategy
+  -------------------------------  -----------------------------------------
+  Content-Length: N                Read exactly N bytes
+  Transfer-Encoding: chunked      Parse chunk headers, deliver payload only
+  Neither (HTTP/1.0 or close)     Read until connection closes
+
+Chunked wire format:
+
+  1a\r\n
+  <26 bytes of payload>\r\n
+  10\r\n
+  <16 bytes of payload>\r\n
+  0\r\n
+  \r\n
+
+The chunk size lines and framing CRLFs are stripped internally.
+Callbacks and HttpReadBody receive only payload bytes.
+
+The chunk decoder must handle chunks that span recv() boundaries
+(a chunk header may be split across two socket reads).
+
+6.2 Sending
+
+  - High-level API (HttpPost, HttpPut, HttpRequest): sends with
+    Content-Length, computed from the body string length.
+
+  - Streaming API (HttpPostStream, HttpPutStream, HttpRequestStream):
+    sends with Transfer-Encoding: chunked. Each onSend callback
+    invocation produces one chunk. When onSend returns 0 bytes,
+    the final 0-length chunk is sent.
+
+  - Low-level API: caller chooses. Use HttpWriteBody for fixed-length
+    or HttpWriteBodyChunked for chunked encoding.
+
+Wire format for sending chunked:
+
+  Callback returns 1024 bytes ->  "400\r\n" + <1024 bytes> + "\r\n"
+  Callback returns 512 bytes  ->  "200\r\n" + <512 bytes> + "\r\n"
+  Callback returns 0          ->  "0\r\n\r\n"
+
+
+7. HTTP METHOD COMPLIANCE (RFC 7231)
+-------------------------------------
+
+  Method   Request body   Response body   Notes
+  -------  -------------  --------------  -----------------------------------
+  GET      No             Yes             Query params in URL only
+  HEAD     No             No              Response headers only
+  POST     Yes            Yes             Create/submit
+  PUT      Yes            Yes             Replace/create at target URI
+  DELETE   Optional       Optional        Remove resource
+  PATCH    Yes            Yes             Partial modification
+
+The module enforces: when method is GET or HEAD, no request body is
+sent regardless of body parameter content. Content-Length and
+Transfer-Encoding headers are omitted for bodyless methods.
+
+
+8. SSL/TLS INTEGRATION
+-----------------------
+
+8.1 Initialization Sequence
+
+AmiSSL requires a multi-step initialization:
+
+  1. LIBRARY "amisslmaster.library"
+  2. Call InitAmiSSLMaster(AMISSL_CURRENT_VERSION, TRUE)
+  3. LIBRARY "amissl.library" (via OpenAmiSSL from master)
+  4. Call InitAmiSSL(tag list)
+
+The module handles this internally on first HTTPS request. If AmiSSL
+libraries are not available, HTTPS requests return HTTP_ERR_NO_LIB.
+
+8.2 Per-Connection SSL
+
+For each HTTPS connection:
+
+  1. Create TCP socket and connect (as for plain HTTP)
+  2. SSL_new(ctx) to create SSL session
+  3. SSL_set_fd(ssl, socket) to associate with socket
+  4. SSL_connect(ssl) to perform TLS handshake
+  5. Use SSL_read/SSL_write instead of recv/send
+  6. SSL_shutdown(ssl) + SSL_free(ssl) on close
+
+8.3 Certificate Verification
+
+Initial implementation: no certificate verification (accept all).
+This matches common Amiga practice where CA bundles are not
+universally available. A future version could add optional
+verification with a user-supplied CA file.
+
+
+9. INTERNAL ARCHITECTURE
+-------------------------
+
+9.0 Naming Convention
+
+  Public SUBs use Http or Url prefix:  HttpGet, HttpOpen, UrlEncode, etc.
+  Private/internal SUBs use _Http or _Url prefix:  _HttpParseUrl,
+  _HttpSendRaw, _HttpRecvLine, _HttpDecodeChunk, etc.
+
+  This avoids name clashes with other submodules.
+
+9.1 Connection Handle
+
+A handle is an index into an internal connection table (static array).
+Each entry holds:
+
+  - Socket file descriptor (LONGINT)
+  - SSL session pointer (LONGINT, 0 if plain)
+  - SSL context pointer (LONGINT, 0 if plain)
+  - State flags (connected, headers-sent, response-read, etc.)
+  - Response header storage (fixed array of name/value string pairs)
+  - Transfer state (content-length remaining, chunk decoder state)
+
+Maximum concurrent connections: 4 (configurable via constant).
+
+9.2 Buffer Management
+
+The module uses a single internal read buffer (4096 bytes, allocated
+once via ALLOC). This buffer is used for:
+
+  - Receiving socket data
+  - Parsing HTTP headers line by line
+  - Decoding chunked transfer encoding
+
+Callback-supplied send buffers are provided by the caller.
+
+9.3 Header Storage
+
+Response headers stored in parallel arrays:
+
+  DIM headerName$(HTTP_MAX_HEADERS) AS STRING
+  DIM headerValue$(HTTP_MAX_HEADERS) AS STRING
+  LONGINT headerCount
+
+HTTP_MAX_HEADERS = 32 (sufficient for typical HTTP responses).
+Header lookup is linear scan with case-insensitive comparison.
+
+9.4 Chunked Decoder State Machine
+
+  States:
+    CHUNK_SIZE     - reading hex chunk size
+    CHUNK_DATA     - reading chunk payload
+    CHUNK_TRAILER  - reading CRLF after chunk data
+    CHUNK_DONE     - final zero-length chunk received
+
+  The state persists across recv() calls to handle chunks split
+  across socket read boundaries.
+
+
+10. USAGE EXAMPLES
+-------------------
+
+10.1 Simple GET (text)
+
+  #include <submods/HTTP.h>
+  EXTERNAL http
+
+  STRING response$ SIZE 4096
+  LONGINT status
+
+  status = HttpGet("http://example.com/api/status", SADD(response$), 4096)
+  IF status = 200 THEN
+    PRINT response$
+  ELSE
+    PRINT "Error: HTTP"; status
+  END IF
+
+10.2 POST with form data
+
+  #include <submods/HTTP.h>
+  EXTERNAL http
+
+  STRING body$ SIZE 1024
+  STRING response$ SIZE 4096
+
+  body$ = "user=" + UrlEncode("john") + "&pass=" + UrlEncode("s3cret")
+  status = HttpPost("http://example.com/login", ~
+                    "application/x-www-form-urlencoded", ~
+                    body$, SADD(response$), 4096)
+  PRINT "Status:"; status
+
+10.3 POST with JSON
+
+  #include <submods/HTTP.h>
+  EXTERNAL http
+
+  STRING response$ SIZE 4096
+
+  status = HttpPost("http://api.example.com/data", ~
+                    "application/json", ~
+                    "{""name"":""Amiga"",""year"":1985}", ~
+                    SADD(response$), 4096)
+
+10.4 Streaming binary download
+
+  #include <submods/HTTP.h>
+  EXTERNAL http
+
+  SUB LONGINT SaveChunk(LONGINT bufAddr, LONGINT bufLen) INVOKABLE
+    ' Write chunk to file using dos _Write
+    DECLARE FUNCTION _Write& LIBRARY dos
+    SHARED LONGINT fileHandle
+    _Write(fileHandle, bufAddr, bufLen)
+    SaveChunk = HTTP_CONTINUE
+  END SUB
+
+  LIBRARY "dos.library"
+  DECLARE FUNCTION _Open& LIBRARY dos
+  DECLARE FUNCTION _Close LIBRARY dos
+
+  fileHandle = _Open(SADD("ram:download.iff" + CHR$(0)), 1006)
+  IF fileHandle <> 0 THEN
+    status = HttpGetStream("http://example.com/image.iff", @SaveChunk)
+    _Close(fileHandle)
+    PRINT "Download status:"; status
+  END IF
+
+10.5 Streaming binary upload (chunked)
+
+  #include <submods/HTTP.h>
+  EXTERNAL http
+
+  SUB LONGINT ReadFileChunk(LONGINT bufAddr, LONGINT bufSize) INVOKABLE
+    ' Read next chunk from file
+    DECLARE FUNCTION _Read& LIBRARY dos
+    SHARED LONGINT fileHandle
+    ReadFileChunk = _Read(fileHandle, bufAddr, bufSize)
+  END SUB
+
+  SUB LONGINT PrintResponse(LONGINT bufAddr, LONGINT bufLen) INVOKABLE
+    ' Just discard response for this example
+    PrintResponse = HTTP_CONTINUE
+  END SUB
+
+  status = HttpPutStream("http://example.com/upload/data.bin", ~
+                         "application/octet-stream", ~
+                         @ReadFileChunk, @PrintResponse)
+
+10.6 PUT with known-size body
+
+  #include <submods/HTTP.h>
+  EXTERNAL http
+
+  STRING response$ SIZE 4096
+  status = HttpPut("http://example.com/resource/42", ~
+                   "application/json", ~
+                   "{""status"":""updated""}", ~
+                   SADD(response$), 4096)
+
+10.7 HEAD to check resource
+
+  #include <submods/HTTP.h>
+  EXTERNAL http
+
+  status = HttpHead("http://example.com/bigfile.bin")
+  IF status = 200 THEN
+    PRINT "Resource exists"
+  ELSE
+    PRINT "Not found:"; status
+  END IF
+
+  ' For headers, use low-level API:
+  handle = HttpOpen("example.com", 80, HTTP_PLAIN)
+  HttpSendRequest(handle, "HEAD", "/bigfile.bin")
+  status = HttpReadStatus(handle)
+  PRINT "Size: "; HttpGetResponseHeader(handle, "Content-Length")
+  PRINT "Type: "; HttpGetResponseHeader(handle, "Content-Type")
+  HttpClose(handle)
+
+10.8 HTTPS GET
+
+  #include <submods/HTTP.h>
+  EXTERNAL http
+
+  STRING response$ SIZE 4096
+  status = HttpGet("https://secure.example.com/api", SADD(response$), 4096)
+  IF status = 200 THEN
+    PRINT response$
+  END IF
+
+10.9 Low-level custom request with headers
+
+  #include <submods/HTTP.h>
+  EXTERNAL http
+
+  handle = HttpOpen("api.example.com", 443, HTTP_SSL)
+  IF handle > 0 THEN
+    HttpSetHeader(handle, "Authorization", "Bearer mytoken123")
+    HttpSetHeader(handle, "Accept", "application/json")
+    HttpSendRequest(handle, "GET", "/v2/data?format=full")
+
+    status = HttpReadStatus(handle)
+    PRINT "Status:"; status
+    PRINT "Content-Type: "; HttpGetResponseHeader(handle, "Content-Type")
+
+    ' Read body
+    LONGINT buf, bytesRead
+    buf = ALLOC(4096, 0)
+    WHILE HttpReadBody(handle, buf, 4096, bytesRead) = HTTP_SUCCESS ~
+          AND bytesRead > 0
+      ' Process bytesRead bytes at buf
+    WEND
+
+    HttpClose(handle)
+  END IF
+
+10.10 Using BIND for context in callbacks
+
+  #include <submods/HTTP.h>
+  EXTERNAL http
+
+  SUB LONGINT WriteToHandle(LONGINT fh, LONGINT bufAddr, ~
+                            LONGINT bufLen) INVOKABLE
+    DECLARE FUNCTION _Write& LIBRARY dos
+    _Write(fh, bufAddr, bufLen)
+    WriteToHandle = HTTP_CONTINUE
+  END SUB
+
+  ' Create closure that captures the file handle
+  writer = BIND(@WriteToHandle, fileHandle)
+
+  ' Pass closure as callback - no SHARED globals needed
+  status = HttpGetStream("http://example.com/data.bin", writer)
+
+
+11. HEADER FILE (HTTP.h)
+--------------------------
+
+  #ifndef HTTP_H
+  #define HTTP_H 1
+
+  {* HTTP.h - HTTP/1.1 client submod for ACE BASIC *}
+
+  ' Error codes
+  CONST HTTP_SUCCESS              = 0
+  CONST HTTP_ERR_SOCKET      = -1
+  CONST HTTP_ERR_DNS         = -2
+  CONST HTTP_ERR_SEND        = -3
+  CONST HTTP_ERR_RECV        = -4
+  CONST HTTP_ERR_SSL_INIT    = -5
+  CONST HTTP_ERR_SSL_CONNECT = -6
+  CONST HTTP_ERR_PARSE       = -7
+  CONST HTTP_ERR_OVERFLOW    = -8
+  CONST HTTP_ERR_CALLBACK    = -9
+  CONST HTTP_ERR_NO_LIB      = -10
+
+  ' Callback return values
+  CONST HTTP_CONTINUE        = 0
+  CONST HTTP_ABORT           = 1
+
+  ' SSL flag
+  CONST HTTP_SSL             = 1
+  CONST HTTP_PLAIN           = 0
+
+  ' --- High-level convenience API ---
+  ' respBuf is ADDRESS (pass SADD(str$)); null-terminated after call
+  ' bufSz is the total size of the response buffer in bytes
+  DECLARE SUB LONGINT HttpGet(STRING url, ADDRESS respBuf, ~
+                              LONGINT bufSz) EXTERNAL
+  DECLARE SUB LONGINT HttpHead(STRING url) EXTERNAL
+  DECLARE SUB LONGINT HttpPost(STRING url, STRING ct, ~
+                               STRING body, ADDRESS respBuf, ~
+                               LONGINT bufSz) EXTERNAL
+  DECLARE SUB LONGINT HttpPut(STRING url, STRING ct, ~
+                              STRING body, ADDRESS respBuf, ~
+                              LONGINT bufSz) EXTERNAL
+  DECLARE SUB LONGINT HttpRequest(STRING url, STRING meth, ~
+                                  STRING ct, STRING body, ~
+                                  ADDRESS respBuf, ~
+                                  LONGINT bufSz) EXTERNAL
+
+  ' --- Streaming API ---
+  DECLARE SUB LONGINT HttpGetStream(STRING url, ~
+                                    ADDRESS onRecv) EXTERNAL
+  DECLARE SUB LONGINT HttpPostStream(STRING url, STRING ct, ~
+                                     ADDRESS onSend, ~
+                                     ADDRESS onRecv) EXTERNAL
+  DECLARE SUB LONGINT HttpPutStream(STRING url, STRING ct, ~
+                                    ADDRESS onSend, ~
+                                    ADDRESS onRecv) EXTERNAL
+  DECLARE SUB LONGINT HttpRequestStream(STRING url, STRING meth, ~
+                                        STRING ct, ADDRESS onSend, ~
+                                        ADDRESS onRecv) EXTERNAL
+
+  ' --- Low-level handle API ---
+  DECLARE SUB LONGINT HttpOpen(STRING host, LONGINT port, ~
+                               LONGINT ssl) EXTERNAL
+  DECLARE SUB HttpSetHeader(LONGINT h, STRING name, ~
+                            STRING val) EXTERNAL
+  DECLARE SUB LONGINT HttpSendRequest(LONGINT h, STRING meth, ~
+                                      STRING path) EXTERNAL
+  DECLARE SUB LONGINT HttpWriteBody(LONGINT h, LONGINT buf, ~
+                                    LONGINT len) EXTERNAL
+  DECLARE SUB LONGINT HttpWriteBodyChunked(LONGINT h, ~
+                                           LONGINT buf, ~
+                                           LONGINT len) EXTERNAL
+  DECLARE SUB LONGINT HttpReadStatus(LONGINT h) EXTERNAL
+  DECLARE SUB STRING HttpGetResponseHeader(LONGINT h, ~
+                                           STRING name) EXTERNAL
+  DECLARE SUB LONGINT HttpReadBody(LONGINT h, LONGINT buf, ~
+                                   LONGINT sz, ~
+                                   LONGINT rd) EXTERNAL
+  DECLARE SUB HttpClose(LONGINT h) EXTERNAL
+
+  ' --- Utility ---
+  DECLARE SUB STRING UrlEncode(STRING raw) EXTERNAL
+
+  #endif
+
+
+12. IMPLEMENTATION PHASES
+--------------------------
+
+Phase 0 - BMAP Generation
+  - Generate bsdsocket.bmap from socket_lib.fd using fd2bmap
+  - Generate amisslmaster.bmap and amissl.bmap
+  - Verify bmaps load correctly (compile a minimal test that opens
+    bsdsocket.library)
+  - Test on emulator
+
+Phase 1 - TCP Foundation
+  - Implement socket open/connect/send/recv/close wrappers
+  - DNS resolution via gethostbyname
+  - Implement HttpOpen (plain TCP only) and HttpClose
+  - Test: connect to a known HTTP server, send raw GET, print response
+
+Phase 2 - HTTP/1.1 GET (plain)
+  - URL parser (scheme, host, port, path)
+  - Request line and header generation
+  - Response status line parser
+  - Response header parser and storage
+  - Content-Length body reading
+  - Implement HttpGet, HttpHead, HttpReadStatus,
+    HttpGetResponseHeader, HttpReadBody
+  - Test: HttpGet against real HTTP server
+
+Phase 3 - Chunked Transfer Decoding
+  - Chunk decoder state machine
+  - Transparent decoding in HttpReadBody
+  - Test: server returning chunked response
+
+Phase 4 - POST/PUT and Request Bodies
+  - Content-Length body sending (HttpWriteBody)
+  - Chunked body sending (HttpWriteBodyChunked)
+  - Implement HttpPost, HttpPut, HttpRequest
+  - Implement HttpSendRequest with body support
+  - UrlEncode utility
+  - Test: POST form data, PUT JSON
+
+Phase 5 - Streaming Callbacks
+  - Implement HttpGetStream with onReceive callback
+  - Implement HttpPostStream/HttpPutStream with onSend + onReceive
+  - Implement HttpRequestStream
+  - Chunked sending from onSend callback
+  - Test: download binary file, upload binary file
+
+Phase 6 - AmiSSL Integration
+  - AmiSSL initialization sequence
+  - SSL session creation per connection
+  - SSL_read/SSL_write replacing recv/send
+  - SSL shutdown and cleanup
+  - HttpOpen with useSSL flag
+  - HTTPS URL scheme detection in high-level API
+  - Test: HTTPS GET, HTTPS POST
+
+Phase 7 - Polish
+  - Redirect following (301, 302, 307, 308) - optional
+  - Connection timeout handling
+  - Robust error reporting
+  - Documentation and examples
+
+
+13. TESTING PLAN
+-----------------
+
+All tests require a TCP/IP stack on the emulator (AmiTCP or Roadshow)
+and network connectivity from the emulated Amiga.
+
+Phase 1 - Structural (compile and link)
+  - Compile http.b as module: bas -m http
+  - Compile each test linking http.o
+  - Verify no compilation errors
+
+Phase 2 - Functional (on emulator with network)
+  - test_http.b: GET a known URL, verify status 200 and body content
+  - test_http_post.b: POST form data, verify server response
+  - test_http_stream.b: download a binary file, verify file size/content
+  - test_https.b: HTTPS GET (requires AmiSSL installed on emulator)
+
+Phase 3 - Edge cases
+  - GET with chunked response
+  - POST large body (chunked sending)
+  - HEAD request
+  - 404 response handling
+  - Connection refused handling
+  - DNS failure handling
+  - URL with port number
+  - URL with query parameters
+
+
+14. LIMITATIONS AND FUTURE WORK
+---------------------------------
+
+14.1 Current Limitations
+
+  - No certificate verification (accepts all certificates)
+  - No HTTP/2 support (HTTP/1.1 only)
+  - No cookie jar (caller must manage cookies via headers)
+  - No automatic decompression (Content-Encoding: gzip)
+  - No multipart/form-data encoding helper (binary uploads use
+    raw body with appropriate Content-Type)
+  - No keep-alive connection pooling (one connection per request
+    in high-level API)
+  - Maximum 4 concurrent connections
+  - Maximum 32 response headers stored
+
+14.2 Future Enhancements
+
+  - Cookie management submodule
+  - Multipart form-data builder for file uploads
+  - CA certificate verification with user-supplied bundle
+  - Keep-alive connection reuse
+  - Basic/Bearer authentication helpers
+  - JSON parser submodule (separate from HTTP)
+  - WebSocket upgrade support
