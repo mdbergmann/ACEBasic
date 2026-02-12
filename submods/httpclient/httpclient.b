@@ -14,7 +14,7 @@ DECLARE FUNCTION inet_addr& LIBRARY bsdsocket
 { ============== Constants ============== }
 
 ' Error codes (match HTTPClient.h)
-CONST HTTP_OK              = 0
+CONST HTTP_SUCCESS              = 0
 CONST HTTP_ERR_SOCKET      = -1
 CONST HTTP_ERR_DNS         = -2
 CONST HTTP_ERR_SEND        = -3
@@ -485,7 +485,7 @@ SUB LONGINT _HttpInitSSL
 
   ' Already initialized?
   IF _sslInited = 1 THEN
-    _HttpInitSSL = HTTP_OK
+    _HttpInitSSL = HTTP_SUCCESS
     EXIT SUB
   END IF
   IF _sslInited = -1 THEN
@@ -556,7 +556,7 @@ SUB LONGINT _HttpInitSSL
   _SslCtxSetVerify(_sslCtx, 0)
 
   _sslInited = 1
-  _HttpInitSSL = HTTP_OK
+  _HttpInitSSL = HTTP_SUCCESS
 END SUB
 
 SUB LONGINT _HttpSSLHandshake(LONGINT slot)
@@ -584,7 +584,7 @@ SUB LONGINT _HttpSSLHandshake(LONGINT slot)
   END IF
 
   connSSL&(slot) = ssl
-  _HttpSSLHandshake = HTTP_OK
+  _HttpSSLHandshake = HTTP_SUCCESS
 END SUB
 
 SUB _HttpSSLShutdown(LONGINT slot)
@@ -1194,7 +1194,7 @@ SUB LONGINT HttpSendRequest(LONGINT h, STRING meth$, ~
   ' Clear request headers for next use
   _reqHdrCount = 0
 
-  HttpSendRequest = HTTP_OK
+  HttpSendRequest = HTTP_SUCCESS
 END SUB
 
 SUB LONGINT HttpReadStatus(LONGINT h) EXTERNAL
@@ -1413,7 +1413,7 @@ SUB LONGINT HttpWriteBody(LONGINT h, LONGINT dataBuf, ~
   IF rc < 0 THEN
     HttpWriteBody = HTTP_ERR_SEND
   ELSE
-    HttpWriteBody = HTTP_OK
+    HttpWriteBody = HTTP_SUCCESS
   END IF
 END SUB
 
@@ -1438,7 +1438,7 @@ SUB LONGINT HttpWriteBodyChunked(LONGINT h, LONGINT dataBuf, ~
     IF rc < 0 THEN
       HttpWriteBodyChunked = HTTP_ERR_SEND
     ELSE
-      HttpWriteBodyChunked = HTTP_OK
+      HttpWriteBodyChunked = HTTP_SUCCESS
     END IF
     EXIT SUB
   END IF
@@ -1460,7 +1460,7 @@ SUB LONGINT HttpWriteBodyChunked(LONGINT h, LONGINT dataBuf, ~
   IF rc < 0 THEN
     HttpWriteBodyChunked = HTTP_ERR_SEND
   ELSE
-    HttpWriteBodyChunked = HTTP_OK
+    HttpWriteBodyChunked = HTTP_SUCCESS
   END IF
 END SUB
 
