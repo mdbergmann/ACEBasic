@@ -414,7 +414,43 @@ The PiP window is a standard Intuition window (supports dragging,
 resizing, close gadget, IDCMP). The hardware scales the source
 bitmap to fit the window interior.
 
+IMPORTANT - Driver Support Detection:
+
+  Not all P96 drivers implement PiP. The P96 API does NOT provide
+  a way to pre-query PiP capability. The driver-internal flag
+  BIB_VIDEOWINDOW is not exposed through the public API, and no
+  P96BD_ board data tag exists for PiP support.
+
+  The recommended approach (used by the official SDK examples) is
+  try-and-check: attempt to open a PiP window and check the error
+  code via P96PIP_ErrorCode:
+    - PIPERR_NOTAVAILABLE (3) = driver doesn't support PiP at all.
+      This is permanent for the current hardware; no point retrying.
+    - Other errors = PiP is supported but something else went wrong.
+
+  There are two PiP types:
+    - PIPT_MemoryWindow (0, default) - software-composited, uses a
+      system memory bitmap. More widely supported across drivers.
+    - PIPT_VideoWindow (1) - requires hardware video overlay support.
+      Fewer boards/drivers implement this.
+
+  The submod should:
+    1. Default to PIPT_MemoryWindow (best compatibility)
+    2. Capture the error code via P96PIP_ErrorCode tag
+    3. On failure, expose the error via P96PipError%
+    4. Provide a P96PipAvail% function that does a minimal probe
+       open (small 1x1 PIPT_MemoryWindow), checks if it succeeds,
+       closes immediately, and returns the result. This lets
+       programs test PiP support before committing to it.
+
 API:
+
+  '--- Check PiP availability ---
+  ' Probes whether PiP is supported on the current hardware by
+  ' attempting a minimal open/close. Returns -1 (true) if PiP
+  ' is available, 0 (false) if not.
+  ' screen& = Screen pointer to test against.
+  avail% = P96PipAvail%(screen&)
 
   '--- Open a PiP window ---
   ' Opens a PiP overlay window on the specified screen.
