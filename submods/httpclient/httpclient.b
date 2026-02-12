@@ -1324,6 +1324,53 @@ SUB STRING HttpGetResponseHeader(LONGINT h, STRING hdrNm$) EXTERNAL
   HttpGetResponseHeader = ""
 END SUB
 
+SUB LONGINT HttpResponseHeaderCount(LONGINT h) EXTERNAL
+  SHARED _respHdrCount, _respHdrSlot
+  LONGINT slot
+
+  slot = h - 1
+  IF slot <> _respHdrSlot THEN
+    HttpResponseHeaderCount = 0
+    EXIT SUB
+  END IF
+
+  HttpResponseHeaderCount = _respHdrCount
+END SUB
+
+SUB STRING HttpResponseHeaderName(LONGINT h, LONGINT idx) EXTERNAL
+  SHARED _respHdrName$, _respHdrCount, _respHdrSlot
+  LONGINT slot
+
+  slot = h - 1
+  IF slot <> _respHdrSlot THEN
+    HttpResponseHeaderName = ""
+    EXIT SUB
+  END IF
+  IF idx < 0 OR idx >= _respHdrCount THEN
+    HttpResponseHeaderName = ""
+    EXIT SUB
+  END IF
+
+  HttpResponseHeaderName = _respHdrName$(idx)
+END SUB
+
+SUB STRING HttpResponseHeaderVal(LONGINT h, LONGINT idx) EXTERNAL
+  SHARED _respHdrVal$, _respHdrCount, _respHdrSlot
+  LONGINT slot
+
+  slot = h - 1
+  IF slot <> _respHdrSlot THEN
+    HttpResponseHeaderVal = ""
+    EXIT SUB
+  END IF
+  IF idx < 0 OR idx >= _respHdrCount THEN
+    HttpResponseHeaderVal = ""
+    EXIT SUB
+  END IF
+
+  HttpResponseHeaderVal = _respHdrVal$(idx)
+END SUB
+
 SUB LONGINT HttpReadBody(LONGINT h, LONGINT dataBuf, ~
                          LONGINT bufSz) EXTERNAL
   SHARED connState%, connXfer%, connBodyLeft&

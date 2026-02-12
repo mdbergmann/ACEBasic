@@ -297,6 +297,32 @@ DECLARE SUB LONGINT HttpReadStatus(LONGINT h) EXTERNAL
 DECLARE SUB STRING HttpGetResponseHeader(LONGINT h, ~
                                          STRING hdrName) EXTERNAL
 
+' HttpResponseHeaderCount - Get number of response headers
+'   h       - Connection handle (after HttpReadStatus)
+'   Returns: Number of headers (0 if none or wrong handle)
+DECLARE SUB LONGINT HttpResponseHeaderCount(LONGINT h) EXTERNAL
+
+' HttpResponseHeaderName - Get response header name by index
+'   h       - Connection handle (after HttpReadStatus)
+'   idx     - Zero-based header index (0 to count-1)
+'   Returns: Header name string, or "" if index out of range
+DECLARE SUB STRING HttpResponseHeaderName(LONGINT h, ~
+                                          LONGINT idx) EXTERNAL
+
+' HttpResponseHeaderVal - Get response header value by index
+'   h       - Connection handle (after HttpReadStatus)
+'   idx     - Zero-based header index (0 to count-1)
+'   Returns: Header value string, or "" if index out of range
+'
+' Example - enumerate all response headers:
+'   cnt = HttpResponseHeaderCount(h)
+'   FOR i = 0 TO cnt - 1
+'     PRINT HttpResponseHeaderName(h, i); ": ";
+'     PRINT HttpResponseHeaderVal(h, i)
+'   NEXT i
+DECLARE SUB STRING HttpResponseHeaderVal(LONGINT h, ~
+                                         LONGINT idx) EXTERNAL
+
 ' HttpReadBody - Read a chunk of the response body
 '   h       - Connection handle (after HttpReadStatus)
 '   dataBuf - Address of buffer to read into
