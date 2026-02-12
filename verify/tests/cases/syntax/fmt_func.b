@@ -31,3 +31,15 @@ ASSERT g$ = "plain text", "FMT$ no args"
 REM Zero-padded hex
 h$ = FMT$("%08x", 255)
 ASSERT h$ = "000000FF", "FMT$ zero-padded hex"
+
+REM Negative integer
+i$ = FMT$("val=%d", -42)
+ASSERT i$ = "val=-42", "FMT$ negative int"
+
+REM Multiple string args
+j$ = FMT$("%s and %s", "cat", "dog")
+ASSERT j$ = "cat and dog", "FMT$ multi strings"
+
+REM Empty format string
+k$ = FMT$("")
+ASSERT k$ = "", "FMT$ empty format"

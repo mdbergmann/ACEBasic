@@ -24,3 +24,23 @@ REM No length specified - uses rhs length
 e$ = "Hello World"
 MID$(e$, 7) = "BASIC"
 ASSERT e$ = "Hello BASIC", "MID$ no len"
+
+REM Replace at pos 1 (start of string)
+f$ = "XXXXX"
+MID$(f$, 1, 3) = "abc"
+ASSERT f$ = "abcXX", "MID$ at pos 1"
+
+REM RHS longer than remaining room - capped
+g$ = "Hi!"
+MID$(g$, 2) = "LONGSTRING"
+ASSERT g$ = "HLO", "MID$ rhs capped at room"
+
+REM Empty rhs - no change
+h$ = "hello"
+MID$(h$, 2, 3) = ""
+ASSERT h$ = "hello", "MID$ empty rhs"
+
+REM Pos beyond string - no change
+i$ = "abc"
+MID$(i$, 10, 1) = "X"
+ASSERT i$ = "abc", "MID$ pos beyond end"

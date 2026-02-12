@@ -47,3 +47,27 @@ ASSERT k$ = "hello", "REPLACE$ delete"
 REM REPLACE$ - longer replacement
 l$ = REPLACE$("ab", "a", "XY")
 ASSERT l$ = "XYb", "REPLACE$ longer repl"
+
+REM REPEAT$ - empty string
+m$ = REPEAT$("", 5)
+ASSERT m$ = "", "REPEAT$ empty src"
+
+REM REPLACE$ - at start of string
+n$ = REPLACE$("hello world", "hello", "HI")
+ASSERT n$ = "HI world", "REPLACE$ at start"
+
+REM REPLACE$ - at end of string
+o$ = REPLACE$("hello world", "world", "W")
+ASSERT o$ = "hello W", "REPLACE$ at end"
+
+REM REPLACE$ - replace with same length
+p$ = REPLACE$("abc", "b", "X")
+ASSERT p$ = "aXc", "REPLACE$ same length"
+
+REM REPLACE$ - consecutive occurrences
+q$ = REPLACE$("aaa", "a", "b")
+ASSERT q$ = "bbb", "REPLACE$ consecutive"
+
+REM REVERSE$ - two chars
+r$ = REVERSE$("ab")
+ASSERT r$ = "ba", "REVERSE$ two chars"

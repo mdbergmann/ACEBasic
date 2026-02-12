@@ -38,3 +38,24 @@ ASSERT RINSTR(3, "abcabc", "bc") = 2, "RINSTR with offset"
 
 REM RINSTR - single char
 ASSERT RINSTR("abcabc", "c") = 6, "RINSTR single char"
+
+REM STARTSWITH - exact match (string equals prefix)
+ASSERT STARTSWITH("hello", "hello"), "starts exact match"
+
+REM ENDSWITH - exact match (string equals suffix)
+ASSERT ENDSWITH("hello", "hello"), "ends exact match"
+
+REM STARTSWITH - empty string
+ASSERT STARTSWITH("", "") , "starts empty both"
+ASSERT STARTSWITH("", "a") = 0, "starts empty str"
+
+REM ENDSWITH - empty string
+ASSERT ENDSWITH("", ""), "ends empty both"
+ASSERT ENDSWITH("", "a") = 0, "ends empty str"
+
+REM RINSTR - empty find string returns 0
+ASSERT RINSTR("hello", "") = 0, "RINSTR empty find"
+
+REM RINSTR - single char string
+ASSERT RINSTR("a", "a") = 1, "RINSTR single char str"
+ASSERT RINSTR("a", "b") = 0, "RINSTR single no match"
