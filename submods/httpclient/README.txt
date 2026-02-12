@@ -96,7 +96,7 @@ Using in Your Programs
 
     bas myprogram
 
-   Or link manually:
+   Or instead of #using, link the module manually on the command line:
 
     bas myprogram ace:submods/httpclient/httpclient.o
 
