@@ -91,6 +91,10 @@ CONST HTTP_PLAIN           = 0    ' Plain TCP (http)
 ' Return value:
 '   - HTTP status code (e.g. 200, 404, 500) on success
 '   - Negative error code (HTTP_ERR_*) on failure
+'
+' Note: Response headers are not accessible through this API.
+' The connection is closed before the function returns.
+' Use the low-level handle API if you need response headers.
 ' =====================================================================
 
 ' HttpGet - Perform an HTTP GET request
@@ -170,6 +174,9 @@ DECLARE SUB LONGINT HttpRequest(STRING url, STRING meth, ~
 ' Return value:
 '   - HTTP status code (e.g. 200, 404, 500) on success
 '   - Negative error code (HTTP_ERR_*) on failure
+'
+' Note: Response headers are not accessible through this API.
+' Use the low-level handle API if you need response headers.
 ' =====================================================================
 
 ' HttpGetStream - Streaming GET request
