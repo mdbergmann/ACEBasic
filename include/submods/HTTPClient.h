@@ -24,7 +24,7 @@
  *   buffers, connection table, header storage, and SSL context.
  *
  * Limitations:
- *   - Maximum 4 concurrent connections
+ *   - Single connection at a time (call HttpClose before re-opening)
  *   - Maximum 32 response headers stored per connection
  *   - No certificate verification (accepts all certificates)
  *   - No HTTP/2 (HTTP/1.1 only)

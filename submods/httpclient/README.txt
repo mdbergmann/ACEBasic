@@ -42,8 +42,8 @@ Quick Example
 
 High-level GET:
 
+    REM #using ace:submods/httpclient/httpclient.o
     #include <submods/HTTPClient.h>
-    EXTERNAL httpclient
 
     STRING resp$ SIZE 8192
     LONGINT st
@@ -53,8 +53,8 @@ High-level GET:
 
 Low-level POST:
 
+    REM #using ace:submods/httpclient/httpclient.o
     #include <submods/HTTPClient.h>
-    EXTERNAL httpclient
 
     LONGINT h, st
     STRING body$ SIZE 64
@@ -87,7 +87,6 @@ Using in Your Programs
 1. Include the header and declare the external module:
 
     #include <submods/HTTPClient.h>
-    EXTERNAL httpclient
 
 2. Add a #using directive so bas auto-links the module:
 
@@ -134,7 +133,7 @@ Test files:
 Limitations
 -----------
 
-- Maximum 4 concurrent connections
+- Single connection at a time (call HttpClose before re-opening)
 - Maximum 32 response headers stored per connection
 - No certificate verification (accepts all certificates)
 - No HTTP/2 (HTTP/1.1 only)
