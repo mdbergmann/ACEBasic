@@ -111,6 +111,7 @@ BOOL strfunc()
   case chrstrsym   	: return(TRUE);
   case cstrsym		: return(TRUE);
   case fileboxstrsym	: return(TRUE);
+  case fmtstrsym	: return(TRUE);
   case hexsym	   	: return(TRUE); 
   case inputboxsym	: return(TRUE);	/* this is here for convenience */
   case inputboxstrsym	: return(TRUE);
@@ -263,6 +264,41 @@ BOOL offset_on_stack;
 			 else 
 			     { _error(4); sftype=undefined; }
 			 break;
+
+    /* FMT$(format$, arg1, arg2, ...) */
+    case fmtstrsym :	if (sftype == stringtype)
+			{
+			 int fmtargcount = 0;
+			 gen("move.l","(sp)+","_fmtfmt");
+			 while (sym == comma && fmtargcount < 8)
+			 {
+			  insymbol();
+			  sftype=expr();
+			  if (sftype == shorttype) make_long();
+			  else if (sftype == singletype)
+			      ; /* already 4 bytes on stack */
+			  else if (sftype == stringtype)
+			      ; /* address already on stack */
+			  else if (sftype != longtype)
+			  {
+			   if (make_integer(sftype) == shorttype) make_long();
+			  }
+			  sprintf(buf,"_fmtargs+%d",fmtargcount*4);
+			  gen("move.l","(sp)+",buf);
+			  fmtargcount++;
+			 }
+			 make_temp_string();
+			 gen("lea",tempstrname,"a0");
+			 gen("movea.l","_fmtfmt","a1");
+			 gen("lea","_fmtargs","a2");
+			 sprintf(buf,"#%d",fmtargcount);
+			 gen("move.l",buf,"d0");
+			 gen_rt_call("_fmtstr");
+			 gen("move.l","a0","-(sp)");
+			 sftype=stringtype;
+			}
+			else { _error(4); sftype=undefined; }
+			break;
 
     /* HEX$ */
     case hexsym  :	if (sftype != stringtype)

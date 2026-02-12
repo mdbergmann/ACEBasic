@@ -24,10 +24,18 @@
 	xdef	_replacestr
 	xdef	_lpadstr
 	xdef	_rpadstr
+	xdef	_fmtstr
 
 	; external references
 	xref	_strlen
 	xref	_strcpy
+	xref	_sprintf
+
+	; BSS from string2_data.s
+	xref	_fmtfmt
+	xref	_fmtargs
+	xref	_fmtspecbuf
+	xref	_fmtsegbuf
 
 MAXSTRINGSIZE	equ	1024
 
@@ -622,6 +630,141 @@ _rpadstr:
 
 .rpdone:
 	move.l	a3,a0
+	rts
+
+;
+; FMT$(format$, args...) - sprintf-style string formatting.
+; a0 = dest buffer, a1 = format string, a2 = args array (longs), d0 = arg count.
+; Supported: %d/%ld (decimal), %x/%lx (hex), %s (string), %c (char), %% (literal %).
+; Width/padding supported via _sprintf delegation for integer types.
+; Returns dest address in a0.
+;
+_fmtstr:
+	move.l	a0,a3		; a3 = dest buffer (write ptr)
+	move.l	a0,d5		; d5 = dest start (saved)
+	; a1 = format string (read ptr)
+	; a2 = args array base
+	moveq	#0,d4		; d4 = current arg index (byte offset)
+	move.l	d0,d6		; d6 = max arg count
+	lsl.l	#2,d6		; d6 = max byte offset (count * 4)
+
+.fmwalk:
+	move.b	(a1)+,d0
+	tst.b	d0
+	beq	.fmdone		; EOS
+
+	cmpi.b	#'%',d0
+	beq.s	.fmpercent
+
+	; regular char - copy to dest
+	move.b	d0,(a3)+
+	bra.s	.fmwalk
+
+.fmpercent:
+	; start of format specifier
+	; build specifier in _fmtspecbuf, a0 tracks write position
+	lea	_fmtspecbuf,a0
+	move.b	#'%',(a0)+	; start with %
+
+	; collect flags, width, etc.
+.fmspec:
+	move.b	(a1)+,d0
+	tst.b	d0
+	beq	.fmdone		; unexpected EOS
+
+	; check for type character
+	cmpi.b	#'d',d0
+	beq.s	.fmint
+	cmpi.b	#'u',d0
+	beq.s	.fmint
+	cmpi.b	#'x',d0
+	beq.s	.fmint
+	cmpi.b	#'X',d0
+	beq.s	.fmint
+	cmpi.b	#'s',d0
+	beq.s	.fmstring
+	cmpi.b	#'c',d0
+	beq.s	.fmchar
+	cmpi.b	#'%',d0
+	beq.s	.fmlitpct
+
+	; part of specifier (flags/width/l modifier) - copy and continue
+	move.b	d0,(a0)+
+	bra.s	.fmspec
+
+.fmlitpct:
+	; %% -> literal %
+	move.b	#'%',(a3)+
+	bra	.fmwalk
+
+.fmchar:
+	; %c -> single character from arg
+	cmp.l	d6,d4
+	bge	.fmwalk		; no more args
+	move.l	0(a2,d4.l),d0	; get arg
+	move.b	d0,(a3)+	; write char
+	addq.l	#4,d4		; advance arg index
+	bra	.fmwalk
+
+.fmstring:
+	; %s -> copy string from arg address
+	cmp.l	d6,d4
+	bge	.fmwalk		; no more args
+	move.l	0(a2,d4.l),a0	; get string address
+	addq.l	#4,d4		; advance arg index
+
+	; copy string to dest
+.fmscopy:
+	move.b	(a0)+,d0
+	tst.b	d0
+	beq	.fmwalk		; done copying
+	move.b	d0,(a3)+
+	bra.s	.fmscopy
+
+.fmint:
+	; %d, %u, %x, %X -> format integer via _sprintf
+	; a0 = current write position in _fmtspecbuf (after % and any flags/width)
+	; d0 = type char
+	move.b	d0,d3		; d3 = type char (d/u/x/X)
+
+	; check if 'l' modifier already present (last written byte)
+	cmpi.b	#'l',-1(a0)
+	beq.s	.fmitype	; already has 'l'
+	; insert 'l' before type
+	move.b	#'l',(a0)+
+
+.fmitype:
+	move.b	d3,(a0)+	; type char
+	move.b	#0,(a0)		; null-terminate specifier
+
+	; check if we have an arg
+	cmp.l	d6,d4
+	bge	.fmwalk		; no more args
+
+	; call _sprintf(_fmtsegbuf, specifier, value)
+	; _sprintf clobbers d0-d1/a0-a1, so save a1 (format read ptr)
+	move.l	a1,-(sp)		; save format ptr
+	move.l	0(a2,d4.l),-(sp)	; value
+	pea	_fmtspecbuf		; format spec
+	pea	_fmtsegbuf		; output buffer
+	jsr	_sprintf
+	lea	12(sp),sp		; clean stack (3 args * 4)
+	move.l	(sp)+,a1		; restore format ptr
+
+	addq.l	#4,d4			; advance arg index
+
+	; copy _fmtsegbuf to dest
+	lea	_fmtsegbuf,a0
+.fmicopy:
+	move.b	(a0)+,d0
+	tst.b	d0
+	beq	.fmwalk
+	move.b	d0,(a3)+
+	bra.s	.fmicopy
+
+.fmdone:
+	move.b	#0,(a3)		; null-terminate dest
+	move.l	d5,a0		; return dest start
 	rts
 
 	END
