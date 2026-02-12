@@ -465,10 +465,13 @@ API:
   '             bit 2: size gadget
   '             bit 3: depth gadget
   ' numBufs%  = number of buffers (1=single, 2=double, 3=triple)
+  ' pipType%  = PIPT_MemoryWindow (0) or PIPT_VideoWindow (1)
+  '             Use 0 for maximum compatibility.
   ' Returns the Intuition Window pointer, or 0 on failure.
+  ' On failure, check P96PipError% for the reason.
   win& = P96PipOpen&(srcFmt%, srcW%, srcH%, ~
                      winX%, winY%, winW%, winH%, ~
-                     screen&, flags%, numBufs%)
+                     screen&, flags%, numBufs%, pipType%)
 
   '--- Get the PiP source bitmap ---
   ' Returns the BitMap pointer for the PiP source.
@@ -524,10 +527,29 @@ Uses the P96 PiP API from Picasso96API.library:
 
 All available in bmaps/Picasso96API.bmap.
 
+P96PipAvail implementation:
+  1. Build minimal tag list:
+       P96PIP_SourceFormat,  RGBFB_CLUT   ' simplest format
+       P96PIP_SourceWidth,   1
+       P96PIP_SourceHeight,  1
+       P96PIP_Type,          PIPT_MemoryWindow  ' best compat
+       P96PIP_ErrorCode,     @probeErr%
+       WA_CustomScreen,      screen&
+       WA_InnerWidth,        1
+       WA_InnerHeight,       1
+       WA_Borderless,        TRUE
+       TAG_DONE
+  2. Call p96PIP_OpenTagList
+  3. If non-NULL: p96PIP_Close, return -1 (available)
+  4. If NULL and probeErr = PIPERR_NOTAVAILABLE: return 0
+  5. If NULL but other error: return -1 (PiP exists but
+     probe failed for transient reason)
+
 P96PipOpen builds a tag list in a LONGINT array:
   P96PIP_SourceFormat,    srcFmt%
   P96PIP_SourceWidth,     srcW%
   P96PIP_SourceHeight,    srcH%
+  P96PIP_Type,            pipType%   ' PIPT_MemoryWindow or PIPT_VideoWindow
   P96PIP_NumberOfBuffers, numBufs%   ' if > 1
   P96PIP_ErrorCode,       @errVar%   ' to capture error
   WA_CustomScreen,        screen&
@@ -560,6 +582,10 @@ Key tag values (from Picasso96.h):
   P96PIP_WorkBuffer        = (newer P96 versions)
   P96PIP_VisibleBuffer     = (newer P96 versions)
   P96PIP_DisplayedBuffer   = (newer P96 versions)
+
+PiP type constants:
+  PIPT_MemoryWindow = 0   ' software-composited, widely supported
+  PIPT_VideoWindow  = 1   ' hardware overlay, fewer drivers
 
 P96PipBitMap and P96PipRastPort use p96PIP_GetTagList with
 P96PIP_SourceBitMap / P96PIP_SourceRPort tags.
@@ -603,10 +629,14 @@ For Amiga/68k (big-endian), the non-PC variants (R5G6B5, R5G5B5)
 are typically preferred. SAGA uses R5G6B5 for 16-bit mode and
 A8R8G8B8 for 32-bit mode.
 
+PiP type constants:
+  CONST PIPT_MemoryWindow    = 0   ' software-composited (best compat)
+  CONST PIPT_VideoWindow     = 1   ' hardware overlay (fewer drivers)
+
 PiP error constants:
   CONST PIPERR_NOMEMORY      = 1
   CONST PIPERR_ATTACHFAIL    = 2
-  CONST PIPERR_NOTAVAILABLE  = 3
+  CONST PIPERR_NOTAVAILABLE  = 3   ' driver does NOT support PiP
   CONST PIPERR_OUTOFPENS     = 4
   CONST PIPERR_BADDIMENSIONS = 5
   CONST PIPERR_NOWINDOW      = 6
@@ -661,12 +691,20 @@ Example B: PiP overlay for video-style display
   SCREEN 1, 800, 600, 8, 13
   WINDOW 1,"",(0,0)-(799,599),0,1
 
+  ' Check if PiP is supported on this hardware
+  IF NOT P96PipAvail%(SCREEN(1)) THEN
+    PRINT "PiP not supported on this hardware."
+    WINDOW CLOSE 1 : SCREEN CLOSE 1
+    STOP
+  END IF
+
   ' Open a PiP window with double-buffered 16-bit source
   ' The PiP hardware scales 320x240 source to 640x480 display
   ' flags = 3 means close gadget (bit 0) + drag bar (bit 1)
+  ' pipType = 0 = PIPT_MemoryWindow (best compatibility)
   win& = P96PipOpen&(RGBFB_R5G6B5, 320, 240, ~
                      80, 60, 640, 480, ~
-                     SCREEN(1), 3, 2)
+                     SCREEN(1), 3, 2, PIPT_MemoryWindow)
 
   IF win& THEN
     ' Render into the PiP source
