@@ -674,25 +674,7 @@ SUB LONGINT _HttpSendStr(STRING msg$)
 END SUB
 
 SUB STRING _HttpLongToHex(LONGINT v)
-  STRING hexDig$ SIZE 20
-  STRING result$ SIZE 12
-  LONGINT digit
-
-  hexDig$ = "0123456789ABCDEF"
-
-  IF v = 0 THEN
-    _HttpLongToHex = "0"
-    EXIT SUB
-  END IF
-
-  result$ = ""
-  WHILE v > 0
-    digit = v AND 15
-    result$ = MID$(hexDig$, digit + 1, 1) + result$
-    v = v \ 16
-  WEND
-
-  _HttpLongToHex = result$
+  _HttpLongToHex = FMT$("%lx", v)
 END SUB
 
 SUB _HttpParseUrl(STRING url$)
@@ -706,11 +688,11 @@ SUB _HttpParseUrl(STRING url$)
   _urlPath$ = "/"
   _urlSSL = 0
 
-  IF LEFT$(url$, 8) = "https://" THEN
+  IF STARTSWITH(url$, "https://") THEN
     _urlSSL = 1
     _urlPort = 443
     rest$ = MID$(url$, 9)
-  ELSEIF LEFT$(url$, 7) = "http://" THEN
+  ELSEIF STARTSWITH(url$, "http://") THEN
     _urlSSL = 0
     _urlPort = 80
     rest$ = MID$(url$, 8)
@@ -1093,7 +1075,6 @@ SUB LONGINT HttpSendRequest(LONGINT h, STRING meth$, ~
   SHARED _connState, _connHost$, _connPort
   SHARED _reqHdrName$, _reqHdrVal$, _reqHdrCount, _crlf$
   LONGINT i, rc
-  STRING portStr$ SIZE 8
 
   IF h <> 1 THEN
     HttpSendRequest = HTTP_ERR_SOCKET
@@ -1115,8 +1096,7 @@ SUB LONGINT HttpSendRequest(LONGINT h, STRING meth$, ~
   IF _connPort = 80 OR _connPort = 443 THEN
     rc = _HttpSendStr("Host: " + _connHost$ + _crlf$)
   ELSE
-    portStr$ = MID$(STR$(_connPort), 2)
-    rc = _HttpSendStr("Host: " + _connHost$ + ":" + portStr$ + _crlf$)
+    rc = _HttpSendStr(FMT$("Host: %s:%ld", _connHost$, _connPort) + _crlf$)
   END IF
   IF rc < 0 THEN
     _reqHdrCount = 0
@@ -1218,15 +1198,11 @@ SUB LONGINT HttpReadStatus(LONGINT h) EXTERNAL
     ELSEIF LEN(_lineResult$) = 0 THEN
       gotBlank = 1
     ELSE
-      ' Parse "Name: Value" (handle optional space after colon)
+      ' Parse "Name: Value" (handle optional whitespace after colon)
       colonPos = INSTR(_lineResult$, ":")
       IF colonPos > 0 AND _respHdrCount < MAX_RSP_HDRS THEN
         tmpNm$ = LEFT$(_lineResult$, colonPos - 1)
-        tmpVl$ = MID$(_lineResult$, colonPos + 1)
-        ' Trim leading space
-        IF LEFT$(tmpVl$, 1) = " " THEN
-          tmpVl$ = MID$(tmpVl$, 2)
-        END IF
+        tmpVl$ = LTRIM$(MID$(_lineResult$, colonPos + 1))
 
         _respHdrName$(_respHdrCount) = tmpNm$
         _respHdrVal$(_respHdrCount) = tmpVl$
@@ -1460,12 +1436,9 @@ END SUB
 { ============== Public API - Utility ============== }
 
 SUB STRING UrlEncode(STRING raw) EXTERNAL
-  STRING hexDig$ SIZE 20
   STRING result$ SIZE 1024
-  STRING ch$ SIZE 4
-  LONGINT i, c, hi, lo
+  LONGINT i, c
 
-  hexDig$ = "0123456789ABCDEF"
   result$ = ""
 
   FOR i = 1 TO LEN(raw)
@@ -1484,9 +1457,7 @@ SUB STRING UrlEncode(STRING raw) EXTERNAL
       result$ = result$ + CHR$(c)
     ELSE
       ' Percent-encode
-      hi = (c \ 16) AND 15
-      lo = c AND 15
-      result$ = result$ + "%" + MID$(hexDig$, hi + 1, 1) + MID$(hexDig$, lo + 1, 1)
+      result$ = result$ + FMT$("%%%02lx", c)
     END IF
   NEXT i
 
@@ -1587,7 +1558,6 @@ SUB LONGINT HttpRequest(STRING url, STRING meth, ~
   LONGINT hConn, statusCode, rc
   LONGINT totalLen, bytesGot, rdDone
   LONGINT hasBody
-  STRING clenStr$ SIZE 16
 
   _HttpInit
 
@@ -1616,8 +1586,7 @@ SUB LONGINT HttpRequest(STRING url, STRING meth, ~
     IF LEN(ct) > 0 THEN
       HttpSetHeader(hConn, "Content-Type", ct)
     END IF
-    clenStr$ = MID$(STR$(LEN(body)), 2)
-    HttpSetHeader(hConn, "Content-Length", clenStr$)
+    HttpSetHeader(hConn, "Content-Length", FMT$("%ld", LEN(body)))
   END IF
 
   rc = HttpSendRequest(hConn, meth, _urlPath$)
