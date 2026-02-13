@@ -1,5 +1,5 @@
 {*
- * DP - Double-Precision Math Submodule Header
+ * DP-Float - Double-Precision Math Submodule Header
  *
  * Provides IEEE 64-bit double-precision floating point via
  * mathieeedoubbas.library and mathieeedoubtrans.library.
@@ -15,8 +15,8 @@
  * memory is reclaimed when the program exits.
  *
  * Usage:
- *   REM #using ace:submods/dp/dp.o
- *   #include <submods/dp.h>
+ *   REM #using ace:submods/dp-float/dp-float.o
+ *   #include <submods/dp-float.h>
  *
  *   IF DpOpen THEN
  *     a = DpNew : b = DpNew : r = DpNew
@@ -27,13 +27,13 @@
  *     DpClose
  *   END IF
  *
- * Compile the module:  bas -m dp
+ * Compile the module:  bas -m dp-float
  * Compile your program: bas myprogram
- *   (with REM #using in source, or pass dp.o on command line)
+ *   (with REM #using in source, or pass dp-float.o on command line)
  *}
 
-#ifndef DP_H
-#define DP_H
+#ifndef DP_FLOAT_H
+#define DP_FLOAT_H
 
 REM --- Double size in bytes ---
 CONST DP_SIZE = 8

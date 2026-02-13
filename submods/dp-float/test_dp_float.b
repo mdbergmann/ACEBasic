@@ -1,7 +1,7 @@
-REM test_dp.b - Phase 1: core DP submodule test
-REM #using ace:submods/dp/dp.o
+REM test_dp_float.b - Phase 1: core DP submodule test
+REM #using ace:submods/dp-float/dp-float.o
 
-#include <submods/dp.h>
+#include <submods/dp-float.h>
 
 LONGINT ok, rv
 ADDRESS a, b, r

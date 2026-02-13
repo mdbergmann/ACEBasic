@@ -1,7 +1,7 @@
-REM test_dp_str.b - Phase 3: string conversion tests
-REM #using ace:submods/dp/dp.o
+REM test_dp_float_str.b - Phase 3: string conversion tests
+REM #using ace:submods/dp-float/dp-float.o
 
-#include <submods/dp.h>
+#include <submods/dp-float.h>
 
 LONGINT ok, rv
 ADDRESS a, b, r

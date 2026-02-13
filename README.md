@@ -322,7 +322,7 @@ Full HTTP/1.1 client library with three API tiers:
 
 Supports HTTP and HTTPS (via AmiSSL), chunked transfer encoding, custom headers, and URL encoding. Requires bsdsocket.library (AmiTCP, Roadshow).
 
-### Double-Precision Math Submodule (`submods/dp/`)
+### Double-Precision Math Submodule (`submods/dp-float/`)
 
 IEEE 64-bit double-precision floating point for ACE BASIC programs. Wraps the Amiga's `mathieeedoubbas.library` and `mathieeedoubtrans.library` via inline ASSEM blocks, providing 15+ significant digits of precision (vs. ~7 for ACE's native SINGLE/FFP type).
 
@@ -340,8 +340,8 @@ Doubles are 8-byte values stored at ADDRESS pointers allocated with `DpNew`. All
 
 **Usage example:**
 ```basic
-REM #using ace:submods/dp/dp.o
-#include <submods/dp.h>
+REM #using ace:submods/dp-float/dp-float.o
+#include <submods/dp-float.h>
 
 IF DpOpen THEN
   a = DpNew : b = DpNew : r = DpNew
@@ -365,7 +365,7 @@ IF DpOpen THEN
 END IF
 ```
 
-Compile: `bas -m dp` (module), then `bas myprogram ace:submods/dp/dp.o` or use `REM #using ace:submods/dp/dp.o` in your source.
+Compile: `bas -m dp-float` (module), then `bas myprogram ace:submods/dp-float/dp-float.o` or use `REM #using ace:submods/dp-float/dp-float.o` in your source.
 
 ### Turtle Graphics Submodule (`submods/turtle/`)
 

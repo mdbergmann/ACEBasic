@@ -3,7 +3,7 @@ DP Double-Precision Math Submodule Implementation State
 
 Phase 1 - Core Skeleton + Arithmetic: COMPLETE
   Branch: dp-submod-phase1
-  Module: submods/dp/dp.b (~320 lines)
+  Module: submods/dp-float/dp-float.b (~320 lines)
     - Module state: _dpBasBase, _dpTransBase, _dpMtBase, _dpInited
     - ASSEM register transfer: _asmD0-D3, _asmA0-A2, _asmA6
     - _ExecOpenLib/_ExecCloseLib (private, exec OpenLibrary/CloseLibrary)
@@ -14,13 +14,13 @@ Phase 1 - Core Skeleton + Arithmetic: COMPLETE
     - DpAdd/DpSub/DpMul/DpDiv: binary arithmetic (BasBase LVOs)
     - DpCmp: comparison returning +1/0/-1 (BasBase)
     - DpAbs/DpNeg: unary operations (BasBase)
-  Header: include/submods/dp.h (Phase 1 declarations)
-  Test: submods/dp/test_dp.b - 13 tests, all PASS
+  Header: include/submods/dp-float.h (Phase 1 declarations)
+  Test: submods/dp-float/test_dp_float.b - 13 tests, all PASS
   Verified: module compiles, test compiles+links+runs on emulator
 
 Phase 2 - All Remaining ASSEM Wrappers: COMPLETE
   Branch: dp-submod-phase2
-  Module: submods/dp/dp.b (~700 lines, was ~320)
+  Module: submods/dp-float/dp-float.b (~700 lines, was ~320)
     - DpCeil/DpFloor: rounding (BasBase LVOs -96/-90)
     - DpFromSingle: FFP -> IEEE SP (mathtrans SPTieee) -> IEEE DP (doubtrans IEEEDPFieee)
     - DpToSingle: IEEE DP -> IEEE SP (doubtrans IEEEDPTieee) -> FFP (mathtrans SPFieee)
@@ -30,13 +30,13 @@ Phase 2 - All Remaining ASSEM Wrappers: COMPLETE
     - DpSinh/DpCosh/DpTanh: hyperbolic (TransBase)
     - DpExp/DpLog/DpLog10/DpSqrt: exp/log (TransBase)
     - DpPow: power (TransBase LVO -90, binary op)
-  Header: include/submods/dp.h updated with Phase 2 declarations
-  Test: submods/dp/test_dp_math.b - 20 tests, all PASS
+  Header: include/submods/dp-float.h updated with Phase 2 declarations
+  Test: submods/dp-float/test_dp_float_math.b - 20 tests, all PASS
   Verified: module compiles, test compiles+links+runs on emulator
 
 Phase 3 - String Conversion: COMPLETE
   Branch: dp-submod-phase3
-  Module: submods/dp/dp.b (~1008 lines, was ~700)
+  Module: submods/dp-float/dp-float.b (~1008 lines, was ~700)
     - _DpTst: internal, IEEEDPTst wrapper (returns +1/0/-1)
     - _DpCopy: internal, 8-byte memory copy via PEEKL/POKEL
     - DpFromStr: string -> double parser (ported from src/dp/dp_val.c)
@@ -46,8 +46,8 @@ Phase 3 - String Conversion: COMPLETE
       Normalizes via DpLog10, extracts 15 digits, trims trailing zeros
       Fixed notation for exp -4..+15, scientific notation otherwise
       Guard adjustments for mantissa near boundaries
-  Header: include/submods/dp.h updated with full per-function documentation
-  Test: submods/dp/test_dp_str.b - 15 tests, all PASS
+  Header: include/submods/dp-float.h updated with full per-function documentation
+  Test: submods/dp-float/test_dp_float_str.b - 15 tests, all PASS
   Verified: module compiles, test compiles+links+runs on emulator
   README.md updated with DP submodule documentation and usage example
 
@@ -56,16 +56,16 @@ Summary
   Total: 32 public functions, ~1008 lines module source
   All 48 tests pass (13 + 20 + 15) across 3 test programs
   Files:
-    submods/dp/dp.b          - Module source
-    include/submods/dp.h     - Header with full API documentation
-    submods/dp/test_dp.b     - Phase 1 test (core + arithmetic)
-    submods/dp/test_dp_math.b - Phase 2 test (trig, exp/log, conversions)
-    submods/dp/test_dp_str.b - Phase 3 test (string conversion)
+    submods/dp-float/dp-float.b          - Module source
+    include/submods/dp-float.h     - Header with full API documentation
+    submods/dp-float/test_dp_float.b     - Phase 1 test (core + arithmetic)
+    submods/dp-float/test_dp_float_math.b - Phase 2 test (trig, exp/log, conversions)
+    submods/dp-float/test_dp_float_str.b - Phase 3 test (string conversion)
 
 Issues Encountered
 ------------------
   - SGN is a reserved word in ACE BASIC; renamed to numSign
   - STR$(n) prepends space for positive numbers; fixed with LTRIM$(STR$(n))
   - REM #using + command-line .o = double-link error; use only one method
-  - Must recompile dp.o before linking test (don't delete then forget to rebuild)
+  - Must recompile dp-float.o before linking test (don't delete then forget to rebuild)
   - Chained ASSEM lib calls reference BSS labels directly: _modv__DPTRANSBASE etc.

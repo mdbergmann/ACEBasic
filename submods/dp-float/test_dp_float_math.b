@@ -1,10 +1,10 @@
-REM test_dp_math.b - Phase 2: trig, exp/log, sqrt, pow, single conv, ceil/floor
-REM #using ace:submods/dp/dp.o
+REM test_dp_float_math.b - Phase 2: trig, exp/log, sqrt, pow, single conv, ceil/floor
+REM #using ace:submods/dp-float/dp-float.o
 
 LIBRARY "mathffp"
 LIBRARY "mathtrans"
 
-#include <submods/dp.h>
+#include <submods/dp-float.h>
 
 LONGINT ok, rv
 ADDRESS a, b, r, sc
