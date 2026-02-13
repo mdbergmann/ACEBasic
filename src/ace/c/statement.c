@@ -744,23 +744,6 @@ char addrbuf[80];
   narratorused=TRUE;
 }
 
-static void handle_setxy()
-{
-  insymbol();
-  make_sure_short(expr()); /* x */
-  if (sym != comma) _error(16);
-  else
-  {
-   insymbol();
-   make_sure_short(expr()); /* y */
-   /* pop operands */
-   gen("move.w","(sp)+","d1"); /* y */
-   gen("move.w","(sp)+","d0"); /* x */
-   gen_rt_call("_setxy");
-   enter_XREF("_GfxBase");
-  }
-}
-
 static void handle_sleep()
 {
 int stype;
@@ -890,18 +873,6 @@ char  idholder[50];
  /* areafill */
  if (sym == areafillsym) areafill();
  else
- /* back */
- if (sym == backsym)
- {
-  insymbol();
-  gen_Flt(expr());
-  gen("move.l","(sp)+","d0");
-  gen_rt_call("_back");
-  enter_XREF("_MathBase");
-  enter_XREF("_MathTransBase");
-  enter_XREF("_GfxBase"); 
- }
- else
  /* beep */
  if (sym == beepsym) 
  { 
@@ -1019,18 +990,6 @@ char  idholder[50];
  /* for.. */
  if (sym == forsym) for_statement();
  else
- /* forward */
- if (sym == forwardsym)
- {
-  insymbol();
-  gen_Flt(expr());
-  gen("move.l","(sp)+","d0");
-  gen_rt_call("_forward");
-  enter_XREF("_MathBase");
-  enter_XREF("_MathTransBase");
-  enter_XREF("_GfxBase"); 
- }  
- else
  /* gadget */
  if (sym == gadgetsym) gadget();
  else
@@ -1055,14 +1014,6 @@ char  idholder[50];
  /* goto or gosub */
  if ((sym == gotosym) || (sym == gosubsym))
   handle_goto_gosub();
- else
- /* home */
- if (sym == homesym)
- {
-  gen_rt_call("_home");
-  enter_XREF("_GfxBase");
-  insymbol();
- }
  else
  /* if...then...else... */
  if (sym == ifsym) { check_for_event(); if_statement(); }
@@ -1144,20 +1095,6 @@ char  idholder[50];
  /* pattern */
  if (sym == patternsym) pattern();
  else
- /* pendown */
- if (sym == pendownsym)
- {
-  gen_rt_call("_pendown");
-  insymbol();
- }
- else
- /* penup */
- if (sym == penupsym)
- {
-  gen_rt_call("_penup");
-  insymbol();
- }
- else
  /* poke */
  if (sym == pokesym) poke();
  else
@@ -1238,19 +1175,6 @@ char  idholder[50];
  /* serial command */
  if (sym == serialsym) { check_for_event(); serial_command(); }
  else
- /* setheading */
- if (sym == setheadingsym)
- {
-  insymbol();
-  make_sure_short(expr());
-  gen("move.w","(sp)+","d0");
-  gen_rt_call("_setheading");
- }
- else
- /* setxy */
- if (sym == setxysym)
-  handle_setxy();
- else
  /* shared */
  if (sym == sharedsym && lev == ZERO) { _error(69); insymbol(); }
  else
@@ -1282,33 +1206,6 @@ char  idholder[50];
  /* system */
  if (sym == systemsym)
   handle_system();
- else
- /* turn */
- if (sym == turnsym)
- {
-  insymbol();
-  make_sure_short(expr());
-  gen("move.w","(sp)+","d0");
-  gen_rt_call("_turn");
- }	
- else
- /* turnleft */
- if (sym == turnleftsym)
- {
-  insymbol();
-  make_sure_short(expr());
-  gen("move.w","(sp)+","d0");
-  gen_rt_call("_turnleft");
- }	
- else
- /* turnright */
- if (sym == turnrightsym)
- {
-  insymbol();
-  make_sure_short(expr());
-  gen("move.w","(sp)+","d0");
-  gen_rt_call("_turnright");
- }	
  else
  /* until */
  if ((sym == untilsym) && (lastsym == colon)) 

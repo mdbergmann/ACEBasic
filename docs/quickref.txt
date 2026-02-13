@@ -10,7 +10,6 @@ ASC( ascii_code = ASC(X$) : ASC() returns the ASCII code of the first character 
 ASSEM ASSEM .. END ASSEM : ASSEM allows inline inclusion of assembly source code into the generated A68K file.
 ASSERT ASSERT <condition> [, <message>] : ASSERT tests the condition and halts program execution if false, printing "ASSERT FAILED" with an optional message. Exits cleanly.
 ATN( arctan = ATN(n) : ATN() returns the arctangent of n.
-BACK BACK n : BACK moves the turtle back n steps.
 BEEP BEEP : BEEP issues a brief pulse from the speaker to alert the user.
 BEVELBOX BEVELBOX (x1,y1)-(x2,y2),style : BEVELBOX renders a Wb 2.x/3.0 style 3D bevel-box. Style: 1=RAISED, 2=RECESSED, 3=STRING-GADGET STYLE.
 BIN$( binary$ = BIN$(n) : BIN$() returns a string containing the binary representation of n.
@@ -61,7 +60,6 @@ FIX( integer = FIX(n) : FIX() returns the truncated integer portion of n. Equiva
 FMT$( result$ = FMT$(format$[, arg1, arg2, ...]) : FMT$() returns a formatted string using sprintf-style specifiers: %d (integer), %x (hex), %s (string), %c (char), %% (literal %). Up to 8 args.
 FONT FONT <name>,<size> : FONT changes the font for the current output window. Works only for WINDOW-created windows.
 FOR FOR <var>=x TO y [STEP z] : FOR starts a FOR..NEXT loop. The loop variable is incremented by z (default 1) until it reaches y.
-FORWARD FORWARD n : FORWARD moves the turtle forward n steps.
 FRE( freemem = FRE(n) : FRE() returns free system memory. n: -1=total, 0=CHIP, 1=FAST, 2=largest CHIP block, 3=largest FAST block.
 GADGET GADGET id,status[,gadval,rectangle,type[,style]] : GADGET creates or modifies a gadget. Type: 1=BUTTON, 2=STRING, 3=LONGINT, 4=POTX, 5=POTY.
 GADGET( info = GADGET(n) : GADGET() returns gadget info. n: 0=event occurred, 1=gadget number, 2=string/longint value, 3=slider position, 4=gadget address.
@@ -70,9 +68,7 @@ GLOBAL GLOBAL [<type>] <identifier> : GLOBAL declares a static variable with mod
 GOSUB GOSUB <label> : GOSUB transfers control to the specified label. RETURN passes control back to the statement after GOSUB.
 GOTO GOTO <label> : GOTO transfers control to the specified label or line.
 HANDLE( handle = HANDLE(n) : HANDLE() returns the dos file handle pointer for file number n. Returns 0 if file doesn't exist.
-HEADING heading = HEADING : HEADING returns the turtle's current heading in degrees (0..359).
 HEX$( hex$ = HEX$(n) : HEX$() returns a string containing the hexadecimal representation of n.
-HOME HOME : HOME moves the turtle to its home position.
 IF IF <condition> [THEN] .. [ELSE ..] [END IF] : IF starts a conditional block. Supports single-line IF..THEN..ELSE and multi-line IF..THEN..ELSE..END IF.
 IFF( info = IFF(channel,n) : IFF() returns IFF file info. n: 0=form name address, 1=width, 2=height, 3=depth, 4=screen mode.
 IMP IMP is the boolean implication operator.
@@ -119,8 +115,6 @@ PATTERN PATTERN [line-pattern][,area-pattern] | RESTORE : PATTERN sets line and/
 PEEK( value = PEEK(<address>) : PEEK() returns an 8-bit value from the specified memory address. PEEKW for 16-bit, PEEKL for 32-bit.
 PEEKW( value = PEEKW(<address>) : PEEKW() returns a 16-bit value from the specified memory address.
 PEEKL( value = PEEKL(<address>) : PEEKL() returns a 32-bit value from the specified memory address.
-PENDOWN PENDOWN : PENDOWN lowers the turtle's pen, enabling drawing by turtle graphics commands.
-PENUP PENUP : PENUP raises the turtle's pen, disabling drawing by turtle graphics commands.
 POINT( color = POINT(x,y) : POINT() returns the color-id of a point in the current output window or screen.
 POKE POKE <address>,<value> : POKE writes an 8-bit value to the specified memory address. POKEW for 16-bit, POKEL for 32-bit.
 POKEW POKEW <address>,<value> : POKEW writes a 16-bit value to the specified memory address.
@@ -154,8 +148,6 @@ SCREEN SCREEN id,width,height,depth,mode : SCREEN opens a screen. Modes: 1=lores
 SCREEN( info = SCREEN(n) : SCREEN() returns screen info. n: 0=window ptr, 1=screen ptr, 2=rastport ptr, 3=viewport ptr, 4=bitmap ptr, 5=font width, 6=font height.
 SCROLL SCROLL (xmin,ymin)-(xmax,ymax),delta-x,delta-y : SCROLL scrolls bits inside the specified rectangle by the given delta values.
 SERIAL( info = SERIAL(channel,n) : SERIAL() returns serial port info. n: 0=chars in buffer, 1=unit, 2=baud, 3=parity, 4=data bits, 5=stop bits, etc.
-SETXY SETXY x,y : SETXY sets the x,y location for the next graphics command. Use PENUP first to prevent turtle drawing.
-SETHEADING SETHEADING n : SETHEADING changes the turtle's heading to n degrees.
 SGN( sign = SGN(n) : SGN() returns +1 if n>0, 0 if n=0, -1 if n<0.
 SHARED SHARED <ident>[,..] : SHARED declares variables, arrays or structures as shared between the main program and subprograms.
 SHL( result = SHL(n,m) : SHL() performs arithmetic shift left of n by m bit positions. Returns a long integer. Faster than multiplying by powers of 2.
@@ -189,9 +181,6 @@ TIME$ time$ = TIME$ : TIME$ returns the current time as hh:mm:ss.
 TIMER seconds = TIMER : TIMER returns seconds elapsed since midnight as a single-precision value.
 TRANSLATE$( phonemes$ = TRANSLATE$(X$) : TRANSLATE$() returns the phoneme-string equivalent of the specified word string.
 TRIM$( result$ = TRIM$(X$) : TRIM$() returns X$ with all leading and trailing whitespace (spaces and tabs) removed.
-TURN TURN n : TURN rotates the turtle by n degrees. Positive=clockwise, negative=counter-clockwise.
-TURNLEFT TURNLEFT n : TURNLEFT rotates the turtle counter-clockwise by n degrees.
-TURNRIGHT TURNRIGHT n : TURNRIGHT rotates the turtle clockwise by n degrees.
 UCASE$( upper$ = UCASE$(X$) : UCASE$() returns the string with all alphabetic characters in upper case.
 UNTIL UNTIL <condition> : UNTIL terminates a REPEAT..UNTIL loop when the condition becomes true.
 VAL( value = VAL(X$) : VAL() returns the numeric value of X$ as single-precision. Supports &H (hex) and &O (octal) prefixes. For large integers use LONGINT().
@@ -202,5 +191,3 @@ WHILE WHILE <condition> : WHILE starts a loop that executes while the condition 
 WINDOW WINDOW id,[title],(x1,y1)-(x2,y2)[,type][,screen-id] : WINDOW opens a window. Type: 1=sizing, 2=dragging, 4=depth, 8=close gadget, 16=refresh, 32=borderless. Default type=31.
 WINDOW( info = WINDOW(n) : WINDOW() returns window info. n: 0-1=window-id, 2-3=width/height, 4-5=next plot x/y, 6=max color, 7-9=pointers, 10-13=pen/font info.
 XOR XOR is the boolean XOR operator.
-XCOR x = XCOR : XCOR returns the turtle's current x-coordinate.
-YCOR y = YCOR : YCOR returns the turtle's current y-coordinate.

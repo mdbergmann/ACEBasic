@@ -210,6 +210,9 @@ Additionally, `IDE/CubicIDE-ACE/add-ons/ace/quickinfo/ace.words` is a copy of `d
 ```bash
 # On Amiga/emulator
 bas myprogram           # Compile myprogram.b to executable
+bas -E myprogram        # Same, but write compiler errors to ace.err in same folder
+bas -m mymodule         # Compile a submodule (.b -> .o)
+bas -mE mymodule        # Same, but write compiler errors to ace.err
 
 # To debug compilation issues, run phases separately:
 ace myprogram.b         # Just compile to .s
@@ -245,4 +248,4 @@ Submodules are reusable BASIC libraries in `submods/`. Each has:
 - Optional `.h` header in `include/submods/`
 - Test files for verification
 
-Use with `EXTERNAL modulename` in BASIC source.
+To link a submodule's `.o` file automatically, add `REM #using module.o` at the top of the main program. Otherwise, pass the `.o` file as the last parameter to `bas`.

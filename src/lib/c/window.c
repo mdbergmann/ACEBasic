@@ -67,14 +67,6 @@ extern	USHORT	WBbgpen;
 
 extern	struct	IntuitionBase *IntuitionBase;
 
-/* turtle graphics info */
-extern	USHORT	tg_initx;
-extern	USHORT	tg_inity;
-extern	USHORT	tg_tx;
-extern	USHORT	tg_ty;
-extern	USHORT	tg_degs;
-extern	UBYTE	tg_pen;
-
 /* window list */
 typedef struct wdw_list_type
 	{
@@ -357,12 +349,6 @@ USHORT   width, height,id;
 			WBfgdpen = fgdpen;
 			WBbgpen	 = bgpen;
 		}
-
-		/* turtle graphics info */
-		tg_tx	= tg_initx;
-		tg_ty	= tg_inity;
-		tg_degs	= 270;
-		tg_pen	= 1;
 
 		/* window list info */
 		StoreWdwInfo();	

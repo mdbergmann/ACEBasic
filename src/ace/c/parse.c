@@ -625,9 +625,9 @@ int i;
 	ctrl_c_break_test();	
  }
  
- printf("\nACE-SPECIFIC RESERVED WORDS: %ld\n\n",(ycorsym-addresssym)+1);
+ printf("\nACE-SPECIFIC RESERVED WORDS: %ld\n\n",(untilsym-addresssym)+1);
 
- for (i=addresssym;i<=ycorsym;i++) 
+ for (i=addresssym;i<=untilsym;i++)
  {
  	printf("%s\n",rword[i]);
 	ctrl_c_break_test();	

@@ -1,4 +1,7 @@
+REM #using ace:submods/turtle/turtle.o
 '...a flower via turtle graphics
+
+#include <submods/turtle.h>
 
 defint i
 
@@ -9,23 +12,21 @@ cls
 
 sub fourside
   for i=1 to 2
-    forward 40
-    turnright 30
-    forward 40
-    turnright 150
+    TgForward(40)
+    TgTurnRight(30)
+    TgForward(40)
+    TgTurnRight(150)
   next
 end sub
 
 sub flower
   for i=1 to 18
     fourside
-    turnright 20
+    TgTurnRight(20)
   next
 end sub
 
-penup
-setxy 320,100
-pendown
+TgInit(320, 100)
 
 flower
 
