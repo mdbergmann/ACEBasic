@@ -340,8 +340,8 @@ Doubles are 8-byte values stored at ADDRESS pointers allocated with `DpNew`. All
 
 **Usage example:**
 ```basic
-EXTERNAL dp
-'$include "submods/dp.h"
+REM #using ace:submods/dp/dp.o
+#include <submods/dp.h>
 
 IF DpOpen THEN
   a = DpNew : b = DpNew : r = DpNew

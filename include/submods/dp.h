@@ -5,8 +5,8 @@
  * mathieeedoubbas.library and mathieeedoubtrans.library.
  *
  * Usage:
- *   EXTERNAL dp
- *   '$include "submods/dp.h"
+ *   REM #using ace:submods/dp/dp.o
+ *   #include <submods/dp.h>
  *
  *   IF DpOpen THEN
  *     a = DpNew : b = DpNew : r = DpNew
