@@ -1,0 +1,291 @@
+Turtle Graphics: Remove Built-in Commands, Replace with Submodule
+=================================================================
+
+Status: DRAFT
+Branch: (create from master when ready)
+
+Overview
+--------
+ACE currently has 13 turtle graphics commands hard-coded as reserved words
+with compiler handlers and runtime assembly. This spec describes removing
+them from the compiler/runtime and providing equivalent functionality as
+an external submodule (submods/turtle/).
+
+This frees up 13 reserved words, removes ~170 lines of compiler code,
+~390 lines of runtime assembly, and ~4 lines of C runtime init code,
+while keeping turtle graphics fully available as an EXTERNAL module.
+
+Current Implementation Inventory
+--------------------------------
+
+### Reserved Words (13 tokens in lexvar.c / acedef.h)
+
+  Statements (10):  BACK, FORWARD, HOME, PENDOWN, PENUP,
+                    SETHEADING, SETXY, TURN, TURNLEFT, TURNRIGHT
+  Functions (3):    HEADING, XCOR, YCOR
+  Unused token (1): TURTLE (reserved but no handler)
+
+### Compiler Code (src/ace/c/)
+
+  acedef.h    - Token enum entries: backsym, forwardsym, headingsym,
+                homesym, pendownsym, penupsym, setheadingsym, setxysym,
+                turnsym, turnleftsym, turnrightsym, turtlesym, xcorsym,
+                ycorsym (14 entries)
+
+  lexvar.c    - Reserved word strings: "BACK", "FORWARD", "HEADING",
+                "HOME", "PENDOWN", "PENUP", "SETHEADING", "SETXY",
+                "TURN", "TURNLEFT", "TURNRIGHT", "TURTLE", "XCOR", "YCOR"
+
+  statement.c - 10 handler blocks (~70 lines total):
+                - backsym     (lines 842-851): insymbol, gen_Flt(expr()), pop, _back, XREF Math+GfxBase
+                - forwardsym  (lines 971-980): insymbol, gen_Flt(expr()), pop, _forward, XREF Math+GfxBase
+                - homesym     (lines 1008-1013): _home, XREF GfxBase, insymbol
+                - pendownsym  (lines 1093-1097): _pendown, insymbol
+                - penupsym    (lines 1100-1104): _penup, insymbol
+                - setheadingsym (lines 1187-1193): insymbol, make_sure_short(expr()), pop, _setheading
+                - setxysym    (line 1196-1197): delegates to handle_setxy()
+                - turnsym     (lines 1232-1238): insymbol, make_sure_short(expr()), pop, _turn
+                - turnleftsym (lines 1241-1247): insymbol, make_sure_short(expr()), pop, _turnleft
+                - turnrightsym(lines 1250-1256): insymbol, make_sure_short(expr()), pop, _turnright
+                + handle_setxy() static function (lines 695-710, ~16 lines)
+
+  factor.c    - 3 function handlers (~18 lines):
+                - headingsym  (line 323-328): _heading, push short, XREF IntuitionBase
+                - xcorsym     (lines 390-395): _xcor, push short, XREF GfxBase
+                - ycorsym     (lines 397-402): _ycor, push short, XREF GfxBase
+                - Parameterless function checks (lines 79, 86-87)
+                - Dispatch entries (lines 491, 498-499)
+
+### Runtime Library (src/lib/asm/)
+
+  turtle.s      (~330 lines) - All turtle functions:
+                  xdef: _back, _forward, _heading, _home, _pendown,
+                        _penup, _setheading, _setxy, _turn, _turnleft,
+                        _turnright, _xcor, _ycor
+                  Internal: _moveturtle (core movement), _rotate (normalize heading)
+                  xref: _MathBase, _MathTransBase, _GfxBase, _RPort,
+                        LVO functions (Draw, Move, SPFlt, SPFix, SPMul, SPDiv, SPSin, SPCos),
+                        turtle_data vars, _radconv
+
+  turtle_data.s (~60 lines) - Data/BSS:
+                  DATA: _tg_initx (word), _tg_inity (word), _tg_xy_ratio (long, 1.875 FFP)
+                  BSS:  _tg_degs, _tg_tx, _tg_ty (words), _tg_pen (byte),
+                        _tg_distance, _tg_theta, _tg_temp (longs), _tg_x, _tg_y (words)
+
+### Runtime C Code (src/lib/c/)
+
+  window.c      - Turtle init on window open (lines 70-76, 361-365):
+                  extern declarations for tg_initx, tg_inity, tg_tx, tg_ty, tg_degs, tg_pen
+                  Reset: tg_tx=tg_initx, tg_ty=tg_inity, tg_degs=270, tg_pen=1
+
+### Build System (src/make/)
+
+  Makefile-lib  - turtle.s and turtle_data.s in ASM_SOURCES list (line 86)
+
+### Shared Dependencies
+
+  _radconv      - defined in common_data.s, also used by gfx.s and scrwin.s
+                  (degrees-to-radians conversion constant, NOT turtle-specific)
+                  DO NOT remove.
+
+  _RPort        - current RastPort, used throughout graphics code.
+                  DO NOT remove.
+
+### Token Reuse: BACK/FORWARD in SCREEN command
+
+  screen.c (line 53): `if (sym == forwardsym || sym == backsym)`
+  Used for: SCREEN FORWARD screen-id / SCREEN BACK screen-id
+  These tokens are SHARED between turtle and screen depth commands.
+  After removing turtle handlers, these tokens must REMAIN for SCREEN.
+
+### Examples
+
+  examples/turtle/ - 8 programs:
+    boxit.b, bst.b, dragon.b, flower.b, snowflake.b, spiro.b, torus.b, tree.b
+
+### Documentation
+
+  docs/ref.txt - Entries marked with * for turtle functions (~40 lines across file)
+
+
+Plan
+----
+
+### Phase 1: Create the Turtle Submodule (submods/turtle/)
+
+Create a BASIC submodule that provides equivalent functionality using
+direct graphics library calls and math. The submodule approach means:
+- Users include it with: EXTERNAL turtle
+- Functions become SUBs: TurtleForward(n), TurtleBack(n), etc.
+- Query functions become SUBs returning values: TurtleHeading, TurtleXcor, TurtleYcor
+
+File: submods/turtle/turtle.b
+
+The submodule will:
+- Maintain internal state (position, heading, pen state) as module-level variables
+- Use LIBRARY "mathffp.library" and "mathtrans.library" for sin/cos
+- Use LIBRARY "graphics.library" for Move/Draw
+- Provide TurtleInit(initX, initY) to set home position and reset state
+  (replaces the automatic init that window.c currently does)
+
+API mapping (old built-in -> new submod):
+
+  BACK n           -> TurtleBack(n)          ' n is SINGLE (float)
+  FORWARD n        -> TurtleForward(n)       ' n is SINGLE (float)
+  HOME             -> TurtleHome
+  PENDOWN          -> TurtlePenDown
+  PENUP            -> TurtlePenUp
+  SETHEADING n     -> TurtleSetHeading(n)    ' n is SHORT (degrees)
+  SETXY x, y       -> TurtleSetXY(x, y)     ' x,y are SHORT
+  TURN n           -> TurtleTurn(n)          ' n is SHORT (degrees)
+  TURNLEFT n       -> TurtleTurnLeft(n)      ' n is SHORT (degrees)
+  TURNRIGHT n      -> TurtleTurnRight(n)     ' n is SHORT (degrees)
+  HEADING          -> TurtleHeading          ' returns SHORT
+  XCOR             -> TurtleXcor             ' returns SHORT
+  YCOR             -> TurtleYcor             ' returns SHORT
+  (new)            -> TurtleInit(x, y)       ' set home pos + reset
+
+Header: include/submods/turtle.h
+
+Test: submods/turtle/test_turtle.b
+  - Basic movement and drawing test (visual verification on emulator)
+
+### Phase 2: Remove Turtle from Compiler
+
+#### Step 2.1: Remove statement handlers from statement.c
+
+Remove the following if-blocks from the statement() dispatcher:
+- backsym handler (lines 842-851)
+- forwardsym handler (lines 971-980)
+- homesym handler (lines 1008-1013)
+- pendownsym handler (lines 1093-1097)
+- penupsym handler (lines 1100-1104)
+- setheadingsym handler (lines 1187-1193)
+- setxysym handler (line 1196-1197)
+- turnsym handler (lines 1232-1238)
+- turnleftsym handler (lines 1241-1247)
+- turnrightsym handler (lines 1250-1256)
+
+Also remove the handle_setxy() static function (lines 695-710).
+
+IMPORTANT: Keep backsym and forwardsym tokens because SCREEN uses them.
+The if-blocks for BACK/FORWARD as standalone turtle commands are removed,
+but screen.c still checks for these tokens after SCREEN keyword.
+
+#### Step 2.2: Remove function handlers from factor.c
+
+Remove from handle_parameterless():
+- headingsym case (lines 323-328)
+- xcorsym case (lines 390-395)
+- ycorsym case (lines 397-402)
+
+Remove from has_no_params():
+- headingsym case (line 79)
+- xcorsym case (line 86)
+- ycorsym case (line 87)
+
+Remove from factor() dispatch:
+- headingsym case (line 491)
+- xcorsym case (line 498)
+- ycorsym case (line 499)
+
+#### Step 2.3: Remove reserved words from lexvar.c
+
+Remove from rword[]: "HEADING", "HOME", "PENDOWN", "PENUP",
+  "SETHEADING", "SETXY", "TURN", "TURNLEFT", "TURNRIGHT", "TURTLE",
+  "XCOR", "YCOR"
+
+KEEP: "BACK" and "FORWARD" (needed for SCREEN BACK/FORWARD)
+
+This changes the token enum ordering. All sym values after the removed
+entries will shift. The enum in acedef.h must be updated to match
+(remove the corresponding *sym entries).
+
+#### Step 2.4: Remove token enums from acedef.h
+
+Remove from enum: headingsym, homesym, pendownsym, penupsym,
+  setheadingsym, setxysym, turnsym, turnleftsym, turnrightsym,
+  turtlesym, xcorsym, ycorsym
+
+KEEP: backsym, forwardsym (for SCREEN)
+
+#### Step 2.5: Remove runtime assembly
+
+Remove from Makefile-lib ASM_SOURCES: turtle.s turtle_data.s
+Do NOT delete the files (keep in repo for reference / git history).
+
+#### Step 2.6: Remove turtle init from window.c
+
+Remove from window.c:
+- extern declarations (lines 70-76): tg_initx, tg_inity, tg_tx, tg_ty, tg_degs, tg_pen
+- Turtle state reset block (lines 361-365)
+
+After removal, _tg_initx and _tg_inity are no longer set by the runtime.
+The submodule's TurtleInit() replaces this.
+
+#### Step 2.7: Update parse.c reserved word count
+
+parse.c line 628-630 uses ycorsym as the upper bound for ACE-specific
+reserved words. After removal, update to use the new last ACE-specific
+token in the enum.
+
+### Phase 3: Update Examples and Documentation
+
+#### Step 3.1: Update example programs
+
+Convert examples/turtle/*.b to use the submodule API:
+- Add EXTERNAL turtle at the top
+- Call TurtleInit(320, 100) after opening window (replaces auto-init)
+- Replace built-in commands with TurtleXxx() SUB calls
+
+#### Step 3.2: Update documentation
+
+Update docs/ref.txt:
+- Remove the 13 turtle command entries (or mark as removed/deprecated)
+- Add a note pointing to the turtle submodule
+- Add submodule documentation in include/submods/turtle.h header
+
+
+Risks and Considerations
+------------------------
+
+1. Token enum reordering: Removing entries from the middle of the enum
+   shifts all subsequent token values. The rword[] array and enum MUST
+   stay in sync (alphabetical order). This is a mechanical but careful
+   change - every entry after the removed ones gets a new numeric value,
+   but since tokens are compared symbolically (not by number), this is
+   safe as long as the array and enum match.
+
+2. BACK/FORWARD dual use: These tokens serve double duty for
+   SCREEN BACK/FORWARD. They MUST be kept as reserved words even though
+   their turtle statement handlers are removed. The standalone
+   BACK n / FORWARD n statements will become syntax errors (unknown
+   statement), which is the desired behavior - users should use the
+   submodule instead.
+
+3. SETXY dual use: SETXY is also mentioned in docs as usable for
+   non-turtle positioning. Check if SETXY has any non-turtle use in
+   the codebase. If not, it can be safely removed as a reserved word.
+   If it does, it needs to stay (like BACK/FORWARD for SCREEN).
+   -> After review: SETXY is only used for turtle graphics in the
+   compiler. It can be fully removed.
+
+4. Window init removal: The current runtime auto-initializes turtle
+   state on every WINDOW open. After removal, programs that don't use
+   the turtle submodule won't carry this overhead. Programs that do
+   use turtle must call TurtleInit() explicitly - this is better
+   design (explicit > implicit).
+
+5. Backward compatibility: Existing programs using built-in turtle
+   commands will break. They must be updated to use the submodule.
+   This is acceptable for a language evolution - the submodule provides
+   identical functionality with slightly different syntax.
+
+6. Math library dependency: The built-in turtle handlers auto-enter
+   XREFs for _MathBase and _MathTransBase. The submodule will use
+   LIBRARY statements to open these, which is the standard approach
+   for BASIC code.
+
+7. db.lib size: Removing turtle.s and turtle_data.s from db.lib
+   reduces the library size slightly. Programs that don't use turtle
+   will be marginally smaller.

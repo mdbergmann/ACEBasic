@@ -621,7 +621,7 @@ int first,last,this;
    /* ACE keyword? */
    if (!found)
    {
-    first=addresssym; last=ycorsym;
+    first=addresssym; last=untilsym;
     do
     {
      this = (first+last) / 2;

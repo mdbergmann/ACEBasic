@@ -1,4 +1,7 @@
+REM #using ace:submods/turtle/turtle.o
 '...SpiroGraph
+
+#include <submods/turtle.h>
 
 defint a-z
 
@@ -18,18 +21,18 @@ cls
 
 sub poly(sides,length)
   for i=1 to sides
-    forward length
-    turnright 360\sides
+    TgForward(length)
+    TgTurnRight(360\sides)
   next
 end sub
 
 sub spiro(sides,length)
   repeat
     poly(sides,length)
-    turnright 360\sides
-    penup
-    setxy 320,200
-    pendown
+    TgTurnRight(360\sides)
+    TgPenUp
+    TgSetXY(320, 200)
+    TgPenDown
   until false
 end sub
 
@@ -39,16 +42,14 @@ input "How many sides per polygon? (eg. 9)  ",sides
 input "Length of each side?        (eg. 30) ",length
 cls
 
-penup
-setxy 320,200
-pendown
+TgInit(320, 200)
 
 spiro(sides,length)
 
 while true
 wend
 
-quit: 
-  if menu(0) <> 1 or menu(1) <> 1 then return 
+quit:
+  if menu(0) <> 1 or menu(1) <> 1 then return
   window close 1
 END

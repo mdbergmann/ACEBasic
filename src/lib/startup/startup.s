@@ -137,12 +137,6 @@ wa_Lock		equ	0
 	xref	_fgdpen_list
 	xref	_bgpen_list
 	xref	_storewindowinfo
-	xref	_tg_degs
-	xref	_tg_tx
-	xref	_tg_ty
-	xref	_tg_initx
-	xref	_tg_inity
-	xref	_tg_pen
 	xref	_LVOMove
 	xref	_turncursoron
 	xref	_turncursoroff
@@ -371,11 +365,6 @@ _Wdw_ok:
 	move.w	#1,_WBfgdpen		
 	move.w	#0,_WBbgpen		
 
-	; in case _heading ONLY is 
-	; called without any TG stuff!
-
-	move.w	#270,_tg_degs		; initial heading is 270 degs (north)
-
 	rts
 
 ;
@@ -409,17 +398,6 @@ _opengfx:
 	move.b	#1,_starterr		; error
 
 _gfx_ok:
-	; initialise turtle graphics 
-	move.w	#270,_tg_degs		; initial heading is 270 degs (north)
-	move.w	_tg_initx,_tg_tx	; initial x coordinate
-	move.w	_tg_inity,_tg_ty	; initial y coordinate
-	move.l	_GfxBase,a6
-	move.l	_RPort,a1
-	move.w	_tg_tx,d0
-	move.w	_tg_ty,d1
-	jsr	_LVOMove(a6)		; move to home position 
-	move.b	#1,_tg_pen		; pen is initially down
-
 	rts
 
 ;

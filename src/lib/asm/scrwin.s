@@ -233,13 +233,6 @@ _LVOGetVPModeID equ -792
 	xref	_IntuiMode
 	xref	_fgdpen
 	xref	_bgpen
-	xref	_tg_initx
-	xref	_tg_tx
-	xref	_tg_inity
-	xref	_tg_ty
-	xref	_tg_degs
-	xref	_tg_pen
-	xref	_tg_xy_ratio
 	xref	_cursorON
 	xref	_turncursoron
 	xref	_turncursoroff
@@ -535,37 +528,31 @@ _native_validate_ok:
 	cmpi.w	#1,d4
 	bne.s	_hires1
 	move.w	#0,12(a0)		; lo-res
-	move.l	#$f0000140,_tg_xy_ratio	; ratio = 0.9375
 	bra	_openthescreen
 _hires1:
 	cmpi.w	#2,d4
 	bne.s	_lores2
 	move.w	#$8000,12(a0)		; hi-res
-	move.l	#$f0000141,_tg_xy_ratio	; ratio = 1.875
 	bra	_openthescreen
 _lores2:
 	cmpi.w	#3,d4
 	bne.s	_hires2
 	move.w	#4,12(a0)		; lo-res, interlaced
-	move.l	#$f000013f,_tg_xy_ratio	; ratio = 0.46875
-	bra	_openthescreen	
+	bra	_openthescreen
 _hires2:
 	cmpi.w	#4,d4
 	bne.s	_ham
 	move.w	#$8004,12(a0)		; hi-res, interlaced
-	move.l	#$f0000140,_tg_xy_ratio	; ratio = 0.9375
 	bra	_openthescreen
 _ham:
 	cmpi.w	#5,d4
 	bne.s	_halfbrite
 	move.w	#$800,12(a0)		; hold-and-modify
-	move.l	#$f0000140,_tg_xy_ratio	; ratio = 0.9375
 	bra	_openthescreen
 _halfbrite:
 	cmpi.w	#6,d4
 	bne.s	_lores_aga
 	move.w	#$80,12(a0)		; extra-halfbrite
-	move.l	#$f0000140,_tg_xy_ratio	; ratio = 0.9375
 	bra	_openthescreen
 
 	; AGA modes (7-12) - use OpenScreenTagList for proper AGA support
@@ -573,36 +560,30 @@ _lores_aga:
 	cmpi.w	#7,d4
 	bne.s	_hires_aga
 	move.l	#$00000000,_aga_modeid	; LORES_KEY
-	move.l	#$f0000140,_tg_xy_ratio	; ratio = 0.9375
 	bra	_openthescreen_aga
 _hires_aga:
 	cmpi.w	#8,d4
 	bne.s	_superhires_aga
 	move.l	#$00008000,_aga_modeid	; HIRES_KEY
-	move.l	#$f0000141,_tg_xy_ratio	; ratio = 1.875
 	bra	_openthescreen_aga
 _superhires_aga:
 	cmpi.w	#9,d4
 	bne.s	_ham8_lores
 	move.l	#$00008020,_aga_modeid	; SUPER_KEY
-	move.l	#$f0000142,_tg_xy_ratio	; ratio = 3.75
 	bra	_openthescreen_aga
 _ham8_lores:
 	cmpi.w	#10,d4
 	bne.s	_ham8_hires
 	move.l	#$00000800,_aga_modeid	; LORES + HAM
-	move.l	#$f0000140,_tg_xy_ratio	; ratio = 0.9375
 	bra	_openthescreen_aga
 _ham8_hires:
 	cmpi.w	#11,d4
 	bne.s	_ham8_superhires
 	move.l	#$00008800,_aga_modeid	; HIRES + HAM
-	move.l	#$f0000141,_tg_xy_ratio	; ratio = 1.875
 	bra	_openthescreen_aga
 _ham8_superhires:
 	; mode 12 - assume anything else is mode 12
 	move.l	#$00008820,_aga_modeid	; SUPER + HAM
-	move.l	#$f0000142,_tg_xy_ratio	; ratio = 3.75
 	bra	_openthescreen_aga
 
 _openthescreen:

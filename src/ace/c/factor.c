@@ -76,15 +76,12 @@ BOOL factorfunc()
 	case datestrsym		: return(TRUE);
 	case daysym		: return(TRUE);
     	case errsym		: return(TRUE);
-	case headingsym		: return(TRUE);
 	case inkeysym		: return(TRUE);
 	case possym		: return(TRUE);
 	case rndsym		: return(TRUE); /* has optional parameter! */
 	case systemsym		: return(TRUE);
 	case timersym		: return(TRUE);
 	case timestrsym		: return(TRUE);
-	case xcorsym		: return(TRUE);
-	case ycorsym		: return(TRUE);
 	default			: return(FALSE);
   }
 }
@@ -320,13 +317,6 @@ int ftype;
 		insymbol();
 		return(ftype);
 
-  case headingsym : gen_rt_call("_heading");
-		    gen("move.w","d0","-(sp)");
-		    enter_XREF("_IntuitionBase");
-		    ftype=shorttype;
-		    insymbol();
-		    return(ftype);
-
   case inkeysym : gen_rt_call("_inkey");
 		  gen("move.l","d0","-(sp)");
 		  enter_XREF("_DOSBase");
@@ -387,19 +377,6 @@ int ftype;
 		    insymbol();
 		    return(ftype);
 
-  case xcorsym	: gen_rt_call("_xcor");
-		  gen("move.w","d0","-(sp)");
-		  enter_XREF("_GfxBase");
-		  ftype=shorttype;
-		  insymbol();
-		  return(ftype);
-
-  case ycorsym	: gen_rt_call("_ycor");
-		  gen("move.w","d0","-(sp)");
-		  enter_XREF("_GfxBase");
-		  ftype=shorttype;
-		  insymbol();
-		  return(ftype);
  }
 
  return(undefined);
@@ -488,15 +465,12 @@ SYM  *invoke_item;
   case datestrsym :
   case daysym :
   case errsym :
-  case headingsym :
   case inkeysym :
   case possym :
   case rndsym :
   case systemsym :
   case timersym :
-  case timestrsym :
-  case xcorsym :
-  case ycorsym : return(handle_parameterless());
+  case timestrsym : return(handle_parameterless());
  }
 
  /* none of the above! */

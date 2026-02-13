@@ -182,8 +182,8 @@ ATN		- syntax: ATN(n)
 		- Returns the arctangent of n.
  
 --------------------------------------------------------------------------------
-BACK *		- syntax: BACK n		
-		- Moves the turtle back n steps.
+BACK *		- Removed. Now in turtle submodule as TgBack(n).
+		  See submods/turtle/ and include/submods/turtle.h.
  
 --------------------------------------------------------------------------------
 BEEP		- Issues a brief pulse from the speaker.
@@ -1025,8 +1025,8 @@ FOR..NEXT	- syntax: FOR <variable>=x TO y [STEP z]
 		  "Limitations" section of ace.txt.
 		
 --------------------------------------------------------------------------------
-FORWARD *	- syntax: FORWARD n
-		- Move the turtle forward n steps.
+FORWARD *	- Removed. Now in turtle submodule as TgForward(n).
+		  See submods/turtle/ and include/submods/turtle.h.
  
 --------------------------------------------------------------------------------
 FRE		- syntax: FRE(n)
@@ -1378,7 +1378,8 @@ HANDLE *	- syntax: HANDLE(n)
 		  opened as requested.
  
 --------------------------------------------------------------------------------
-HEADING *	- Returns the turtle's current heading in degrees (0..359).
+HEADING *	- Removed. Now in turtle submodule as TgHeading.
+		  See submods/turtle/ and include/submods/turtle.h.
  
 --------------------------------------------------------------------------------
 HEX$		- syntax: HEX$(n)
@@ -1386,7 +1387,8 @@ HEX$		- syntax: HEX$(n)
 		  of the decimal argument n.
  
 --------------------------------------------------------------------------------
-HOME *		- Move the turtle to its home position.
+HOME *		- Removed. Now in turtle submodule as TgHome.
+		  See submods/turtle/ and include/submods/turtle.h.
  
 --------------------------------------------------------------------------------
 IF		- syntax: IF..THEN..[ELSE..]
@@ -2109,12 +2111,12 @@ PEEKx		- syntax: PEEKx(<address>)
 		  and 32-bit value from memory, respectively.
  
 --------------------------------------------------------------------------------
-PENDOWN *	- Lowers the turtle's "pen". This enables drawing by the
-		  turtle graphics commands.
+PENDOWN *	- Removed. Now in turtle submodule as TgPenDown.
+		  See submods/turtle/ and include/submods/turtle.h.
  
 --------------------------------------------------------------------------------
-PENUP *		- Raises the turtle's "pen". This disables drawing by the
-		  turtle graphics commands.
+PENUP *		- Removed. Now in turtle submodule as TgPenUp.
+		  See submods/turtle/ and include/submods/turtle.h.
 		
 --------------------------------------------------------------------------------
 POINT		- syntax: POINT(x,y)
@@ -2743,16 +2745,12 @@ SERIAL WRITE *	- syntax: SERIAL WRITE [#] channel,string,length
 		- See also ERR.
 	 			
 --------------------------------------------------------------------------------
-SETHEADING * 	- syntax: SETHEADING n
-		- Changes the turtle's heading to n degrees.
+SETHEADING * 	- Removed. Now in turtle submodule as TgSetHeading(n).
+		  See submods/turtle/ and include/submods/turtle.h.
  
 --------------------------------------------------------------------------------
-SETXY *		- syntax: SETXY x,y
-		- Sets the x,y location for the next graphics command
-		  in the current output window or open screen.
-		- Its primary use is for turtle graphics. To prevent the 
-		  "turtle" drawing a line when SETXY is used, the PENUP 
-		  command should first be issued.
+SETXY *		- Removed. Now in turtle submodule as TgSetXY(x, y).
+		  See submods/turtle/ and include/submods/turtle.h.
  
 --------------------------------------------------------------------------------
 SGN		- syntax: SGN(n)
@@ -3164,22 +3162,16 @@ TRIM$ *		- syntax: TRIM$(<string-expression>)
 		- See also LTRIM$, RTRIM$.
 
 --------------------------------------------------------------------------------
-TURN *		- syntax: TURN n
-		- Rotates the turtle by n degrees.
-		- If n is negative, the turtle will rotate counter-clockwise
-		  while if it is positive, the rotation will be clockwise.
+TURN *		- Removed. Now in turtle submodule as TgTurn(n).
+		  See submods/turtle/ and include/submods/turtle.h.
  
 --------------------------------------------------------------------------------
-TURNLEFT *	- syntax: TURNLEFT n
-		- Rotates the turtle counter-clockwise by n degrees.
-		- If n is negative, the result will be the same as
-		  TURNRIGHT ABS(n).	
+TURNLEFT *	- Removed. Now in turtle submodule as TgTurnLeft(n).
+		  See submods/turtle/ and include/submods/turtle.h.	
 	
 --------------------------------------------------------------------------------
-TURNRIGHT *	- syntax: TURNRIGHT n
-		- Rotates the turtle clockwise by n degrees.
-		- If n is negative, the result will be the same as
-		  TURNLEFT ABS(n).	
+TURNRIGHT *	- Removed. Now in turtle submodule as TgTurnRight(n).
+		  See submods/turtle/ and include/submods/turtle.h.	
  
 --------------------------------------------------------------------------------
 UCASE$		- syntax: UCASE$(<string-expression>)
@@ -3338,10 +3330,12 @@ WRITE #		- syntax: WRITE #filenumber,expression-list
  		- See also ERR.
 
 --------------------------------------------------------------------------------
-XCOR *		- Returns the turtle's current x-coordinate.
+XCOR *		- Removed. Now in turtle submodule as TgXcor.
+		  See submods/turtle/ and include/submods/turtle.h.
  
 --------------------------------------------------------------------------------
-YCOR *		- Returns the turtle's current y-coordinate.
+YCOR *		- Removed. Now in turtle submodule as TgYcor.
+		  See submods/turtle/ and include/submods/turtle.h.
  
 --------------------------------------------------------------------------------
 XOR		- Boolean operator: X XOR Y.

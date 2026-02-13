@@ -1,23 +1,26 @@
+REM #using ace:submods/turtle/turtle.o
 '...Recursive binary tree using turtle graphics
 
+#include <submods/turtle.h>
+
 sub tree(n)
-  if n<5 then exit sub 
-   turnright 30
-   forward n
+  if n<5 then exit sub
+   TgTurnRight(30)
+   TgForward(n)
    tree(n*.75)
-   back n
-   turnleft 60
-   forward n
+   TgBack(n)
+   TgTurnLeft(60)
+   TgForward(n)
    tree(n*.75)
-   back n
-   turnright 30
+   TgBack(n)
+   TgTurnRight(30)
 end sub
 
 sub usage
   print "usage: tree <depth>"
 end sub
 
-if argcount<>1 then 
+if argcount<>1 then
   ask.depth=-1
 else
   ask.depth=0
@@ -37,17 +40,15 @@ color 1,0
 
  cls
  locate 3,1
- if ask.depth then 
+ if ask.depth then
     input "enter depth: ",depth
     cls
     locate 3,1
  end if
  print "depth of tree is"
- print depth 
+ print depth
 
- penup
- setxy 320,150
- pendown
+ TgInit(320, 150)
 
  tree(depth)
 

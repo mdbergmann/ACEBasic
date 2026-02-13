@@ -1,19 +1,22 @@
+REM #using ace:submods/turtle/turtle.o
 '...recursive triangle consisting of boxed edges.
 
+#include <submods/turtle.h>
+
 sub boxit(n)
-  if n=0 then 
-    forward 3
+  if n=0 then
+    TgForward(3)
   else
     boxit(n-1)
-    turnleft 90
+    TgTurnLeft(90)
     boxit(n-1)
-    turnright 90
+    TgTurnRight(90)
     boxit(n-1)
-    turnright 90
+    TgTurnRight(90)
     boxit(n-1)
-    turnleft 90
+    TgTurnLeft(90)
     boxit(n-1)
-  end if 
+  end if
 end sub
 
 window 1,"BoxIt",(0,0)-(640,200),6
@@ -21,10 +24,8 @@ font "topaz",8
 color 2,1
 
  cls
- penup
- setxy 0,150
- pendown
- turnright 90
+ TgInit(0, 150)
+ TgTurnRight(90)
  boxit(4)
 
  locate 22,1

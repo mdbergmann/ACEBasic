@@ -1,14 +1,17 @@
+REM #using ace:submods/turtle/turtle.o
 {*
-** A program that implements the Binary Search Tree operations 
+** A program that implements the Binary Search Tree operations
 ** from the text by Helman, Veroff and Carrano, "Intermediate Data
-** Structures and Algorithms". 
+** Structures and Algorithms".
 **
 ** Pascal version modified by David Benn, May 3rd 1993
 **
-** Rewritten (and extended) in ACE BASIC for the Amiga, 
-** June 19th,21st,22nd,30th, 
+** Rewritten (and extended) in ACE BASIC for the Amiga,
+** June 19th,21st,22nd,30th,
 ** July 3rd 1993
 *}
+
+#include <submods/turtle.h>
 
 const nil=0&
 const true=-1&,false=0&
@@ -61,13 +64,13 @@ single  replitem
 			{leaf}
 			delptr = nil
 			*&delptraddr := delptr
-		else 
+		else
 			if delptr->lchild = nil then
 				{node with right child}
 				p = delptr
 				delptr = delptr->rchild
 				*&delptraddr := delptr
-			else 
+			else
 				if delptr->rchild = nil then
 					{node with left child}
       					p = delptr
@@ -89,7 +92,7 @@ declare struct node *t
 	if T <> nil then
 		if keyval = T->item then
 			Delitem(taddr)
-		else 
+		else
 			if keyval < T->item then
 				Del(@T->lchild,keyval)
 			else
@@ -113,11 +116,11 @@ declare struct node *t
 		T->lchild = nil
 		T->rchild = nil
 		*&taddr := t
-	else 
-		if newitem < T->item then       
-			Insert(@T->lchild, newitem) 
+	else
+		if newitem < T->item then
+			Insert(@T->lchild, newitem)
 		else
-			Insert(@T->rchild, newitem)  
+			Insert(@T->rchild, newitem)
 		end if
 	end if
 END SUB
@@ -138,12 +141,12 @@ declare struct node *t
 				InTree(@t->rchild,item)
 			end if
 		end if
-	end if		
+	end if
 END SUB
 
 SUB InsertItem(ADDRESS taddr)
 	input "Enter Item: ",item
-	if not InTree(taddr,item) then call Insert(taddr,item)	
+	if not InTree(taddr,item) then call Insert(taddr,item)
 END SUB
 
 SUB Traverse(ADDRESS taddr,shortint order)
@@ -175,33 +178,33 @@ shared  speed
 	t = taddr
 	if T <> nil then
 		'..pause?
-		if speed=slow and t->lchild then 
+		if speed=slow and t->lchild then
 		  time0=timer
 		  while timer < time0+moment:wend
 		end if
 
 		{left subtree}
-		setheading 135
-		if t->lchild then pendown:forward 20
+		TgSetHeading(135)
+		if t->lchild then TgPenDown:TgForward(20)
 		GraphTree(T->lchild)
-		setheading 135
-		if t->lchild then penup:back 20 
+		TgSetHeading(135)
+		if t->lchild then TgPenUp:TgBack(20)
 
 		'..pause?
-		if speed=slow and t->rchild then 
+		if speed=slow and t->rchild then
 		  time0=timer
 		  while timer < time0+moment:wend
 		end if
 
 		{right subtree}
-		setheading 45
-		if t->rchild then pendown:forward 20
+		TgSetHeading(45)
+		if t->rchild then TgPenDown:TgForward(20)
 		GraphTree(T->rchild)
-		setheading 45
-		if t->rchild then penup:back 20
+		TgSetHeading(45)
+		if t->rchild then TgPenUp:TgBack(20)
 
 		'..pause?
-		if speed=slow then 
+		if speed=slow then
 		  time0=timer
 		  while timer < time0+moment:wend
 		end if
@@ -211,26 +214,24 @@ shared  speed
 		if sgn(T->item) <> -1 then num$=right$(num$,len(num$)-1)
 		'..position number centrally
 		halfnumlen%=len(num$)\2
-		penup
-		setxy xcor-halfnumlen%*8,ycor 
+		TgPenUp
+		TgSetXY(TgXcor-halfnumlen%*8, TgYcor)
 		color 3
 		prints num$
 		color 2
-		setxy xcor+halfnumlen%*8,ycor
-		pendown
+		TgSetXY(TgXcor+halfnumlen%*8, TgYcor)
+		TgPenDown
 	end if
 
-END SUB                                          
+END SUB
 
 SUB ShowTree(ADDRESS t)
 shared speed
 	window output 2
 	color 2,1
 	cls
-	setheading 90
-	penup
-	setxy 320,20
-	pendown
+	TgInit(320, 20)
+	TgSetHeading(90)
 	GraphTree(t)
 	window output 1
 END SUB
@@ -278,7 +279,7 @@ declare struct node *t
      else
         maxitem = maxitem(t->rchild)
      end if
-  end if 
+  end if
 END SUB
 
 SUB nodes(ADDRESS taddr)
@@ -296,7 +297,7 @@ SUB SelectMenu(ADDRESS opt)
     repeat
 	CLS
 	print "1.  Insert node"
-	print "2.  Delete node"               
+	print "2.  Delete node"
 	print "3.  Print node values
 	print "4.  Show height of tree"
 	print "5.  Find maximum value"
@@ -314,7 +315,7 @@ declare struct node *t
 shared  speed
 	  t = *&taddr
 	  if opt>=4 and opt<=6 then call prepare_for_output
-	  CASE 
+	  CASE
 		opt=1  : InsertItem(@t)
 		opt=2  : DeleteItem(@t)
 		opt=3  : ShowNodes(t)
