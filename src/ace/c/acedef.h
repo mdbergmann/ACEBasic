@@ -460,9 +460,9 @@ enum {	variable = 	3000,
 
 /* --symbol table-- */
 typedef union conststruct {
-			   SHORT shortnum;	
+			   SHORT shortnum;
 			   LONG  longnum;
-			   float singlenum;
+			   LONG  singlenum;
 			  } CONST;
 
 typedef struct structmem {
