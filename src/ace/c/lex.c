@@ -662,7 +662,7 @@ void reclassify_number()
    switch(typ)
    {
     case longtype   : shortval=(SHORT)longval; break;
-    case singletype : if (SPCmp(0.5,SPSub(SPFloor(singleval),singleval)) == 1) 
+    case singletype : if (SPCmp(SPDiv(SPFlt(2),SPFlt(1)),SPSub(SPFloor(singleval),singleval)) == 1) 
      			 shortval=(SHORT)SPFix(SPFloor(singleval));
 		      else
      			 shortval=(SHORT)SPFix(SPCeil(singleval));
@@ -679,7 +679,7 @@ void reclassify_number()
    switch(typ)
    {
     case shorttype  : longval=(LONG)shortval; break;
-    case singletype : if (SPCmp(0.5,SPSub(SPFloor(singleval),singleval)) == 1) 
+    case singletype : if (SPCmp(SPDiv(SPFlt(2),SPFlt(1)),SPSub(SPFloor(singleval),singleval)) == 1) 
      			 longval=(LONG)SPFix(SPFloor(singleval));
 		      else
      			 longval=(LONG)SPFix(SPCeil(singleval));
@@ -889,11 +889,11 @@ int  sign;
 
     /* if exponent is zero: 10^ex = 1 -> num*1 = num
        so just return singleval as it is. */
-    if (ex != 0) singleval = SPMul(SPPow(SPFlt(ex),10.0),singleval);
+    if (ex != 0) singleval = SPMul(SPPow(SPFlt(ex),SPFlt(10)),singleval);
 
     reclassify_number();
    }
-   else { singleval = 0.0; _warn(1); }
+   else { singleval = SPFlt(0); _warn(1); }
   }
   obj=constant;
 }

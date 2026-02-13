@@ -1,16 +1,9 @@
 REM Diagnostic test for P96 clone-WB screen support
 REM Tests SCREEN id, 0, 0, 0, 13 (clone Workbench)
-OPEN "O",#1,"ace:test-p96-clonewb.txt"
 
 REM Try opening P96 screen with clone-WB
 SCREEN 1,0,0,0,13
-IF ERR = 600 THEN
-  PRINT #1,"FAIL: P96 not available (error 600)"
-  CLOSE #1
-  STOP
-END IF
-
-PRINT #1,"PASS: P96 clone-WB screen opened"
+ASSERT ERR <> 600, "P96 not available (error 600)"
 
 REM Check SCREEN() function values
 scrn& = SCREEN(1)
@@ -18,39 +11,15 @@ wdw& = SCREEN(0)
 rport& = SCREEN(2)
 vport& = SCREEN(3)
 
-IF scrn& <> 0 THEN
-  PRINT #1,"PASS: SCREEN(1) returned non-zero screen pointer"
-ELSE
-  PRINT #1,"FAIL: SCREEN(1) returned zero"
-END IF
-
-IF wdw& <> 0 THEN
-  PRINT #1,"PASS: SCREEN(0) returned non-zero window pointer"
-ELSE
-  PRINT #1,"FAIL: SCREEN(0) returned zero"
-END IF
-
-IF rport& <> 0 THEN
-  PRINT #1,"PASS: SCREEN(2) returned non-zero RastPort pointer"
-ELSE
-  PRINT #1,"FAIL: SCREEN(2) returned zero"
-END IF
-
-IF vport& <> 0 THEN
-  PRINT #1,"PASS: SCREEN(3) returned non-zero ViewPort pointer"
-ELSE
-  PRINT #1,"FAIL: SCREEN(3) returned zero"
-END IF
+ASSERT scrn& <> 0, "SCREEN(1) returned zero"
+ASSERT wdw& <> 0, "SCREEN(0) returned zero"
+ASSERT rport& <> 0, "SCREEN(2) returned zero"
+ASSERT vport& <> 0, "SCREEN(3) returned zero"
 
 REM Try drawing
 LINE (10,50)-(200,150),2,bf
-PRINT #1,"PASS: LINE drew without crash"
-
 CIRCLE (400,300),100,4
-PRINT #1,"PASS: CIRCLE drew without crash"
 
 REM Close screen
 SCREEN CLOSE 1
-PRINT #1,"PASS: SCREEN CLOSE succeeded"
-PRINT #1,"All tests passed"
-CLOSE #1
+PRINT "All tests passed"

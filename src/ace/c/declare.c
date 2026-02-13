@@ -398,7 +398,7 @@ int   oldlevel;
 		         break;
 
       case singletype  : enter(const_id,singletype,constant,0);
-			 if (negate) singlec = SPMul(singlec,-1.0);
+			 if (negate) singlec = SPMul(singlec,SPFlt(-1));
 		         curr_item->numconst.singlenum=singlec;
 		         break;
      }
