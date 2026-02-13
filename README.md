@@ -61,6 +61,7 @@ SCREEN CLOSE 1
 - **IFF picture support** - Load and display Amiga IFF images
 
 ### Utilities and Libraries
+- **Double-precision math** - IEEE 64-bit floating point (15+ significant digits) with full arithmetic, trigonometric, and string conversion
 - **HTTP client** - Full HTTP/1.1 client with GET/POST/PUT, chunked transfers, streaming callbacks, and HTTPS via AmiSSL
 - **Lisp-style list library** - Singly-linked lists with higher-order functions (map, filter, reduce, etc.) - requires OS 3.0+
 - **ASSERT statement** - Runtime assertion checking for defensive programming
@@ -321,6 +322,51 @@ Full HTTP/1.1 client library with three API tiers:
 
 Supports HTTP and HTTPS (via AmiSSL), chunked transfer encoding, custom headers, and URL encoding. Requires bsdsocket.library (AmiTCP, Roadshow).
 
+### Double-Precision Math Submodule (`submods/dp/`)
+
+IEEE 64-bit double-precision floating point for ACE BASIC programs. Wraps the Amiga's `mathieeedoubbas.library` and `mathieeedoubtrans.library` via inline ASSEM blocks, providing 15+ significant digits of precision (vs. ~7 for ACE's native SINGLE/FFP type).
+
+Doubles are 8-byte values stored at ADDRESS pointers allocated with `DpNew`. All operations take and return ADDRESS parameters.
+
+**32 public functions:**
+- **Lifecycle**: `DpOpen`, `DpClose`, `DpNew`
+- **Conversion**: `DpFromLong`, `DpToLong`, `DpFromSingle`, `DpToSingle`, `DpFromStr`, `DpToStr$`
+- **Arithmetic**: `DpAdd`, `DpSub`, `DpMul`, `DpDiv`, `DpPow`
+- **Comparison**: `DpCmp` (returns +1/0/-1)
+- **Unary**: `DpAbs`, `DpNeg`, `DpCeil`, `DpFloor`
+- **Trigonometric** (radians): `DpSin`, `DpCos`, `DpTan`, `DpAsin`, `DpAcos`, `DpAtan`, `DpSinCos`
+- **Hyperbolic**: `DpSinh`, `DpCosh`, `DpTanh`
+- **Exponential/Log**: `DpExp`, `DpLog`, `DpLog10`, `DpSqrt`
+
+**Usage example:**
+```basic
+EXTERNAL dp
+'$include "submods/dp.h"
+
+IF DpOpen THEN
+  a = DpNew : b = DpNew : r = DpNew
+
+  ' Arithmetic with integers
+  DpFromLong(a, 355)
+  DpFromLong(b, 113)
+  DpDiv(r, a, b)
+  PRINT "355/113 = "; DpToStr$(r)   ' 3.14159292035398
+
+  ' Parse from string, use transcendentals
+  DpFromStr(a, "3.141592653589793")
+  DpSin(r, a)
+  PRINT "sin(pi) = "; DpToStr$(r)   ' ~0
+
+  ' Convert to/from ACE SINGLE
+  DpFromSingle(a, 1.5)
+  sv! = DpToSingle(a)
+
+  DpClose
+END IF
+```
+
+Compile: `bas -m dp` (module), then `bas myprogram ace:submods/dp/dp.o` or use `REM #using ace:submods/dp/dp.o` in your source.
+
 ### Turtle Graphics Submodule (`submods/turtle/`)
 
 Logo-style turtle graphics with commands for movement (`TgForward`, `TgBack`), turning (`TgTurn`, `TgTurnLeft`, `TgTurnRight`), pen control (`TgPenUp`, `TgPenDown`), and state queries (`TgHeading`, `TgXcor`, `TgYcor`). Automatic pixel aspect ratio detection with manual override for different screen modes.
@@ -382,6 +428,6 @@ The modern fork adds significant new features while maintaining compatibility:
 - **v2.7** - Closures and function pointers, MUI submodule, filled circles/ellipses, callback SUBs
 - **v2.7.1** - ELSEIF keyword, LCASE$ function, list submodule with higher-order functions
 - **v2.8** - YAP preprocessor, INVOKABLE keyword, REM #using directive, installer, major compiler refactoring
-- **Post-v2.8** - P96/RTG screens (mode 13), tail-call optimization, 12 new string functions, buffered file I/O, HTTP client submodule, SagaSound submodule, turtle graphics submodule, CONST SINGLE fix
+- **Post-v2.8** - P96/RTG screens (mode 13), tail-call optimization, 12 new string functions, buffered file I/O, HTTP client submodule, SagaSound submodule, turtle graphics submodule, double-precision math submodule, CONST SINGLE fix
 
 See `CHANGELOG.txt` for full details. For the original 1998 release notes, see `docs/HISTORY-1998-Release.txt`.
