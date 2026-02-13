@@ -44,7 +44,9 @@ SCREEN CLOSE 1
 - **Closures and function pointers** - First-class function references with `@`, `BIND` for partial application, `INVOKE` for indirect calls, and `INVOKABLE` keyword for callback SUBs
 - **CALLBACK SUBs** - SUBs that can be invoked via AmigaOS CallHookPtr() for system callbacks
 - **68020 native code generation** - Native 68020 instructions by default (use `OPTION 2-` for 68000 compatibility)
-- **File I/O** - Sequential and random access file operations
+- **Tail-call optimization** - Self-recursive tail calls optimized to jumps for constant stack usage (with `-O` or `OPTION O+`)
+- **Rich string functions** - TRIM$, LTRIM$, RTRIM$, RINSTR, STARTSWITH, ENDSWITH, REPLACE$, REVERSE$, REPEAT$, LPAD$, RPAD$, FMT$ (sprintf-style formatting), and MID$ statement form
+- **File I/O** - Sequential and random access file operations with buffered reading for performance
 - **Event-driven programming** - Event traps and handlers
 - **External library calls** - Access AmigaDOS and shared library functions
 
@@ -53,14 +55,16 @@ SCREEN CLOSE 1
 - **GadTools integration** - Full support for GadTools-based gadgets with modern look and feel
 - **Amiga Intuition GUI** - Windows, menus, gadgets, and requesters
 - **AGA screen support** - Modes 7-12 with up to 256 colors (8-bit depth)
-- **Graphics primitives** - Lines, circles (including filled), areas, and turtle graphics
+- **P96/RTG screen support** - Mode 13 for Picasso96/RTG graphics cards with up to 32-bit TrueColor depth and `COLOR r,g,b` syntax
+- **Graphics primitives** - Lines, circles (including filled), areas, and turtle graphics (via submodule)
 - **Graphics double buffering** - Include file and examples for smooth animation
 - **IFF picture support** - Load and display Amiga IFF images
 
 ### Utilities and Libraries
+- **HTTP client** - Full HTTP/1.1 client with GET/POST/PUT, chunked transfers, streaming callbacks, and HTTPS via AmiSSL
 - **Lisp-style list library** - Singly-linked lists with higher-order functions (map, filter, reduce, etc.) - requires OS 3.0+
 - **ASSERT statement** - Runtime assertion checking for defensive programming
-- **Sound support** - Audio playback and speech synthesis
+- **Sound support** - Audio playback, speech synthesis, and SAGA 16-bit audio (Vampire)
 - **Serial communication** - Serial port access
 
 ## Installation
@@ -147,7 +151,7 @@ compatibility, see `bin/1.3/ReadMe`.
 
 **Build Pipeline:**
 ```
-Source (.bas) → Preprocess (app) → Compile (ace) → Assemble (vasm) → Link (vlink) → Executable
+Source (.bas) → Preprocess (yap) → Compile (ace) → Assemble (vasm) → Link (vlink) → Executable
 ```
 
 Source files use `.b` or `.bas` extensions.
@@ -222,7 +226,8 @@ Use descriptive names without spaces: `float_add.b`, not `float add.b`
 | `bin/` | ACE compiler and build scripts |
 | `bmaps/` | Binary maps for Amiga OS 39 shared libraries |
 | `examples/` | Example programs (30+ categories) |
-| `utils/` | Utility programs (fd2bmap, convert2ace, etc.) |
+| `submods/` | Reusable BASIC libraries (MUI, list, HTTP, turtle, etc.) |
+| `utils/` | Utility programs (fd2bmap, convert2ace, yap preprocessor) |
 | `docs/` | Documentation files |
 | `verify/tests/` | Test suite |
 | `verify/scripts/` | Verification and build scripts |
@@ -234,7 +239,7 @@ Use descriptive names without spaces: `float_add.b`, not `float add.b`
 - **Build System**: GNU Make 3.80+ with ADE shell
 - **Assembler**: vasm (vasmm68k_mot)
 - **Linker**: vlink
-- **Amiga APIs**: Exec, Dos, Graphics, Intuition, GadTools, MUI, Diskfont, DataTypes, Rexx
+- **Amiga APIs**: Exec, Dos, Graphics, Intuition, GadTools, MUI, Diskfont, DataTypes, Rexx, Picasso96, AmiSSL, bsdsocket
 
 ## Documentation
 
@@ -264,9 +269,10 @@ ACE is a multi-pass compiler that translates BASIC to 68000 assembly:
 2. **Parsing** (`parse.c`, `parsevar.c`) - Recursive descent parser
 3. **Expression Evaluation** (`expr.c`, `factor.c`) - Expression trees and type checking
 4. **Statement Handling** (`statement.c`, `control.c`, `assign.c`) - Statement code generation
-5. **Symbol Management** (`sym.c`, `symvar.c`) - Symbol table
-6. **Code Generation** (`misc.c`) - Emits 68000 assembly
-7. **Optimization** (`opt.c`) - Peephole optimizer
+5. **SUB/FUNCTION Calls** (`invoke.c`) - Call site code generation
+6. **Symbol Management** (`sym.c`, `symvar.c`) - Symbol table
+7. **Code Generation** (`misc.c`, `codegen.c`) - Emits 68000 assembly with reusable helpers
+8. **Optimization** (`opt.c`) - Peephole optimizer with tail-call optimization
 
 Main header: `src/ace/c/acedef.h` - Contains all type definitions, enums, and function prototypes.
 
@@ -305,6 +311,23 @@ Lisp-style singly-linked list implementation with:
 - Both non-destructive and in-place (destructive) variants
 
 Requires AmigaOS 3.0+ (uses AllocVec). Closures with `INVOKABLE` keyword needed for callbacks.
+
+### HTTP Client Submodule (`submods/httpclient/`)
+
+Full HTTP/1.1 client library with three API tiers:
+- **High-level**: One-call functions (`HttpGet`, `HttpPost`, `HttpPut`, `HttpRequest`)
+- **Streaming**: Callback-based transfers for large data (`HttpGetStream`, `HttpPostStream`, `HttpPutStream`)
+- **Low-level**: Handle-based control (`HttpOpen`, `HttpSetHeader`, `HttpSendRequest`, `HttpReadBody`, `HttpClose`)
+
+Supports HTTP and HTTPS (via AmiSSL), chunked transfer encoding, custom headers, and URL encoding. Requires bsdsocket.library (AmiTCP, Roadshow).
+
+### Turtle Graphics Submodule (`submods/turtle/`)
+
+Logo-style turtle graphics with commands for movement (`TgForward`, `TgBack`), turning (`TgTurn`, `TgTurnLeft`, `TgTurnRight`), pen control (`TgPenUp`, `TgPenDown`), and state queries (`TgHeading`, `TgXcor`, `TgYcor`). Automatic pixel aspect ratio detection with manual override for different screen modes.
+
+### SagaSound Submodule (`submods/sagasound/`)
+
+Direct hardware access to the Vampire SAGA 16-bit audio chip. Supports 16 audio channels (vs. 4 on standard Amiga), 8/16-bit samples, stereo volume control, sample rates up to 56 kHz, and oneshot/looping modes.
 
 ### Other Submodules
 
@@ -358,5 +381,7 @@ The modern fork adds significant new features while maintaining compatibility:
 - **v2.6** - GadTools gadgets, ASSERT statement, 68020 native code generation
 - **v2.7** - Closures and function pointers, MUI submodule, filled circles/ellipses, callback SUBs
 - **v2.7.1** - ELSEIF keyword, LCASE$ function, list submodule with higher-order functions
+- **v2.8** - YAP preprocessor, INVOKABLE keyword, REM #using directive, installer, major compiler refactoring
+- **Post-v2.8** - P96/RTG screens (mode 13), tail-call optimization, 12 new string functions, buffered file I/O, HTTP client submodule, SagaSound submodule, turtle graphics submodule, CONST SINGLE fix
 
 See `CHANGELOG.txt` for full details. For the original 1998 release notes, see `docs/HISTORY-1998-Release.txt`.
