@@ -18,8 +18,6 @@
  *
  * NOTE: Heading normalization uses INT(d/360)*360 for modulo since
  * ACE's "/" is always float division (standard BASIC).
- * CONST SINGLE values generate wrong FFP literals in modules (-m),
- * so literal values are used for the ratio assignments.
  *}
 
 REM --- Pixel aspect ratio constants ---
@@ -57,13 +55,12 @@ SHARED tgInitX, tgInitY, tgTx, tgTy, tgDegs, tgPen, _tgXYRatio
   scrW = PEEKW(scrAddr + 12)       ' Screen->Width
   scrH = PEEKW(scrAddr + 14)       ' Screen->Height
 
-  REM Use literal values (not CONST names) due to compiler bug
   IF scrW >= 1280 THEN
-    _tgXYRatio = 3.75
+    _tgXYRatio = TG_RATIO_SUPERHIRES
   ELSEIF scrW >= 640 THEN
-    _tgXYRatio = 1.875
+    _tgXYRatio = TG_RATIO_HIRES
   ELSE
-    _tgXYRatio = 0.9375
+    _tgXYRatio = TG_RATIO_LORES
   END IF
 
   REM Interlace doubles the vertical resolution, halving the ratio
