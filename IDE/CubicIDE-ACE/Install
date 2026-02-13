@@ -1,9 +1,9 @@
 ; ** Install CubicIDE-ACE plugin into CubicIDE **
 ;
 ; Run this script from the CubicIDE-ACE directory:
-;   execute install-cubicide
+;   execute Install
 ;
-; Copies add-ons/ and etc/ into the golded: assign.
+; Copies add-ons/ into golded: and registers presets via regedit.
 
 ; Check if golded: assign exists
 IF EXISTS golded:
@@ -11,20 +11,25 @@ IF EXISTS golded:
   echo "CubicIDE-ACE Plugin Installer"
   echo "=============================="
   echo ""
-  echo "This will copy the ACE plugin files into golded:"
-  echo "  add-ons/ace/  -> golded:add-ons/ace/"
-  echo "  etc/registry/ -> golded:etc/registry/"
+  echo "This will install the ACE plugin into CubicIDE:"
+  echo "  - Copy add-ons/ace/ into golded:add-ons/"
+  echo "  - Register presets and filetype via regedit"
   echo ""
-  ASK "Continue with copy? (y/n) "
+  ASK "Continue? (y/n) "
   IF WARN
     echo ""
     echo "Copying add-ons..."
     copy add-ons golded:add-ons ALL CLONE
-    echo "Copying etc..."
-    copy etc golded:etc ALL CLONE
+    echo "Registering presets and filetype..."
+    golded:add-ons/regedit/regedit script=install.bat
+    echo "Copying uninstall script..."
+    copy install.bat golded:etc/uninstall/ace.bat
     echo ""
     echo "Installation complete."
     echo "Please (re)start CubicIDE to activate the plugin."
+    echo ""
+    echo "To uninstall later, run:"
+    echo "  golded:add-ons/regedit/regedit script=golded:etc/uninstall/ace.bat UNINSTALL"
   ELSE
     echo "Installation cancelled."
   ENDIF

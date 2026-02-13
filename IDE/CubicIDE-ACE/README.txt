@@ -1,7 +1,5 @@
 Installation of the ACE CubicIDE plugin.
 
-Use the installer script to install.
-
 The plugin offers the following functionality:
 - syntax highlighting based on the standard "generic.parser" provided by
   Cubic-IDE
@@ -10,14 +8,31 @@ The plugin offers the following functionality:
 - toolbar commands for 'compile', 'compile&run', 'compile submod' and
   only 'run'
 
-To install the plugin, copy the folders (etc, add-ons) in thew archive to
-your CubicIDE installation into the assign 'golded:'.
-This folder should already contain those folders.
-The folder 'etc' and 'add-ons' in this archive only contain files related
-to the AmigaE plugin and should not clash with any existing files.
-But to make sure you should make backups of those folders.
+
+Installation
+------------
+
+Run the Install script from this directory:
+
+  execute Install
+
+This copies the add-ons into golded: and registers the ACE presets and
+filetype via CubicIDE's regedit tool.
+
+Alternatively, you can install manually:
+
+  copy add-ons golded:add-ons ALL CLONE
+  golded:add-ons/regedit/regedit script=install.bat
 
 When this is done you should start, or re-start CubicIDE.
+
+
+Uninstallation
+--------------
+
+To uninstall the ACE plugin:
+
+  golded:add-ons/regedit/regedit script=golded:etc/uninstall/ace.bat UNINSTALL
 
 When you open a ACE source file (.b) you should see the explorer in the
 right sidebar and the toolbar buttons.
