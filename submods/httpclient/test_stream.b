@@ -3,8 +3,6 @@ REM #using ace:submods/httpclient/httpclient.o
 
 #include <submods/httpclient.h>
 
-EXTERNAL httpclient
-
 LONGINT totalBytes
 LONGINT sendDone
 

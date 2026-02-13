@@ -3,8 +3,6 @@ REM #using ace:submods/httpclient/httpclient.o
 
 #include <submods/HTTPClient.h>
 
-EXTERNAL httpclient
-
 LONGINT statusCode, hConn, rc
 LONGINT totalLen, bytesGot, rdDone
 STRING resp$ SIZE 16384

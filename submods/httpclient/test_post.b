@@ -2,8 +2,6 @@
 
 #include <submods/httpclient.h>
 
-EXTERNAL httpclient
-
 STRING resp$ SIZE 32768
 LONGINT statusCode
 

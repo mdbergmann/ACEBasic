@@ -3,8 +3,6 @@ REM #using ace:submods/httpclient/httpclient.o
 
 #include <submods/httpclient.h>
 
-EXTERNAL httpclient
-
 STRING resp$ SIZE 8192
 ADDRESS respBuf
 LONGINT statusCode
