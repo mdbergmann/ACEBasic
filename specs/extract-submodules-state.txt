@@ -1,7 +1,7 @@
 Extract TCP Client & AmiSSL Submodules - Progress State
 ========================================================
 
-Phase 1: AmiSSL Submodule                    STATUS: CODE COMPLETE
+Phase 1: AmiSSL Submodule                    STATUS: CODE COMPLETE (committed)
   Branch: extract-amissl-submod
   Files created:
     - submods/amissl/amissl.b                 (~340 lines)
@@ -22,8 +22,35 @@ Phase 1: AmiSSL Submodule                    STATUS: CODE COMPLETE
     - Trailing ASSEM block for _sslTagList (same as httpclient)
   Awaiting: emulator testing
 
-Phase 2: TCP Client Submodule                STATUS: NOT STARTED
-  Branch: extract-tcpclient-submod (to be created from phase 1 branch)
+Phase 2: TCP Client Submodule               STATUS: CODE COMPLETE
+  Branch: extract-amissl-submod (same branch, will commit here)
+  Files created:
+    - submods/tcpclient/tcpclient.b           (~390 lines)
+    - include/submods/tcpclient.h             (~100 lines)
+    - submods/tcpclient/test_tcpclient.b      (~180 lines)
+  Public API:
+    - TcpInit -> LONGINT
+    - TcpCleanup
+    - TcpOpen(host$, port%, useSSL%) -> LONGINT (handle 1-4)
+    - TcpClose(h%)
+    - TcpSend(h%, buf&, bufLen&) -> LONGINT
+    - TcpRecv(h%, buf&, bufSz&) -> LONGINT
+    - TcpRecvBuf(h%, destBuf&, maxBytes&) -> LONGINT (buffered)
+    - TcpRecvLine(h%, lineBuf&, maxLen&) -> LONGINT (line length or -1)
+    - TcpBufFlush(h%)
+  Error constants: TCP_SUCCESS..TCP_ERR_BAD_HANDLE (-7)
+  Key design:
+    - Multi-connection: 4 slots via DIM arr&(4) LONGINT arrays
+    - Per-connection 4096-byte read buffer (allocated in TcpInit)
+    - SSL via amissl submodule (lazy init on first SSL connection)
+    - _BSDSOCKETBase read via ASSEM into _bsdSockBase, passed to SslInit
+    - TcpRecvLine: fills caller-provided ADDRESS buffer, null-terminates
+      Returns line length (>=0) on success, -1 on error/EOF
+    - TcpOpen auto-calls TcpInit if not yet initialized
+  API difference from plan:
+    - TcpRecvLine takes (h, ADDRESS lineBuf, LONGINT maxLen) instead of
+      (h, line$) since ACE strings are pass-by-value
+  Awaiting: emulator testing
 
 Phase 3: Refactor HTTPClient                 STATUS: NOT STARTED
-  Branch: refactor-httpclient-use-tcp (to be created from phase 2 branch)
+  Branch: refactor-httpclient-use-tcp (to be created)
