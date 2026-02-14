@@ -53,8 +53,8 @@ Phase 2: TCP Client Submodule               STATUS: DONE
     2. SSL connection -> 423 bytes via AmiSSL
     3. Two simultaneous connections -> handles 1 & 2, both OK
 
-Phase 3: Refactor HTTPClient                 STATUS: IN PROGRESS
-  Branch: phase3-httpclient-refactor
+Phase 3: Refactor HTTPClient                 STATUS: DONE
+  Branch: phase3-httpclient-refactor (merged to master: c647b87)
   Goal: Remove all SSL/TCP code from httpclient.b, replace with
         TcpOpen/TcpClose/TcpSend/TcpRecv/TcpRecvLine/TcpRecvBuf calls.
         All existing httpclient tests must pass unchanged.
