@@ -1,0 +1,29 @@
+Extract TCP Client & AmiSSL Submodules - Progress State
+========================================================
+
+Phase 1: AmiSSL Submodule                    STATUS: CODE COMPLETE
+  Branch: extract-amissl-submod
+  Files created:
+    - submods/amissl/amissl.b                 (~340 lines)
+    - include/submods/amissl.h                (~60 lines)
+    - submods/amissl/test_amissl.b            (~143 lines)
+  Public API:
+    - SslInit(bsdSockBase&) -> LONGINT
+    - SslCleanup
+    - SslNewConn(sockFd&) -> LONGINT
+    - SslFreeConn(ssl&)
+    - SslRead(ssl&, buf&, num&) -> LONGINT
+    - SslWrite(ssl&, buf&, num&) -> LONGINT
+  Error constants: SSL_SUCCESS, SSL_ERR_INIT, SSL_ERR_CONNECT, SSL_ERR_NO_LIB
+  Key design:
+    - SslInit receives bsdSockBase as parameter (not read from BSS)
+    - Internal ASSEM wrappers renamed with Int suffix to avoid clash
+      with public API names (_SslNewInt, _SslFreeInt, etc.)
+    - Trailing ASSEM block for _sslTagList (same as httpclient)
+  Awaiting: emulator testing
+
+Phase 2: TCP Client Submodule                STATUS: NOT STARTED
+  Branch: extract-tcpclient-submod (to be created from phase 1 branch)
+
+Phase 3: Refactor HTTPClient                 STATUS: NOT STARTED
+  Branch: refactor-httpclient-use-tcp (to be created from phase 2 branch)
