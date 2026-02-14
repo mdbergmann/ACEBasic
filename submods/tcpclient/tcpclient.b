@@ -1,8 +1,9 @@
+REM #using ace:submods/amissl/amissl.o
+
 {* TCPClient - TCP connection submodule for ACE BASIC *}
 {* Multi-connection model with optional SSL via amissl submodule *}
 
 #include <submods/amissl.h>
-EXTERNAL amissl
 
 { ============== Library Declarations ============== }
 

@@ -1,12 +1,12 @@
 Extract TCP Client & AmiSSL Submodules - Progress State
 ========================================================
 
-Phase 1: AmiSSL Submodule                    STATUS: CODE COMPLETE (committed)
+Phase 1: AmiSSL Submodule                    STATUS: VERIFIED
   Branch: extract-amissl-submod
   Files created:
     - submods/amissl/amissl.b                 (~340 lines)
     - include/submods/amissl.h                (~60 lines)
-    - submods/amissl/test_amissl.b            (~143 lines)
+    - submods/amissl/test_amissl.b            (~145 lines)
   Public API:
     - SslInit(bsdSockBase&) -> LONGINT
     - SslCleanup
@@ -20,14 +20,15 @@ Phase 1: AmiSSL Submodule                    STATUS: CODE COMPLETE (committed)
     - Internal ASSEM wrappers renamed with Int suffix to avoid clash
       with public API names (_SslNewInt, _SslFreeInt, etc.)
     - Trailing ASSEM block for _sslTagList (same as httpclient)
-  Awaiting: emulator testing
+    - REM #using in .b files (not headers)
+  Verified: via tcpclient SSL test (SslInit + SslNewConn work)
 
-Phase 2: TCP Client Submodule               STATUS: CODE COMPLETE
-  Branch: extract-amissl-submod (same branch, will commit here)
+Phase 2: TCP Client Submodule               STATUS: VERIFIED
+  Branch: extract-amissl-submod
   Files created:
     - submods/tcpclient/tcpclient.b           (~390 lines)
     - include/submods/tcpclient.h             (~100 lines)
-    - submods/tcpclient/test_tcpclient.b      (~180 lines)
+    - submods/tcpclient/test_tcpclient.b      (~200 lines)
   Public API:
     - TcpInit -> LONGINT
     - TcpCleanup
@@ -45,12 +46,11 @@ Phase 2: TCP Client Submodule               STATUS: CODE COMPLETE
     - SSL via amissl submodule (lazy init on first SSL connection)
     - _BSDSOCKETBase read via ASSEM into _bsdSockBase, passed to SslInit
     - TcpRecvLine: fills caller-provided ADDRESS buffer, null-terminates
-      Returns line length (>=0) on success, -1 on error/EOF
-    - TcpOpen auto-calls TcpInit if not yet initialized
-  API difference from plan:
-    - TcpRecvLine takes (h, ADDRESS lineBuf, LONGINT maxLen) instead of
-      (h, line$) since ACE strings are pass-by-value
-  Awaiting: emulator testing
+    - REM #using in .b files (not headers)
+  Test results (all 3 PASS):
+    - Test 1: Plain TCP + TcpRecvLine -> HTTP/1.1 200 OK
+    - Test 2: SSL connection -> 423 bytes via SslRead
+    - Test 3: Two simultaneous connections -> handles 1 & 2, both OK
 
 Phase 3: Refactor HTTPClient                 STATUS: NOT STARTED
   Branch: refactor-httpclient-use-tcp (to be created)

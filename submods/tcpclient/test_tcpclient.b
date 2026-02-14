@@ -1,9 +1,10 @@
+REM #using ace:submods/tcpclient/tcpclient.o
+REM #using ace:submods/amissl/amissl.o
+
 {* test_tcpclient.b - Test TCP client submodule *}
 {* Tests plain TCP, SSL, buffered reads, and multi-connection *}
 
 #include <submods/tcpclient.h>
-EXTERNAL tcpclient
-EXTERNAL amissl
 
 LONGINT rc, h1, h2, nBytes, lineLen
 ADDRESS recvBuf, lineBuf

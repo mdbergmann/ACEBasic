@@ -25,7 +25,6 @@
  *}
 
 #include <submods/amissl.h>
-REM #using tcpclient.o
 
 ' Error constants
 CONST TCP_SUCCESS        = 0    ' Operation succeeded

@@ -1,3 +1,5 @@
+REM #using ace:submods/amissl/amissl.o
+
 {* test_amissl.b - Test AmiSSL submodule *}
 {* Tests SSL init, handshake, write, read, and cleanup *}
 
