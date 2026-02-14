@@ -1,5 +1,7 @@
 {* test_stream.b - Test streaming callbacks for HTTP client *}
 REM #using ace:submods/httpclient/httpclient.o
+REM #using ace:submods/tcpclient/tcpclient.o
+REM #using ace:submods/amissl/amissl.o
 
 #include <submods/httpclient.h>
 

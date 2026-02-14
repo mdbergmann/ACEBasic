@@ -1,9 +1,10 @@
 Extract TCP Client & AmiSSL Submodules - Progress State
 ========================================================
 
-Phase 1: AmiSSL Submodule                    STATUS: VERIFIED
+Phase 1: AmiSSL Submodule                    STATUS: DONE
   Branch: extract-amissl-submod
-  Files created:
+  Commits: 9928b05, 5608e58
+  Files:
     - submods/amissl/amissl.b                 (~340 lines)
     - include/submods/amissl.h                (~60 lines)
     - submods/amissl/test_amissl.b            (~145 lines)
@@ -14,18 +15,18 @@ Phase 1: AmiSSL Submodule                    STATUS: VERIFIED
     - SslFreeConn(ssl&)
     - SslRead(ssl&, buf&, num&) -> LONGINT
     - SslWrite(ssl&, buf&, num&) -> LONGINT
-  Error constants: SSL_SUCCESS, SSL_ERR_INIT, SSL_ERR_CONNECT, SSL_ERR_NO_LIB
-  Key design:
+  Constants: SSL_SUCCESS (0), SSL_ERR_INIT (-1), SSL_ERR_CONNECT (-2), SSL_ERR_NO_LIB (-3)
+  Design notes:
     - SslInit receives bsdSockBase as parameter (not read from BSS)
-    - Internal ASSEM wrappers renamed with Int suffix to avoid clash
-      with public API names (_SslNewInt, _SslFreeInt, etc.)
-    - Trailing ASSEM block for _sslTagList (same as httpclient)
+    - Internal ASSEM wrappers renamed with Int suffix (_SslNewInt, etc.)
+    - Trailing ASSEM block for _sslTagList
     - REM #using in .b files (not headers)
-  Verified: via tcpclient SSL test (SslInit + SslNewConn work)
+  Verified: SSL test passes (via tcpclient test 2)
 
-Phase 2: TCP Client Submodule               STATUS: VERIFIED
+Phase 2: TCP Client Submodule               STATUS: DONE
   Branch: extract-amissl-submod
-  Files created:
+  Commits: 12d0518, 5608e58
+  Files:
     - submods/tcpclient/tcpclient.b           (~390 lines)
     - include/submods/tcpclient.h             (~100 lines)
     - submods/tcpclient/test_tcpclient.b      (~200 lines)
@@ -39,18 +40,43 @@ Phase 2: TCP Client Submodule               STATUS: VERIFIED
     - TcpRecvBuf(h%, destBuf&, maxBytes&) -> LONGINT (buffered)
     - TcpRecvLine(h%, lineBuf&, maxLen&) -> LONGINT (line length or -1)
     - TcpBufFlush(h%)
-  Error constants: TCP_SUCCESS..TCP_ERR_BAD_HANDLE (-7)
-  Key design:
+  Constants: TCP_SUCCESS (0) .. TCP_ERR_BAD_HANDLE (-7)
+  Design notes:
     - Multi-connection: 4 slots via DIM arr&(4) LONGINT arrays
     - Per-connection 4096-byte read buffer (allocated in TcpInit)
     - SSL via amissl submodule (lazy init on first SSL connection)
-    - _BSDSOCKETBase read via ASSEM into _bsdSockBase, passed to SslInit
-    - TcpRecvLine: fills caller-provided ADDRESS buffer, null-terminates
+    - _BSDSOCKETBase read via ASSEM, passed to SslInit
+    - TcpRecvLine: ADDRESS buffer + maxLen (not string param, ACE pass-by-value)
     - REM #using in .b files (not headers)
-  Test results (all 3 PASS):
-    - Test 1: Plain TCP + TcpRecvLine -> HTTP/1.1 200 OK
-    - Test 2: SSL connection -> 423 bytes via SslRead
-    - Test 3: Two simultaneous connections -> handles 1 & 2, both OK
+  Test results (3/3 PASS on emulator):
+    1. Plain TCP + TcpRecvLine -> HTTP/1.1 200 OK
+    2. SSL connection -> 423 bytes via AmiSSL
+    3. Two simultaneous connections -> handles 1 & 2, both OK
 
-Phase 3: Refactor HTTPClient                 STATUS: NOT STARTED
-  Branch: refactor-httpclient-use-tcp (to be created)
+Phase 3: Refactor HTTPClient                 STATUS: IN PROGRESS
+  Branch: phase3-httpclient-refactor
+  Goal: Remove all SSL/TCP code from httpclient.b, replace with
+        TcpOpen/TcpClose/TcpSend/TcpRecv/TcpRecvLine/TcpRecvBuf calls.
+        All existing httpclient tests must pass unchanged.
+  Changes:
+    - httpclient.b: 1771 -> 1098 lines (~670 lines removed)
+    - Removed: bsdsocket declarations, socket constants, SSL module vars,
+      all 16 ASSEM wrappers, _HttpInitSSL/_HttpSSLHandshake/_HttpSSLShutdown,
+      _HttpResolve/_HttpConnectTCP, _HttpRecvLine (manual buffer), _HttpReadBuf
+      (manual buffer), _connSocket/_connSSL/_bufAddr/_bufPos/_bufLen/_sockAddr,
+      trailing ASSEM block for _sslTagList
+    - Added: REM #using for tcpclient.o + amissl.o, #include <submods/tcpclient.h>,
+      _tcpHandle module variable
+    - Rewrote: _HttpSendRaw -> TcpSend wrapper, _HttpRecvLine -> TcpRecvLine wrapper,
+      _HttpReadBuf -> TcpRecvBuf wrapper, _HttpInit (calls TcpInit),
+      HttpOpen (calls TcpOpen with error mapping), HttpClose (calls TcpClose),
+      HttpReadBody (uses TcpRecvBuf), HttpSendRawBytes/HttpRecvRawBytes (use TcpSend/TcpRecv),
+      HttpReadStatus (uses TcpBufFlush instead of _bufPos/_bufLen reset)
+    - All 8 test files updated with REM #using for tcpclient.o + amissl.o
+    - test_post.b: added missing REM #using for httpclient.o
+  Verification: DONE
+    - test_http_get: 2/2 PASS (HttpHead 200, low-level GET 200 + 16383 bytes)
+    - test_https: 3/3 PASS (HttpGet SSL, HttpPost SSL, low-level SSL)
+    - test_chunked: 2/2 PASS (low-level chunked 50687 bytes, HttpGet transparent)
+    - test_stream: 2/2 PASS (HttpGetStream, HttpPostStream)
+    - test_post: 4/4 PASS (UrlEncode, POST, PUT, HttpRequest GET)

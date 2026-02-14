@@ -1,6 +1,8 @@
 REM test_chunked.b - Phase 3 chunked transfer decoding test
 REM Tests that chunked responses are decoded transparently
 REM #using ace:submods/httpclient/httpclient.o
+REM #using ace:submods/tcpclient/tcpclient.o
+REM #using ace:submods/amissl/amissl.o
 
 #include <submods/HTTPClient.h>
 

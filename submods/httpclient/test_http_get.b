@@ -1,5 +1,7 @@
 REM test_http_get.b - Regression test (low-level debug version)
 REM #using ace:submods/httpclient/httpclient.o
+REM #using ace:submods/tcpclient/tcpclient.o
+REM #using ace:submods/amissl/amissl.o
 
 #include <submods/HTTPClient.h>
 
