@@ -1,7 +1,7 @@
 REM #using ace:submods/amissl/amissl.o
 
 {* TCPClient - TCP connection submodule for ACE BASIC *}
-{* Multi-connection model with optional SSL via amissl submodule *}
+{* Stateless struct-based API - caller owns TcpConn structs *}
 
 #include <submods/amissl.h>
 
@@ -23,10 +23,8 @@ CONST TCP_ERR_DNS        = -2
 CONST TCP_ERR_SEND       = -3
 CONST TCP_ERR_RECV       = -4
 CONST TCP_ERR_SSL        = -5
-CONST TCP_ERR_NO_SLOT    = -6
 CONST TCP_ERR_BAD_HANDLE = -7
 
-CONST MAX_TCP_CONNS  = 4
 CONST TCP_BUF_SIZE   = 4096
 CONST TCP_LINE_MAX   = 1024
 
@@ -34,16 +32,19 @@ CONST TCP_LINE_MAX   = 1024
 CONST AF_INET        = 2
 CONST SOCK_STREAM    = 1
 
+{ ============== TcpConn Struct ============== }
+
+STRUCT TcpConn
+  LONGINT sockFd
+  LONGINT sslHnd
+  LONGINT bufPos
+  LONGINT bufLen
+  STRING bufData SIZE 4096
+END STRUCT
+
 { ============== Module Data ============== }
 
 LONGINT _tcpInited
-
-' Connection table (indices 1..MAX_TCP_CONNS, 0 unused)
-DIM _tcpSockFd&(4)
-DIM _tcpSslHnd&(4)
-DIM _tcpBufPtr&(4)
-DIM _tcpBufPos&(4)
-DIM _tcpBufLen&(4)
 
 ' Reusable sockaddr_in buffer (16 bytes)
 ADDRESS _tcpSockAddr
@@ -55,29 +56,6 @@ LONGINT _bsdSockBase
 LONGINT _tcpSslReady
 
 { ============== Internal Helpers ============== }
-
-SUB LONGINT _TcpValidHandle(LONGINT h)
-  SHARED _tcpSockFd&
-  IF h < 1 OR h > MAX_TCP_CONNS THEN
-    _TcpValidHandle = 0
-  ELSEIF _tcpSockFd&(h) = -1 THEN
-    _TcpValidHandle = 0
-  ELSE
-    _TcpValidHandle = 1
-  END IF
-END SUB
-
-SUB LONGINT _TcpFindSlot
-  SHARED _tcpSockFd&
-  LONGINT i
-  FOR i = 1 TO MAX_TCP_CONNS
-    IF _tcpSockFd&(i) = -1 THEN
-      _TcpFindSlot = i
-      EXIT SUB
-    END IF
-  NEXT i
-  _TcpFindSlot = 0
-END SUB
 
 SUB LONGINT _TcpResolve(STRING host$)
   LONGINT he, addrList, addrPtr, ipAddr
@@ -132,9 +110,7 @@ END SUB
 
 SUB LONGINT TcpInit EXTERNAL
   SHARED _tcpInited
-  SHARED _tcpSockFd&, _tcpSslHnd&, _tcpBufPtr&, _tcpBufPos&, _tcpBufLen&
   SHARED _tcpSockAddr, _bsdSockBase, _tcpSslReady
-  LONGINT i
 
   IF _tcpInited = 1 THEN
     TcpInit = TCP_SUCCESS
@@ -148,15 +124,6 @@ SUB LONGINT TcpInit EXTERNAL
     move.l  _BSDSOCKETBase,_modv__BSDSOCKBASE
   END ASSEM
 
-  ' Init connection table
-  FOR i = 1 TO MAX_TCP_CONNS
-    _tcpSockFd&(i) = -1
-    _tcpSslHnd&(i) = 0
-    _tcpBufPtr&(i) = ALLOC(TCP_BUF_SIZE)
-    _tcpBufPos&(i) = 0
-    _tcpBufLen&(i) = 0
-  NEXT i
-
   ' Allocate sockaddr buffer
   _tcpSockAddr = ALLOC(16)
 
@@ -167,22 +134,9 @@ END SUB
 
 SUB TcpCleanup EXTERNAL
   SHARED _tcpInited
-  SHARED _tcpSockFd&, _tcpSslHnd&
   SHARED _tcpSslReady
-  LONGINT i
 
   IF _tcpInited <> 1 THEN EXIT SUB
-
-  FOR i = 1 TO MAX_TCP_CONNS
-    IF _tcpSockFd&(i) <> -1 THEN
-      IF _tcpSslHnd&(i) <> 0 THEN
-        SslFreeConn(_tcpSslHnd&(i))
-        _tcpSslHnd&(i) = 0
-      END IF
-      CloseSocket(_tcpSockFd&(i))
-      _tcpSockFd&(i) = -1
-    END IF
-  NEXT i
 
   IF _tcpSslReady = 1 THEN
     SslCleanup
@@ -192,22 +146,18 @@ SUB TcpCleanup EXTERNAL
   _tcpInited = 0
 END SUB
 
-SUB LONGINT TcpOpen(STRING host$, LONGINT port, LONGINT useSSL) EXTERNAL
-  SHARED _tcpSockFd&, _tcpSslHnd&, _tcpBufPos&, _tcpBufLen&
+SUB LONGINT TcpOpen(ADDRESS conn, STRING host$, ~
+                     LONGINT port, LONGINT useSSL) EXTERNAL
   SHARED _bsdSockBase, _tcpSslReady
-  LONGINT h, ipAddr, sock, ssl, rc
+  DECLARE STRUCT TcpConn *c
+  LONGINT ipAddr, sock, ssl, rc
+
+  c = conn
 
   ' Auto-init
   rc = TcpInit
   IF rc <> TCP_SUCCESS THEN
     TcpOpen = rc
-    EXIT SUB
-  END IF
-
-  ' Find free slot
-  h = _TcpFindSlot
-  IF h = 0 THEN
-    TcpOpen = TCP_ERR_NO_SLOT
     EXIT SUB
   END IF
 
@@ -248,68 +198,73 @@ SUB LONGINT TcpOpen(STRING host$, LONGINT port, LONGINT useSSL) EXTERNAL
     ssl = 0
   END IF
 
-  ' Store in connection table
-  _tcpSockFd&(h) = sock
-  _tcpSslHnd&(h) = ssl
-  _tcpBufPos&(h) = 0
-  _tcpBufLen&(h) = 0
-
-  TcpOpen = h
+  ' Initialize struct fields
+  c->sockFd = sock
+  c->sslHnd = ssl
+  c->bufPos = 0
+  c->bufLen = 0
+  TcpOpen = TCP_SUCCESS
 END SUB
 
-SUB TcpClose(LONGINT h) EXTERNAL
-  SHARED _tcpSockFd&, _tcpSslHnd&, _tcpBufPos&, _tcpBufLen&
+SUB TcpClose(ADDRESS conn) EXTERNAL
+  DECLARE STRUCT TcpConn *c
+  c = conn
 
-  IF _TcpValidHandle(h) = 0 THEN EXIT SUB
+  IF c->sockFd = -1 THEN EXIT SUB
 
-  IF _tcpSslHnd&(h) <> 0 THEN
-    SslFreeConn(_tcpSslHnd&(h))
-    _tcpSslHnd&(h) = 0
+  IF c->sslHnd <> 0 THEN
+    SslFreeConn(c->sslHnd)
+    c->sslHnd = 0
   END IF
 
-  CloseSocket(_tcpSockFd&(h))
-  _tcpSockFd&(h) = -1
-  _tcpBufPos&(h) = 0
-  _tcpBufLen&(h) = 0
+  CloseSocket(c->sockFd)
+  c->sockFd = -1
+  c->bufPos = 0
+  c->bufLen = 0
 END SUB
 
-SUB LONGINT TcpSend(LONGINT h, ADDRESS buf, LONGINT bufLen) EXTERNAL
-  SHARED _tcpSockFd&, _tcpSslHnd&
+SUB LONGINT TcpSend(ADDRESS conn, ADDRESS buf, ~
+                     LONGINT bufLen) EXTERNAL
+  DECLARE STRUCT TcpConn *c
+  c = conn
 
-  IF _TcpValidHandle(h) = 0 THEN
+  IF c->sockFd = -1 THEN
     TcpSend = TCP_ERR_BAD_HANDLE
     EXIT SUB
   END IF
 
-  IF _tcpSslHnd&(h) <> 0 THEN
-    TcpSend = SslWrite(_tcpSslHnd&(h), buf, bufLen)
+  IF c->sslHnd <> 0 THEN
+    TcpSend = SslWrite(c->sslHnd, buf, bufLen)
   ELSE
-    TcpSend = send(_tcpSockFd&(h), buf, bufLen, 0)
+    TcpSend = send(c->sockFd, buf, bufLen, 0)
   END IF
 END SUB
 
-SUB LONGINT TcpRecv(LONGINT h, ADDRESS buf, LONGINT bufSz) EXTERNAL
-  SHARED _tcpSockFd&, _tcpSslHnd&
+SUB LONGINT TcpRecv(ADDRESS conn, ADDRESS buf, ~
+                     LONGINT bufSz) EXTERNAL
+  DECLARE STRUCT TcpConn *c
+  c = conn
 
-  IF _TcpValidHandle(h) = 0 THEN
+  IF c->sockFd = -1 THEN
     TcpRecv = TCP_ERR_BAD_HANDLE
     EXIT SUB
   END IF
 
-  IF _tcpSslHnd&(h) <> 0 THEN
-    TcpRecv = SslRead(_tcpSslHnd&(h), buf, bufSz)
+  IF c->sslHnd <> 0 THEN
+    TcpRecv = SslRead(c->sslHnd, buf, bufSz)
   ELSE
-    TcpRecv = recv(_tcpSockFd&(h), buf, bufSz, 0)
+    TcpRecv = recv(c->sockFd, buf, bufSz, 0)
   END IF
 END SUB
 
-SUB LONGINT TcpRecvBuf(LONGINT h, ADDRESS destBuf, ~
+SUB LONGINT TcpRecvBuf(ADDRESS conn, ADDRESS destBuf, ~
                         LONGINT maxBytes) EXTERNAL
-  SHARED _tcpSockFd&, _tcpSslHnd&
-  SHARED _tcpBufPtr&, _tcpBufPos&, _tcpBufLen&
+  DECLARE STRUCT TcpConn *c
   LONGINT avail, n, i, bufAddr
 
-  IF _TcpValidHandle(h) = 0 THEN
+  c = conn
+
+  IF c->sockFd = -1 THEN
     TcpRecvBuf = TCP_ERR_BAD_HANDLE
     EXIT SUB
   END IF
@@ -319,35 +274,35 @@ SUB LONGINT TcpRecvBuf(LONGINT h, ADDRESS destBuf, ~
     EXIT SUB
   END IF
 
-  bufAddr = _tcpBufPtr&(h)
+  bufAddr = @c->bufData
 
   ' If buffer has data, drain up to maxBytes
-  IF _tcpBufPos&(h) < _tcpBufLen&(h) THEN
-    avail = _tcpBufLen&(h) - _tcpBufPos&(h)
+  IF c->bufPos < c->bufLen THEN
+    avail = c->bufLen - c->bufPos
     IF avail > maxBytes THEN avail = maxBytes
     FOR i = 0 TO avail - 1
-      POKE destBuf + i, PEEK(bufAddr + _tcpBufPos&(h) + i)
+      POKE destBuf + i, PEEK(bufAddr + c->bufPos + i)
     NEXT i
-    _tcpBufPos&(h) = _tcpBufPos&(h) + avail
+    c->bufPos = c->bufPos + avail
     TcpRecvBuf = avail
     EXIT SUB
   END IF
 
   ' Buffer empty - refill from socket
-  _tcpBufPos&(h) = 0
-  _tcpBufLen&(h) = 0
+  c->bufPos = 0
+  c->bufLen = 0
 
-  IF _tcpSslHnd&(h) <> 0 THEN
-    n = SslRead(_tcpSslHnd&(h), bufAddr, TCP_BUF_SIZE)
+  IF c->sslHnd <> 0 THEN
+    n = SslRead(c->sslHnd, bufAddr, TCP_BUF_SIZE)
   ELSE
-    n = recv(_tcpSockFd&(h), bufAddr, TCP_BUF_SIZE, 0)
+    n = recv(c->sockFd, bufAddr, TCP_BUF_SIZE, 0)
   END IF
 
   IF n <= 0 THEN
     TcpRecvBuf = 0
     EXIT SUB
   END IF
-  _tcpBufLen&(h) = n
+  c->bufLen = n
 
   ' Copy up to maxBytes from freshly filled buffer
   avail = n
@@ -355,50 +310,51 @@ SUB LONGINT TcpRecvBuf(LONGINT h, ADDRESS destBuf, ~
   FOR i = 0 TO avail - 1
     POKE destBuf + i, PEEK(bufAddr + i)
   NEXT i
-  _tcpBufPos&(h) = avail
+  c->bufPos = avail
   TcpRecvBuf = avail
 END SUB
 
-SUB LONGINT TcpRecvLine(LONGINT h, ADDRESS lineBuf, ~
+SUB LONGINT TcpRecvLine(ADDRESS conn, ADDRESS lineBuf, ~
                          LONGINT maxLen) EXTERNAL
-  SHARED _tcpSockFd&, _tcpSslHnd&
-  SHARED _tcpBufPtr&, _tcpBufPos&, _tcpBufLen&
+  DECLARE STRUCT TcpConn *c
   LONGINT resultLen, found, lineErr
   LONGINT scanPos, gotLF, copyEnd, n, i
   LONGINT bufAddr
 
-  IF _TcpValidHandle(h) = 0 THEN
+  c = conn
+
+  IF c->sockFd = -1 THEN
     TcpRecvLine = -1
     EXIT SUB
   END IF
 
-  bufAddr = _tcpBufPtr&(h)
+  bufAddr = @c->bufData
   resultLen = 0
   found = 0
   lineErr = 0
 
   WHILE found = 0 AND lineErr = 0
     ' Refill buffer if empty
-    IF _tcpBufPos&(h) >= _tcpBufLen&(h) THEN
-      _tcpBufPos&(h) = 0
-      _tcpBufLen&(h) = 0
-      IF _tcpSslHnd&(h) <> 0 THEN
-        n = SslRead(_tcpSslHnd&(h), bufAddr, TCP_BUF_SIZE)
+    IF c->bufPos >= c->bufLen THEN
+      c->bufPos = 0
+      c->bufLen = 0
+      IF c->sslHnd <> 0 THEN
+        n = SslRead(c->sslHnd, bufAddr, TCP_BUF_SIZE)
       ELSE
-        n = recv(_tcpSockFd&(h), bufAddr, TCP_BUF_SIZE, 0)
+        n = recv(c->sockFd, bufAddr, TCP_BUF_SIZE, 0)
       END IF
       IF n <= 0 THEN
         lineErr = 1
       ELSE
-        _tcpBufLen&(h) = n
+        c->bufLen = n
       END IF
     END IF
 
     IF lineErr = 0 THEN
       ' Scan for LF (byte 10)
-      scanPos = _tcpBufPos&(h)
+      scanPos = c->bufPos
       gotLF = 0
-      WHILE scanPos < _tcpBufLen&(h) AND gotLF = 0
+      WHILE scanPos < c->bufLen AND gotLF = 0
         IF PEEK(bufAddr + scanPos) = 10 THEN
           gotLF = 1
         ELSE
@@ -409,28 +365,28 @@ SUB LONGINT TcpRecvLine(LONGINT h, ADDRESS lineBuf, ~
       IF gotLF = 1 THEN
         ' Found LF: copy bytes before it (strip CR if present)
         copyEnd = scanPos
-        IF copyEnd > _tcpBufPos&(h) THEN
+        IF copyEnd > c->bufPos THEN
           IF PEEK(bufAddr + copyEnd - 1) = 13 THEN
             copyEnd = copyEnd - 1
           END IF
         END IF
-        FOR i = _tcpBufPos&(h) TO copyEnd - 1
+        FOR i = c->bufPos TO copyEnd - 1
           IF resultLen < maxLen THEN
             POKE lineBuf + resultLen, PEEK(bufAddr + i)
             resultLen = resultLen + 1
           END IF
         NEXT i
-        _tcpBufPos&(h) = scanPos + 1
+        c->bufPos = scanPos + 1
         found = 1
       ELSE
         ' No LF yet: copy all remaining buffer bytes
-        FOR i = _tcpBufPos&(h) TO _tcpBufLen&(h) - 1
+        FOR i = c->bufPos TO c->bufLen - 1
           IF resultLen < maxLen THEN
             POKE lineBuf + resultLen, PEEK(bufAddr + i)
             resultLen = resultLen + 1
           END IF
         NEXT i
-        _tcpBufPos&(h) = _tcpBufLen&(h)
+        c->bufPos = c->bufLen
       END IF
     END IF
   WEND
@@ -445,11 +401,12 @@ SUB LONGINT TcpRecvLine(LONGINT h, ADDRESS lineBuf, ~
   END IF
 END SUB
 
-SUB TcpBufFlush(LONGINT h) EXTERNAL
-  SHARED _tcpBufPos&, _tcpBufLen&
+SUB TcpBufFlush(ADDRESS conn) EXTERNAL
+  DECLARE STRUCT TcpConn *c
+  c = conn
 
-  IF _TcpValidHandle(h) = 0 THEN EXIT SUB
+  IF c->sockFd = -1 THEN EXIT SUB
 
-  _tcpBufPos&(h) = 0
-  _tcpBufLen&(h) = 0
+  c->bufPos = 0
+  c->bufLen = 0
 END SUB

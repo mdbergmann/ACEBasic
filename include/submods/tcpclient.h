@@ -4,19 +4,20 @@
 {*
  * tcpclient.h - TCP connection submodule for ACE BASIC
  *
- * Provides multi-connection TCP client with optional SSL via amissl.
- * Supports up to 4 simultaneous connections.
+ * Stateless struct-based API. Caller owns connection state
+ * via TcpConn structs - no connection limit.
  *
  * Usage:
  *   #include <submods/tcpclient.h>
  *   EXTERNAL tcpclient
  *
  * Typical sequence:
- *   rc = TcpInit
- *   h = TcpOpen("example.com", 80, 0)   ' plain TCP
- *   TcpSend(h, SADD(msg$), LEN(msg$))
- *   n = TcpRecv(h, buf, bufSz)
- *   TcpClose(h)
+ *   DECLARE STRUCT TcpConn myConn
+ *   TcpInit
+ *   rc = TcpOpen(myConn, "example.com", 80, 0)
+ *   TcpSend(myConn, SADD(msg$), LEN(msg$))
+ *   n = TcpRecvLine(myConn, lineBuf, TCP_LINE_MAX)
+ *   TcpClose(myConn)
  *   TcpCleanup
  *
  * Requirements:
@@ -26,6 +27,15 @@
 
 #include <submods/amissl.h>
 
+' TcpConn - Per-connection state struct (owned by caller)
+STRUCT TcpConn
+  LONGINT sockFd          ' socket file descriptor (-1 = not connected)
+  LONGINT sslHnd          ' SSL handle (0 = plain TCP)
+  LONGINT bufPos          ' current read position in buffer
+  LONGINT bufLen          ' bytes available in buffer
+  STRING bufData SIZE 4096 ' read-ahead buffer
+END STRUCT
+
 ' Error constants
 CONST TCP_SUCCESS        = 0    ' Operation succeeded
 CONST TCP_ERR_SOCKET     = -1   ' Socket creation or connect failed
@@ -33,73 +43,74 @@ CONST TCP_ERR_DNS        = -2   ' Host name resolution failed
 CONST TCP_ERR_SEND       = -3   ' Send failed
 CONST TCP_ERR_RECV       = -4   ' Receive failed
 CONST TCP_ERR_SSL        = -5   ' SSL init or handshake failed
-CONST TCP_ERR_NO_SLOT    = -6   ' All connection slots in use
-CONST TCP_ERR_BAD_HANDLE = -7   ' Invalid connection handle
+CONST TCP_ERR_BAD_HANDLE = -7   ' Invalid connection (sockFd = -1)
 
 ' Buffer size (matches internal buffer)
 CONST TCP_BUF_SIZE   = 4096
 CONST TCP_LINE_MAX   = 1024
 
 ' TcpInit - Initialize TCP subsystem
-'   Opens bsdsocket.library and allocates connection table.
+'   Opens bsdsocket.library.
 '   Returns: TCP_SUCCESS (0) or negative error code
 '   Note: Called automatically by TcpOpen if needed.
 DECLARE SUB LONGINT TcpInit EXTERNAL
 
-' TcpCleanup - Close all connections and free resources
-'   Also calls SslCleanup if SSL was initialized.
+' TcpCleanup - Free global resources
+'   Calls SslCleanup if SSL was initialized.
+'   Note: Does NOT close connections - caller must TcpClose each.
 DECLARE SUB TcpCleanup EXTERNAL
 
 ' TcpOpen - Open a TCP connection (optionally with SSL)
+'   conn  - Address of caller's TcpConn struct
 '   host$ - Host name or dotted IP address
 '   port  - Port number (e.g. 80, 443)
 '   useSSL - 0 for plain TCP, 1 for SSL/TLS
-'   Returns: positive handle (1-4) on success, negative error code
-DECLARE SUB LONGINT TcpOpen(STRING host, LONGINT port, ~
-                             LONGINT useSSL) EXTERNAL
+'   Returns: TCP_SUCCESS (0) on success, negative error code on failure
+DECLARE SUB LONGINT TcpOpen(ADDRESS conn, STRING host, ~
+                             LONGINT port, LONGINT useSSL) EXTERNAL
 
-' TcpClose - Close a connection and free its slot
-'   h - Connection handle from TcpOpen
+' TcpClose - Close a connection and reset struct fields
+'   conn - Address of TcpConn struct
 '   Note: Performs SSL shutdown if applicable.
-DECLARE SUB TcpClose(LONGINT h) EXTERNAL
+DECLARE SUB TcpClose(ADDRESS conn) EXTERNAL
 
 ' TcpSend - Send raw bytes (SSL-aware)
-'   h      - Connection handle
+'   conn   - Address of TcpConn struct
 '   buf    - Address of data to send
 '   bufLen - Number of bytes to send
 '   Returns: bytes sent (>0) or negative error code
-DECLARE SUB LONGINT TcpSend(LONGINT h, ADDRESS buf, ~
+DECLARE SUB LONGINT TcpSend(ADDRESS conn, ADDRESS buf, ~
                              LONGINT bufLen) EXTERNAL
 
 ' TcpRecv - Receive raw bytes, unbuffered (SSL-aware)
-'   h    - Connection handle
-'   buf  - Address of buffer to read into
+'   conn  - Address of TcpConn struct
+'   buf   - Address of buffer to read into
 '   bufSz - Maximum bytes to read
 '   Returns: bytes received (>0), 0 on EOF, or negative error
-DECLARE SUB LONGINT TcpRecv(LONGINT h, ADDRESS buf, ~
+DECLARE SUB LONGINT TcpRecv(ADDRESS conn, ADDRESS buf, ~
                              LONGINT bufSz) EXTERNAL
 
 ' TcpRecvBuf - Buffered read of up to maxBytes
-'   h        - Connection handle
+'   conn     - Address of TcpConn struct
 '   destBuf  - Address of buffer to read into
 '   maxBytes - Maximum bytes to read
 '   Returns: bytes read (>0), 0 on EOF/empty
-'   Note: Uses per-connection internal buffer for efficiency.
-DECLARE SUB LONGINT TcpRecvBuf(LONGINT h, ADDRESS destBuf, ~
+'   Note: Uses per-connection buffer in TcpConn struct.
+DECLARE SUB LONGINT TcpRecvBuf(ADDRESS conn, ADDRESS destBuf, ~
                                 LONGINT maxBytes) EXTERNAL
 
 ' TcpRecvLine - Read one line (up to LF, strips CR)
-'   h       - Connection handle
+'   conn    - Address of TcpConn struct
 '   lineBuf - Address of buffer for line data
 '   maxLen  - Maximum bytes to store (excluding null terminator)
 '   Returns: line length (>=0) on success, -1 on error/EOF
 '   Note: Buffer is null-terminated. Uses per-connection buffer.
-DECLARE SUB LONGINT TcpRecvLine(LONGINT h, ADDRESS lineBuf, ~
+DECLARE SUB LONGINT TcpRecvLine(ADDRESS conn, ADDRESS lineBuf, ~
                                  LONGINT maxLen) EXTERNAL
 
 ' TcpBufFlush - Discard buffered data for a connection
-'   h - Connection handle
+'   conn - Address of TcpConn struct
 '   Note: Use after switching from buffered to unbuffered reads.
-DECLARE SUB TcpBufFlush(LONGINT h) EXTERNAL
+DECLARE SUB TcpBufFlush(ADDRESS conn) EXTERNAL
 
 #endif
