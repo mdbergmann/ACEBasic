@@ -4,34 +4,107 @@
 {*
  * HTTPClient.h - HTTP/1.1 client submodule for ACE BASIC
  *
+ * Stateless struct-based API. Caller owns 3 independent structs:
+ *   - TcpConn      (from tcpclient) - TCP/SSL connection state
+ *   - HttpRequest   - host, port, request headers
+ *   - HttpResponse  - status, transfer state, response headers
+ *
+ * No struct references another. Each function takes only what it needs.
+ *
  * Provides HTTP/1.1 client functionality with optional HTTPS via AmiSSL.
  * Three API tiers:
  *   - High-level convenience (one-call string-based requests)
  *   - Streaming (callback-based for large/binary transfers)
- *   - Low-level handle-based (full control over request lifecycle)
+ *   - Low-level struct-based (full control over request lifecycle)
  *
  * Requirements:
  *   - bsdsocket.library (AmiTCP, Roadshow, or compatible TCP/IP stack)
  *   - amisslmaster.library + amissl.library (optional, for HTTPS only)
  *
  * Usage:
- *   #include <submods/HTTPClient.h>
+ *   #include <submods/httpclient.h>
  *   EXTERNAL httpclient
+ *
+ *   DECLARE STRUCT TcpConn myTcp
+ *   DECLARE STRUCT HttpRequest myReq
+ *   DECLARE STRUCT HttpResponse myResp
+ *
+ *   rc = HttpOpen(myReq, myTcp, "www.example.com", 80, HTTP_PLAIN)
+ *   HttpSetHeader(myReq, "Accept", "star/star")
+ *   rc = HttpSendRequest(myReq, myTcp, "GET", "/")
+ *   statusCode = HttpReadStatus(myTcp, myResp)
+ *   ct$ = HttpGetResponseHeader(myResp, "Content-Type")
+ *   bytesGot = HttpReadBody(myTcp, myResp, buf, 4096)
+ *   HttpClose(myTcp)
  *
  * Thread safety:
  *   This module is NOT thread-safe. All calls must be made from a
- *   single thread/process. The module uses shared global state for
- *   buffers, connection state, header storage, and SSL context.
+ *   single thread/process. The module uses shared workspace buffers.
+ *
+ * Struct lifecycle (low-level API):
+ *   1. HttpOpen stores host/port in req and resets req headers to 0.
+ *      -> Call HttpSetHeader AFTER HttpOpen, not before.
+ *   2. HttpSendRequest sends all req headers, then clears them
+ *      (reqHdrCount=0). Headers must be re-set for the next request.
+ *   3. HttpReadStatus resets ALL response state in resp (status,
+ *      content-length, transfer mode, chunk state, headers) before
+ *      reading. Previous response data in resp is replaced.
+ *   4. HttpClose closes the TCP connection but does NOT touch the
+ *      resp struct. Response headers remain accessible after close.
+ *   5. All three structs are reusable across multiple requests.
+ *      Each HttpOpen/HttpReadStatus cycle resets the relevant struct.
+ *
+ * Size limits:
+ *   - Header name: max 63 characters (64-byte slot)
+ *   - Header value: max 255 characters (256-byte slot)
+ *   - Host name: max 127 characters (128-byte field)
+ *   - Request headers: max 16 per HttpRequest struct
+ *   - Response headers: max 32 per HttpResponse struct
  *
  * Limitations:
- *   - Single connection at a time (call HttpClose before re-opening)
- *   - Maximum 32 response headers stored per connection
+ *   - Connection: close is always sent (no keep-alive pooling)
  *   - No certificate verification (accepts all certificates)
  *   - No HTTP/2 (HTTP/1.1 only)
  *   - No automatic redirect following
  *   - No cookie management (use HttpSetHeader manually)
- *   - No keep-alive connection pooling
+ *
+ * Raw TCP access:
+ *   Since the caller owns the TcpConn struct, TcpSend/TcpRecv from
+ *   tcpclient can be used directly for raw byte I/O on the connection.
  *}
+
+#include <submods/tcpclient.h>
+
+
+' =====================================================================
+' STRUCT DEFINITIONS
+' =====================================================================
+
+' HttpRequest - Request state (host, port, custom headers)
+'   Passed to functions that build/send requests.
+'   reqHdrNames/reqHdrVals are flat buffers: 16 slots of 64/256 bytes.
+STRUCT HttpRequest
+  STRING reqHost SIZE 128
+  LONGINT reqPort
+  STRING reqHdrNames SIZE 1024
+  STRING reqHdrVals SIZE 4096
+  LONGINT reqHdrCount
+END STRUCT
+
+' HttpResponse - Response state (status, transfer tracking, headers)
+'   Filled by HttpReadStatus, queried by header accessors.
+'   respHdrNames/respHdrVals are flat buffers: 32 slots of 64/256 bytes.
+STRUCT HttpResponse
+  LONGINT statusCode
+  LONGINT contentLen
+  LONGINT bodyLeft
+  LONGINT xfer
+  LONGINT chunkState
+  LONGINT chunkLeft
+  STRING respHdrNames SIZE 2048
+  STRING respHdrVals SIZE 8192
+  LONGINT respHdrCount
+END STRUCT
 
 
 ' =====================================================================
@@ -40,6 +113,7 @@
 ' All functions returning LONGINT use these codes for errors.
 ' Positive return values are HTTP status codes (200, 404, etc.).
 ' Negative return values indicate client-side errors.
+' HTTP_SUCCESS (0) indicates success for non-status-returning functions.
 
 CONST HTTP_SUCCESS         = 0    ' Operation succeeded (no error)
 CONST HTTP_ERR_SOCKET      = -1   ' Socket creation or connect failed
@@ -79,6 +153,11 @@ CONST HTTP_PLAIN           = 0    ' Plain TCP (http)
 ' These functions perform a complete HTTP request in one call:
 ' open connection, send request, read response, close connection.
 '
+' All take ADDRESS params for the 3 caller-owned structs:
+'   req  - HttpRequest struct (used for request headers)
+'   resp - HttpResponse struct (filled with response state)
+'   tcpConn - TcpConn struct (used for TCP connection)
+'
 ' URL format: http[s]://host[:port]/path[?query]
 '   - Scheme determines SSL (https) or plain (http)
 '   - Port defaults to 80 (http) or 443 (https)
@@ -92,57 +171,44 @@ CONST HTTP_PLAIN           = 0    ' Plain TCP (http)
 '   - HTTP status code (e.g. 200, 404, 500) on success
 '   - Negative error code (HTTP_ERR_*) on failure
 '
-' Note: Response headers are not accessible through this API.
-' The connection is closed before the function returns.
-' Use the low-level handle API if you need response headers.
+' After the call returns:
+'   - resp struct retains response headers (query with
+'     HttpGetResponseHeader, HttpResponseHeaderCount, etc.)
+'   - req struct's headers are cleared (reqHdrCount=0)
+'   - tcpConn is closed (connection no longer usable)
+'   - All three structs are ready for reuse with the next request.
 ' =====================================================================
 
 ' HttpGet - Perform an HTTP GET request
-'   url$    - Full URL (http:// or https://)
-'   respBuf - Address of response buffer (use SADD(str$))
-'   bufSz   - Total size of response buffer in bytes
-'   Returns: HTTP status code or negative error code
-DECLARE SUB LONGINT HttpGet(STRING url, ADDRESS respBuf, ~
+DECLARE SUB LONGINT HttpGet(ADDRESS req, ADDRESS resp, ~
+                            ADDRESS tcpConn, STRING url, ~
+                            ADDRESS respBuf, ~
                             LONGINT bufSz) EXTERNAL
 
 ' HttpHead - Perform an HTTP HEAD request (no response body)
-'   url$    - Full URL (http:// or https://)
-'   Returns: HTTP status code or negative error code
-DECLARE SUB LONGINT HttpHead(STRING url) EXTERNAL
+DECLARE SUB LONGINT HttpHead(ADDRESS req, ADDRESS resp, ~
+                             ADDRESS tcpConn, ~
+                             STRING url) EXTERNAL
 
 ' HttpPost - Perform an HTTP POST with string body
-'   url$    - Full URL (http:// or https://)
-'   ct$     - Content-Type header value (e.g. "application/json")
-'   body$   - Request body string
-'   respBuf - Address of response buffer (use SADD(str$))
-'   bufSz   - Total size of response buffer in bytes
-'   Returns: HTTP status code or negative error code
-DECLARE SUB LONGINT HttpPost(STRING url, STRING ct, ~
-                             STRING body, ADDRESS respBuf, ~
+DECLARE SUB LONGINT HttpPost(ADDRESS req, ADDRESS resp, ~
+                             ADDRESS tcpConn, STRING url, ~
+                             STRING ct, STRING body, ~
+                             ADDRESS respBuf, ~
                              LONGINT bufSz) EXTERNAL
 
 ' HttpPut - Perform an HTTP PUT with string body
-'   url$    - Full URL (http:// or https://)
-'   ct$     - Content-Type header value
-'   body$   - Request body string
-'   respBuf - Address of response buffer (use SADD(str$))
-'   bufSz   - Total size of response buffer in bytes
-'   Returns: HTTP status code or negative error code
-DECLARE SUB LONGINT HttpPut(STRING url, STRING ct, ~
-                            STRING body, ADDRESS respBuf, ~
+DECLARE SUB LONGINT HttpPut(ADDRESS req, ADDRESS resp, ~
+                            ADDRESS tcpConn, STRING url, ~
+                            STRING ct, STRING body, ~
+                            ADDRESS respBuf, ~
                             LONGINT bufSz) EXTERNAL
 
 ' HttpRequest - Generic request with arbitrary HTTP method
-'   url$    - Full URL (http:// or https://)
-'   meth$   - HTTP method (e.g. "GET", "POST", "DELETE", "PATCH")
-'   ct$     - Content-Type header value (ignored for GET/HEAD/DELETE)
-'   body$   - Request body string (ignored for GET/HEAD/DELETE)
-'   respBuf - Address of response buffer (use SADD(str$))
-'   bufSz   - Total size of response buffer in bytes
-'   Returns: HTTP status code or negative error code
-DECLARE SUB LONGINT HttpRequest(STRING url, STRING meth, ~
-                                STRING ct, STRING body, ~
-                                ADDRESS respBuf, ~
+DECLARE SUB LONGINT HttpRequest(ADDRESS req, ADDRESS resp, ~
+                                ADDRESS tcpConn, STRING url, ~
+                                STRING meth, STRING ct, ~
+                                STRING body, ADDRESS respBuf, ~
                                 LONGINT bufSz) EXTERNAL
 
 
@@ -171,174 +237,180 @@ DECLARE SUB LONGINT HttpRequest(STRING url, STRING meth, ~
 '
 ' Sending uses chunked Transfer-Encoding automatically.
 '
-' Return value:
-'   - HTTP status code (e.g. 200, 404, 500) on success
-'   - Negative error code (HTTP_ERR_*) on failure
-'
-' Note: Response headers are not accessible through this API.
-' Use the low-level handle API if you need response headers.
+' After the call returns:
+'   - resp struct retains response headers
+'   - req struct's headers are cleared (reqHdrCount=0)
+'   - tcpConn is closed
+'   - All three structs are ready for reuse with the next request.
 ' =====================================================================
 
 ' HttpGetStream - Streaming GET request
-'   url$    - Full URL (http:// or https://)
-'   onRecv  - Address of onReceive callback (use @SubName)
-'   Returns: HTTP status code or negative error code
-DECLARE SUB LONGINT HttpGetStream(STRING url, ~
+DECLARE SUB LONGINT HttpGetStream(ADDRESS req, ADDRESS resp, ~
+                                  ADDRESS tcpConn, STRING url, ~
                                   ADDRESS onRecv) EXTERNAL
 
 ' HttpPostStream - Streaming POST with chunked request body
-'   url$    - Full URL (http:// or https://)
-'   ct$     - Content-Type header value
-'   onSend  - Address of onSend callback (use @SubName)
-'   onRecv  - Address of onReceive callback (use @SubName)
-'   Returns: HTTP status code or negative error code
-DECLARE SUB LONGINT HttpPostStream(STRING url, STRING ct, ~
-                                   ADDRESS onSend, ~
+DECLARE SUB LONGINT HttpPostStream(ADDRESS req, ADDRESS resp, ~
+                                   ADDRESS tcpConn, STRING url, ~
+                                   STRING ct, ADDRESS onSend, ~
                                    ADDRESS onRecv) EXTERNAL
 
 ' HttpPutStream - Streaming PUT with chunked request body
-'   url$    - Full URL (http:// or https://)
-'   ct$     - Content-Type header value
-'   onSend  - Address of onSend callback (use @SubName)
-'   onRecv  - Address of onReceive callback (use @SubName)
-'   Returns: HTTP status code or negative error code
-DECLARE SUB LONGINT HttpPutStream(STRING url, STRING ct, ~
-                                  ADDRESS onSend, ~
+DECLARE SUB LONGINT HttpPutStream(ADDRESS req, ADDRESS resp, ~
+                                  ADDRESS tcpConn, STRING url, ~
+                                  STRING ct, ADDRESS onSend, ~
                                   ADDRESS onRecv) EXTERNAL
 
 ' HttpRequestStream - Generic streaming request
-'   url$    - Full URL (http:// or https://)
-'   meth$   - HTTP method (e.g. "GET", "POST", "PUT")
-'   ct$     - Content-Type header value (ignored for bodyless methods)
-'   onSend  - Address of onSend callback, or 0& for no body
-'   onRecv  - Address of onReceive callback, or 0& for no body (HEAD)
-'   Returns: HTTP status code or negative error code
-DECLARE SUB LONGINT HttpRequestStream(STRING url, STRING meth, ~
-                                      STRING ct, ADDRESS onSend, ~
+DECLARE SUB LONGINT HttpRequestStream(ADDRESS req, ADDRESS resp, ~
+                                      ADDRESS tcpConn, STRING url, ~
+                                      STRING meth, STRING ct, ~
+                                      ADDRESS onSend, ~
                                       ADDRESS onRecv) EXTERNAL
 
 
 ' =====================================================================
-' LOW-LEVEL HANDLE API
+' LOW-LEVEL STRUCT-BASED API
 ' =====================================================================
 ' For full control over the HTTP request/response lifecycle.
-' Typical sequence:
-'   h = HttpOpen(host$, port, HTTP_PLAIN)
-'   HttpSetHeader(h, "Accept", "application/json")
-'   HttpSendRequest(h, "GET", "/path")
-'   status = HttpReadStatus(h)
-'   ct$ = HttpGetResponseHeader(h, "Content-Type")
-'   WHILE HttpReadBody(h, buf, bufSz) > 0 : ... : WEND
-'   HttpClose(h)
+' Each function takes only the struct(s) it needs.
 '
-' Handle values:
-'   - Positive LONGINT = valid connection handle
-'   - Negative LONGINT = error code (HTTP_ERR_*)
+' Typical sequence:
+'   DECLARE STRUCT TcpConn myTcp
+'   DECLARE STRUCT HttpRequest myReq
+'   DECLARE STRUCT HttpResponse myResp
+'
+'   rc = HttpOpen(myReq, myTcp, "example.com", 80, HTTP_PLAIN)
+'   HttpSetHeader(myReq, "Accept", "application/json")
+'   rc = HttpSendRequest(myReq, myTcp, "GET", "/path")
+'   status = HttpReadStatus(myTcp, myResp)
+'   ct$ = HttpGetResponseHeader(myResp, "Content-Type")
+'   WHILE HttpReadBody(myTcp, myResp, buf, bufSz) > 0 : ... : WEND
+'   HttpClose(myTcp)
 ' =====================================================================
 
 ' HttpOpen - Open a TCP connection (optionally with SSL)
-'   host$   - Host name or IP address (e.g. "example.com")
+'   req     - HttpRequest struct (stores host/port, resets headers)
+'   tcpConn - TcpConn struct (connection state)
+'   host$   - Host name or IP address (max 127 chars)
 '   port    - Port number (e.g. 80, 443)
 '   useSSL  - HTTP_PLAIN (0) or HTTP_SSL (1)
-'   Returns: positive handle on success, negative error code on failure
-DECLARE SUB LONGINT HttpOpen(STRING host, LONGINT port, ~
+'   Returns: HTTP_SUCCESS (0) on success, negative error code on failure
+'   Note: Resets reqHdrCount to 0. Set headers AFTER this call.
+DECLARE SUB LONGINT HttpOpen(ADDRESS req, ADDRESS tcpConn, ~
+                             STRING host, LONGINT port, ~
                              LONGINT useSSL) EXTERNAL
 
+' HttpClearReqHeaders - Clear all request headers in the struct
+'   req     - HttpRequest struct
+'   Note: Resets reqHdrCount to 0. Use this to discard previously set
+'         headers without closing the connection. Also called implicitly
+'         by HttpOpen and HttpSendRequest.
+DECLARE SUB HttpClearReqHeaders(ADDRESS req) EXTERNAL
+
 ' HttpSetHeader - Set a request header (before HttpSendRequest)
-'   h       - Connection handle from HttpOpen
-'   hdrName - Header name (e.g. "Authorization", "Accept")
-'   hdrVal  - Header value (e.g. "Bearer token123")
-'   Note: Host and Content-Length are set automatically.
+'   req     - HttpRequest struct
+'   hdrName - Header name (max 63 chars, e.g. "Authorization")
+'   hdrVal  - Header value (max 255 chars, e.g. "Bearer token123")
+'   Note: Host and Connection are set automatically by HttpSendRequest.
 '         Overwrites any previous value for the same header name.
-DECLARE SUB HttpSetHeader(LONGINT h, STRING hdrName, ~
+'         Call AFTER HttpOpen (which resets headers) and BEFORE
+'         HttpSendRequest (which clears them after sending).
+DECLARE SUB HttpSetHeader(ADDRESS req, STRING hdrName, ~
                           STRING hdrVal) EXTERNAL
 
 ' HttpSendRequest - Send request line and headers
-'   h       - Connection handle from HttpOpen
+'   req     - HttpRequest struct (headers, host)
+'   tcpConn - TcpConn struct (connection)
 '   meth$   - HTTP method (e.g. "GET", "POST")
 '   path$   - Request path with optional query (e.g. "/api?key=val")
 '   Returns: HTTP_SUCCESS on success, negative error code on failure
-'   Note: For POST/PUT/PATCH, follow with HttpWriteBody or
+'   IMPORTANT: Clears all request headers in req after sending
+'         (reqHdrCount=0), even on error. Headers must be re-set
+'         via HttpSetHeader before the next HttpSendRequest call.
+'   Note: Automatically sends Host and Connection: close headers.
+'         For POST/PUT/PATCH, follow with HttpWriteBody or
 '         HttpWriteBodyChunked to send the request body.
-DECLARE SUB LONGINT HttpSendRequest(LONGINT h, STRING meth, ~
-                                    STRING path) EXTERNAL
+DECLARE SUB LONGINT HttpSendRequest(ADDRESS req, ADDRESS tcpConn, ~
+                                    STRING meth, ~
+                                    STRING reqPath) EXTERNAL
 
 ' HttpWriteBody - Send a fixed-length request body
-'   h       - Connection handle
+'   tcpConn - TcpConn struct (connection)
 '   dataBuf - Address of data to send
 '   bodyLen - Number of bytes to send
 '   Returns: HTTP_SUCCESS on success, negative error code on failure
 '   Note: Set Content-Length via HttpSetHeader before HttpSendRequest.
-DECLARE SUB LONGINT HttpWriteBody(LONGINT h, LONGINT dataBuf, ~
+DECLARE SUB LONGINT HttpWriteBody(ADDRESS tcpConn, ~
+                                  ADDRESS dataBuf, ~
                                   LONGINT bodyLen) EXTERNAL
 
 ' HttpWriteBodyChunked - Send one chunk of a chunked request body
-'   h       - Connection handle
+'   tcpConn - TcpConn struct (connection)
 '   dataBuf - Address of data to send
 '   bodyLen - Number of bytes in this chunk, or 0 to end the body
 '   Returns: HTTP_SUCCESS on success, negative error code on failure
-'   Note: Transfer-Encoding: chunked is added automatically.
-'         Call repeatedly with data, then once with bodyLen=0 to finish.
-DECLARE SUB LONGINT HttpWriteBodyChunked(LONGINT h, ~
-                                         LONGINT dataBuf, ~
+DECLARE SUB LONGINT HttpWriteBodyChunked(ADDRESS tcpConn, ~
+                                         ADDRESS dataBuf, ~
                                          LONGINT bodyLen) EXTERNAL
 
-' HttpReadStatus - Read and parse the HTTP response status line
-'   h       - Connection handle (after sending request)
+' HttpReadStatus - Read and parse the HTTP response
+'   tcpConn - TcpConn struct (connection, to receive)
+'   resp    - HttpResponse struct (filled with status + headers)
 '   Returns: HTTP status code (e.g. 200, 404) or negative error code
-'   Note: Also reads and stores all response headers internally.
+'   IMPORTANT: Resets ALL fields in resp before reading (statusCode,
+'         contentLen, bodyLeft, xfer, chunkState, chunkLeft, and all
+'         response headers). Any previous response data is replaced.
+'   Note: Also reads and stores all response headers in resp.
 '         Must be called before HttpGetResponseHeader or HttpReadBody.
-DECLARE SUB LONGINT HttpReadStatus(LONGINT h) EXTERNAL
+DECLARE SUB LONGINT HttpReadStatus(ADDRESS tcpConn, ~
+                                   ADDRESS resp) EXTERNAL
 
 ' HttpGetResponseHeader - Get a response header value
-'   h       - Connection handle (after HttpReadStatus)
+'   resp    - HttpResponse struct (after HttpReadStatus)
 '   hdrName - Header name (case-insensitive, e.g. "Content-Type")
 '   Returns: Header value string, or "" if not present
-DECLARE SUB STRING HttpGetResponseHeader(LONGINT h, ~
+DECLARE SUB STRING HttpGetResponseHeader(ADDRESS resp, ~
                                          STRING hdrName) EXTERNAL
 
 ' HttpResponseHeaderCount - Get number of response headers
-'   h       - Connection handle (after HttpReadStatus)
-'   Returns: Number of headers (0 if none or wrong handle)
-DECLARE SUB LONGINT HttpResponseHeaderCount(LONGINT h) EXTERNAL
+'   resp    - HttpResponse struct (after HttpReadStatus)
+'   Returns: Number of headers (0 if none)
+DECLARE SUB LONGINT HttpResponseHeaderCount(ADDRESS resp) EXTERNAL
 
 ' HttpResponseHeaderName - Get response header name by index
-'   h       - Connection handle (after HttpReadStatus)
+'   resp    - HttpResponse struct (after HttpReadStatus)
 '   idx     - Zero-based header index (0 to count-1)
 '   Returns: Header name string, or "" if index out of range
-DECLARE SUB STRING HttpResponseHeaderName(LONGINT h, ~
+DECLARE SUB STRING HttpResponseHeaderName(ADDRESS resp, ~
                                           LONGINT idx) EXTERNAL
 
 ' HttpResponseHeaderVal - Get response header value by index
-'   h       - Connection handle (after HttpReadStatus)
+'   resp    - HttpResponse struct (after HttpReadStatus)
 '   idx     - Zero-based header index (0 to count-1)
 '   Returns: Header value string, or "" if index out of range
-'
-' Example - enumerate all response headers:
-'   cnt = HttpResponseHeaderCount(h)
-'   FOR i = 0 TO cnt - 1
-'     PRINT HttpResponseHeaderName(h, i); ": ";
-'     PRINT HttpResponseHeaderVal(h, i)
-'   NEXT i
-DECLARE SUB STRING HttpResponseHeaderVal(LONGINT h, ~
+DECLARE SUB STRING HttpResponseHeaderVal(ADDRESS resp, ~
                                          LONGINT idx) EXTERNAL
 
 ' HttpReadBody - Read a chunk of the response body
-'   h       - Connection handle (after HttpReadStatus)
+'   tcpConn - TcpConn struct (connection, to receive)
+'   resp    - HttpResponse struct (transfer state tracking)
 '   dataBuf - Address of buffer to read into
 '   bufSz   - Maximum number of bytes to read
 '   Returns: Number of bytes read (>0), or 0 when body is complete,
 '            or negative error code on failure
 '   Note: Handles Content-Length, chunked, and close-delimited
 '         transfer modes transparently. Call in a loop until 0.
-DECLARE SUB LONGINT HttpReadBody(LONGINT h, LONGINT dataBuf, ~
+DECLARE SUB LONGINT HttpReadBody(ADDRESS tcpConn, ADDRESS resp, ~
+                                 ADDRESS dataBuf, ~
                                  LONGINT bufSz) EXTERNAL
 
-' HttpClose - Close connection and free all associated resources
-'   h       - Connection handle
-'   Note: Performs SSL shutdown if applicable, then closes socket.
-'         The handle is invalid after this call.
-DECLARE SUB HttpClose(LONGINT h) EXTERNAL
+' HttpClose - Close connection
+'   tcpConn - TcpConn struct
+'   Note: Delegates to TcpClose. Performs SSL shutdown if applicable.
+'         Does NOT modify the req or resp structs. Response headers
+'         in resp remain accessible after this call.
+DECLARE SUB HttpClose(ADDRESS tcpConn) EXTERNAL
 
 
 ' =====================================================================
@@ -349,7 +421,6 @@ DECLARE SUB HttpClose(LONGINT h) EXTERNAL
 '   raw$    - String to encode
 '   Returns: Encoded string (unreserved chars A-Z a-z 0-9 -_.~ pass
 '            through; all others become %XX hex escapes)
-'   Example: UrlEncode("hello world!") -> "hello%20world%21"
 DECLARE SUB STRING UrlEncode(STRING raw) EXTERNAL
 
 #endif

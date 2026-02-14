@@ -5,6 +5,10 @@ REM #using ace:submods/amissl/amissl.o
 
 #include <submods/httpclient.h>
 
+DECLARE STRUCT TcpConn myTcp
+DECLARE STRUCT HttpRequest myReq
+DECLARE STRUCT HttpResponse myResp
+
 LONGINT totalBytes
 LONGINT sendDone
 
@@ -39,7 +43,7 @@ SUB LONGINT SendBody(LONGINT bufAddr, LONGINT bufSize) INVOKABLE
 END SUB
 
 
-LONGINT statusCode
+LONGINT sc
 
 PRINT "=== HTTP Streaming Test ==="
 PRINT
@@ -47,10 +51,11 @@ PRINT
 ' --- Test 1: HttpGetStream ---
 PRINT "Test 1: HttpGetStream httpbin.org/get"
 totalBytes = 0
-statusCode = HttpGetStream("http://httpbin.org/get", BIND(@CountBytes))
-PRINT "  Status: "; statusCode
+sc = HttpGetStream(myReq, myResp, myTcp, ~
+                   "http://httpbin.org/get", BIND(@CountBytes))
+PRINT "  Status: "; sc
 PRINT "  Bytes received: "; totalBytes
-IF statusCode = 200 AND totalBytes > 0 THEN
+IF sc = 200 AND totalBytes > 0 THEN
   PRINT "  PASS"
 ELSE
   PRINT "  FAIL"
@@ -61,12 +66,13 @@ PRINT
 PRINT "Test 2: HttpPostStream httpbin.org/post"
 totalBytes = 0
 sendDone = 0
-statusCode = HttpPostStream("http://httpbin.org/post", ~
-                            "application/x-www-form-urlencoded", ~
-                            BIND(@SendBody), BIND(@CountBytes))
-PRINT "  Status: "; statusCode
+sc = HttpPostStream(myReq, myResp, myTcp, ~
+                    "http://httpbin.org/post", ~
+                    "application/x-www-form-urlencoded", ~
+                    BIND(@SendBody), BIND(@CountBytes))
+PRINT "  Status: "; sc
 PRINT "  Bytes received: "; totalBytes
-IF statusCode = 200 AND totalBytes > 0 THEN
+IF sc = 200 AND totalBytes > 0 THEN
   PRINT "  PASS"
 ELSE
   PRINT "  FAIL"

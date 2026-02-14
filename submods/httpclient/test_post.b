@@ -5,8 +5,12 @@ REM #using ace:submods/amissl/amissl.o
 
 #include <submods/httpclient.h>
 
+DECLARE STRUCT TcpConn myTcp
+DECLARE STRUCT HttpRequest myReq
+DECLARE STRUCT HttpResponse myResp
+
 STRING resp$ SIZE 32768
-LONGINT statusCode
+LONGINT sc
 
 PRINT "=== HTTP POST/PUT Test ==="
 PRINT
@@ -21,12 +25,13 @@ PRINT
 
 ' --- Test 2: POST form data ---
 PRINT "Test 2: POST to httpbin.org/post"
-statusCode = HttpPost("http://httpbin.org/post", ~
-                      "application/x-www-form-urlencoded", ~
-                      "greeting=hello&who=world", ~
-                      SADD(resp$), 32768)
-PRINT "  Status: "; statusCode
-IF statusCode = 200 THEN
+sc = HttpPost(myReq, myResp, myTcp, ~
+              "http://httpbin.org/post", ~
+              "application/x-www-form-urlencoded", ~
+              "greeting=hello&who=world", ~
+              SADD(resp$), 32768)
+PRINT "  Status: "; sc
+IF sc = 200 THEN
   PRINT "  PASS - got 200"
   ' Show first 400 chars of response
   IF LEN(resp$) > 400 THEN
@@ -35,7 +40,7 @@ IF statusCode = 200 THEN
     PRINT "  Body: "; resp$
   END IF
 ELSE
-  PRINT "  FAIL - expected 200, got "; statusCode
+  PRINT "  FAIL - expected 200, got "; sc
 END IF
 PRINT
 
@@ -46,12 +51,13 @@ STRING q$ SIZE 4
 STRING jsonBody$ SIZE 64
 q$ = CHR$(34)
 jsonBody$ = "{" + q$ + "key" + q$ + ":" + q$ + "value" + q$ + "}"
-statusCode = HttpPut("http://httpbin.org/put", ~
-                     "application/json", ~
-                     jsonBody$, ~
-                     SADD(resp$), 32768)
-PRINT "  Status: "; statusCode
-IF statusCode = 200 THEN
+sc = HttpPut(myReq, myResp, myTcp, ~
+             "http://httpbin.org/put", ~
+             "application/json", ~
+             jsonBody$, ~
+             SADD(resp$), 32768)
+PRINT "  Status: "; sc
+IF sc = 200 THEN
   PRINT "  PASS - got 200"
   IF LEN(resp$) > 400 THEN
     PRINT "  Body (first 400): "; LEFT$(resp$, 400)
@@ -59,16 +65,18 @@ IF statusCode = 200 THEN
     PRINT "  Body: "; resp$
   END IF
 ELSE
-  PRINT "  FAIL - expected 200, got "; statusCode
+  PRINT "  FAIL - expected 200, got "; sc
 END IF
 PRINT
 
 ' --- Test 4: HttpRequest with GET (generic) ---
 PRINT "Test 4: HttpRequest GET httpbin.org/get"
 resp$ = ""
-statusCode = HttpRequest("http://httpbin.org/get", "GET", "", "", SADD(resp$), 32768)
-PRINT "  Status: "; statusCode
-IF statusCode = 200 THEN
+sc = HttpRequest(myReq, myResp, myTcp, ~
+                 "http://httpbin.org/get", ~
+                 "GET", "", "", SADD(resp$), 32768)
+PRINT "  Status: "; sc
+IF sc = 200 THEN
   PRINT "  PASS - got 200"
   IF LEN(resp$) > 400 THEN
     PRINT "  Body (first 400): "; LEFT$(resp$, 400)
@@ -76,7 +84,7 @@ IF statusCode = 200 THEN
     PRINT "  Body: "; resp$
   END IF
 ELSE
-  PRINT "  FAIL - expected 200, got "; statusCode
+  PRINT "  FAIL - expected 200, got "; sc
 END IF
 PRINT
 

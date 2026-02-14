@@ -1,5 +1,6 @@
 {* HTTPClient - HTTP/1.1 client submodule for ACE BASIC *}
-{* Single-connection model, delegates TCP/SSL to tcpclient/amissl *}
+{* Stateless struct-based API, delegates TCP/SSL to tcpclient/amissl *}
+{* Caller owns 3 independent structs: TcpConn, HttpRequest, HttpResponse *}
 
 REM #using ace:submods/tcpclient/tcpclient.o
 REM #using ace:submods/amissl/amissl.o
@@ -8,8 +9,8 @@ REM #using ace:submods/amissl/amissl.o
 
 { ============== Constants ============== }
 
-' Error codes (match HTTPClient.h)
-CONST HTTP_SUCCESS              = 0
+' Error codes
+CONST HTTP_SUCCESS         = 0
 CONST HTTP_ERR_SOCKET      = -1
 CONST HTTP_ERR_DNS         = -2
 CONST HTTP_ERR_SEND        = -3
@@ -21,9 +22,9 @@ CONST HTTP_ERR_OVERFLOW    = -8
 CONST HTTP_ERR_CALLBACK    = -9
 CONST HTTP_ERR_NO_LIB      = -10
 
-' Connection state
-CONST CONN_FREE     = 0
-CONST CONN_OPEN     = 1
+' Streaming callback return values
+CONST HTTP_CONTINUE = 0
+CONST HTTP_ABORT    = 1
 
 ' Transfer encoding modes
 CONST XFER_CLOSE    = 0
@@ -42,46 +43,45 @@ CONST MAX_REQ_HDRS  = 16
 CONST MAX_RSP_HDRS  = 32
 CONST MAX_LINE_LEN  = 1024
 
+{ ============== Struct Definitions ============== }
+
+STRUCT HttpRequest
+  STRING reqHost SIZE 128
+  LONGINT reqPort
+  STRING reqHdrNames SIZE 1024
+  STRING reqHdrVals SIZE 4096
+  LONGINT reqHdrCount
+END STRUCT
+
+STRUCT HttpResponse
+  LONGINT statusCode
+  LONGINT contentLen
+  LONGINT bodyLeft
+  LONGINT xfer
+  LONGINT chunkState
+  LONGINT chunkLeft
+  STRING respHdrNames SIZE 2048
+  STRING respHdrVals SIZE 8192
+  LONGINT respHdrCount
+END STRUCT
+
 { ============== Module Data ============== }
 
-' Connection state (single connection)
-SHORTINT _connState
-LONGINT _tcpHandle
+' Global init flag
 LONGINT _httpInited
 
-' Per-connection state
-STRING _connHost$ SIZE 128
-SHORTINT _connPort
-LONGINT _connContentLen
-LONGINT _connBodyLeft
-SHORTINT _connXfer
-
-' Chunked decoder state
-SHORTINT _connChunkState
-LONGINT _connChunkLeft
-
-' Response headers
-DIM _respHdrName$(31) SIZE 64
-DIM _respHdrVal$(31) SIZE 256
-LONGINT _respHdrCount
-
-' Request headers
-DIM _reqHdrName$(15) SIZE 64
-DIM _reqHdrVal$(15) SIZE 256
-LONGINT _reqHdrCount
-
-' URL parse results
+' URL parse results (workspace)
 STRING _urlHost$ SIZE 128
 LONGINT _urlPort
 STRING _urlPath$ SIZE 512
 LONGINT _urlSSL
 
-' Line reader
+' Line reader (workspace)
 ADDRESS _lineBuf
 STRING _lineResult$ SIZE 1025
 LONGINT _lineOk
 
-' Streaming buffer (shared for send/receive, not concurrent)
+' Streaming buffer (workspace, shared for send/receive)
 ADDRESS _streamBuf
 
 ' CRLF constant
@@ -91,10 +91,7 @@ STRING _crlf$ SIZE 4
 { ============== Init ============== }
 
 SUB _HttpInit
-  SHARED _connState, _tcpHandle, _httpInited
-  SHARED _connHost$, _connPort, _connContentLen, _connBodyLeft, _connXfer
-  SHARED _connChunkState, _connChunkLeft
-  SHARED _respHdrCount, _reqHdrCount
+  SHARED _httpInited
   SHARED _lineBuf, _lineResult$, _lineOk
   SHARED _streamBuf
   SHARED _crlf$
@@ -104,25 +101,11 @@ SUB _HttpInit
   ' Initialize TCP subsystem
   TcpInit
 
-  _connState = CONN_FREE
-  _tcpHandle = 0
-  _connHost$ = ""
-  _connPort = 0
-  _connContentLen = 0
-  _connBodyLeft = 0
-  _connXfer = XFER_CLOSE
-  _connChunkState = CHK_SIZE
-  _connChunkLeft = 0
-
   ' Allocate line buffer
   _lineBuf = ALLOC(MAX_LINE_LEN + 1)
 
   ' Allocate streaming buffer
   _streamBuf = ALLOC(READ_BUF_SIZE)
-
-  ' Init header counts
-  _respHdrCount = 0
-  _reqHdrCount = 0
 
   ' Init line reader
   _lineResult$ = ""
@@ -134,19 +117,32 @@ SUB _HttpInit
   _httpInited = 1
 END SUB
 
-{ ============== Internal Helpers - TCP wrappers ============== }
+{ ============== Internal Helpers - String copy ============== }
 
-SUB LONGINT _HttpSendRaw(ADDRESS buf, LONGINT bufLen)
-  SHARED _tcpHandle
+SUB _StrToAddr(ADDRESS destAddr, STRING src$, LONGINT maxLen)
+  LONGINT i, sLen
+  ADDRESS srcAddr
 
-  _HttpSendRaw = TcpSend(_tcpHandle, buf, bufLen)
+  sLen = LEN(src$)
+  IF sLen > maxLen - 1 THEN sLen = maxLen - 1
+  srcAddr = SADD(src$)
+  FOR i = 0 TO sLen - 1
+    POKE destAddr + i, PEEK(srcAddr + i)
+  NEXT i
+  POKE destAddr + sLen, 0
 END SUB
 
-SUB _HttpRecvLine
-  SHARED _tcpHandle, _lineBuf, _lineResult$, _lineOk
+{ ============== Internal Helpers - TCP wrappers ============== }
+
+SUB LONGINT _HttpSendRaw(ADDRESS tcpConn, ADDRESS buf, LONGINT bufLen)
+  _HttpSendRaw = TcpSend(tcpConn, buf, bufLen)
+END SUB
+
+SUB _HttpRecvLine(ADDRESS tcpConn)
+  SHARED _lineBuf, _lineResult$, _lineOk
   LONGINT rc
 
-  rc = TcpRecvLine(_tcpHandle, _lineBuf, MAX_LINE_LEN)
+  rc = TcpRecvLine(tcpConn, _lineBuf, MAX_LINE_LEN)
   IF rc >= 0 THEN
     _lineResult$ = CSTR(_lineBuf)
     _lineOk = 1
@@ -156,16 +152,14 @@ SUB _HttpRecvLine
   END IF
 END SUB
 
-SUB LONGINT _HttpReadBuf(LONGINT destAddr, LONGINT maxBytes)
-  SHARED _tcpHandle
-
-  _HttpReadBuf = TcpRecvBuf(_tcpHandle, destAddr, maxBytes)
+SUB LONGINT _HttpReadBuf(ADDRESS tcpConn, ADDRESS destBuf, LONGINT maxBytes)
+  _HttpReadBuf = TcpRecvBuf(tcpConn, destBuf, maxBytes)
 END SUB
 
 { ============== Internal Helpers - HTTP ============== }
 
-SUB LONGINT _HttpSendStr(STRING msg$)
-  _HttpSendStr = _HttpSendRaw(SADD(msg$), LEN(msg$))
+SUB LONGINT _HttpSendStr(ADDRESS tcpConn, STRING msg$)
+  _HttpSendStr = _HttpSendRaw(tcpConn, SADD(msg$), LEN(msg$))
 END SUB
 
 SUB STRING _HttpLongToHex(LONGINT v)
@@ -243,53 +237,55 @@ SUB LONGINT _HttpParseHex(STRING hx$)
   _HttpParseHex = result
 END SUB
 
-SUB LONGINT _HttpReadChunked(LONGINT bufAddr, LONGINT bufSz)
-  SHARED _connChunkState, _connChunkLeft
+SUB LONGINT _HttpReadChunked(ADDRESS tcpConn, ADDRESS resp, ~
+                             ADDRESS bufAddr, LONGINT bufSz)
+  DECLARE STRUCT HttpResponse *rp
   SHARED _lineResult$, _lineOk
   LONGINT toRead, nRead, retVal
   LONGINT looping
 
+  rp = resp
   retVal = 0
   looping = 1
   WHILE looping = 1
-    IF _connChunkState = CHK_DONE THEN
+    IF rp->chunkState = CHK_DONE THEN
       retVal = 0
       looping = 0
-    ELSEIF _connChunkState = CHK_TRAIL THEN
+    ELSEIF rp->chunkState = CHK_TRAIL THEN
       ' Consume trailing CRLF after chunk data
-      _HttpRecvLine
-      _connChunkState = CHK_SIZE
-    ELSEIF _connChunkState = CHK_SIZE THEN
+      _HttpRecvLine(tcpConn)
+      rp->chunkState = CHK_SIZE
+    ELSEIF rp->chunkState = CHK_SIZE THEN
       ' Read hex chunk size line
-      _HttpRecvLine
+      _HttpRecvLine(tcpConn)
       IF _lineOk = 0 THEN
         retVal = 0
         looping = 0
       ELSE
-        _connChunkLeft = _HttpParseHex(_lineResult$)
-        IF _connChunkLeft = 0 THEN
+        rp->chunkLeft = _HttpParseHex(_lineResult$)
+        IF rp->chunkLeft = 0 THEN
           ' Final zero-length chunk - consume trailing CRLF
-          _HttpRecvLine
-          _connChunkState = CHK_DONE
+          _HttpRecvLine(tcpConn)
+          rp->chunkState = CHK_DONE
           retVal = 0
           looping = 0
         ELSE
-          _connChunkState = CHK_DATA
+          rp->chunkState = CHK_DATA
         END IF
       END IF
-    ELSEIF _connChunkState = CHK_DATA THEN
+    ELSEIF rp->chunkState = CHK_DATA THEN
       toRead = bufSz
-      IF toRead > _connChunkLeft THEN
-        toRead = _connChunkLeft
+      IF toRead > rp->chunkLeft THEN
+        toRead = rp->chunkLeft
       END IF
-      nRead = _HttpReadBuf(bufAddr, toRead)
+      nRead = _HttpReadBuf(tcpConn, bufAddr, toRead)
       IF nRead <= 0 THEN
         retVal = 0
         looping = 0
       ELSE
-        _connChunkLeft = _connChunkLeft - nRead
-        IF _connChunkLeft = 0 THEN
-          _connChunkState = CHK_TRAIL
+        rp->chunkLeft = rp->chunkLeft - nRead
+        IF rp->chunkLeft = 0 THEN
+          rp->chunkState = CHK_TRAIL
         END IF
         retVal = nRead
         looping = 0
@@ -306,224 +302,183 @@ END SUB
 
 { ============== Public API - Core ============== }
 
-SUB LONGINT HttpOpen(STRING host, LONGINT port, LONGINT useSSL) EXTERNAL
-  SHARED _connState, _tcpHandle, _connHost$, _connPort
-  LONGINT h
+SUB LONGINT HttpOpen(ADDRESS req, ADDRESS tcpConn, ~
+                     STRING host$, LONGINT port, ~
+                     LONGINT useSSL) EXTERNAL
+  DECLARE STRUCT HttpRequest *r
+  LONGINT rc
 
   _HttpInit
 
-  ' Only one connection at a time
-  IF _connState <> CONN_FREE THEN
-    HttpOpen = HTTP_ERR_SOCKET
-    EXIT SUB
-  END IF
-
-  h = TcpOpen(host, port, useSSL)
+  rc = TcpOpen(tcpConn, host$, port, useSSL)
 
   ' Map tcpclient errors to HTTP error codes
-  IF h = TCP_ERR_DNS THEN
+  IF rc = TCP_ERR_DNS THEN
     HttpOpen = HTTP_ERR_DNS
     EXIT SUB
-  ELSEIF h = TCP_ERR_SSL THEN
+  ELSEIF rc = TCP_ERR_SSL THEN
     HttpOpen = HTTP_ERR_SSL_INIT
     EXIT SUB
-  ELSEIF h = TCP_ERR_NO_SLOT THEN
-    HttpOpen = HTTP_ERR_SOCKET
-    EXIT SUB
-  ELSEIF h < 0 THEN
+  ELSEIF rc < 0 THEN
     HttpOpen = HTTP_ERR_SOCKET
     EXIT SUB
   END IF
 
-  _tcpHandle = h
-  _connState = CONN_OPEN
-  _connHost$ = host
-  _connPort = port
+  ' Store host/port in request struct
+  r = req
+  r->reqHost = host$
+  r->reqPort = port
+  r->reqHdrCount = 0
 
-  HttpOpen = 1
+  HttpOpen = HTTP_SUCCESS
 END SUB
 
-SUB HttpClose(LONGINT hConn) EXTERNAL
-  SHARED _connState, _tcpHandle
-  SHARED _connHost$, _connPort, _connContentLen, _connBodyLeft, _connXfer
-  SHARED _connChunkState, _connChunkLeft
-  SHARED _respHdrCount, _reqHdrCount
-
-  IF hConn <> 1 THEN EXIT SUB
-  IF _connState = CONN_FREE THEN EXIT SUB
-
-  TcpClose(_tcpHandle)
-
-  _tcpHandle = 0
-  _connState = CONN_FREE
-  _connHost$ = ""
-  _connPort = 0
-  _connContentLen = 0
-  _connBodyLeft = 0
-  _connXfer = XFER_CLOSE
-  _connChunkState = CHK_SIZE
-  _connChunkLeft = 0
-
-  ' Reset headers
-  _respHdrCount = 0
-  _reqHdrCount = 0
+SUB HttpClose(ADDRESS tcpConn) EXTERNAL
+  TcpClose(tcpConn)
 END SUB
 
-{ ============== Public API - Raw byte helpers ============== }
+{ ============== Public API - Request Headers ============== }
 
-SUB LONGINT HttpSendRawBytes(LONGINT hConn, STRING msg) EXTERNAL
-  SHARED _connState, _tcpHandle
-
-  IF hConn <> 1 THEN
-    HttpSendRawBytes = HTTP_ERR_SOCKET
-    EXIT SUB
-  END IF
-  IF _connState <> CONN_OPEN THEN
-    HttpSendRawBytes = HTTP_ERR_SOCKET
-    EXIT SUB
-  END IF
-
-  HttpSendRawBytes = TcpSend(_tcpHandle, SADD(msg), LEN(msg))
+SUB HttpClearReqHeaders(ADDRESS req) EXTERNAL
+  DECLARE STRUCT HttpRequest *r
+  LONGINT i, baseN, baseV
+  r = req
+  baseN = @r->reqHdrNames
+  baseV = @r->reqHdrVals
+  FOR i = 0 TO MAX_REQ_HDRS - 1
+    POKE baseN + (i * 64), 0
+    POKE baseV + (i * 256), 0
+  NEXT i
+  r->reqHdrCount = 0
 END SUB
 
-SUB LONGINT HttpRecvRawBytes(LONGINT hConn, ADDRESS buf, LONGINT bufSz) EXTERNAL
-  SHARED _connState, _tcpHandle
-
-  IF hConn <> 1 THEN
-    HttpRecvRawBytes = HTTP_ERR_RECV
-    EXIT SUB
-  END IF
-  IF _connState <> CONN_OPEN THEN
-    HttpRecvRawBytes = HTTP_ERR_RECV
-    EXIT SUB
-  END IF
-
-  HttpRecvRawBytes = TcpRecv(_tcpHandle, buf, bufSz)
-END SUB
-
-{ ============== Public API - Low-level handle API ============== }
-
-SUB HttpSetHeader(LONGINT h, STRING hdrNm$, STRING hdrVl$) EXTERNAL
-  SHARED _reqHdrName$, _reqHdrVal$, _reqHdrCount
-  LONGINT i
+SUB HttpSetHeader(ADDRESS req, STRING hdrNm$, ~
+                  STRING hdrVl$) EXTERNAL
+  DECLARE STRUCT HttpRequest *r
+  LONGINT i, nameAddr, valAddr
   STRING upperNm$ SIZE 64
+  STRING curNm$ SIZE 64
 
+  r = req
   upperNm$ = UCASE$(hdrNm$)
 
   ' Overwrite if header already exists (case-insensitive)
-  FOR i = 0 TO _reqHdrCount - 1
-    IF UCASE$(_reqHdrName$(i)) = upperNm$ THEN
-      _reqHdrVal$(i) = hdrVl$
+  FOR i = 0 TO r->reqHdrCount - 1
+    nameAddr = @r->reqHdrNames + (i * 64)
+    curNm$ = CSTR(nameAddr)
+    IF UCASE$(curNm$) = upperNm$ THEN
+      valAddr = @r->reqHdrVals + (i * 256)
+      _StrToAddr(valAddr, hdrVl$, 256)
       EXIT SUB
     END IF
   NEXT i
 
   ' Add new header
-  IF _reqHdrCount < MAX_REQ_HDRS THEN
-    _reqHdrName$(_reqHdrCount) = hdrNm$
-    _reqHdrVal$(_reqHdrCount) = hdrVl$
-    _reqHdrCount = _reqHdrCount + 1
+  IF r->reqHdrCount < MAX_REQ_HDRS THEN
+    nameAddr = @r->reqHdrNames + (r->reqHdrCount * 64)
+    _StrToAddr(nameAddr, hdrNm$, 64)
+    valAddr = @r->reqHdrVals + (r->reqHdrCount * 256)
+    _StrToAddr(valAddr, hdrVl$, 256)
+    r->reqHdrCount = r->reqHdrCount + 1
   END IF
 END SUB
 
-SUB LONGINT HttpSendRequest(LONGINT h, STRING meth$, ~
+SUB LONGINT HttpSendRequest(ADDRESS req, ADDRESS tcpConn, ~
+                            STRING meth$, ~
                             STRING reqPath$) EXTERNAL
-  SHARED _connState, _connHost$, _connPort
-  SHARED _reqHdrName$, _reqHdrVal$, _reqHdrCount, _crlf$
-  LONGINT i, rc
+  DECLARE STRUCT HttpRequest *r
+  SHARED _crlf$
+  LONGINT i, rc, nameAddr, valAddr
+  STRING curNm$ SIZE 64
+  STRING curVl$ SIZE 256
+  STRING hostStr$ SIZE 128
 
-  IF h <> 1 THEN
-    HttpSendRequest = HTTP_ERR_SOCKET
-    EXIT SUB
-  END IF
-  IF _connState <> CONN_OPEN THEN
-    HttpSendRequest = HTTP_ERR_SOCKET
-    EXIT SUB
-  END IF
+  r = req
 
   ' Request line: METHOD path HTTP/1.1\r\n
-  rc = _HttpSendStr(meth$ + " " + reqPath$ + " HTTP/1.1" + _crlf$)
+  rc = _HttpSendStr(tcpConn, meth$ + " " + reqPath$ + " HTTP/1.1" + _crlf$)
   IF rc < 0 THEN
     HttpSendRequest = HTTP_ERR_SEND
     EXIT SUB
   END IF
 
   ' Host header (with port if non-standard)
-  IF _connPort = 80 OR _connPort = 443 THEN
-    rc = _HttpSendStr("Host: " + _connHost$ + _crlf$)
+  hostStr$ = CSTR(@r->reqHost)
+  IF r->reqPort = 80 OR r->reqPort = 443 THEN
+    rc = _HttpSendStr(tcpConn, "Host: " + hostStr$ + _crlf$)
   ELSE
-    rc = _HttpSendStr(FMT$("Host: %s:%ld", _connHost$, _connPort) + _crlf$)
+    rc = _HttpSendStr(tcpConn, ~
+         FMT$("Host: %s:%ld", hostStr$, r->reqPort) + _crlf$)
   END IF
   IF rc < 0 THEN
-    _reqHdrCount = 0
+    r->reqHdrCount = 0
     HttpSendRequest = HTTP_ERR_SEND
     EXIT SUB
   END IF
 
   ' Custom request headers
-  FOR i = 0 TO _reqHdrCount - 1
-    rc = _HttpSendStr(_reqHdrName$(i) + ": " + _reqHdrVal$(i) + _crlf$)
+  FOR i = 0 TO r->reqHdrCount - 1
+    nameAddr = @r->reqHdrNames + (i * 64)
+    valAddr = @r->reqHdrVals + (i * 256)
+    curNm$ = CSTR(nameAddr)
+    curVl$ = CSTR(valAddr)
+    rc = _HttpSendStr(tcpConn, curNm$ + ": " + curVl$ + _crlf$)
     IF rc < 0 THEN
-      _reqHdrCount = 0
+      r->reqHdrCount = 0
       HttpSendRequest = HTTP_ERR_SEND
       EXIT SUB
     END IF
   NEXT i
 
   ' Connection: close
-  rc = _HttpSendStr("Connection: close" + _crlf$)
+  rc = _HttpSendStr(tcpConn, "Connection: close" + _crlf$)
   IF rc < 0 THEN
-    _reqHdrCount = 0
+    r->reqHdrCount = 0
     HttpSendRequest = HTTP_ERR_SEND
     EXIT SUB
   END IF
 
   ' Blank line ends headers
-  rc = _HttpSendStr(_crlf$)
+  rc = _HttpSendStr(tcpConn, _crlf$)
   IF rc < 0 THEN
-    _reqHdrCount = 0
+    r->reqHdrCount = 0
     HttpSendRequest = HTTP_ERR_SEND
     EXIT SUB
   END IF
 
   ' Clear request headers for next use
-  _reqHdrCount = 0
+  r->reqHdrCount = 0
 
   HttpSendRequest = HTTP_SUCCESS
 END SUB
 
-SUB LONGINT HttpReadStatus(LONGINT h) EXTERNAL
-  SHARED _connState, _tcpHandle
-  SHARED _connContentLen, _connBodyLeft, _connXfer
-  SHARED _connChunkState, _connChunkLeft
-  SHARED _respHdrName$, _respHdrVal$, _respHdrCount
+{ ============== Public API - Response Reading ============== }
+
+SUB LONGINT HttpReadStatus(ADDRESS tcpConn, ~
+                           ADDRESS resp) EXTERNAL
+  DECLARE STRUCT HttpResponse *rp
   SHARED _lineResult$, _lineOk
-  LONGINT spPos, statusCode
+  LONGINT spPos, sc
   LONGINT colonPos, gotBlank
   STRING tmpNm$ SIZE 64
   STRING tmpVl$ SIZE 256
+  LONGINT nameAddr, valAddr
 
-  IF h <> 1 THEN
-    HttpReadStatus = HTTP_ERR_SOCKET
-    EXIT SUB
-  END IF
-  IF _connState <> CONN_OPEN THEN
-    HttpReadStatus = HTTP_ERR_SOCKET
-    EXIT SUB
-  END IF
+  rp = resp
 
   ' Reset transfer state
-  _connXfer = XFER_CLOSE
-  _connContentLen = 0
-  _connBodyLeft = 0
-  _connChunkState = CHK_SIZE
-  _connChunkLeft = 0
+  rp->xfer = XFER_CLOSE
+  rp->contentLen = 0
+  rp->bodyLeft = 0
+  rp->chunkState = CHK_SIZE
+  rp->chunkLeft = 0
+  rp->respHdrCount = 0
 
   ' Flush any leftover buffered data in tcpclient
-  TcpBufFlush(_tcpHandle)
+  TcpBufFlush(tcpConn)
 
   ' Read status line: "HTTP/1.x NNN reason"
-  _HttpRecvLine
+  _HttpRecvLine(tcpConn)
   IF _lineOk = 0 THEN
     HttpReadStatus = HTTP_ERR_RECV
     EXIT SUB
@@ -535,18 +490,19 @@ SUB LONGINT HttpReadStatus(LONGINT h) EXTERNAL
     HttpReadStatus = HTTP_ERR_PARSE
     EXIT SUB
   END IF
-  statusCode = CLNG(VAL(MID$(_lineResult$, spPos + 1, 3)))
-  IF statusCode < 100 OR statusCode > 999 THEN
+  sc = CLNG(VAL(MID$(_lineResult$, spPos + 1, 3)))
+  IF sc < 100 OR sc > 999 THEN
     HttpReadStatus = HTTP_ERR_PARSE
     EXIT SUB
   END IF
 
+  rp->statusCode = sc
+
   ' Read headers until blank line
-  _respHdrCount = 0
   gotBlank = 0
 
   WHILE gotBlank = 0
-    _HttpRecvLine
+    _HttpRecvLine(tcpConn)
     IF _lineOk = 0 THEN
       gotBlank = 1
     ELSEIF LEN(_lineResult$) = 0 THEN
@@ -554,49 +510,53 @@ SUB LONGINT HttpReadStatus(LONGINT h) EXTERNAL
     ELSE
       ' Parse "Name: Value" (handle optional whitespace after colon)
       colonPos = INSTR(_lineResult$, ":")
-      IF colonPos > 0 AND _respHdrCount < MAX_RSP_HDRS THEN
+      IF colonPos > 0 AND rp->respHdrCount < MAX_RSP_HDRS THEN
         tmpNm$ = LEFT$(_lineResult$, colonPos - 1)
         tmpVl$ = LTRIM$(MID$(_lineResult$, colonPos + 1))
 
-        _respHdrName$(_respHdrCount) = tmpNm$
-        _respHdrVal$(_respHdrCount) = tmpVl$
+        nameAddr = @rp->respHdrNames + (rp->respHdrCount * 64)
+        _StrToAddr(nameAddr, tmpNm$, 64)
+        valAddr = @rp->respHdrVals + (rp->respHdrCount * 256)
+        _StrToAddr(valAddr, tmpVl$, 256)
 
         ' Detect Content-Length
         IF UCASE$(tmpNm$) = "CONTENT-LENGTH" THEN
-          _connContentLen = CLNG(VAL(tmpVl$))
-          _connBodyLeft = _connContentLen
-          _connXfer = XFER_LENGTH
+          rp->contentLen = CLNG(VAL(tmpVl$))
+          rp->bodyLeft = rp->contentLen
+          rp->xfer = XFER_LENGTH
         END IF
 
         ' Detect Transfer-Encoding: chunked
         IF UCASE$(tmpNm$) = "TRANSFER-ENCODING" THEN
           IF INSTR(UCASE$(tmpVl$), "CHUNKED") > 0 THEN
-            _connXfer = XFER_CHUNKED
+            rp->xfer = XFER_CHUNKED
           END IF
         END IF
 
-        _respHdrCount = _respHdrCount + 1
+        rp->respHdrCount = rp->respHdrCount + 1
       END IF
     END IF
   WEND
 
-  HttpReadStatus = statusCode
+  HttpReadStatus = sc
 END SUB
 
-SUB STRING HttpGetResponseHeader(LONGINT h, STRING hdrNm$) EXTERNAL
-  SHARED _respHdrName$, _respHdrVal$, _respHdrCount
-  LONGINT i
+SUB STRING HttpGetResponseHeader(ADDRESS resp, ~
+                                 STRING hdrNm$) EXTERNAL
+  DECLARE STRUCT HttpResponse *rp
+  LONGINT i, nameAddr, valAddr
   STRING upperNm$ SIZE 64
+  STRING curNm$ SIZE 64
 
-  IF h <> 1 THEN
-    HttpGetResponseHeader = ""
-    EXIT SUB
-  END IF
-
+  rp = resp
   upperNm$ = UCASE$(hdrNm$)
-  FOR i = 0 TO _respHdrCount - 1
-    IF UCASE$(_respHdrName$(i)) = upperNm$ THEN
-      HttpGetResponseHeader = _respHdrVal$(i)
+
+  FOR i = 0 TO rp->respHdrCount - 1
+    nameAddr = @rp->respHdrNames + (i * 64)
+    curNm$ = CSTR(nameAddr)
+    IF UCASE$(curNm$) = upperNm$ THEN
+      valAddr = @rp->respHdrVals + (i * 256)
+      HttpGetResponseHeader = CSTR(valAddr)
       EXIT SUB
     END IF
   NEXT i
@@ -604,86 +564,71 @@ SUB STRING HttpGetResponseHeader(LONGINT h, STRING hdrNm$) EXTERNAL
   HttpGetResponseHeader = ""
 END SUB
 
-SUB LONGINT HttpResponseHeaderCount(LONGINT h) EXTERNAL
-  SHARED _respHdrCount
-
-  IF h <> 1 THEN
-    HttpResponseHeaderCount = 0
-    EXIT SUB
-  END IF
-
-  HttpResponseHeaderCount = _respHdrCount
+SUB LONGINT HttpResponseHeaderCount(ADDRESS resp) EXTERNAL
+  DECLARE STRUCT HttpResponse *rp
+  rp = resp
+  HttpResponseHeaderCount = rp->respHdrCount
 END SUB
 
-SUB STRING HttpResponseHeaderName(LONGINT h, LONGINT idx) EXTERNAL
-  SHARED _respHdrName$, _respHdrCount
-
-  IF h <> 1 THEN
+SUB STRING HttpResponseHeaderName(ADDRESS resp, ~
+                                  LONGINT idx) EXTERNAL
+  DECLARE STRUCT HttpResponse *rp
+  LONGINT nameAddr
+  rp = resp
+  IF idx < 0 OR idx >= rp->respHdrCount THEN
     HttpResponseHeaderName = ""
     EXIT SUB
   END IF
-  IF idx < 0 OR idx >= _respHdrCount THEN
-    HttpResponseHeaderName = ""
-    EXIT SUB
-  END IF
-
-  HttpResponseHeaderName = _respHdrName$(idx)
+  nameAddr = @rp->respHdrNames + (idx * 64)
+  HttpResponseHeaderName = CSTR(nameAddr)
 END SUB
 
-SUB STRING HttpResponseHeaderVal(LONGINT h, LONGINT idx) EXTERNAL
-  SHARED _respHdrVal$, _respHdrCount
-
-  IF h <> 1 THEN
+SUB STRING HttpResponseHeaderVal(ADDRESS resp, ~
+                                 LONGINT idx) EXTERNAL
+  DECLARE STRUCT HttpResponse *rp
+  LONGINT valAddr
+  rp = resp
+  IF idx < 0 OR idx >= rp->respHdrCount THEN
     HttpResponseHeaderVal = ""
     EXIT SUB
   END IF
-  IF idx < 0 OR idx >= _respHdrCount THEN
-    HttpResponseHeaderVal = ""
-    EXIT SUB
-  END IF
-
-  HttpResponseHeaderVal = _respHdrVal$(idx)
+  valAddr = @rp->respHdrVals + (idx * 256)
+  HttpResponseHeaderVal = CSTR(valAddr)
 END SUB
 
-SUB LONGINT HttpReadBody(LONGINT h, LONGINT dataBuf, ~
+SUB LONGINT HttpReadBody(ADDRESS tcpConn, ADDRESS resp, ~
+                         ADDRESS dataBuf, ~
                          LONGINT bufSz) EXTERNAL
-  SHARED _connState, _tcpHandle, _connXfer, _connBodyLeft
-  LONGINT toRead, totalRd, n
+  DECLARE STRUCT HttpResponse *rp
+  LONGINT toRead, totalRd
 
-  IF h <> 1 THEN
-    HttpReadBody = HTTP_ERR_SOCKET
-    EXIT SUB
-  END IF
-  IF _connState <> CONN_OPEN THEN
-    HttpReadBody = HTTP_ERR_SOCKET
-    EXIT SUB
-  END IF
+  rp = resp
 
   ' Chunked mode - use chunk decoder
-  IF _connXfer = XFER_CHUNKED THEN
-    HttpReadBody = _HttpReadChunked(dataBuf, bufSz)
+  IF rp->xfer = XFER_CHUNKED THEN
+    HttpReadBody = _HttpReadChunked(tcpConn, resp, dataBuf, bufSz)
     EXIT SUB
   END IF
 
   ' Determine how much to read
-  IF _connXfer = XFER_LENGTH THEN
-    IF _connBodyLeft <= 0 THEN
+  IF rp->xfer = XFER_LENGTH THEN
+    IF rp->bodyLeft <= 0 THEN
       HttpReadBody = 0
       EXIT SUB
     END IF
     toRead = bufSz
-    IF toRead > _connBodyLeft THEN
-      toRead = _connBodyLeft
+    IF toRead > rp->bodyLeft THEN
+      toRead = rp->bodyLeft
     END IF
   ELSE
     toRead = bufSz
   END IF
 
   ' Read via tcpclient buffered reader
-  totalRd = TcpRecvBuf(_tcpHandle, dataBuf, toRead)
+  totalRd = TcpRecvBuf(tcpConn, dataBuf, toRead)
 
   IF totalRd <= 0 THEN
-    IF _connXfer = XFER_CLOSE THEN
+    IF rp->xfer = XFER_CLOSE THEN
       HttpReadBody = 0
     ELSE
       HttpReadBody = HTTP_ERR_RECV
@@ -692,30 +637,20 @@ SUB LONGINT HttpReadBody(LONGINT h, LONGINT dataBuf, ~
   END IF
 
   ' Update remaining body length for Content-Length mode
-  IF _connXfer = XFER_LENGTH THEN
-    _connBodyLeft = _connBodyLeft - totalRd
+  IF rp->xfer = XFER_LENGTH THEN
+    rp->bodyLeft = rp->bodyLeft - totalRd
   END IF
 
   HttpReadBody = totalRd
 END SUB
 
-{ ============== Public API - Low-level write ============== }
+{ ============== Public API - Request Body Write ============== }
 
-SUB LONGINT HttpWriteBody(LONGINT h, LONGINT dataBuf, ~
+SUB LONGINT HttpWriteBody(ADDRESS tcpConn, ADDRESS dataBuf, ~
                           LONGINT bodyLen) EXTERNAL
-  SHARED _connState
   LONGINT rc
 
-  IF h <> 1 THEN
-    HttpWriteBody = HTTP_ERR_SOCKET
-    EXIT SUB
-  END IF
-  IF _connState <> CONN_OPEN THEN
-    HttpWriteBody = HTTP_ERR_SOCKET
-    EXIT SUB
-  END IF
-
-  rc = _HttpSendRaw(dataBuf, bodyLen)
+  rc = _HttpSendRaw(tcpConn, dataBuf, bodyLen)
   IF rc < 0 THEN
     HttpWriteBody = HTTP_ERR_SEND
   ELSE
@@ -723,23 +658,15 @@ SUB LONGINT HttpWriteBody(LONGINT h, LONGINT dataBuf, ~
   END IF
 END SUB
 
-SUB LONGINT HttpWriteBodyChunked(LONGINT h, LONGINT dataBuf, ~
+SUB LONGINT HttpWriteBodyChunked(ADDRESS tcpConn, ~
+                                 ADDRESS dataBuf, ~
                                  LONGINT bodyLen) EXTERNAL
-  SHARED _connState, _crlf$
+  SHARED _crlf$
   LONGINT rc
-
-  IF h <> 1 THEN
-    HttpWriteBodyChunked = HTTP_ERR_SOCKET
-    EXIT SUB
-  END IF
-  IF _connState <> CONN_OPEN THEN
-    HttpWriteBodyChunked = HTTP_ERR_SOCKET
-    EXIT SUB
-  END IF
 
   IF bodyLen = 0 THEN
     ' Final chunk terminator: "0\r\n\r\n"
-    rc = _HttpSendStr("0" + _crlf$ + _crlf$)
+    rc = _HttpSendStr(tcpConn, "0" + _crlf$ + _crlf$)
     IF rc < 0 THEN
       HttpWriteBodyChunked = HTTP_ERR_SEND
     ELSE
@@ -749,19 +676,19 @@ SUB LONGINT HttpWriteBodyChunked(LONGINT h, LONGINT dataBuf, ~
   END IF
 
   ' Send chunk: hex(len) + CRLF + data + CRLF
-  rc = _HttpSendStr(_HttpLongToHex(bodyLen) + _crlf$)
+  rc = _HttpSendStr(tcpConn, _HttpLongToHex(bodyLen) + _crlf$)
   IF rc < 0 THEN
     HttpWriteBodyChunked = HTTP_ERR_SEND
     EXIT SUB
   END IF
 
-  rc = _HttpSendRaw(dataBuf, bodyLen)
+  rc = _HttpSendRaw(tcpConn, dataBuf, bodyLen)
   IF rc < 0 THEN
     HttpWriteBodyChunked = HTTP_ERR_SEND
     EXIT SUB
   END IF
 
-  rc = _HttpSendStr(_crlf$)
+  rc = _HttpSendStr(tcpConn, _crlf$)
   IF rc < 0 THEN
     HttpWriteBodyChunked = HTTP_ERR_SEND
   ELSE
@@ -771,14 +698,14 @@ END SUB
 
 { ============== Public API - Utility ============== }
 
-SUB STRING UrlEncode(STRING raw) EXTERNAL
+SUB STRING UrlEncode(STRING raw$) EXTERNAL
   STRING result$ SIZE 1024
   LONGINT i, c
 
   result$ = ""
 
-  FOR i = 1 TO LEN(raw)
-    c = ASC(MID$(raw, i, 1))
+  FOR i = 1 TO LEN(raw$)
+    c = ASC(MID$(raw$, i, 1))
     IF (c >= 65 AND c <= 90) THEN
       ' A-Z
       result$ = result$ + CHR$(c)
@@ -802,37 +729,36 @@ END SUB
 
 { ============== Public API - High-level convenience ============== }
 
-SUB LONGINT HttpGet(STRING url, ADDRESS respBuf, ~
-                    LONGINT bufSz) EXTERNAL
+SUB LONGINT HttpGet(ADDRESS req, ADDRESS resp, ~
+                    ADDRESS tcpConn, STRING url$, ~
+                    ADDRESS respBuf, LONGINT bufSz) EXTERNAL
   SHARED _urlHost$, _urlPort, _urlPath$, _urlSSL
-  LONGINT hConn, statusCode, rc
+  LONGINT rc, sc
   LONGINT totalLen, bytesGot, rdDone
 
-  _HttpInit
-
-  _HttpParseUrl(url)
+  _HttpParseUrl(url$)
   IF LEN(_urlHost$) = 0 THEN
     HttpGet = HTTP_ERR_PARSE
     EXIT SUB
   END IF
 
-  hConn = HttpOpen(_urlHost$, _urlPort, _urlSSL)
-  IF hConn < 1 THEN
-    HttpGet = hConn
-    EXIT SUB
-  END IF
-
-  rc = HttpSendRequest(hConn, "GET", _urlPath$)
-  IF rc < 0 THEN
-    HttpClose(hConn)
+  rc = HttpOpen(req, tcpConn, _urlHost$, _urlPort, _urlSSL)
+  IF rc <> HTTP_SUCCESS THEN
     HttpGet = rc
     EXIT SUB
   END IF
 
-  statusCode = HttpReadStatus(hConn)
-  IF statusCode < 0 THEN
-    HttpClose(hConn)
-    HttpGet = statusCode
+  rc = HttpSendRequest(req, tcpConn, "GET", _urlPath$)
+  IF rc < 0 THEN
+    HttpClose(tcpConn)
+    HttpGet = rc
+    EXIT SUB
+  END IF
+
+  sc = HttpReadStatus(tcpConn, resp)
+  IF sc < 0 THEN
+    HttpClose(tcpConn)
+    HttpGet = sc
     EXIT SUB
   END IF
 
@@ -840,7 +766,7 @@ SUB LONGINT HttpGet(STRING url, ADDRESS respBuf, ~
   totalLen = 0
   rdDone = 0
   WHILE rdDone = 0
-    bytesGot = HttpReadBody(hConn, respBuf + totalLen, ~
+    bytesGot = HttpReadBody(tcpConn, resp, respBuf + totalLen, ~
                             bufSz - 1 - totalLen)
     IF bytesGot > 0 THEN
       totalLen = totalLen + bytesGot
@@ -853,108 +779,107 @@ SUB LONGINT HttpGet(STRING url, ADDRESS respBuf, ~
   ' Null-terminate for CSTR conversion
   POKE respBuf + totalLen, 0
 
-  HttpClose(hConn)
-  HttpGet = statusCode
+  HttpClose(tcpConn)
+  HttpGet = sc
 END SUB
 
-SUB LONGINT HttpHead(STRING url) EXTERNAL
+SUB LONGINT HttpHead(ADDRESS req, ADDRESS resp, ~
+                     ADDRESS tcpConn, STRING url$) EXTERNAL
   SHARED _urlHost$, _urlPort, _urlPath$, _urlSSL
-  LONGINT hConn, statusCode, rc
+  LONGINT rc, sc
 
-  _HttpInit
-
-  _HttpParseUrl(url)
+  _HttpParseUrl(url$)
   IF LEN(_urlHost$) = 0 THEN
     HttpHead = HTTP_ERR_PARSE
     EXIT SUB
   END IF
 
-  hConn = HttpOpen(_urlHost$, _urlPort, _urlSSL)
-  IF hConn < 1 THEN
-    HttpHead = hConn
-    EXIT SUB
-  END IF
-
-  rc = HttpSendRequest(hConn, "HEAD", _urlPath$)
-  IF rc < 0 THEN
-    HttpClose(hConn)
+  rc = HttpOpen(req, tcpConn, _urlHost$, _urlPort, _urlSSL)
+  IF rc <> HTTP_SUCCESS THEN
     HttpHead = rc
     EXIT SUB
   END IF
 
-  statusCode = HttpReadStatus(hConn)
-  HttpClose(hConn)
-  HttpHead = statusCode
+  rc = HttpSendRequest(req, tcpConn, "HEAD", _urlPath$)
+  IF rc < 0 THEN
+    HttpClose(tcpConn)
+    HttpHead = rc
+    EXIT SUB
+  END IF
+
+  sc = HttpReadStatus(tcpConn, resp)
+  HttpClose(tcpConn)
+  HttpHead = sc
 END SUB
 
-SUB LONGINT HttpRequest(STRING url, STRING meth, ~
-                        STRING ct, STRING body, ~
-                        ADDRESS respBuf, LONGINT bufSz) EXTERNAL
+SUB LONGINT HttpRequest(ADDRESS req, ADDRESS resp, ~
+                        ADDRESS tcpConn, STRING url$, ~
+                        STRING meth$, STRING ct$, ~
+                        STRING body$, ADDRESS respBuf, ~
+                        LONGINT bufSz) EXTERNAL
   SHARED _urlHost$, _urlPort, _urlPath$, _urlSSL
-  LONGINT hConn, statusCode, rc
+  LONGINT rc, sc
   LONGINT totalLen, bytesGot, rdDone
   LONGINT hasBody
 
-  _HttpInit
-
-  _HttpParseUrl(url)
+  _HttpParseUrl(url$)
   IF LEN(_urlHost$) = 0 THEN
     HttpRequest = HTTP_ERR_PARSE
     EXIT SUB
   END IF
 
-  hConn = HttpOpen(_urlHost$, _urlPort, _urlSSL)
-  IF hConn < 1 THEN
-    HttpRequest = hConn
+  rc = HttpOpen(req, tcpConn, _urlHost$, _urlPort, _urlSSL)
+  IF rc <> HTTP_SUCCESS THEN
+    HttpRequest = rc
     EXIT SUB
   END IF
 
   ' Determine if this method sends a body
   hasBody = 0
-  IF meth <> "GET" AND meth <> "HEAD" AND meth <> "DELETE" THEN
-    IF LEN(body) > 0 THEN
+  IF meth$ <> "GET" AND meth$ <> "HEAD" AND meth$ <> "DELETE" THEN
+    IF LEN(body$) > 0 THEN
       hasBody = 1
     END IF
   END IF
 
   ' Set Content-Type and Content-Length for body-bearing requests
   IF hasBody THEN
-    IF LEN(ct) > 0 THEN
-      HttpSetHeader(hConn, "Content-Type", ct)
+    IF LEN(ct$) > 0 THEN
+      HttpSetHeader(req, "Content-Type", ct$)
     END IF
-    HttpSetHeader(hConn, "Content-Length", FMT$("%ld", LEN(body)))
+    HttpSetHeader(req, "Content-Length", FMT$("%ld", LEN(body$)))
   END IF
 
-  rc = HttpSendRequest(hConn, meth, _urlPath$)
+  rc = HttpSendRequest(req, tcpConn, meth$, _urlPath$)
   IF rc < 0 THEN
-    HttpClose(hConn)
+    HttpClose(tcpConn)
     HttpRequest = rc
     EXIT SUB
   END IF
 
   ' Send body if present
   IF hasBody THEN
-    rc = HttpWriteBody(hConn, SADD(body), LEN(body))
+    rc = HttpWriteBody(tcpConn, SADD(body$), LEN(body$))
     IF rc < 0 THEN
-      HttpClose(hConn)
+      HttpClose(tcpConn)
       HttpRequest = rc
       EXIT SUB
     END IF
   END IF
 
-  statusCode = HttpReadStatus(hConn)
-  IF statusCode < 0 THEN
-    HttpClose(hConn)
-    HttpRequest = statusCode
+  sc = HttpReadStatus(tcpConn, resp)
+  IF sc < 0 THEN
+    HttpClose(tcpConn)
+    HttpRequest = sc
     EXIT SUB
   END IF
 
   ' Read response body (unless HEAD)
-  IF meth <> "HEAD" THEN
+  IF meth$ <> "HEAD" THEN
     totalLen = 0
     rdDone = 0
     WHILE rdDone = 0
-      bytesGot = HttpReadBody(hConn, respBuf + totalLen, ~
+      bytesGot = HttpReadBody(tcpConn, resp, respBuf + totalLen, ~
                               bufSz - 1 - totalLen)
       IF bytesGot > 0 THEN
         totalLen = totalLen + bytesGot
@@ -967,50 +892,56 @@ SUB LONGINT HttpRequest(STRING url, STRING meth, ~
     POKE respBuf + totalLen, 0
   END IF
 
-  HttpClose(hConn)
-  HttpRequest = statusCode
+  HttpClose(tcpConn)
+  HttpRequest = sc
 END SUB
 
-SUB LONGINT HttpPost(STRING url, STRING ct, ~
-                     STRING body, ADDRESS respBuf, ~
+SUB LONGINT HttpPost(ADDRESS req, ADDRESS resp, ~
+                     ADDRESS tcpConn, STRING url$, ~
+                     STRING ct$, STRING body$, ~
+                     ADDRESS respBuf, ~
                      LONGINT bufSz) EXTERNAL
-  HttpPost = HttpRequest(url, "POST", ct, body, respBuf, bufSz)
+  HttpPost = HttpRequest(req, resp, tcpConn, url$, ~
+                         "POST", ct$, body$, respBuf, bufSz)
 END SUB
 
-SUB LONGINT HttpPut(STRING url, STRING ct, ~
-                    STRING body, ADDRESS respBuf, ~
+SUB LONGINT HttpPut(ADDRESS req, ADDRESS resp, ~
+                    ADDRESS tcpConn, STRING url$, ~
+                    STRING ct$, STRING body$, ~
+                    ADDRESS respBuf, ~
                     LONGINT bufSz) EXTERNAL
-  HttpPut = HttpRequest(url, "PUT", ct, body, respBuf, bufSz)
+  HttpPut = HttpRequest(req, resp, tcpConn, url$, ~
+                        "PUT", ct$, body$, respBuf, bufSz)
 END SUB
 
 { ============== Public API - Streaming ============== }
 
-SUB LONGINT HttpRequestStream(STRING url, STRING meth, ~
-                              STRING ct, ADDRESS onSend, ~
+SUB LONGINT HttpRequestStream(ADDRESS req, ADDRESS resp, ~
+                              ADDRESS tcpConn, STRING url$, ~
+                              STRING meth$, STRING ct$, ~
+                              ADDRESS onSend, ~
                               ADDRESS onRecv) EXTERNAL
   SHARED _urlHost$, _urlPort, _urlPath$, _urlSSL
   SHARED _streamBuf, _crlf$
-  LONGINT hConn, statusCode, rc
+  LONGINT rc, sc
   LONGINT hasBody, sendLen, bytesGot, cbRet
   LONGINT rdDone
 
-  _HttpInit
-
-  _HttpParseUrl(url)
+  _HttpParseUrl(url$)
   IF LEN(_urlHost$) = 0 THEN
     HttpRequestStream = HTTP_ERR_PARSE
     EXIT SUB
   END IF
 
-  hConn = HttpOpen(_urlHost$, _urlPort, _urlSSL)
-  IF hConn < 1 THEN
-    HttpRequestStream = hConn
+  rc = HttpOpen(req, tcpConn, _urlHost$, _urlPort, _urlSSL)
+  IF rc <> HTTP_SUCCESS THEN
+    HttpRequestStream = rc
     EXIT SUB
   END IF
 
   ' Determine if this method sends a body
   hasBody = 0
-  IF meth <> "GET" AND meth <> "HEAD" AND meth <> "DELETE" THEN
+  IF meth$ <> "GET" AND meth$ <> "HEAD" AND meth$ <> "DELETE" THEN
     IF onSend <> 0 THEN
       hasBody = 1
     END IF
@@ -1018,15 +949,15 @@ SUB LONGINT HttpRequestStream(STRING url, STRING meth, ~
 
   ' Set up headers for body-bearing requests with chunked encoding
   IF hasBody THEN
-    IF LEN(ct) > 0 THEN
-      HttpSetHeader(hConn, "Content-Type", ct)
+    IF LEN(ct$) > 0 THEN
+      HttpSetHeader(req, "Content-Type", ct$)
     END IF
-    HttpSetHeader(hConn, "Transfer-Encoding", "chunked")
+    HttpSetHeader(req, "Transfer-Encoding", "chunked")
   END IF
 
-  rc = HttpSendRequest(hConn, meth, _urlPath$)
+  rc = HttpSendRequest(req, tcpConn, meth$, _urlPath$)
   IF rc < 0 THEN
-    HttpClose(hConn)
+    HttpClose(tcpConn)
     HttpRequestStream = rc
     EXIT SUB
   END IF
@@ -1037,39 +968,39 @@ SUB LONGINT HttpRequestStream(STRING url, STRING meth, ~
     WHILE sendLen > 0
       sendLen = INVOKE onSend(_streamBuf, READ_BUF_SIZE)
       IF sendLen > 0 THEN
-        rc = HttpWriteBodyChunked(hConn, _streamBuf, sendLen)
+        rc = HttpWriteBodyChunked(tcpConn, _streamBuf, sendLen)
         IF rc < 0 THEN
-          HttpClose(hConn)
+          HttpClose(tcpConn)
           HttpRequestStream = HTTP_ERR_SEND
           EXIT SUB
         END IF
       END IF
     WEND
     ' Send final zero-length chunk
-    rc = HttpWriteBodyChunked(hConn, _streamBuf, 0)
+    rc = HttpWriteBodyChunked(tcpConn, _streamBuf, 0)
     IF rc < 0 THEN
-      HttpClose(hConn)
+      HttpClose(tcpConn)
       HttpRequestStream = HTTP_ERR_SEND
       EXIT SUB
     END IF
   END IF
 
-  statusCode = HttpReadStatus(hConn)
-  IF statusCode < 0 THEN
-    HttpClose(hConn)
-    HttpRequestStream = statusCode
+  sc = HttpReadStatus(tcpConn, resp)
+  IF sc < 0 THEN
+    HttpClose(tcpConn)
+    HttpRequestStream = sc
     EXIT SUB
   END IF
 
   ' Read response body via callback (unless HEAD or no callback)
-  IF meth <> "HEAD" AND onRecv <> 0 THEN
+  IF meth$ <> "HEAD" AND onRecv <> 0 THEN
     rdDone = 0
     WHILE rdDone = 0
-      bytesGot = HttpReadBody(hConn, _streamBuf, READ_BUF_SIZE)
+      bytesGot = HttpReadBody(tcpConn, resp, _streamBuf, READ_BUF_SIZE)
       IF bytesGot > 0 THEN
         cbRet = INVOKE onRecv(_streamBuf, bytesGot)
         IF cbRet = HTTP_ABORT THEN
-          HttpClose(hConn)
+          HttpClose(tcpConn)
           HttpRequestStream = HTTP_ERR_CALLBACK
           EXIT SUB
         END IF
@@ -1079,20 +1010,31 @@ SUB LONGINT HttpRequestStream(STRING url, STRING meth, ~
     WEND
   END IF
 
-  HttpClose(hConn)
-  HttpRequestStream = statusCode
+  HttpClose(tcpConn)
+  HttpRequestStream = sc
 END SUB
 
-SUB LONGINT HttpGetStream(STRING url, ADDRESS onRecv) EXTERNAL
-  HttpGetStream = HttpRequestStream(url, "GET", "", 0&, onRecv)
+SUB LONGINT HttpGetStream(ADDRESS req, ADDRESS resp, ~
+                          ADDRESS tcpConn, STRING url$, ~
+                          ADDRESS onRecv) EXTERNAL
+  HttpGetStream = HttpRequestStream(req, resp, tcpConn, ~
+                                    url$, "GET", "", 0&, onRecv)
 END SUB
 
-SUB LONGINT HttpPostStream(STRING url, STRING ct, ~
-                           ADDRESS onSend, ADDRESS onRecv) EXTERNAL
-  HttpPostStream = HttpRequestStream(url, "POST", ct, onSend, onRecv)
+SUB LONGINT HttpPostStream(ADDRESS req, ADDRESS resp, ~
+                           ADDRESS tcpConn, STRING url$, ~
+                           STRING ct$, ADDRESS onSend, ~
+                           ADDRESS onRecv) EXTERNAL
+  HttpPostStream = HttpRequestStream(req, resp, tcpConn, ~
+                                     url$, "POST", ct$, ~
+                                     onSend, onRecv)
 END SUB
 
-SUB LONGINT HttpPutStream(STRING url, STRING ct, ~
-                          ADDRESS onSend, ADDRESS onRecv) EXTERNAL
-  HttpPutStream = HttpRequestStream(url, "PUT", ct, onSend, onRecv)
+SUB LONGINT HttpPutStream(ADDRESS req, ADDRESS resp, ~
+                          ADDRESS tcpConn, STRING url$, ~
+                          STRING ct$, ADDRESS onSend, ~
+                          ADDRESS onRecv) EXTERNAL
+  HttpPutStream = HttpRequestStream(req, resp, tcpConn, ~
+                                    url$, "PUT", ct$, ~
+                                    onSend, onRecv)
 END SUB

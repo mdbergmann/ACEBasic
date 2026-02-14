@@ -1,0 +1,247 @@
+HTTPClient Stateless Struct Refactoring Spec
+=============================================
+
+Context
+-------
+The tcpclient was refactored (commit 41f609f) to a stateless struct-based
+API where callers own TcpConn structs. The httpclient still uses the old
+handle-based tcpclient API which is now broken. We need to:
+1. Update httpclient to use the new tcpclient API
+2. Apply the same stateless struct pattern with HttpRequest + HttpResponse
+3. Caller owns 3 independent structs: TcpConn, HttpRequest, HttpResponse
+
+
+Design: Three Independent Structs
+-----------------------------------
+TcpConn, HttpRequest, and HttpResponse are fully independent. No struct
+stores a reference to another. Each function takes only the struct(s)
+it actually needs.
+
+  STRUCT HttpRequest
+    STRING reqHost SIZE 128     ' connected host (for Host header)
+    LONGINT reqPort             ' connected port
+    STRING reqHdrNames SIZE 1024 ' 16 header name slots (16 * 64 bytes)
+    STRING reqHdrVals SIZE 4096  ' 16 header value slots (16 * 256 bytes)
+    LONGINT reqHdrCount         ' number of request headers set
+  END STRUCT
+
+  STRUCT HttpResponse
+    LONGINT statusCode          ' HTTP status code (200, 404, etc.)
+    LONGINT contentLen          ' Content-Length from response
+    LONGINT bodyLeft            ' remaining body bytes
+    SHORTINT xfer               ' transfer mode (XFER_CLOSE/LENGTH/CHUNKED)
+    SHORTINT chunkState         ' chunked decoder state machine
+    LONGINT chunkLeft           ' remaining chunk bytes
+    STRING respHdrNames SIZE 2048 ' 32 header name slots (32 * 64 bytes)
+    STRING respHdrVals SIZE 8192  ' 32 header value slots (32 * 256 bytes)
+    LONGINT respHdrCount        ' number of response headers
+  END STRUCT
+
+Header access pattern (index i):
+  nameAddr = @r->reqHdrNames + (i * 64)
+  valAddr  = @r->reqHdrVals + (i * 256)
+  (same pattern used in tcpclient: bufAddr = @c->bufData)
+
+
+State Categorization
+--------------------
+Into HttpRequest struct:
+  host, port, request headers + count
+
+Into HttpResponse struct:
+  statusCode, contentLen, bodyLeft, xfer, chunkState, chunkLeft,
+  response headers + count
+
+Stays module-level (temporary workspace / global):
+  - _httpInited, _crlf$ (global)
+  - _lineBuf, _lineResult$, _lineOk (line reader workspace)
+  - _streamBuf (streaming workspace)
+  - _urlHost$, _urlPort, _urlPath$, _urlSSL (URL parse workspace)
+
+Removed:
+  _connState, _tcpHandle, _connHost$, _connPort, _connContentLen,
+  _connBodyLeft, _connXfer, _connChunkState, _connChunkLeft,
+  all DIM header arrays, CONN_FREE/CONN_OPEN constants
+
+
+API Signatures
+--------------
+Each function takes only the struct(s) it needs.
+
+Connection Management:
+  HttpOpen(ADDRESS req, ADDRESS tcpConn, STRING host$,
+           LONGINT port, LONGINT useSSL) -> LONGINT status
+    ' Stores host/port in req, calls TcpOpen(tcpConn, ...)
+  HttpClose(ADDRESS tcpConn)
+    ' Calls TcpClose(tcpConn)
+
+Request Phase:
+  HttpSetHeader(ADDRESS req, STRING name$, STRING val$)
+    ' Only needs req (headers stored in req)
+  HttpSendRequest(ADDRESS req, ADDRESS tcpConn,
+                  STRING meth$, STRING path$) -> LONGINT
+    ' Needs req (headers, host) + tcpConn (to send)
+  HttpWriteBody(ADDRESS tcpConn, ADDRESS dataBuf,
+                LONGINT bodyLen) -> LONGINT
+    ' Only needs tcpConn (to send)
+  HttpWriteBodyChunked(ADDRESS tcpConn, ADDRESS dataBuf,
+                       LONGINT bodyLen) -> LONGINT
+    ' Only needs tcpConn (to send)
+
+Response Phase:
+  HttpReadStatus(ADDRESS tcpConn, ADDRESS resp) -> LONGINT statusCode
+    ' Needs tcpConn (to receive) + resp (to fill)
+  HttpGetResponseHeader(ADDRESS resp, STRING name$) -> STRING
+    ' Only needs resp
+  HttpResponseHeaderCount(ADDRESS resp) -> LONGINT
+    ' Only needs resp
+  HttpResponseHeaderName(ADDRESS resp, LONGINT idx) -> STRING
+    ' Only needs resp
+  HttpResponseHeaderVal(ADDRESS resp, LONGINT idx) -> STRING
+    ' Only needs resp
+  HttpReadBody(ADDRESS tcpConn, ADDRESS resp, ADDRESS dataBuf,
+               LONGINT bufSz) -> LONGINT bytesRead
+    ' Needs tcpConn (to receive) + resp (transfer state)
+
+High-Level API:
+  HttpGet(ADDRESS req, ADDRESS resp, ADDRESS tcpConn,
+          STRING url$, ADDRESS respBuf, LONGINT bufSz) -> LONGINT
+  HttpHead(ADDRESS req, ADDRESS resp, ADDRESS tcpConn,
+           STRING url$) -> LONGINT
+  HttpPost(ADDRESS req, ADDRESS resp, ADDRESS tcpConn,
+           STRING url$, STRING ct$, STRING body$,
+           ADDRESS respBuf, LONGINT bufSz) -> LONGINT
+  HttpPut(ADDRESS req, ADDRESS resp, ADDRESS tcpConn,
+          STRING url$, STRING ct$, STRING body$,
+          ADDRESS respBuf, LONGINT bufSz) -> LONGINT
+  HttpRequest(ADDRESS req, ADDRESS resp, ADDRESS tcpConn,
+              STRING url$, STRING meth$, STRING ct$,
+              STRING body$, ADDRESS respBuf, LONGINT bufSz) -> LONGINT
+
+Streaming API:
+  HttpGetStream(ADDRESS req, ADDRESS resp, ADDRESS tcpConn,
+                STRING url$, ADDRESS onRecv) -> LONGINT
+  HttpPostStream(ADDRESS req, ADDRESS resp, ADDRESS tcpConn,
+                 STRING url$, STRING ct$,
+                 ADDRESS onSend, ADDRESS onRecv) -> LONGINT
+  HttpPutStream(ADDRESS req, ADDRESS resp, ADDRESS tcpConn,
+                STRING url$, STRING ct$,
+                ADDRESS onSend, ADDRESS onRecv) -> LONGINT
+  HttpRequestStream(ADDRESS req, ADDRESS resp, ADDRESS tcpConn,
+                    STRING url$, STRING meth$, STRING ct$,
+                    ADDRESS onSend, ADDRESS onRecv) -> LONGINT
+
+Utility (unchanged):
+  UrlEncode(STRING raw$) -> STRING
+
+Removed:
+  HttpSendRawBytes, HttpRecvRawBytes (use TcpSend/TcpRecv directly)
+
+
+Internal Helper Changes
+-----------------------
+Add ADDRESS tcpConn param where TCP access is needed:
+  _HttpSendRaw(ADDRESS tcpConn, ADDRESS buf, LONGINT bufLen)
+  _HttpRecvLine(ADDRESS tcpConn)
+  _HttpReadBuf(ADDRESS tcpConn, ADDRESS destBuf, LONGINT maxBytes)
+  _HttpSendStr(ADDRESS tcpConn, STRING msg$)
+  _HttpReadChunked(ADDRESS tcpConn, ADDRESS resp,
+                   ADDRESS dataBuf, LONGINT bufSz)
+
+Unchanged (pure utilities):
+  _HttpParseUrl, _HttpParseHex, _HttpLongToHex
+
+
+Caller Usage (After Refactoring)
+--------------------------------
+
+Low-level:
+  DECLARE STRUCT TcpConn myTcp
+  DECLARE STRUCT HttpRequest myReq
+  DECLARE STRUCT HttpResponse myResp
+
+  rc = HttpOpen(myReq, myTcp, "www.example.com", 80, HTTP_PLAIN)
+  IF rc <> HTTP_SUCCESS THEN PRINT "Error": STOP
+  HttpSetHeader(myReq, "Accept", "*/*")
+  rc = HttpSendRequest(myReq, myTcp, "GET", "/")
+  statusCode = HttpReadStatus(myTcp, myResp)
+  ct$ = HttpGetResponseHeader(myResp, "Content-Type")
+  bytesGot = HttpReadBody(myTcp, myResp, buf, 4096)
+  HttpClose(myTcp)
+
+High-level:
+  DECLARE STRUCT TcpConn myTcp
+  DECLARE STRUCT HttpRequest myReq
+  DECLARE STRUCT HttpResponse myResp
+  statusCode = HttpGet(myReq, myResp, myTcp, url$, SADD(resp$), 8192)
+
+
+Files to Modify
+---------------
+  1. submods/httpclient/httpclient.b   - main module
+  2. include/submods/httpclient.h      - public header
+  3. submods/httpclient/test_lowlevel.b - low-level test
+  4. submods/httpclient/test_http_get.b - GET test
+  5. submods/httpclient/test_post.b     - POST/PUT test
+  6. submods/httpclient/test_stream.b   - streaming test
+  7. submods/httpclient/test_https.b    - HTTPS test
+
+
+Implementation Steps
+--------------------
+
+Step 1: Structs + Core (HttpOpen, HttpClose, internal helpers)
+  - Add HttpRequest + HttpResponse struct definitions
+  - Remove per-connection module-level vars + header DIM arrays
+  - Refactor _HttpInit (global-only init)
+  - Refactor internal helpers to take ADDRESS params
+  - Refactor HttpOpen: stores host/port in req, calls TcpOpen(tcpConn)
+  - Refactor HttpClose: just calls TcpClose(tcpConn)
+  - Remove HttpSendRawBytes / HttpRecvRawBytes
+  - Update test_lowlevel.b
+
+Step 2: Low-Level API (headers, send, read)
+  - Refactor HttpSetHeader (write to req struct STRING buffer)
+  - Refactor HttpSendRequest (read headers from req, send via tcpConn)
+  - Refactor HttpWriteBody, HttpWriteBodyChunked (tcpConn only)
+  - Refactor _HttpReadChunked (tcpConn + resp struct fields)
+  - Refactor HttpReadStatus (tcpConn + fill resp struct)
+  - Refactor HttpGetResponseHeader, HeaderCount, HeaderName, HeaderVal
+    (read from resp struct STRING buffer)
+  - Refactor HttpReadBody (tcpConn + resp)
+  - Update test_http_get.b
+
+Step 3: High-Level + Streaming + Remaining Tests
+  - Refactor HttpGet, HttpHead, HttpPost, HttpPut, HttpRequest
+  - Refactor streaming functions
+  - Update test_post.b, test_stream.b, test_https.b
+
+Step 4: Documentation + Cleanup
+  - Update httpclient.h docs and usage examples
+  - Remove dead constants (CONN_FREE/CONN_OPEN)
+
+
+Verification
+------------
+  - Build httpclient module on emulator
+  - Run all 5 test files on emulator
+  - Verify 3 independent structs work correctly together
+
+
+Status
+------
+  [x] Step 1: Core functions
+  [x] Step 2: Low-level API
+  [x] Step 3: High-level + streaming
+  [x] Step 4: Cleanup
+
+Notes:
+  - Used LONGINT (not SHORTINT) for xfer/chunkState in HttpResponse
+    struct to avoid potential alignment issues on 68000.
+  - Added _StrToAddr helper for copying strings into flat header buffers.
+  - HttpOpen returns HTTP_SUCCESS (0) on success (not handle=1).
+  - httpclient.h now includes tcpclient.h so callers get TcpConn struct.
+  - HttpSendRawBytes/HttpRecvRawBytes removed (use TcpSend/TcpRecv).
+  - test_chunked.b also updated (was missing from spec file list).
+  - Host stored via struct field assignment (r->reqHost = host$).
+  - Headers stored via POKE-based _StrToAddr into flat STRING buffers.

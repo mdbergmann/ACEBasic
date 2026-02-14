@@ -5,9 +5,13 @@ REM #using ace:submods/amissl/amissl.o
 
 #include <submods/httpclient.h>
 
+DECLARE STRUCT TcpConn myTcp
+DECLARE STRUCT HttpRequest myReq
+DECLARE STRUCT HttpResponse myResp
+
 STRING resp$ SIZE 8192
 ADDRESS respBuf
-LONGINT statusCode
+LONGINT sc
 
 respBuf = SADD(resp$)
 
@@ -16,19 +20,20 @@ PRINT
 
 ' --- Test 1: HTTPS GET ---
 PRINT "Test 1: HttpGet https://httpbin.org/get"
-statusCode = HttpGet("https://httpbin.org/get", respBuf, 8192)
-IF statusCode = HTTP_ERR_NO_LIB THEN
+sc = HttpGet(myReq, myResp, myTcp, ~
+             "https://httpbin.org/get", respBuf, 8192)
+IF sc = HTTP_ERR_NO_LIB THEN
   PRINT "  SKIP (AmiSSL not installed)"
   PRINT
   GOTO SkipAll
 END IF
-IF statusCode = HTTP_ERR_SSL_INIT THEN
+IF sc = HTTP_ERR_SSL_INIT THEN
   PRINT "  SKIP (AmiSSL init failed)"
   PRINT
   GOTO SkipAll
 END IF
-PRINT "  Status: "; statusCode
-IF statusCode = 200 THEN
+PRINT "  Status: "; sc
+IF sc = 200 THEN
   PRINT "  Body length: "; LEN(CSTR(respBuf))
   PRINT "  PASS"
 ELSE
@@ -38,11 +43,12 @@ PRINT
 
 ' --- Test 2: HTTPS POST ---
 PRINT "Test 2: HttpPost https://httpbin.org/post"
-statusCode = HttpPost("https://httpbin.org/post", ~
-                      "application/x-www-form-urlencoded", ~
-                      "greeting=hello", respBuf, 8192)
-PRINT "  Status: "; statusCode
-IF statusCode = 200 THEN
+sc = HttpPost(myReq, myResp, myTcp, ~
+              "https://httpbin.org/post", ~
+              "application/x-www-form-urlencoded", ~
+              "greeting=hello", respBuf, 8192)
+PRINT "  Status: "; sc
+IF sc = 200 THEN
   PRINT "  Body length: "; LEN(CSTR(respBuf))
   PRINT "  PASS"
 ELSE
@@ -52,28 +58,28 @@ PRINT
 
 ' --- Test 3: Low-level HTTPS ---
 PRINT "Test 3: Low-level HttpOpen with SSL"
-LONGINT hConn, rc
-hConn = HttpOpen("httpbin.org", 443, HTTP_SSL)
-IF hConn < 1 THEN
-  PRINT "  Open failed: "; hConn
+LONGINT rc
+rc = HttpOpen(myReq, myTcp, "httpbin.org", 443, HTTP_SSL)
+IF rc <> HTTP_SUCCESS THEN
+  PRINT "  Open failed: "; rc
   PRINT "  FAIL"
   GOTO SkipLowLevel
 END IF
-rc = HttpSendRequest(hConn, "GET", "/get")
+rc = HttpSendRequest(myReq, myTcp, "GET", "/get")
 IF rc < 0 THEN
   PRINT "  SendRequest failed: "; rc
-  HttpClose(hConn)
+  HttpClose(myTcp)
   PRINT "  FAIL"
   GOTO SkipLowLevel
 END IF
-statusCode = HttpReadStatus(hConn)
-PRINT "  Status: "; statusCode
-IF statusCode = 200 THEN
+sc = HttpReadStatus(myTcp, myResp)
+PRINT "  Status: "; sc
+IF sc = 200 THEN
   LONGINT totalRd, bytesGot, rdDone
   totalRd = 0
   rdDone = 0
   WHILE rdDone = 0
-    bytesGot = HttpReadBody(hConn, respBuf + totalRd, 4096)
+    bytesGot = HttpReadBody(myTcp, myResp, respBuf + totalRd, 4096)
     IF bytesGot > 0 THEN
       totalRd = totalRd + bytesGot
     ELSE
@@ -86,7 +92,7 @@ IF statusCode = 200 THEN
 ELSE
   PRINT "  FAIL"
 END IF
-HttpClose(hConn)
+HttpClose(myTcp)
 SkipLowLevel:
 PRINT
 
