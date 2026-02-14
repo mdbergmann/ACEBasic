@@ -184,6 +184,53 @@ passed = passed + 1
 TcpClose(conn1)
 TcpClose(conn2)
 
+{ --- Test 4: TcpRecvBuf buffered read --- }
+PRINT "Test 4: TcpRecvBuf buffered read..."
+
+rc = TcpOpen(conn1, "www.google.com", 80, 0)
+IF rc <> TCP_SUCCESS THEN
+  PRINT "  FAIL: TcpOpen returned"; rc
+  failed = failed + 1
+  GOTO testDone
+END IF
+
+req$ = "GET / HTTP/1.1" + CHR$(13) + CHR$(10)
+req$ = req$ + "Host: www.google.com" + CHR$(13) + CHR$(10)
+req$ = req$ + "Connection: close" + CHR$(13) + CHR$(10)
+req$ = req$ + CHR$(13) + CHR$(10)
+
+rc = TcpSend(conn1, SADD(req$), LEN(req$))
+IF rc <= 0 THEN
+  PRINT "  FAIL: TcpSend returned"; rc
+  TcpClose(conn1)
+  failed = failed + 1
+  GOTO testDone
+END IF
+
+' Read status line with TcpRecvLine, then body with TcpRecvBuf
+' This tests that both share the internal buffer correctly
+lineLen = TcpRecvLine(conn1, lineBuf, TCP_LINE_MAX)
+IF lineLen < 0 THEN
+  PRINT "  FAIL: TcpRecvLine returned"; lineLen
+  TcpClose(conn1)
+  failed = failed + 1
+  GOTO testDone
+END IF
+resp$ = CSTR(lineBuf)
+PRINT "  Status: "; resp$
+
+' Now read remaining data via TcpRecvBuf (shares buffer with RecvLine)
+nBytes = TcpRecvBuf(conn1, recvBuf, 512)
+IF nBytes > 0 THEN
+  PRINT "  PASS: TcpRecvBuf read"; nBytes; " bytes after TcpRecvLine"
+  passed = passed + 1
+ELSE
+  PRINT "  FAIL: TcpRecvBuf returned"; nBytes
+  failed = failed + 1
+END IF
+
+TcpClose(conn1)
+
 testDone:
 TcpCleanup
 

@@ -87,6 +87,10 @@ DECLARE SUB LONGINT TcpSend(ADDRESS conn, ADDRESS buf, ~
 '   buf   - Address of buffer to read into
 '   bufSz - Maximum bytes to read
 '   Returns: bytes received (>0), 0 on EOF, or negative error
+'   WARNING: Bypasses the internal read-ahead buffer. Do NOT mix
+'   with TcpRecvLine or TcpRecvBuf on the same connection — data
+'   already buffered by those calls will be skipped and lost.
+'   Use this only when you manage all reads yourself.
 DECLARE SUB LONGINT TcpRecv(ADDRESS conn, ADDRESS buf, ~
                              LONGINT bufSz) EXTERNAL
 
@@ -95,7 +99,9 @@ DECLARE SUB LONGINT TcpRecv(ADDRESS conn, ADDRESS buf, ~
 '   destBuf  - Address of buffer to read into
 '   maxBytes - Maximum bytes to read
 '   Returns: bytes read (>0), 0 on EOF/empty
-'   Note: Uses per-connection buffer in TcpConn struct.
+'   Uses the same internal read-ahead buffer as TcpRecvLine,
+'   so it is safe to mix both on the same connection. Prefer
+'   this over TcpRecv when also using TcpRecvLine.
 DECLARE SUB LONGINT TcpRecvBuf(ADDRESS conn, ADDRESS destBuf, ~
                                 LONGINT maxBytes) EXTERNAL
 

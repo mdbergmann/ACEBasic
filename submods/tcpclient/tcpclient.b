@@ -106,6 +106,37 @@ SUB LONGINT _TcpDoConnect(LONGINT ipAddr, LONGINT port)
   _TcpDoConnect = sock
 END SUB
 
+' _TcpFillBuf - Ensure internal buffer has data
+'   If buffer is not empty, returns bytes remaining.
+'   If buffer is empty, reads from socket/SSL to refill.
+'   Returns: >0 = bytes available, <=0 = EOF or error
+SUB LONGINT _TcpFillBuf(ADDRESS conn)
+  DECLARE STRUCT TcpConn *c
+  LONGINT n, bufAddr
+
+  c = conn
+
+  ' Buffer still has data
+  IF c->bufPos < c->bufLen THEN
+    _TcpFillBuf = c->bufLen - c->bufPos
+    EXIT SUB
+  END IF
+
+  ' Refill from socket
+  bufAddr = @c->bufData
+  c->bufPos = 0
+  c->bufLen = 0
+
+  IF c->sslHnd <> 0 THEN
+    n = SslRead(c->sslHnd, bufAddr, TCP_BUF_SIZE)
+  ELSE
+    n = recv(c->sockFd, bufAddr, TCP_BUF_SIZE, 0)
+  END IF
+
+  IF n > 0 THEN c->bufLen = n
+  _TcpFillBuf = n
+END SUB
+
 { ============== Public API ============== }
 
 SUB LONGINT TcpInit EXTERNAL
@@ -274,43 +305,21 @@ SUB LONGINT TcpRecvBuf(ADDRESS conn, ADDRESS destBuf, ~
     EXIT SUB
   END IF
 
-  bufAddr = @c->bufData
-
-  ' If buffer has data, drain up to maxBytes
-  IF c->bufPos < c->bufLen THEN
-    avail = c->bufLen - c->bufPos
-    IF avail > maxBytes THEN avail = maxBytes
-    FOR i = 0 TO avail - 1
-      POKE destBuf + i, PEEK(bufAddr + c->bufPos + i)
-    NEXT i
-    c->bufPos = c->bufPos + avail
-    TcpRecvBuf = avail
-    EXIT SUB
-  END IF
-
-  ' Buffer empty - refill from socket
-  c->bufPos = 0
-  c->bufLen = 0
-
-  IF c->sslHnd <> 0 THEN
-    n = SslRead(c->sslHnd, bufAddr, TCP_BUF_SIZE)
-  ELSE
-    n = recv(c->sockFd, bufAddr, TCP_BUF_SIZE, 0)
-  END IF
-
+  ' Ensure buffer has data (refills from socket if empty)
+  n = _TcpFillBuf(conn)
   IF n <= 0 THEN
     TcpRecvBuf = 0
     EXIT SUB
   END IF
-  c->bufLen = n
 
-  ' Copy up to maxBytes from freshly filled buffer
-  avail = n
+  ' Copy up to maxBytes from buffer
+  bufAddr = @c->bufData
+  avail = c->bufLen - c->bufPos
   IF avail > maxBytes THEN avail = maxBytes
   FOR i = 0 TO avail - 1
-    POKE destBuf + i, PEEK(bufAddr + i)
+    POKE destBuf + i, PEEK(bufAddr + c->bufPos + i)
   NEXT i
-  c->bufPos = avail
+  c->bufPos = c->bufPos + avail
   TcpRecvBuf = avail
 END SUB
 
@@ -334,20 +343,10 @@ SUB LONGINT TcpRecvLine(ADDRESS conn, ADDRESS lineBuf, ~
   lineErr = 0
 
   WHILE found = 0 AND lineErr = 0
-    ' Refill buffer if empty
-    IF c->bufPos >= c->bufLen THEN
-      c->bufPos = 0
-      c->bufLen = 0
-      IF c->sslHnd <> 0 THEN
-        n = SslRead(c->sslHnd, bufAddr, TCP_BUF_SIZE)
-      ELSE
-        n = recv(c->sockFd, bufAddr, TCP_BUF_SIZE, 0)
-      END IF
-      IF n <= 0 THEN
-        lineErr = 1
-      ELSE
-        c->bufLen = n
-      END IF
+    ' Ensure buffer has data (refills from socket if empty)
+    n = _TcpFillBuf(conn)
+    IF n <= 0 THEN
+      lineErr = 1
     END IF
 
     IF lineErr = 0 THEN
