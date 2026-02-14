@@ -1,6 +1,8 @@
 REM test_tcp.b - Phase 1 TCP foundation test
 REM Connect to HTTP server, send raw GET, print response
 REM #using ace:submods/httpclient/httpclient.o
+REM #using ace:submods/tcpclient/tcpclient.o
+REM #using ace:submods/amissl/amissl.o
 
 #include <submods/HTTPClient.h>
 

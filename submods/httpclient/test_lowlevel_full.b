@@ -1,6 +1,8 @@
 {* test_lowlevel_full.b - Comprehensive low-level API test *}
 {* Tests: HttpSetHeader, header enumeration, HttpWriteBody, HttpWriteBodyChunked *}
 REM #using ace:submods/httpclient/httpclient.o
+REM #using ace:submods/tcpclient/tcpclient.o
+REM #using ace:submods/amissl/amissl.o
 
 #include <submods/HTTPClient.h>
 

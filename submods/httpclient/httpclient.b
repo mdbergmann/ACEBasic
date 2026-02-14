@@ -1,15 +1,10 @@
 {* HTTPClient - HTTP/1.1 client submodule for ACE BASIC *}
-{* Single-connection model *}
+{* Single-connection model, delegates TCP/SSL to tcpclient/amissl *}
 
-{ ============== Library Declarations ============== }
+REM #using ace:submods/tcpclient/tcpclient.o
+REM #using ace:submods/amissl/amissl.o
 
-DECLARE FUNCTION socket& LIBRARY bsdsocket
-DECLARE FUNCTION connect& LIBRARY bsdsocket
-DECLARE FUNCTION send& LIBRARY bsdsocket
-DECLARE FUNCTION recv& LIBRARY bsdsocket
-DECLARE FUNCTION CloseSocket& LIBRARY bsdsocket
-DECLARE FUNCTION gethostbyname& LIBRARY bsdsocket
-DECLARE FUNCTION inet_addr& LIBRARY bsdsocket
+#include <submods/tcpclient.h>
 
 { ============== Constants ============== }
 
@@ -25,10 +20,6 @@ CONST HTTP_ERR_PARSE       = -7
 CONST HTTP_ERR_OVERFLOW    = -8
 CONST HTTP_ERR_CALLBACK    = -9
 CONST HTTP_ERR_NO_LIB      = -10
-
-' Socket constants
-CONST AF_INET       = 2
-CONST SOCK_STREAM   = 1
 
 ' Connection state
 CONST CONN_FREE     = 0
@@ -54,9 +45,8 @@ CONST MAX_LINE_LEN  = 1024
 { ============== Module Data ============== }
 
 ' Connection state (single connection)
-LONGINT _connSocket
 SHORTINT _connState
-LONGINT _connSSL
+LONGINT _tcpHandle
 LONGINT _httpInited
 
 ' Per-connection state
@@ -69,11 +59,6 @@ SHORTINT _connXfer
 ' Chunked decoder state
 SHORTINT _connChunkState
 LONGINT _connChunkLeft
-
-' Shared read buffer
-ADDRESS _bufAddr
-LONGINT _bufPos
-LONGINT _bufLen
 
 ' Response headers
 DIM _respHdrName$(31) SIZE 64
@@ -99,46 +84,28 @@ LONGINT _lineOk
 ' Streaming buffer (shared for send/receive, not concurrent)
 ADDRESS _streamBuf
 
-' Reusable sockaddr_in buffer (16 bytes, allocated once)
-ADDRESS _sockAddr
-
 ' CRLF constant
 STRING _crlf$ SIZE 4
-
-' SSL global state (Phase 6)
-LONGINT _sslInited
-LONGINT _masterBase
-LONGINT _amisslBase
-LONGINT _sslCtx
-
-' ASSEM temporaries (module-level, BSS names: _modv__asm*)
-LONGINT _asmA0
-LONGINT _asmA1
-LONGINT _asmA6
-LONGINT _asmD0
-LONGINT _asmD1
-LONGINT _asmSockBase
 
 
 { ============== Init ============== }
 
 SUB _HttpInit
-  SHARED _connSocket, _connState, _connSSL, _httpInited
+  SHARED _connState, _tcpHandle, _httpInited
   SHARED _connHost$, _connPort, _connContentLen, _connBodyLeft, _connXfer
   SHARED _connChunkState, _connChunkLeft
-  SHARED _bufAddr, _bufPos, _bufLen
   SHARED _respHdrCount, _reqHdrCount
   SHARED _lineBuf, _lineResult$, _lineOk
-  SHARED _streamBuf, _sockAddr
+  SHARED _streamBuf
   SHARED _crlf$
 
   IF _httpInited = 1 THEN EXIT SUB
 
-  LIBRARY "bsdsocket.library"
+  ' Initialize TCP subsystem
+  TcpInit
 
-  _connSocket = -1
   _connState = CONN_FREE
-  _connSSL = 0
+  _tcpHandle = 0
   _connHost$ = ""
   _connPort = 0
   _connContentLen = 0
@@ -147,19 +114,11 @@ SUB _HttpInit
   _connChunkState = CHK_SIZE
   _connChunkLeft = 0
 
-  ' Allocate read buffer
-  _bufAddr = ALLOC(READ_BUF_SIZE)
-  _bufPos = 0
-  _bufLen = 0
-
   ' Allocate line buffer
   _lineBuf = ALLOC(MAX_LINE_LEN + 1)
 
   ' Allocate streaming buffer
   _streamBuf = ALLOC(READ_BUF_SIZE)
-
-  ' Allocate reusable sockaddr_in buffer
-  _sockAddr = ALLOC(16)
 
   ' Init header counts
   _respHdrCount = 0
@@ -175,496 +134,32 @@ SUB _HttpInit
   _httpInited = 1
 END SUB
 
-{ ============== Internal Helpers - SSL ASSEM Wrappers (Phase 6) ============== }
-' Module-level _asm* vars (SHARED) pass values to/from ASSEM blocks.
-' ASSEM references BSS labels: _modv__ASMA0, _modv__ASMD0, etc.
-
-' --- exec library calls (base at absolute address 4) ---
-
-SUB LONGINT _ExecOpenLib(ADDRESS libName, LONGINT ver)
-  SHARED _asmA1, _asmD0
-
-  _asmA1 = libName
-  _asmD0 = ver
-
-  ASSEM
-    movem.l d0-d1/a0-a1/a6,-(sp)
-    move.l  _modv__ASMA1,a1
-    move.l  _modv__ASMD0,d0
-    move.l  4,a6
-    jsr     -552(a6)
-    move.l  d0,_modv__ASMD0
-    movem.l (sp)+,d0-d1/a0-a1/a6
-  END ASSEM
-
-  _ExecOpenLib = _asmD0
-END SUB
-
-SUB _ExecCloseLib(ADDRESS libBase)
-  SHARED _asmA1
-
-  _asmA1 = libBase
-
-  ASSEM
-    movem.l d0-d1/a0-a1/a6,-(sp)
-    move.l  _modv__ASMA1,a1
-    move.l  4,a6
-    jsr     -414(a6)
-    movem.l (sp)+,d0-d1/a0-a1/a6
-  END ASSEM
-END SUB
-
-' --- amisslmaster library calls ---
-
-SUB LONGINT _MasterInit(LONGINT ver, LONGINT usesStructs)
-  SHARED _asmA6, _asmD0, _asmD1, _masterBase
-
-  _asmA6 = _masterBase
-  _asmD0 = ver
-  _asmD1 = usesStructs
-
-  ASSEM
-    movem.l d0-d1/a0-a1/a6,-(sp)
-    move.l  _modv__ASMD0,d0
-    move.l  _modv__ASMD1,d1
-    move.l  _modv__ASMA6,a6
-    jsr     -30(a6)
-    move.l  d0,_modv__ASMD0
-    movem.l (sp)+,d0-d1/a0-a1/a6
-  END ASSEM
-
-  _MasterInit = _asmD0
-END SUB
-
-SUB LONGINT _MasterOpen
-  SHARED _asmA6, _asmD0, _masterBase
-
-  _asmA6 = _masterBase
-
-  ASSEM
-    movem.l d0-d1/a0-a1/a6,-(sp)
-    move.l  _modv__ASMA6,a6
-    jsr     -36(a6)
-    move.l  d0,_modv__ASMD0
-    movem.l (sp)+,d0-d1/a0-a1/a6
-  END ASSEM
-
-  _MasterOpen = _asmD0
-END SUB
-
-SUB _MasterClose
-  SHARED _asmA6, _masterBase
-
-  _asmA6 = _masterBase
-
-  ASSEM
-    movem.l d0-d1/a0-a1/a6,-(sp)
-    move.l  _modv__ASMA6,a6
-    jsr     -42(a6)
-    movem.l (sp)+,d0-d1/a0-a1/a6
-  END ASSEM
-END SUB
-
-' --- amissl library calls ---
-
-SUB LONGINT _AmiSSLInit
-  SHARED _asmA6, _asmD0, _asmSockBase, _amisslBase
-
-  _asmA6 = _amisslBase
-
-  ' Build tag list: [AmiSSL_SocketBase=$80000001, sockBase, TAG_DONE=0, 0]
-  ASSEM
-    movem.l d0-d1/a0-a1/a6,-(sp)
-    lea     _sslTagList,a0
-    move.l  #$80000001,(a0)
-    move.l  _modv__ASMSOCKBASE,4(a0)
-    clr.l   8(a0)
-    clr.l   12(a0)
-    move.l  _modv__ASMA6,a6
-    jsr     -36(a6)
-    move.l  d0,_modv__ASMD0
-    movem.l (sp)+,d0-d1/a0-a1/a6
-  END ASSEM
-
-  _AmiSSLInit = _asmD0
-END SUB
-
-SUB LONGINT _SslCtxNew
-  SHARED _asmA6, _asmD0, _amisslBase
-
-  _asmA6 = _amisslBase
-
-  ' First call TLS_client_method (LVO -26934), then SSL_CTX_new (LVO -8208)
-  ASSEM
-    movem.l d0-d1/a0-a1/a6,-(sp)
-    move.l  _modv__ASMA6,a6
-    jsr     -26934(a6)
-    move.l  d0,a0
-    move.l  _modv__ASMA6,a6
-    jsr     -8208(a6)
-    move.l  d0,_modv__ASMD0
-    movem.l (sp)+,d0-d1/a0-a1/a6
-  END ASSEM
-
-  _SslCtxNew = _asmD0
-END SUB
-
-SUB _SslCtxFree(LONGINT ctx)
-  SHARED _asmA0, _asmA6, _amisslBase
-
-  _asmA0 = ctx
-  _asmA6 = _amisslBase
-
-  ASSEM
-    movem.l d0-d1/a0-a1/a6,-(sp)
-    move.l  _modv__ASMA0,a0
-    move.l  _modv__ASMA6,a6
-    jsr     -8214(a6)
-    movem.l (sp)+,d0-d1/a0-a1/a6
-  END ASSEM
-END SUB
-
-SUB _SslCtxSetVerify(LONGINT ctx, LONGINT md)
-  SHARED _asmA0, _asmA6, _asmD0, _amisslBase
-
-  _asmA0 = ctx
-  _asmD0 = md
-  _asmA6 = _amisslBase
-
-  ' a1=callback (NULL=0)
-  ASSEM
-    movem.l d0-d1/a0-a1/a6,-(sp)
-    move.l  _modv__ASMA0,a0
-    move.l  _modv__ASMD0,d0
-    sub.l   a1,a1
-    move.l  _modv__ASMA6,a6
-    jsr     -8700(a6)
-    movem.l (sp)+,d0-d1/a0-a1/a6
-  END ASSEM
-END SUB
-
-SUB LONGINT _SslNew(LONGINT ctx)
-  SHARED _asmA0, _asmA6, _asmD0, _amisslBase
-
-  _asmA0 = ctx
-  _asmA6 = _amisslBase
-
-  ASSEM
-    movem.l d0-d1/a0-a1/a6,-(sp)
-    move.l  _modv__ASMA0,a0
-    move.l  _modv__ASMA6,a6
-    jsr     -8784(a6)
-    move.l  d0,_modv__ASMD0
-    movem.l (sp)+,d0-d1/a0-a1/a6
-  END ASSEM
-
-  _SslNew = _asmD0
-END SUB
-
-SUB _SslFree(LONGINT ssl)
-  SHARED _asmA0, _asmA6, _amisslBase
-
-  _asmA0 = ssl
-  _asmA6 = _amisslBase
-
-  ASSEM
-    movem.l d0-d1/a0-a1/a6,-(sp)
-    move.l  _modv__ASMA0,a0
-    move.l  _modv__ASMA6,a6
-    jsr     -8820(a6)
-    movem.l (sp)+,d0-d1/a0-a1/a6
-  END ASSEM
-END SUB
-
-SUB LONGINT _SslSetFd(LONGINT ssl, LONGINT fd)
-  SHARED _asmA0, _asmA6, _asmD0, _amisslBase
-
-  _asmA0 = ssl
-  _asmD0 = fd
-  _asmA6 = _amisslBase
-
-  ASSEM
-    movem.l d0-d1/a0-a1/a6,-(sp)
-    move.l  _modv__ASMA0,a0
-    move.l  _modv__ASMD0,d0
-    move.l  _modv__ASMA6,a6
-    jsr     -8358(a6)
-    move.l  d0,_modv__ASMD0
-    movem.l (sp)+,d0-d1/a0-a1/a6
-  END ASSEM
-
-  _SslSetFd = _asmD0
-END SUB
-
-SUB LONGINT _SslConnect(LONGINT ssl)
-  SHARED _asmA0, _asmA6, _asmD0, _amisslBase
-
-  _asmA0 = ssl
-  _asmA6 = _amisslBase
-
-  ASSEM
-    movem.l d0-d1/a0-a1/a6,-(sp)
-    move.l  _modv__ASMA0,a0
-    move.l  _modv__ASMA6,a6
-    jsr     -8832(a6)
-    move.l  d0,_modv__ASMD0
-    movem.l (sp)+,d0-d1/a0-a1/a6
-  END ASSEM
-
-  _SslConnect = _asmD0
-END SUB
-
-SUB LONGINT _SslRead(LONGINT ssl, ADDRESS buf, LONGINT num)
-  SHARED _asmA0, _asmA1, _asmA6, _asmD0, _amisslBase
-
-  _asmA0 = ssl
-  _asmA1 = buf
-  _asmD0 = num
-  _asmA6 = _amisslBase
-
-  ASSEM
-    movem.l d0-d1/a0-a1/a6,-(sp)
-    move.l  _modv__ASMA0,a0
-    move.l  _modv__ASMA1,a1
-    move.l  _modv__ASMD0,d0
-    move.l  _modv__ASMA6,a6
-    jsr     -8838(a6)
-    move.l  d0,_modv__ASMD0
-    movem.l (sp)+,d0-d1/a0-a1/a6
-  END ASSEM
-
-  _SslRead = _asmD0
-END SUB
-
-SUB LONGINT _SslWrite(LONGINT ssl, ADDRESS buf, LONGINT num)
-  SHARED _asmA0, _asmA1, _asmA6, _asmD0, _amisslBase
-
-  _asmA0 = ssl
-  _asmA1 = buf
-  _asmD0 = num
-  _asmA6 = _amisslBase
-
-  ASSEM
-    movem.l d0-d1/a0-a1/a6,-(sp)
-    move.l  _modv__ASMA0,a0
-    move.l  _modv__ASMA1,a1
-    move.l  _modv__ASMD0,d0
-    move.l  _modv__ASMA6,a6
-    jsr     -8850(a6)
-    move.l  d0,_modv__ASMD0
-    movem.l (sp)+,d0-d1/a0-a1/a6
-  END ASSEM
-
-  _SslWrite = _asmD0
-END SUB
-
-SUB LONGINT _SslShutdown(LONGINT ssl)
-  SHARED _asmA0, _asmA6, _asmD0, _amisslBase
-
-  _asmA0 = ssl
-  _asmA6 = _amisslBase
-
-  ASSEM
-    movem.l d0-d1/a0-a1/a6,-(sp)
-    move.l  _modv__ASMA0,a0
-    move.l  _modv__ASMA6,a6
-    jsr     -8994(a6)
-    move.l  d0,_modv__ASMD0
-    movem.l (sp)+,d0-d1/a0-a1/a6
-  END ASSEM
-
-  _SslShutdown = _asmD0
-END SUB
-
-{ ============== Internal Helpers - SSL Init/Handshake (Phase 6) ============== }
-
-SUB LONGINT _HttpInitSSL
-  SHARED _sslInited, _masterBase, _amisslBase, _sslCtx
-  LONGINT rc
-
-  ' Already initialized?
-  IF _sslInited = 1 THEN
-    _HttpInitSSL = HTTP_SUCCESS
-    EXIT SUB
-  END IF
-  IF _sslInited = -1 THEN
-    _HttpInitSSL = HTTP_ERR_NO_LIB
-    EXIT SUB
-  END IF
-
-  ' Open amisslmaster.library via exec (not LIBRARY - would exit on fail)
-  _masterBase = _ExecOpenLib(SADD("amisslmaster.library"), 0)
-  IF _masterBase = 0 THEN
-    _sslInited = -1
-    _HttpInitSSL = HTTP_ERR_NO_LIB
-    EXIT SUB
-  END IF
-
-  ' InitAmiSSLMaster(version=21 for OpenSSL 3.x, usesStructs=1)
-  rc = _MasterInit(21, 1)
-  IF rc = 0 THEN
-    _ExecCloseLib(_masterBase)
-    _masterBase = 0
-    _sslInited = -1
-    _HttpInitSSL = HTTP_ERR_SSL_INIT
-    EXIT SUB
-  END IF
-
-  ' OpenAmiSSL -> amissl library base
-  _amisslBase = _MasterOpen
-  IF _amisslBase = 0 THEN
-    _ExecCloseLib(_masterBase)
-    _masterBase = 0
-    _sslInited = -1
-    _HttpInitSSL = HTTP_ERR_SSL_INIT
-    EXIT SUB
-  END IF
-
-  ' Copy bsdsocket.library base to ASSEM-accessible storage
-  ' _BSDSOCKETBase is created by ACE's LIBRARY statement
-  ASSEM
-    move.l  _BSDSOCKETBase,d0
-    move.l  d0,_modv__ASMSOCKBASE
-  END ASSEM
-
-  ' InitAmiSSLA with socket base tag
-  rc = _AmiSSLInit
-  IF rc <> 0 THEN
-    _MasterClose
-    _ExecCloseLib(_masterBase)
-    _masterBase = 0
-    _amisslBase = 0
-    _sslInited = -1
-    _HttpInitSSL = HTTP_ERR_SSL_INIT
-    EXIT SUB
-  END IF
-
-  ' Create shared SSL context
-  _sslCtx = _SslCtxNew
-  IF _sslCtx = 0 THEN
-    _MasterClose
-    _ExecCloseLib(_masterBase)
-    _masterBase = 0
-    _amisslBase = 0
-    _sslInited = -1
-    _HttpInitSSL = HTTP_ERR_SSL_INIT
-    EXIT SUB
-  END IF
-
-  ' Disable certificate verification (no CA bundle on Amiga)
-  _SslCtxSetVerify(_sslCtx, 0)
-
-  _sslInited = 1
-  _HttpInitSSL = HTTP_SUCCESS
-END SUB
-
-SUB LONGINT _HttpSSLHandshake
-  SHARED _connSocket, _connSSL, _sslCtx
-  LONGINT ssl, rc
-
-  ssl = _SslNew(_sslCtx)
-  IF ssl = 0 THEN
-    _HttpSSLHandshake = HTTP_ERR_SSL_INIT
-    EXIT SUB
-  END IF
-
-  rc = _SslSetFd(ssl, _connSocket)
-  IF rc = 0 THEN
-    _SslFree(ssl)
-    _HttpSSLHandshake = HTTP_ERR_SSL_CONNECT
-    EXIT SUB
-  END IF
-
-  rc = _SslConnect(ssl)
-  IF rc <> 1 THEN
-    _SslFree(ssl)
-    _HttpSSLHandshake = HTTP_ERR_SSL_CONNECT
-    EXIT SUB
-  END IF
-
-  _connSSL = ssl
-  _HttpSSLHandshake = HTTP_SUCCESS
-END SUB
-
-SUB _HttpSSLShutdown
-  SHARED _connSSL
-
-  IF _connSSL <> 0 THEN
-    _SslShutdown(_connSSL)
-    _SslFree(_connSSL)
-    _connSSL = 0
-  END IF
-END SUB
-
-{ ============== Internal Helpers - TCP ============== }
-
-SUB LONGINT _HttpResolve(host$)
-  LONGINT he, addrList, addrPtr, ipAddr
-
-  ' Try as dotted IP first
-  ipAddr = inet_addr(SADD(host$))
-  IF ipAddr <> -1 THEN
-    _HttpResolve = ipAddr
-    EXIT SUB
-  END IF
-
-  ' DNS lookup
-  he = gethostbyname(SADD(host$))
-  IF he = 0 THEN
-    _HttpResolve = 0
-    EXIT SUB
-  END IF
-
-  ' hostent: h_addr_list is at offset 16
-  addrList = PEEKL(he + 16)
-  addrPtr = PEEKL(addrList)
-  ipAddr = PEEKL(addrPtr)
-  _HttpResolve = ipAddr
-END SUB
-
-SUB LONGINT _HttpConnectTCP(LONGINT ipAddr, LONGINT port)
-  SHARED _sockAddr
-  LONGINT sock, rc
-
-  sock = socket(AF_INET, SOCK_STREAM, 0)
-  IF sock < 0 THEN
-    _HttpConnectTCP = -1
-    EXIT SUB
-  END IF
-
-  POKE _sockAddr, 16
-  POKE _sockAddr + 1, 2
-  POKEW _sockAddr + 2, port
-  POKEL _sockAddr + 4, ipAddr
-
-  rc = connect(sock, _sockAddr, 16)
-  IF rc < 0 THEN
-    CloseSocket(sock)
-    _HttpConnectTCP = -1
-    EXIT SUB
-  END IF
-
-  _HttpConnectTCP = sock
-END SUB
+{ ============== Internal Helpers - TCP wrappers ============== }
 
 SUB LONGINT _HttpSendRaw(ADDRESS buf, LONGINT bufLen)
-  SHARED _connSocket, _connSSL
+  SHARED _tcpHandle
 
-  IF _connSSL <> 0 THEN
-    _HttpSendRaw = _SslWrite(_connSSL, buf, bufLen)
+  _HttpSendRaw = TcpSend(_tcpHandle, buf, bufLen)
+END SUB
+
+SUB _HttpRecvLine
+  SHARED _tcpHandle, _lineBuf, _lineResult$, _lineOk
+  LONGINT rc
+
+  rc = TcpRecvLine(_tcpHandle, _lineBuf, MAX_LINE_LEN)
+  IF rc >= 0 THEN
+    _lineResult$ = CSTR(_lineBuf)
+    _lineOk = 1
   ELSE
-    _HttpSendRaw = send(_connSocket, buf, bufLen, 0)
+    _lineResult$ = ""
+    _lineOk = 0
   END IF
 END SUB
 
-SUB LONGINT _HttpRecvRaw(ADDRESS buf, LONGINT bufLen)
-  SHARED _connSocket, _connSSL
+SUB LONGINT _HttpReadBuf(LONGINT destAddr, LONGINT maxBytes)
+  SHARED _tcpHandle
 
-  IF _connSSL <> 0 THEN
-    _HttpRecvRaw = _SslRead(_connSSL, buf, bufLen)
-  ELSE
-    _HttpRecvRaw = recv(_connSocket, buf, bufLen, 0)
-  END IF
+  _HttpReadBuf = TcpRecvBuf(_tcpHandle, destAddr, maxBytes)
 END SUB
 
 { ============== Internal Helpers - HTTP ============== }
@@ -720,82 +215,7 @@ SUB _HttpParseUrl(STRING url$)
   END IF
 END SUB
 
-SUB _HttpRecvLine
-  SHARED _bufAddr, _bufPos, _bufLen
-  SHARED _lineBuf, _lineResult$, _lineOk
-  LONGINT resultLen, found, lineErr
-  LONGINT scanPos, gotLF, copyEnd, avail, n, i
-
-  resultLen = 0
-  found = 0
-  lineErr = 0
-
-  WHILE found = 0 AND lineErr = 0
-    ' Refill buffer if empty
-    IF _bufPos >= _bufLen THEN
-      _bufPos = 0
-      _bufLen = 0
-      n = _HttpRecvRaw(_bufAddr, READ_BUF_SIZE)
-      IF n <= 0 THEN
-        lineErr = 1
-      ELSE
-        _bufLen = n
-      END IF
-    END IF
-
-    IF lineErr = 0 THEN
-      ' Scan for LF (byte 10)
-      scanPos = _bufPos
-      gotLF = 0
-      WHILE scanPos < _bufLen AND gotLF = 0
-        IF PEEK(_bufAddr + scanPos) = 10 THEN
-          gotLF = 1
-        ELSE
-          scanPos = scanPos + 1
-        END IF
-      WEND
-
-      IF gotLF = 1 THEN
-        ' Found LF: copy bytes before it (strip CR if present)
-        copyEnd = scanPos
-        IF copyEnd > _bufPos THEN
-          IF PEEK(_bufAddr + copyEnd - 1) = 13 THEN
-            copyEnd = copyEnd - 1
-          END IF
-        END IF
-        FOR i = _bufPos TO copyEnd - 1
-          IF resultLen < MAX_LINE_LEN THEN
-            POKE _lineBuf + resultLen, PEEK(_bufAddr + i)
-            resultLen = resultLen + 1
-          END IF
-        NEXT i
-        _bufPos = scanPos + 1
-        found = 1
-      ELSE
-        ' No LF yet: copy all remaining buffer bytes
-        FOR i = _bufPos TO _bufLen - 1
-          IF resultLen < MAX_LINE_LEN THEN
-            POKE _lineBuf + resultLen, PEEK(_bufAddr + i)
-            resultLen = resultLen + 1
-          END IF
-        NEXT i
-        _bufPos = _bufLen
-      END IF
-    END IF
-  WEND
-
-  ' Null-terminate and convert to string
-  POKE _lineBuf + resultLen, 0
-  _lineResult$ = CSTR(_lineBuf)
-
-  IF lineErr THEN
-    _lineOk = 0
-  ELSE
-    _lineOk = 1
-  END IF
-END SUB
-
-{ ============== Internal Helpers - Chunked Decoder (Phase 3) ============== }
+{ ============== Internal Helpers - Chunked Decoder ============== }
 
 SUB LONGINT _HttpParseHex(STRING hx$)
   LONGINT result, i, c, dgt, done
@@ -821,47 +241,6 @@ SUB LONGINT _HttpParseHex(STRING hx$)
   WEND
 
   _HttpParseHex = result
-END SUB
-
-SUB LONGINT _HttpReadBuf(LONGINT destAddr, LONGINT maxBytes)
-  SHARED _bufAddr, _bufPos, _bufLen
-  LONGINT avail, n, i
-
-  IF maxBytes <= 0 THEN
-    _HttpReadBuf = 0
-    EXIT SUB
-  END IF
-
-  ' If buffer has data, drain up to maxBytes
-  IF _bufPos < _bufLen THEN
-    avail = _bufLen - _bufPos
-    IF avail > maxBytes THEN avail = maxBytes
-    FOR i = 0 TO avail - 1
-      POKE destAddr + i, PEEK(_bufAddr + _bufPos + i)
-    NEXT i
-    _bufPos = _bufPos + avail
-    _HttpReadBuf = avail
-    EXIT SUB
-  END IF
-
-  ' Buffer empty - refill from socket
-  _bufPos = 0
-  _bufLen = 0
-  n = _HttpRecvRaw(_bufAddr, READ_BUF_SIZE)
-  IF n <= 0 THEN
-    _HttpReadBuf = 0
-    EXIT SUB
-  END IF
-  _bufLen = n
-
-  ' Copy up to maxBytes from freshly filled buffer
-  avail = n
-  IF avail > maxBytes THEN avail = maxBytes
-  FOR i = 0 TO avail - 1
-    POKE destAddr + i, PEEK(_bufAddr + i)
-  NEXT i
-  _bufPos = avail
-  _HttpReadBuf = avail
 END SUB
 
 SUB LONGINT _HttpReadChunked(LONGINT bufAddr, LONGINT bufSz)
@@ -928,19 +307,10 @@ END SUB
 { ============== Public API - Core ============== }
 
 SUB LONGINT HttpOpen(STRING host, LONGINT port, LONGINT useSSL) EXTERNAL
-  SHARED _connSocket, _connState, _connHost$, _connPort
-  LONGINT ipAddr, sock, rc
+  SHARED _connState, _tcpHandle, _connHost$, _connPort
+  LONGINT h
 
   _HttpInit
-
-  ' SSL init on first HTTPS request (lazy)
-  IF useSSL = 1 THEN
-    rc = _HttpInitSSL
-    IF rc < 0 THEN
-      HttpOpen = rc
-      EXIT SUB
-    END IF
-  END IF
 
   ' Only one connection at a time
   IF _connState <> CONN_FREE THEN
@@ -948,55 +318,43 @@ SUB LONGINT HttpOpen(STRING host, LONGINT port, LONGINT useSSL) EXTERNAL
     EXIT SUB
   END IF
 
-  ipAddr = _HttpResolve(host)
-  IF ipAddr = 0 THEN
+  h = TcpOpen(host, port, useSSL)
+
+  ' Map tcpclient errors to HTTP error codes
+  IF h = TCP_ERR_DNS THEN
     HttpOpen = HTTP_ERR_DNS
     EXIT SUB
-  END IF
-
-  sock = _HttpConnectTCP(ipAddr, port)
-  IF sock < 0 THEN
+  ELSEIF h = TCP_ERR_SSL THEN
+    HttpOpen = HTTP_ERR_SSL_INIT
+    EXIT SUB
+  ELSEIF h = TCP_ERR_NO_SLOT THEN
+    HttpOpen = HTTP_ERR_SOCKET
+    EXIT SUB
+  ELSEIF h < 0 THEN
     HttpOpen = HTTP_ERR_SOCKET
     EXIT SUB
   END IF
 
-  _connSocket = sock
+  _tcpHandle = h
   _connState = CONN_OPEN
   _connHost$ = host
   _connPort = port
-
-  ' SSL handshake after TCP connect
-  IF useSSL = 1 THEN
-    rc = _HttpSSLHandshake
-    IF rc < 0 THEN
-      CloseSocket(sock)
-      _connSocket = -1
-      _connState = CONN_FREE
-      _connHost$ = ""
-      _connPort = 0
-      HttpOpen = rc
-      EXIT SUB
-    END IF
-  END IF
 
   HttpOpen = 1
 END SUB
 
 SUB HttpClose(LONGINT hConn) EXTERNAL
-  SHARED _connSocket, _connState
+  SHARED _connState, _tcpHandle
   SHARED _connHost$, _connPort, _connContentLen, _connBodyLeft, _connXfer
   SHARED _connChunkState, _connChunkLeft
-  SHARED _bufPos, _bufLen
   SHARED _respHdrCount, _reqHdrCount
 
   IF hConn <> 1 THEN EXIT SUB
   IF _connState = CONN_FREE THEN EXIT SUB
 
-  ' SSL shutdown before closing socket
-  _HttpSSLShutdown
+  TcpClose(_tcpHandle)
 
-  CloseSocket(_connSocket)
-  _connSocket = -1
+  _tcpHandle = 0
   _connState = CONN_FREE
   _connHost$ = ""
   _connPort = 0
@@ -1006,17 +364,15 @@ SUB HttpClose(LONGINT hConn) EXTERNAL
   _connChunkState = CHK_SIZE
   _connChunkLeft = 0
 
-  ' Reset buffer and headers
-  _bufPos = 0
-  _bufLen = 0
+  ' Reset headers
   _respHdrCount = 0
   _reqHdrCount = 0
 END SUB
 
-{ ============== Public API - Raw byte helpers (Phase 1 testing) ============== }
+{ ============== Public API - Raw byte helpers ============== }
 
 SUB LONGINT HttpSendRawBytes(LONGINT hConn, STRING msg) EXTERNAL
-  SHARED _connSocket, _connState
+  SHARED _connState, _tcpHandle
 
   IF hConn <> 1 THEN
     HttpSendRawBytes = HTTP_ERR_SOCKET
@@ -1027,11 +383,11 @@ SUB LONGINT HttpSendRawBytes(LONGINT hConn, STRING msg) EXTERNAL
     EXIT SUB
   END IF
 
-  HttpSendRawBytes = send(_connSocket, SADD(msg), LEN(msg), 0)
+  HttpSendRawBytes = TcpSend(_tcpHandle, SADD(msg), LEN(msg))
 END SUB
 
 SUB LONGINT HttpRecvRawBytes(LONGINT hConn, ADDRESS buf, LONGINT bufSz) EXTERNAL
-  SHARED _connSocket, _connState
+  SHARED _connState, _tcpHandle
 
   IF hConn <> 1 THEN
     HttpRecvRawBytes = HTTP_ERR_RECV
@@ -1042,7 +398,7 @@ SUB LONGINT HttpRecvRawBytes(LONGINT hConn, ADDRESS buf, LONGINT bufSz) EXTERNAL
     EXIT SUB
   END IF
 
-  HttpRecvRawBytes = recv(_connSocket, buf, bufSz, 0)
+  HttpRecvRawBytes = TcpRecv(_tcpHandle, buf, bufSz)
 END SUB
 
 { ============== Public API - Low-level handle API ============== }
@@ -1137,10 +493,9 @@ SUB LONGINT HttpSendRequest(LONGINT h, STRING meth$, ~
 END SUB
 
 SUB LONGINT HttpReadStatus(LONGINT h) EXTERNAL
-  SHARED _connState
+  SHARED _connState, _tcpHandle
   SHARED _connContentLen, _connBodyLeft, _connXfer
   SHARED _connChunkState, _connChunkLeft
-  SHARED _bufPos, _bufLen
   SHARED _respHdrName$, _respHdrVal$, _respHdrCount
   SHARED _lineResult$, _lineOk
   LONGINT spPos, statusCode
@@ -1164,9 +519,8 @@ SUB LONGINT HttpReadStatus(LONGINT h) EXTERNAL
   _connChunkState = CHK_SIZE
   _connChunkLeft = 0
 
-  ' Reset read buffer
-  _bufPos = 0
-  _bufLen = 0
+  ' Flush any leftover buffered data in tcpclient
+  TcpBufFlush(_tcpHandle)
 
   ' Read status line: "HTTP/1.x NNN reason"
   _HttpRecvLine
@@ -1293,9 +647,8 @@ END SUB
 
 SUB LONGINT HttpReadBody(LONGINT h, LONGINT dataBuf, ~
                          LONGINT bufSz) EXTERNAL
-  SHARED _connState, _connXfer, _connBodyLeft
-  SHARED _bufAddr, _bufPos, _bufLen
-  LONGINT toRead, totalRd, avail, n, i
+  SHARED _connState, _tcpHandle, _connXfer, _connBodyLeft
+  LONGINT toRead, totalRd, n
 
   IF h <> 1 THEN
     HttpReadBody = HTTP_ERR_SOCKET
@@ -1326,33 +679,16 @@ SUB LONGINT HttpReadBody(LONGINT h, LONGINT dataBuf, ~
     toRead = bufSz
   END IF
 
-  totalRd = 0
+  ' Read via tcpclient buffered reader
+  totalRd = TcpRecvBuf(_tcpHandle, dataBuf, toRead)
 
-  ' First drain leftover bytes from read buffer (from header parsing)
-  IF _bufPos < _bufLen THEN
-    avail = _bufLen - _bufPos
-    IF avail > toRead THEN avail = toRead
-    FOR i = 0 TO avail - 1
-      POKE dataBuf + totalRd + i, PEEK(_bufAddr + _bufPos + i)
-    NEXT i
-    _bufPos = _bufPos + avail
-    totalRd = totalRd + avail
-    toRead = toRead - avail
-  END IF
-
-  ' Read remaining directly from socket
-  IF toRead > 0 THEN
-    n = _HttpRecvRaw(dataBuf + totalRd, toRead)
-    IF n > 0 THEN
-      totalRd = totalRd + n
-    ELSEIF totalRd = 0 THEN
-      IF _connXfer = XFER_CLOSE THEN
-        HttpReadBody = 0
-      ELSE
-        HttpReadBody = HTTP_ERR_RECV
-      END IF
-      EXIT SUB
+  IF totalRd <= 0 THEN
+    IF _connXfer = XFER_CLOSE THEN
+      HttpReadBody = 0
+    ELSE
+      HttpReadBody = HTTP_ERR_RECV
     END IF
+    EXIT SUB
   END IF
 
   ' Update remaining body length for Content-Length mode
@@ -1760,11 +1096,3 @@ SUB LONGINT HttpPutStream(STRING url, STRING ct, ~
                           ADDRESS onSend, ADDRESS onRecv) EXTERNAL
   HttpPutStream = HttpRequestStream(url, "PUT", ct, onSend, onRecv)
 END SUB
-
-{ ============== ASSEM Storage (Phase 6) ============== }
-' Tag list for AmiSSL init (4 longints = 16 bytes).
-' Referenced directly in _AmiSSLInit ASSEM block via LEA.
-
-ASSEM
-_sslTagList: dc.l 0,0,0,0
-END ASSEM

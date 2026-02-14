@@ -1,6 +1,8 @@
 REM test_lowlevel.b - Phase 2 low-level API test
 REM Connect via HttpOpen, send GET via low-level API, print status + headers + body
 REM #using ace:submods/httpclient/httpclient.o
+REM #using ace:submods/tcpclient/tcpclient.o
+REM #using ace:submods/amissl/amissl.o
 
 #include <submods/HTTPClient.h>
 
