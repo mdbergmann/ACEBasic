@@ -155,6 +155,15 @@ Test files:
   test_https.b          - HTTPS via AmiSSL
 
 
+Conventions
+-----------
+
+Struct fields prefixed with _ are private/internal. Do not read or
+write them directly. Use the provided API functions instead.
+Public fields (e.g. statusCode, contentLen) can be read after the
+appropriate API call (e.g. HttpReadStatus).
+
+
 Limitations
 -----------
 

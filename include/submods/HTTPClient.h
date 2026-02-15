@@ -17,6 +17,9 @@
  *   - Streaming (callback-based for large/binary transfers)
  *   - Low-level struct-based (full control over request lifecycle)
  *
+ * Convention: struct fields prefixed with _ are private/internal.
+ *   Do not read or write them directly.
+ *
  * Requirements:
  *   - bsdsocket.library (AmiTCP, Roadshow, or compatible TCP/IP stack)
  *   - amisslmaster.library + amissl.library (optional, for HTTPS only)

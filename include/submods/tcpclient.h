@@ -20,6 +20,9 @@
  *   TcpClose(myConn)
  *   TcpCleanup
  *
+ * Convention: struct fields prefixed with _ are private/internal.
+ *   Do not read or write them directly.
+ *
  * Requirements:
  *   - bsdsocket.library (AmiTCP, Roadshow, or compatible)
  *   - amisslmaster.library + amissl.library (optional, for SSL)
@@ -28,6 +31,7 @@
 #include <submods/amissl.h>
 
 ' TcpConn - Per-connection state struct (owned by caller)
+'   All fields are private (_prefix = do not access directly).
 STRUCT TcpConn
   LONGINT _sockFd          ' socket file descriptor (-1 = not connected)
   LONGINT _sslHnd          ' SSL handle (0 = plain TCP)
