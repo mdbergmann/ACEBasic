@@ -741,6 +741,7 @@ SYM  *structtype;
    strcpy(new_structmem->name,name);
    new_structmem->type = mtype;
    new_structmem->offset = symtabitem->size;
+   new_structmem->strsize = 0;
    
    /* link member into list */
    find_structmem_tail(symtabitem);

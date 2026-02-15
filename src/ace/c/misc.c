@@ -326,7 +326,17 @@ int    mbr_type=undefined;
     else
         gen("movea.l",addrbuf,"a0"); /* start address of struct */
 
-    /* offset from struct start */ 
+    /* array member? push address (like string) */
+    if (member->strsize > 0 && mbr_type != stringtype && mbr_type != structure)
+    {
+     sprintf(numbuf,"#%ld",member->offset);
+     gen("adda.l",numbuf,"a0");
+     gen("move.l","a0","-(sp)");
+     mbr_type=longtype;
+    }
+    else
+    {
+    /* offset from struct start */
     if (mbr_type != stringtype)
     {
      ltoa(member->offset,absbuf,10);
@@ -352,7 +362,8 @@ int    mbr_type=undefined;
      gen("move.l","a0","-(sp)");  /* push string address */
     }
     else
-       gen("move.l",absbuf,"-(sp)");  /* long, single */ 
+       gen("move.l",absbuf,"-(sp)");  /* long, single */
+    } 
    }
   }
   insymbol();

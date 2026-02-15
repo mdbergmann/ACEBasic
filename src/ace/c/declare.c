@@ -71,6 +71,7 @@ SYM   *structdef_item,*struct_mbr_def;
 int   mem_type;
 int   oldlevel;
 LONG  string_size;
+LONG  elem_size;
 
 /* define all structures 
    at level ZERO */
@@ -142,14 +143,16 @@ else
 
     insymbol();
 
-    /* specify optional string size? */
-    if ((mem_type == stringtype) && (sym == sizesym))
+    /* specify optional array/string size? */
+    if (sym == sizesym && (mem_type == stringtype || mem_type == bytetype ||
+        mem_type == shorttype || mem_type == longtype ||
+        mem_type == singletype))
     {
      insymbol();
      if (sym == shortconst) string_size=(LONG)shortval;
      else
      if (sym == longconst) string_size=longval;
-     else 
+     else
      if (sym == ident && exist(id,constant))
      {
 	/* short or long defined constant? */
@@ -164,14 +167,30 @@ else
      else
          _error(27); /* numeric constant expected */
 
-     if (string_size <= 0L) _error(41);  /* non-positive string size! */
- 
+     if (string_size <= 0L) _error(41);  /* non-positive size! */
+
      insymbol();
 
      /* change member and struct info */
-     curr_structmem->strsize = string_size;
-     structdef_item->size -= MAXSTRLEN;  /* subtract default string size */
-     structdef_item->size += string_size; 
+     if (mem_type == stringtype)
+     {
+      curr_structmem->strsize = string_size;
+      structdef_item->size -= MAXSTRLEN;
+      structdef_item->size += string_size;
+     }
+     else
+     {
+      /* typed array: compute total bytes */
+      switch(mem_type)
+      {
+       case bytetype   : elem_size = 1; break;
+       case shorttype  : elem_size = 2; break;
+       default         : elem_size = 4; break; /* long, single */
+      }
+      curr_structmem->strsize = string_size * elem_size;
+      structdef_item->size -= elem_size;        /* subtract scalar default */
+      structdef_item->size += string_size * elem_size;
+     }
     } 
    }
    while (sym == endofline) insymbol();  /* skip blank line(s) */
@@ -267,17 +286,30 @@ char   strsize[20],bss_spec[40];
        {
         switch(curr_member->type)
         {
-         case bytetype   : enter_BSS("  ","ds.b 1"); break;
-         case shorttype  : enter_BSS("  ","ds.w 1"); break;
-         case longtype   : enter_BSS("  ","ds.l 1"); break;
-         case singletype : enter_BSS("  ","ds.l 1"); break;
+         case bytetype   :
+         case shorttype  :
+         case longtype   :
+         case singletype : if (curr_member->strsize > 0)
+			   {
+			    ltoa(curr_member->strsize,strsize,10);
+			    strcpy(bss_spec,"ds.b ");
+			    strcat(bss_spec,strsize);
+			    enter_BSS("  ",bss_spec);
+			   }
+			   else if (curr_member->type == bytetype)
+			    enter_BSS("  ","ds.b 1");
+			   else if (curr_member->type == shorttype)
+			    enter_BSS("  ","ds.w 1");
+			   else
+			    enter_BSS("  ","ds.l 1");
+			   break;
 
-	 case stringtype : 
+	 case stringtype :
 	 case structure  : ltoa(curr_member->strsize,strsize,10);
 			   strcpy(bss_spec,"ds.b ");
 			   strcat(bss_spec,strsize);
 			   enter_BSS("  ",bss_spec);
-			   break; 
+			   break;
         }
         curr_member = curr_member->next;
        }

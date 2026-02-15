@@ -299,12 +299,16 @@ int    exprtype,storetype;
     if (sym != equal)
        _error(5);
     else
+    if (member->strsize > 0 && member->type != stringtype
+        && member->type != structure)
+       _error(4);  /* can't assign to array member */
+    else
     {
      insymbol();
      exprtype=expr();
 
-     /* treat byte type as a SHORT when coercing */ 
-     if (member->type == bytetype) 
+     /* treat byte type as a SHORT when coercing */
+     if (member->type == bytetype)
         storetype=shorttype;
      else
         storetype=member->type;  /* short, long, single */
