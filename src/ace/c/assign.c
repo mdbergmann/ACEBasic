@@ -326,6 +326,147 @@ int    num_derefs,i;
      insymbol();
     }
 
+    /* struct array indexing in assignment? */
+    if (member != NULL && member->type == structure && sym == lparen
+        && member->structdef != NULL
+        && member->strsize > member->structdef->size)
+    {
+     int idx_type;
+     ULONG elem_size = member->structdef->size;
+     ULONG post_offset;
+
+     /* load struct base address */
+     gen_frame_addr(item->address, addrbuf);
+     if (item->shared && lev == ONE)
+     {
+      gen("movea.l",addrbuf,"a0");
+      gen("movea.l","(a0)","a0");
+     }
+     else
+         gen("movea.l",addrbuf,"a0");
+
+     /* apply pre-array struct pointer dereferences */
+     for (i = 0; i < num_derefs; i++)
+     {
+      ltoa(deref_offsets[i],absbuf,10);
+      strcat(absbuf,"(a0)");
+      gen("movea.l",absbuf,"a0");
+     }
+
+     /* offset to array base */
+     sprintf(numbuf,"#%ld",total_offset);
+     gen("adda.l",numbuf,"a0");
+
+     /* save a0 (will be clobbered by expr) */
+     gen("move.l","a0","-(sp)");
+
+     /* evaluate index expression */
+     insymbol();  /* skip ( */
+     idx_type = expr();
+     if (sym != rparen) _error(9);
+
+     /* pop index into d0 */
+     if (idx_type == shorttype)
+        gen("move.w","(sp)+","d0");
+     else
+        gen("move.l","(sp)+","d0");
+
+     /* multiply by element size */
+     sprintf(numbuf,"#%ld",elem_size);
+     gen("mulu",numbuf,"d0");
+
+     /* restore a0 and add indexed offset */
+     gen("movea.l","(sp)+","a0");
+     gen("adda.l","d0","a0");
+
+     /* resolve further -> chaining into the indexed element */
+     post_offset = 0;
+     insymbol();  /* past ) */
+     while (sym == memberpointer)
+     {
+      insymbol();
+      if (sym != ident)
+         { _error(7); return; }
+
+      member = structmem_exist(member->structdef,id);
+      if (member == NULL)
+         { _error(67); return; }
+
+      if (member->type == structptrtype)
+      {
+       sprintf(numbuf,"#%ld",post_offset);
+       gen("adda.l",numbuf,"a0");
+       gen("movea.l","(a0)","a0");
+       post_offset = 0;
+      }
+
+      post_offset += member->offset;
+      insymbol();
+     }
+
+     /* expect = */
+     if (sym != equal)
+        { _error(5); return; }
+
+     /* check for invalid assignment to array member */
+     if (member->strsize > 0 && member->type != stringtype
+         && member->type != structure)
+        { _error(4); return; }
+
+     /* push target address onto stack */
+     sprintf(numbuf,"#%ld",post_offset);
+     gen("adda.l",numbuf,"a0");
+     gen("move.l","a0","-(sp)");
+
+     /* evaluate RHS expression */
+     insymbol();
+     exprtype = expr();
+
+     /* coerce types */
+     if (member->type == bytetype)
+        storetype = shorttype;
+     else
+     if (member->type == structptrtype)
+        storetype = longtype;
+     else
+        storetype = member->type;
+
+     storetype = assign_coerce(storetype,exprtype);
+     if (storetype == notype)
+        _error(4);
+     else
+     {
+      /* pop RHS value, pop target address, store */
+      if (member->type == bytetype)
+      {
+       gen("move.w","(sp)+","d0");
+       gen("movea.l","(sp)+","a0");
+       gen("move.b","d0","(a0)");
+      }
+      else
+      if (member->type == stringtype)
+      {
+       gen("move.l","(sp)+","a1");
+       gen("movea.l","(sp)+","a0");
+       gen_rt_call("_strcpy");
+      }
+      else
+      if (member->type == shorttype)
+      {
+       gen("move.w","(sp)+","d0");
+       gen("movea.l","(sp)+","a0");
+       gen("move.w","d0","(a0)");
+      }
+      else
+      {
+       gen("move.l","(sp)+","d0");
+       gen("movea.l","(sp)+","a0");
+       gen("move.l","d0","(a0)");
+      }
+     }
+     return;
+    }
+
     if (member == NULL)
        ;  /* error already reported */
     else

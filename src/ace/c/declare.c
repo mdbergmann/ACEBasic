@@ -156,7 +156,7 @@ else
     /* specify optional array/string size? */
     if (sym == sizesym && (mem_type == stringtype || mem_type == bytetype ||
         mem_type == shorttype || mem_type == longtype ||
-        mem_type == singletype))
+        mem_type == singletype || mem_type == structure))
     {
      insymbol();
      if (sym == shortconst) string_size=(LONG)shortval;
@@ -187,6 +187,15 @@ else
       curr_structmem->strsize = string_size;
       structdef_item->size -= MAXSTRLEN;
       structdef_item->size += string_size;
+     }
+     else
+     if (mem_type == structure)
+     {
+      /* struct array: total bytes = count * sizeof(struct) */
+      elem_size = struct_mbr_def->size;
+      curr_structmem->strsize = string_size * elem_size;
+      structdef_item->size -= elem_size;        /* subtract single struct */
+      structdef_item->size += string_size * elem_size;
      }
      else
      {

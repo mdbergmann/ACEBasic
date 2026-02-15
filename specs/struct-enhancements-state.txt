@@ -5,10 +5,14 @@ Spec: specs/struct-enhancements.txt
 Phase 1: Typed arrays in structs      COMPLETE  (branch: phase1-typed-arrays)
 Phase 2: Fix embedded struct access   COMPLETE  (branch: phase2-embedded-struct)
 Phase 3: Typed struct pointers        COMPLETE  (branch: phase2-embedded-struct)
-Phase 4: Self-referential structs     CODE DONE    (branch: phase4-selfref)
-Phase 5: Struct arrays as members     NOT STARTED  (dep: Phase 2)
+Phase 4: Self-referential structs     COMPLETE  (branch: phase4-selfref)
+Phase 5: Struct arrays as members     COMPLETE  (branch: phase5-struct-arrays)
 
-Last completed: Phase 4 - relaxed self-ref check in declare.c case ident,
-  added embedded self-ref rejection after * check,
-  test struct_selfref (4 groups: direct, chained, null, chain-assign)
-Next: Phase 4 emulator test, then Phase 5 - struct arrays as members
+Last completed: Phase 5 - struct arrays as struct members (Inner items SIZE n)
+  declare.c: extended SIZE check to accept structure type, compute total bytes
+  misc.c push_struct(): struct array indexing with (index)->member chaining
+  assign.c assign_to_struct(): inline address computation for indexed struct array assignment
+  test struct_sarr (6 groups: const index, loop index, read, scalar, base addr, sizeof)
+  syntax suite 22/22 pass
+
+All 5 phases complete.

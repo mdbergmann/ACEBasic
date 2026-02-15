@@ -360,6 +360,71 @@ ULONG  total_offset;
        insymbol();
      }
 
+     /* struct array indexing? */
+     if (mbr_type == structure && sym == lparen
+         && member->structdef != NULL
+         && member->strsize > member->structdef->size)
+     {
+      int idx_type;
+      ULONG elem_size = member->structdef->size;
+
+      /* offset to array base */
+      sprintf(numbuf,"#%ld",total_offset);
+      gen("adda.l",numbuf,"a0");
+
+      /* save a0 (will be clobbered by expr) */
+      gen("move.l","a0","-(sp)");
+
+      /* evaluate index expression */
+      insymbol();  /* skip ( */
+      idx_type = expr();
+      if (sym != rparen) _error(9);
+
+      /* pop index into d0 */
+      if (idx_type == shorttype)
+         gen("move.w","(sp)+","d0");
+      else
+         gen("move.l","(sp)+","d0");
+
+      /* multiply by element size */
+      sprintf(numbuf,"#%ld",elem_size);
+      gen("mulu",numbuf,"d0");
+
+      /* restore a0 and add indexed offset */
+      gen("movea.l","(sp)+","a0");
+      gen("adda.l","d0","a0");
+
+      total_offset = 0;
+
+      /* check for further -> chaining into indexed element */
+      insymbol();  /* past ) */
+      while (sym == memberpointer
+             && (mbr_type == structure || mbr_type == structptrtype))
+      {
+       if (mbr_type == structptrtype)
+       {
+        ltoa(total_offset,absbuf,10);
+        strcat(absbuf,"(a0)");
+        gen("movea.l",absbuf,"a0");
+        total_offset = 0;
+       }
+
+       insymbol();
+       if (sym != ident)
+          { _error(7); mbr_type = undefined; break; }
+
+       member = structmem_exist(member->structdef,id);
+       if (member == NULL)
+          { _error(67); mbr_type = undefined; break; }
+
+       mbr_type = member->type;
+       total_offset += member->offset;
+
+       if (mbr_type == structure || mbr_type == structptrtype)
+        insymbol();
+      }
+     }
+
      /* final member: push value or address */
      if (mbr_type == structure)
      {
