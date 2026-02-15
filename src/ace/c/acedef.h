@@ -470,6 +470,7 @@ typedef struct structmem {
 			  int   type;
 			  ULONG offset;
 			  ULONG strsize;
+			  struct symstruct *structdef;
 			  struct structmem *next;
 			 } STRUCM;
   

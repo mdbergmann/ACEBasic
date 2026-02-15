@@ -271,6 +271,7 @@ SYM    *structype;
 char   addrbuf[40],absbuf[40],numbuf[40];
 STRUCM *member;
 int    exprtype,storetype;
+ULONG  total_offset;
 
  if (sym == memberpointer)
  {
@@ -294,8 +295,28 @@ int    exprtype,storetype;
       { _error(67); insymbol(); }  /* not a member! */
    else
    {
-    /* assign value */
+    /* resolve chained -> for embedded struct members,
+       accumulating offset from outermost struct base */
+    total_offset = member->offset;
+
     insymbol();
+    while (sym == memberpointer && member->type == structure)
+    {
+     insymbol();
+     if (sym != ident)
+        { _error(7); member = NULL; break; }
+
+     member = structmem_exist(member->structdef,id);
+     if (member == NULL)
+        { _error(67); break; }
+
+     total_offset += member->offset;
+     insymbol();
+    }
+
+    if (member == NULL)
+       ;  /* error already reported */
+    else
     if (sym != equal)
        _error(5);
     else
@@ -314,7 +335,7 @@ int    exprtype,storetype;
         storetype=member->type;  /* short, long, single */
 
      storetype = assign_coerce(storetype,exprtype);
-     if (storetype == notype) 
+     if (storetype == notype)
          _error(4);   /* type mismatch */
      else
      {
@@ -323,16 +344,16 @@ int    exprtype,storetype;
 
       if (item->shared && lev == ONE)
       {
-	 gen("movea.l",addrbuf,"a0");  /* structure variable address */	
+	 gen("movea.l",addrbuf,"a0");  /* structure variable address */
 	 gen("movea.l","(a0)","a0");   /* start address of structure */
       }
       else
           gen("movea.l",addrbuf,"a0"); /* start address of structure */
 
-      /* offset from struct start */ 
+      /* offset from struct start (using accumulated total_offset) */
       if (member->type != stringtype)
       {
-       ltoa(member->offset,absbuf,10);
+       ltoa(total_offset,absbuf,10);
        strcat(absbuf,"(a0)");
       }
 
@@ -344,7 +365,7 @@ int    exprtype,storetype;
       else
       if (member->type == stringtype)  /* string */
       {
-       sprintf(numbuf,"#%ld",member->offset);
+       sprintf(numbuf,"#%ld",total_offset);
        gen("move.l","(sp)+","a1");  /* source */
        gen("adda.l",numbuf,"a0");   /* destination = struct address + offset */
        gen_rt_call("_strcpy");      /* copy source to destination */
@@ -355,8 +376,8 @@ int    exprtype,storetype;
       else
          gen("move.l","(sp)+",absbuf);  /* long, single */
      }
-    } 
-   } 
+    }
+   }
   }
  }
  else

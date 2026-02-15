@@ -291,6 +291,7 @@ SYM    *structype;
 char   addrbuf[40],absbuf[40],numbuf[40];
 STRUCM *member;
 int    mbr_type=undefined;
+ULONG  total_offset;
 
  insymbol();
 
@@ -326,8 +327,86 @@ int    mbr_type=undefined;
     else
         gen("movea.l",addrbuf,"a0"); /* start address of struct */
 
+    /* embedded struct member? resolve chained -> */
+    if (mbr_type == structure)
+    {
+     total_offset = member->offset;
+
+     insymbol();
+     while (sym == memberpointer && mbr_type == structure)
+     {
+      insymbol();
+      if (sym != ident)
+         { _error(7); mbr_type = undefined; break; }
+
+      member = structmem_exist(member->structdef,id);
+      if (member == NULL)
+         { _error(67); mbr_type = undefined; break; }
+
+      mbr_type = member->type;
+      total_offset += member->offset;
+
+      if (mbr_type == structure)
+       insymbol();
+     }
+
+     /* final member: push value or address */
+     if (mbr_type == structure)
+     {
+      /* no further -> : push address of embedded struct */
+      sprintf(numbuf,"#%ld",total_offset);
+      gen("adda.l",numbuf,"a0");
+      gen("move.l","a0","-(sp)");
+      mbr_type=longtype;
+     }
+     else
+     if (mbr_type != undefined)
+     {
+      /* push scalar/string/array from nested struct */
+      if (member->strsize > 0 && mbr_type != stringtype)
+      {
+       sprintf(numbuf,"#%ld",total_offset);
+       gen("adda.l",numbuf,"a0");
+       gen("move.l","a0","-(sp)");
+       mbr_type=longtype;
+      }
+      else
+      if (mbr_type == bytetype)
+      {
+       ltoa(total_offset,absbuf,10);
+       strcat(absbuf,"(a0)");
+       gen("move.b",absbuf,"d0");
+       gen("ext.w","d0","  ");
+       gen("move.w","d0","-(sp)");
+       mbr_type=shorttype;
+      }
+      else
+      if (mbr_type == shorttype)
+      {
+       ltoa(total_offset,absbuf,10);
+       strcat(absbuf,"(a0)");
+       gen("move.w",absbuf,"-(sp)");
+      }
+      else
+      if (mbr_type == stringtype)
+      {
+       sprintf(numbuf,"#%ld",total_offset);
+       gen("adda.l",numbuf,"a0");
+       gen("move.l","a0","-(sp)");
+      }
+      else
+      {
+       ltoa(total_offset,absbuf,10);
+       strcat(absbuf,"(a0)");
+       gen("move.l",absbuf,"-(sp)");
+      }
+      insymbol();
+     }
+     return(mbr_type);
+    }
+
     /* array member? push address (like string) */
-    if (member->strsize > 0 && mbr_type != stringtype && mbr_type != structure)
+    if (member->strsize > 0 && mbr_type != stringtype)
     {
      sprintf(numbuf,"#%ld",member->offset);
      gen("adda.l",numbuf,"a0");
@@ -363,7 +442,7 @@ int    mbr_type=undefined;
     }
     else
        gen("move.l",absbuf,"-(sp)");  /* long, single */
-    } 
+    }
    }
   }
   insymbol();

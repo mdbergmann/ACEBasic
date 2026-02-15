@@ -3,10 +3,10 @@ Struct Enhancements State
 Spec: specs/struct-enhancements.txt
 
 Phase 1: Typed arrays in structs      COMPLETE  (branch: phase1-typed-arrays)
-Phase 2: Fix embedded struct access   NOT STARTED  (dep: none)
+Phase 2: Fix embedded struct access   COMPLETE  (branch: phase2-embedded-struct)
 Phase 3: Typed struct pointers        NOT STARTED  (dep: Phase 2)
 Phase 4: Self-referential structs     NOT STARTED  (dep: Phase 3)
 Phase 5: Struct arrays as members     NOT STARTED  (dep: Phase 2)
 
-Last completed: Phase 1 - SIZE for BYTE/SHORT/LONG/SINGLE in structs, all 18 syntax tests pass
-Next: Phase 2 - add STRUCM.structdef pointer, fix chained -> for embedded structs
+Last completed: Phase 2 - STRUCM.structdef pointer, chained -> for embedded structs, all 19 syntax tests pass
+Next: Phase 3 - typed struct pointers (Inner *ptr)
