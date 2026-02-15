@@ -21,6 +21,7 @@ CONST HTTP_ERR_PARSE       = -7
 CONST HTTP_ERR_OVERFLOW    = -8
 CONST HTTP_ERR_CALLBACK    = -9
 CONST HTTP_ERR_NO_LIB      = -10
+CONST HTTP_ERR_NOMEM       = -11
 
 ' Streaming callback return values
 CONST HTTP_CONTINUE = 0
@@ -47,6 +48,10 @@ CONST MAX_LINE_LEN  = 1024
 CONST HDR_NAME_SZ   = 64
 CONST HDR_VAL_SZ    = 256
 CONST HDR_SLOT_SZ   = 320
+
+' Memory allocation
+CONST MEMF_PUBLIC   = 1&
+CONST MEMF_LARGEST  = 131072&
 
 { ============== Struct Definitions ============== }
 
@@ -90,6 +95,15 @@ STRUCT HttpLine
   LONGINT ok
 END STRUCT
 
+{ ============== exec.library Declarations ============== }
+
+DECLARE FUNCTION ADDRESS AllocVec(LONGINT byteSize, ~
+                                  LONGINT requirements) LIBRARY exec
+DECLARE FUNCTION FreeVec(ADDRESS memoryBlock) LIBRARY exec
+DECLARE FUNCTION LONGINT AvailMem(LONGINT requirements) LIBRARY exec
+DECLARE FUNCTION CopyMem(ADDRESS source, ADDRESS dest, ~
+                         LONGINT sz) LIBRARY exec
+
 { ============== Module Data ============== }
 
 ' Global init flag
@@ -109,6 +123,9 @@ SUB _HttpInit
 
   ' Initialize TCP subsystem
   TcpInit
+
+  ' Open exec.library for AllocVec/FreeVec/AvailMem
+  LIBRARY "exec.library"
 
   ' CRLF constant
   _crlf$ = CHR$(13) + CHR$(10)
@@ -729,6 +746,10 @@ END SUB
 
 { ============== Public API - Utility ============== }
 
+SUB HttpFreeBuf(ADDRESS buf) EXTERNAL
+  IF buf <> 0 THEN FreeVec(buf)
+END SUB
+
 SUB STRING HttpDumpReqHeaders(ADDRESS req) EXTERNAL
   DECLARE STRUCT HttpRequest *r
   r = req
@@ -770,14 +791,130 @@ SUB STRING UrlEncode(STRING raw$) EXTERNAL
   UrlEncode = result$
 END SUB
 
+{ ============== Internal Helper - Read full body with auto-alloc ============== }
+
+' Read entire response body into an AllocVec'd buffer.
+' Content-Length known: checks AvailMem, allocates exact size.
+' Chunked/close: grows buffer as needed, then allocs exact copy.
+' Updates rp->contentLen to actual bytes read.
+' Returns buffer ADDRESS (null-terminated), 0 on error.
+SUB LONGINT _HttpReadAllBody(ADDRESS tcpConn, ADDRESS resp)
+  DECLARE STRUCT HttpResponse *rp
+  LONGINT bufAddr, totalLen, bytesGot
+  LONGINT bufCap, newCap, newBuf
+  LONGINT avail, rdDone
+
+  rp = resp
+
+  IF rp->_xfer = XFER_LENGTH THEN
+    ' --- Content-Length known: allocate exact ---
+    avail = AvailMem(MEMF_LARGEST)
+    IF avail < rp->contentLen + 1 THEN
+      _HttpReadAllBody = 0
+      EXIT SUB
+    END IF
+
+    bufAddr = AllocVec(rp->contentLen + 1, MEMF_PUBLIC)
+    IF bufAddr = 0 THEN
+      _HttpReadAllBody = 0
+      EXIT SUB
+    END IF
+
+    totalLen = 0
+    rdDone = 0
+    WHILE rdDone = 0
+      bytesGot = HttpReadBody(tcpConn, resp, ~
+                              bufAddr + totalLen, ~
+                              rp->contentLen + 1 - totalLen)
+      IF bytesGot > 0 THEN
+        totalLen = totalLen + bytesGot
+      ELSEIF bytesGot < 0 THEN
+        FreeVec(bufAddr)
+        _HttpReadAllBody = 0
+        EXIT SUB
+      ELSE
+        rdDone = 1
+      END IF
+    WEND
+
+    POKE bufAddr + totalLen, 0
+    rp->contentLen = totalLen
+    _HttpReadAllBody = bufAddr
+
+  ELSE
+    ' --- Chunked/close: growing buffer, then exact copy ---
+    bufCap = 8192
+    bufAddr = AllocVec(bufCap, MEMF_PUBLIC)
+    IF bufAddr = 0 THEN
+      _HttpReadAllBody = 0
+      EXIT SUB
+    END IF
+
+    totalLen = 0
+    rdDone = 0
+    WHILE rdDone = 0
+      ' Grow buffer if less than READ_BUF_SIZE bytes remain
+      IF totalLen + READ_BUF_SIZE > bufCap - 1 THEN
+        newCap = bufCap * 2
+        avail = AvailMem(MEMF_LARGEST)
+        IF avail < newCap THEN
+          FreeVec(bufAddr)
+          _HttpReadAllBody = 0
+          EXIT SUB
+        END IF
+        newBuf = AllocVec(newCap, MEMF_PUBLIC)
+        IF newBuf = 0 THEN
+          FreeVec(bufAddr)
+          _HttpReadAllBody = 0
+          EXIT SUB
+        END IF
+        CopyMem(bufAddr, newBuf, totalLen)
+        FreeVec(bufAddr)
+        bufAddr = newBuf
+        bufCap = newCap
+      END IF
+
+      bytesGot = HttpReadBody(tcpConn, resp, ~
+                              bufAddr + totalLen, READ_BUF_SIZE)
+      IF bytesGot > 0 THEN
+        totalLen = totalLen + bytesGot
+      ELSEIF bytesGot < 0 THEN
+        FreeVec(bufAddr)
+        _HttpReadAllBody = 0
+        EXIT SUB
+      ELSE
+        rdDone = 1
+      END IF
+    WEND
+
+    ' Allocate exact-size buffer and copy
+    newBuf = AllocVec(totalLen + 1, MEMF_PUBLIC)
+    IF newBuf = 0 THEN
+      FreeVec(bufAddr)
+      _HttpReadAllBody = 0
+      EXIT SUB
+    END IF
+    IF totalLen > 0 THEN CopyMem(bufAddr, newBuf, totalLen)
+    POKE newBuf + totalLen, 0
+    FreeVec(bufAddr)
+
+    rp->contentLen = totalLen
+    _HttpReadAllBody = newBuf
+  END IF
+END SUB
+
 { ============== Public API - High-level convenience ============== }
 
+' HttpGet - Perform HTTP GET with auto-allocated response buffer
+' Returns: ADDRESS of allocated body (null-terminated), 0 on error.
+'   resp->statusCode has HTTP status, resp->contentLen has body size.
+'   Caller MUST call HttpFreeBuf() to free the returned buffer.
 SUB LONGINT HttpGet(ADDRESS req, ADDRESS resp, ~
-                    ADDRESS tcpConn, STRING url$, ~
-                    ADDRESS respBuf, LONGINT bufSz) EXTERNAL
+                    ADDRESS tcpConn, STRING url$) EXTERNAL
   DECLARE STRUCT UrlParts urlP
-  LONGINT rc, sc
-  LONGINT totalLen, bytesGot, rdDone
+  LONGINT rc, sc, bufAddr
+
+  _HttpInit
 
   _HttpParseUrl(url$, urlP)
   IF LEN(CSTR(@urlP->host)) = 0 THEN
@@ -805,25 +942,13 @@ SUB LONGINT HttpGet(ADDRESS req, ADDRESS resp, ~
     EXIT SUB
   END IF
 
-  ' Read body directly into caller's buffer (reserve 1 byte for null)
-  totalLen = 0
-  rdDone = 0
-  WHILE rdDone = 0
-    bytesGot = HttpReadBody(tcpConn, resp, respBuf + totalLen, ~
-                            bufSz - 1 - totalLen)
-    IF bytesGot > 0 THEN
-      totalLen = totalLen + bytesGot
-      IF totalLen >= bufSz - 1 THEN rdDone = 1
-    ELSE
-      rdDone = 1
-    END IF
-  WEND
-
-  ' Null-terminate for CSTR conversion
-  POKE respBuf + totalLen, 0
-
+  bufAddr = _HttpReadAllBody(tcpConn, resp)
   HttpClose(tcpConn)
-  HttpGet = sc
+  IF bufAddr = 0 THEN
+    HttpGet = HTTP_ERR_NOMEM
+  ELSE
+    HttpGet = bufAddr
+  END IF
 END SUB
 
 SUB LONGINT HttpHead(ADDRESS req, ADDRESS resp, ~

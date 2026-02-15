@@ -11,7 +11,7 @@ DECLARE STRUCT HttpResponse myResp
 
 STRING resp$ SIZE 8192
 ADDRESS respBuf
-LONGINT sc
+LONGINT sc, bodyAddr, rc
 
 respBuf = SADD(resp$)
 
@@ -20,21 +20,24 @@ PRINT
 
 ' --- Test 1: HTTPS GET ---
 PRINT "Test 1: HttpGet https://httpbin.org/get"
-sc = HttpGet(myReq, myResp, myTcp, ~
-             "https://httpbin.org/get", respBuf, 8192)
-IF sc = HTTP_ERR_NO_LIB THEN
-  PRINT "  SKIP (AmiSSL not installed)"
+rc = HttpGet(myReq, myResp, myTcp, ~
+             "https://httpbin.org/get")
+IF rc < 0 THEN
+  IF rc = HTTP_ERR_NO_LIB THEN
+    PRINT "  SKIP (AmiSSL not installed)"
+  ELSEIF rc = HTTP_ERR_SSL_INIT THEN
+    PRINT "  SKIP (AmiSSL init failed)"
+  ELSE
+    PRINT "  SKIP (error:"; rc; ")"
+  END IF
   PRINT
   GOTO SkipAll
 END IF
-IF sc = HTTP_ERR_SSL_INIT THEN
-  PRINT "  SKIP (AmiSSL init failed)"
-  PRINT
-  GOTO SkipAll
-END IF
-PRINT "  Status: "; sc
-ASSERT sc = 200, "T1: HTTPS GET status not 200"
-PRINT "  Body length: "; LEN(CSTR(respBuf))
+bodyAddr = rc
+PRINT "  Status: "; myResp->statusCode
+ASSERT myResp->statusCode = 200, "T1: HTTPS GET status not 200"
+PRINT "  Body length: "; myResp->contentLen
+HttpFreeBuf(bodyAddr)
 PRINT
 
 ' --- Test 2: HTTPS POST ---

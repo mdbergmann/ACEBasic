@@ -59,14 +59,18 @@ HttpClose(myTcp)
 ' --- Test 2: High-level HttpGet with chunked ---
 PRINT "--- Test 2: HttpGet (chunked transparent) ---"
 
-sc = HttpGet(myReq, myResp, myTcp, ~
-             "http://www.google.com/", SADD(resp$), 16384)
-PRINT "GET status:"; sc
-ASSERT sc = 200, "T2: HttpGet status not 200"
-PRINT "Body length:"; LEN(resp$)
-ASSERT LEN(resp$) > 0, "T2: empty body"
-IF LEN(resp$) > 0 THEN
-  PRINT "Starts with: "; LEFT$(resp$, 60)
+LONGINT bodyAddr, bodyRc
+bodyRc = HttpGet(myReq, myResp, myTcp, ~
+                 "http://www.google.com/")
+ASSERT bodyRc > 0, "T2: HttpGet failed"
+bodyAddr = bodyRc
+PRINT "GET status:"; myResp->statusCode
+ASSERT myResp->statusCode = 200, "T2: HttpGet status not 200"
+PRINT "Body length:"; myResp->contentLen
+ASSERT myResp->contentLen > 0, "T2: empty body"
+IF myResp->contentLen > 0 THEN
+  PRINT "Starts with: "; LEFT$(CSTR(bodyAddr), 60)
 END IF
+HttpFreeBuf(bodyAddr)
 
 PRINT "=== Test Done ==="

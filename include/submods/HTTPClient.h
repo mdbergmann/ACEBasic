@@ -144,6 +144,7 @@ CONST HTTP_ERR_PARSE       = -7   ' Malformed HTTP response
 CONST HTTP_ERR_OVERFLOW    = -8   ' Response exceeds buffer size
 CONST HTTP_ERR_CALLBACK    = -9   ' Callback returned HTTP_ABORT
 CONST HTTP_ERR_NO_LIB      = -10  ' Required library not available
+CONST HTTP_ERR_NOMEM       = -11  ' Not enough memory for allocation
 
 
 ' =====================================================================
@@ -180,28 +181,38 @@ CONST HTTP_PLAIN           = 0    ' Plain TCP (http)
 '   - Scheme determines SSL (https) or plain (http)
 '   - Port defaults to 80 (http) or 443 (https)
 '
-' Response buffer (respBuf/bufSz):
+' HttpGet auto-allocates the response buffer based on Content-Length
+'   (exact allocation) or via growing buffer for chunked transfers.
+'   Caller must free the buffer with HttpFreeBuf().
+'
+' HttpPost/HttpPut/HttpRequest use caller-provided buffers:
 '   - Pass SADD(str$) as respBuf, where str$ is a STRING SIZE N
 '   - bufSz is the total buffer size in bytes
 '   - Response body is capped to bufSz-1 bytes and null-terminated
-'
-' Return value:
-'   - HTTP status code (e.g. 200, 404, 500) on success
-'   - Negative error code (HTTP_ERR_*) on failure
+'   - Return HTTP status code or negative error code (HTTP_ERR_*)
 '
 ' After the call returns:
 '   - resp struct retains response headers (query with
 '     HttpGetResponseHeader, HttpResponseHeaderCount, etc.)
+'   - resp->contentLen has actual body size (even for chunked)
 '   - req struct's headers are cleared (_reqHdrCount=0)
 '   - tcpConn is closed (connection no longer usable)
 '   - All three structs are ready for reuse with the next request.
 ' =====================================================================
 
-' HttpGet - Perform an HTTP GET request
+' HttpGet - Perform an HTTP GET with auto-allocated response buffer
+'   Returns: ADDRESS of allocated body buffer (null-terminated) if > 0,
+'            or negative error code (HTTP_ERR_*) on failure.
+'   On success (return > 0):
+'     resp->statusCode has HTTP status (200, 404, etc.)
+'     resp->contentLen has actual body size in bytes
+'     Caller MUST call HttpFreeBuf() to free the returned buffer
+'   On error (return < 0): no buffer allocated, nothing to free.
+'   Checks available memory before allocating; returns HTTP_ERR_NOMEM
+'     if insufficient.
 DECLARE SUB LONGINT HttpGet(ADDRESS req, ADDRESS resp, ~
-                            ADDRESS tcpConn, STRING url, ~
-                            ADDRESS respBuf, ~
-                            LONGINT bufSz) EXTERNAL
+                            ADDRESS tcpConn, ~
+                            STRING url) EXTERNAL
 
 ' HttpHead - Perform an HTTP HEAD request (no response body)
 DECLARE SUB LONGINT HttpHead(ADDRESS req, ADDRESS resp, ~
@@ -434,6 +445,10 @@ DECLARE SUB HttpClose(ADDRESS tcpConn) EXTERNAL
 ' =====================================================================
 ' UTILITY FUNCTIONS
 ' =====================================================================
+
+' HttpFreeBuf - Free a buffer allocated by HttpGet
+'   buf     - ADDRESS returned by HttpGet (safe to pass 0)
+DECLARE SUB HttpFreeBuf(ADDRESS buf) EXTERNAL
 
 ' HttpDumpReqHeaders - Format request headers for display
 '   req     - HttpRequest struct

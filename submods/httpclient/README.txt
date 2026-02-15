@@ -32,7 +32,8 @@ The library provides three API tiers:
    HttpResponseHeaderCount, HttpResponseHeaderName,
    HttpResponseHeaderVal, HttpReadBody, HttpClose
 
-Plus utilities: UrlEncode, HttpDumpReqHeaders, HttpDumpRespHeaders
+Plus utilities: UrlEncode, HttpFreeBuf, HttpDumpReqHeaders,
+   HttpDumpRespHeaders
 
 See HTTPClient.h for full signatures and usage documentation.
 
@@ -40,7 +41,7 @@ See HTTPClient.h for full signatures and usage documentation.
 Quick Example
 -------------
 
-High-level GET:
+High-level GET (auto-allocated buffer):
 
     REM #using ace:submods/httpclient/httpclient.o
     REM #using ace:submods/tcpclient/tcpclient.o
@@ -52,12 +53,14 @@ High-level GET:
     DECLARE STRUCT HttpRequest myReq
     DECLARE STRUCT HttpResponse myResp
 
-    STRING resp$ SIZE 8192
-    LONGINT st
+    LONGINT rc
 
-    st = HttpGet(myReq, myResp, myTcp, ~
-                 "http://httpbin.org/get", SADD(resp$), 8192)
-    IF st = 200 THEN PRINT resp$
+    rc = HttpGet(myReq, myResp, myTcp, ~
+                 "http://httpbin.org/get")
+    IF rc > 0 THEN
+      IF myResp->statusCode = 200 THEN PRINT CSTR(rc)
+      HttpFreeBuf(rc)
+    END IF
 
 Low-level POST:
 
