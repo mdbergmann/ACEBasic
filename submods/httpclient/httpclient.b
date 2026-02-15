@@ -65,16 +65,19 @@ STRUCT HttpResponse
   LONGINT _chunkLeft
 END STRUCT
 
+{ ============== URL Parse Result ============== }
+
+STRUCT UrlParts
+  STRING host SIZE 128
+  LONGINT port
+  STRING path SIZE 512
+  LONGINT ssl
+END STRUCT
+
 { ============== Module Data ============== }
 
 ' Global init flag
 LONGINT _httpInited
-
-' URL parse results (workspace)
-STRING _urlHost$ SIZE 128
-LONGINT _urlPort
-STRING _urlPath$ SIZE 512
-LONGINT _urlSSL
 
 ' Line reader (workspace)
 ADDRESS _lineBuf
@@ -159,24 +162,25 @@ SUB STRING _HttpLongToHex(LONGINT v)
   _HttpLongToHex = FMT$("%lx", v)
 END SUB
 
-SUB _HttpParseUrl(STRING url$)
-  SHARED _urlHost$, _urlPort, _urlPath$, _urlSSL
+SUB _HttpParseUrl(STRING url$, ADDRESS parts)
+  DECLARE STRUCT UrlParts *p
   LONGINT slashPos, colonPos
   STRING rest$ SIZE 640
   STRING hostPart$ SIZE 128
 
-  _urlHost$ = ""
-  _urlPort = 80
-  _urlPath$ = "/"
-  _urlSSL = 0
+  p = parts
+  p->host = ""
+  p->port = 80
+  p->path = "/"
+  p->ssl = 0
 
   IF STARTSWITH(url$, "https://") THEN
-    _urlSSL = 1
-    _urlPort = 443
+    p->ssl = 1
+    p->port = 443
     rest$ = MID$(url$, 9)
   ELSEIF STARTSWITH(url$, "http://") THEN
-    _urlSSL = 0
-    _urlPort = 80
+    p->ssl = 0
+    p->port = 80
     rest$ = MID$(url$, 8)
   ELSE
     rest$ = url$
@@ -186,19 +190,19 @@ SUB _HttpParseUrl(STRING url$)
   slashPos = INSTR(rest$, "/")
   IF slashPos = 0 THEN
     hostPart$ = rest$
-    _urlPath$ = "/"
+    p->path = "/"
   ELSE
     hostPart$ = LEFT$(rest$, slashPos - 1)
-    _urlPath$ = MID$(rest$, slashPos)
+    p->path = MID$(rest$, slashPos)
   END IF
 
   ' Check for :port in host part
   colonPos = INSTR(hostPart$, ":")
   IF colonPos > 0 THEN
-    _urlHost$ = LEFT$(hostPart$, colonPos - 1)
-    _urlPort = CLNG(VAL(MID$(hostPart$, colonPos + 1)))
+    p->host = LEFT$(hostPart$, colonPos - 1)
+    p->port = CLNG(VAL(MID$(hostPart$, colonPos + 1)))
   ELSE
-    _urlHost$ = hostPart$
+    p->host = hostPart$
   END IF
 END SUB
 
@@ -725,23 +729,23 @@ END SUB
 SUB LONGINT HttpGet(ADDRESS req, ADDRESS resp, ~
                     ADDRESS tcpConn, STRING url$, ~
                     ADDRESS respBuf, LONGINT bufSz) EXTERNAL
-  SHARED _urlHost$, _urlPort, _urlPath$, _urlSSL
+  DECLARE STRUCT UrlParts urlP
   LONGINT rc, sc
   LONGINT totalLen, bytesGot, rdDone
 
-  _HttpParseUrl(url$)
-  IF LEN(_urlHost$) = 0 THEN
+  _HttpParseUrl(url$, urlP)
+  IF LEN(CSTR(@urlP->host)) = 0 THEN
     HttpGet = HTTP_ERR_PARSE
     EXIT SUB
   END IF
 
-  rc = HttpOpen(req, tcpConn, _urlHost$, _urlPort, _urlSSL)
+  rc = HttpOpen(req, tcpConn, CSTR(@urlP->host), urlP->port, urlP->ssl)
   IF rc <> HTTP_SUCCESS THEN
     HttpGet = rc
     EXIT SUB
   END IF
 
-  rc = HttpSendRequest(req, tcpConn, "GET", _urlPath$)
+  rc = HttpSendRequest(req, tcpConn, "GET", CSTR(@urlP->path))
   IF rc < 0 THEN
     HttpClose(tcpConn)
     HttpGet = rc
@@ -778,22 +782,22 @@ END SUB
 
 SUB LONGINT HttpHead(ADDRESS req, ADDRESS resp, ~
                      ADDRESS tcpConn, STRING url$) EXTERNAL
-  SHARED _urlHost$, _urlPort, _urlPath$, _urlSSL
+  DECLARE STRUCT UrlParts urlP
   LONGINT rc, sc
 
-  _HttpParseUrl(url$)
-  IF LEN(_urlHost$) = 0 THEN
+  _HttpParseUrl(url$, urlP)
+  IF LEN(CSTR(@urlP->host)) = 0 THEN
     HttpHead = HTTP_ERR_PARSE
     EXIT SUB
   END IF
 
-  rc = HttpOpen(req, tcpConn, _urlHost$, _urlPort, _urlSSL)
+  rc = HttpOpen(req, tcpConn, CSTR(@urlP->host), urlP->port, urlP->ssl)
   IF rc <> HTTP_SUCCESS THEN
     HttpHead = rc
     EXIT SUB
   END IF
 
-  rc = HttpSendRequest(req, tcpConn, "HEAD", _urlPath$)
+  rc = HttpSendRequest(req, tcpConn, "HEAD", CSTR(@urlP->path))
   IF rc < 0 THEN
     HttpClose(tcpConn)
     HttpHead = rc
@@ -810,18 +814,18 @@ SUB LONGINT HttpRequest(ADDRESS req, ADDRESS resp, ~
                         STRING meth$, STRING ct$, ~
                         STRING body$, ADDRESS respBuf, ~
                         LONGINT bufSz) EXTERNAL
-  SHARED _urlHost$, _urlPort, _urlPath$, _urlSSL
+  DECLARE STRUCT UrlParts urlP
   LONGINT rc, sc
   LONGINT totalLen, bytesGot, rdDone
   LONGINT hasBody
 
-  _HttpParseUrl(url$)
-  IF LEN(_urlHost$) = 0 THEN
+  _HttpParseUrl(url$, urlP)
+  IF LEN(CSTR(@urlP->host)) = 0 THEN
     HttpRequest = HTTP_ERR_PARSE
     EXIT SUB
   END IF
 
-  rc = HttpOpen(req, tcpConn, _urlHost$, _urlPort, _urlSSL)
+  rc = HttpOpen(req, tcpConn, CSTR(@urlP->host), urlP->port, urlP->ssl)
   IF rc <> HTTP_SUCCESS THEN
     HttpRequest = rc
     EXIT SUB
@@ -843,7 +847,7 @@ SUB LONGINT HttpRequest(ADDRESS req, ADDRESS resp, ~
     HttpSetHeader(req, "Content-Length", FMT$("%ld", LEN(body$)))
   END IF
 
-  rc = HttpSendRequest(req, tcpConn, meth$, _urlPath$)
+  rc = HttpSendRequest(req, tcpConn, meth$, CSTR(@urlP->path))
   IF rc < 0 THEN
     HttpClose(tcpConn)
     HttpRequest = rc
@@ -914,7 +918,7 @@ SUB LONGINT HttpRequestStream(ADDRESS req, ADDRESS resp, ~
                               STRING meth$, STRING ct$, ~
                               ADDRESS onSend, ~
                               ADDRESS onRecv) EXTERNAL
-  SHARED _urlHost$, _urlPort, _urlPath$, _urlSSL
+  DECLARE STRUCT UrlParts urlP
   SHARED _crlf$
   LONGINT rc, sc
   LONGINT hasBody, sendLen, bytesGot, cbRet
@@ -924,13 +928,13 @@ SUB LONGINT HttpRequestStream(ADDRESS req, ADDRESS resp, ~
 
   sBufAddr = @sBuf$
 
-  _HttpParseUrl(url$)
-  IF LEN(_urlHost$) = 0 THEN
+  _HttpParseUrl(url$, urlP)
+  IF LEN(CSTR(@urlP->host)) = 0 THEN
     HttpRequestStream = HTTP_ERR_PARSE
     EXIT SUB
   END IF
 
-  rc = HttpOpen(req, tcpConn, _urlHost$, _urlPort, _urlSSL)
+  rc = HttpOpen(req, tcpConn, CSTR(@urlP->host), urlP->port, urlP->ssl)
   IF rc <> HTTP_SUCCESS THEN
     HttpRequestStream = rc
     EXIT SUB
@@ -952,7 +956,7 @@ SUB LONGINT HttpRequestStream(ADDRESS req, ADDRESS resp, ~
     HttpSetHeader(req, "Transfer-Encoding", "chunked")
   END IF
 
-  rc = HttpSendRequest(req, tcpConn, meth$, _urlPath$)
+  rc = HttpSendRequest(req, tcpConn, meth$, CSTR(@urlP->path))
   IF rc < 0 THEN
     HttpClose(tcpConn)
     HttpRequestStream = rc
