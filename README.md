@@ -78,28 +78,20 @@ This modern version of ACE can be compiled with GCC (included in ADE, available 
 
 See `CHANGELOG.txt` for detailed version history.
 
-### Traditional Amiga Installation
+### Amiga Installation
 
-Installing ACE on an Amiga system:
+Run the `Install-ACE` script from Shell or double-click it from Workbench:
 
-1. **Unpack the archive** to a hard disk drawer (e.g., `sys:ACE`):
-   ```
-   lha -a x ace24.lha
-   ```
-   The `-a` switch preserves file attributes (e.g., the "s" bit on shell scripts).
+```
+execute Install-ACE
+```
 
-2. **Add assigns and paths** to your `s:user-startup` (WB 2.x/3.x) or `s:startup-sequence` (WB 1.3):
-   ```
-   assign ACE: sys:ACE              ; Main ACE directory
-   path ACE:bin add                 ; Add compiler to path
-   assign ACElib: ACE:lib           ; bas finds scanned libraries here
-   assign ACEbmaps: ACE:bmaps       ; ace looks here for .bmap files
-   assign ACEinclude: ACE:include   ; app uses this for include files
-   ```
-
-3. **Reboot** your Amiga to activate the assigns and path.
-
-Note: Hard disk recommended. For floppy-based systems, unpack to RAM disk and distribute across multiple floppies.
+The installer will:
+1. Create the `ACE:` assign pointing to the current directory
+2. Set up derived assigns (`ACElib:`, `ACEbmaps:`, `ACEinclude:`, `ACEsubmods:`)
+3. Add `ACE:bin` to the command path
+4. Optionally append assigns to `S:user-startup` for persistence across reboots
+5. If an existing `ACE:` installation is found, offer to copy/upgrade files
 
 ## Building
 
