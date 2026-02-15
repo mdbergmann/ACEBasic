@@ -46,23 +46,23 @@ CONST MAX_LINE_LEN  = 1024
 { ============== Struct Definitions ============== }
 
 STRUCT HttpRequest
-  STRING reqHost SIZE 128
-  LONGINT reqPort
-  STRING reqHdrNames SIZE 1024
-  STRING reqHdrVals SIZE 4096
-  LONGINT reqHdrCount
+  STRING _reqHost SIZE 128
+  LONGINT _reqPort
+  STRING _reqHdrNames SIZE 1024
+  STRING _reqHdrVals SIZE 4096
+  LONGINT _reqHdrCount
 END STRUCT
 
 STRUCT HttpResponse
   LONGINT statusCode
   LONGINT contentLen
-  LONGINT bodyLeft
-  LONGINT xfer
-  LONGINT chunkState
-  LONGINT chunkLeft
   STRING respHdrNames SIZE 2048
   STRING respHdrVals SIZE 8192
   LONGINT respHdrCount
+  LONGINT _bodyLeft
+  LONGINT _xfer
+  LONGINT _chunkState
+  LONGINT _chunkLeft
 END STRUCT
 
 { ============== Module Data ============== }
@@ -248,44 +248,44 @@ SUB LONGINT _HttpReadChunked(ADDRESS tcpConn, ADDRESS resp, ~
   retVal = 0
   looping = 1
   WHILE looping = 1
-    IF rp->chunkState = CHK_DONE THEN
+    IF rp->_chunkState = CHK_DONE THEN
       retVal = 0
       looping = 0
-    ELSEIF rp->chunkState = CHK_TRAIL THEN
+    ELSEIF rp->_chunkState = CHK_TRAIL THEN
       ' Consume trailing CRLF after chunk data
       _HttpRecvLine(tcpConn)
-      rp->chunkState = CHK_SIZE
-    ELSEIF rp->chunkState = CHK_SIZE THEN
+      rp->_chunkState = CHK_SIZE
+    ELSEIF rp->_chunkState = CHK_SIZE THEN
       ' Read hex chunk size line
       _HttpRecvLine(tcpConn)
       IF _lineOk = 0 THEN
         retVal = 0
         looping = 0
       ELSE
-        rp->chunkLeft = _HttpParseHex(_lineResult$)
-        IF rp->chunkLeft = 0 THEN
+        rp->_chunkLeft = _HttpParseHex(_lineResult$)
+        IF rp->_chunkLeft = 0 THEN
           ' Final zero-length chunk - consume trailing CRLF
           _HttpRecvLine(tcpConn)
-          rp->chunkState = CHK_DONE
+          rp->_chunkState = CHK_DONE
           retVal = 0
           looping = 0
         ELSE
-          rp->chunkState = CHK_DATA
+          rp->_chunkState = CHK_DATA
         END IF
       END IF
-    ELSEIF rp->chunkState = CHK_DATA THEN
+    ELSEIF rp->_chunkState = CHK_DATA THEN
       toRead = bufSz
-      IF toRead > rp->chunkLeft THEN
-        toRead = rp->chunkLeft
+      IF toRead > rp->_chunkLeft THEN
+        toRead = rp->_chunkLeft
       END IF
       nRead = _HttpReadBuf(tcpConn, bufAddr, toRead)
       IF nRead <= 0 THEN
         retVal = 0
         looping = 0
       ELSE
-        rp->chunkLeft = rp->chunkLeft - nRead
-        IF rp->chunkLeft = 0 THEN
-          rp->chunkState = CHK_TRAIL
+        rp->_chunkLeft = rp->_chunkLeft - nRead
+        IF rp->_chunkLeft = 0 THEN
+          rp->_chunkState = CHK_TRAIL
         END IF
         retVal = nRead
         looping = 0
@@ -326,9 +326,9 @@ SUB LONGINT HttpOpen(ADDRESS req, ADDRESS tcpConn, ~
 
   ' Store host/port in request struct
   r = req
-  r->reqHost = host$
-  r->reqPort = port
-  r->reqHdrCount = 0
+  r->_reqHost = host$
+  r->_reqPort = port
+  r->_reqHdrCount = 0
 
   HttpOpen = HTTP_SUCCESS
 END SUB
@@ -343,13 +343,13 @@ SUB HttpClearReqHeaders(ADDRESS req) EXTERNAL
   DECLARE STRUCT HttpRequest *r
   LONGINT i, baseN, baseV
   r = req
-  baseN = @r->reqHdrNames
-  baseV = @r->reqHdrVals
+  baseN = @r->_reqHdrNames
+  baseV = @r->_reqHdrVals
   FOR i = 0 TO MAX_REQ_HDRS - 1
     POKE baseN + (i * 64), 0
     POKE baseV + (i * 256), 0
   NEXT i
-  r->reqHdrCount = 0
+  r->_reqHdrCount = 0
 END SUB
 
 SUB HttpSetHeader(ADDRESS req, STRING hdrNm$, ~
@@ -363,23 +363,23 @@ SUB HttpSetHeader(ADDRESS req, STRING hdrNm$, ~
   upperNm$ = UCASE$(hdrNm$)
 
   ' Overwrite if header already exists (case-insensitive)
-  FOR i = 0 TO r->reqHdrCount - 1
-    nameAddr = @r->reqHdrNames + (i * 64)
+  FOR i = 0 TO r->_reqHdrCount - 1
+    nameAddr = @r->_reqHdrNames + (i * 64)
     curNm$ = CSTR(nameAddr)
     IF UCASE$(curNm$) = upperNm$ THEN
-      valAddr = @r->reqHdrVals + (i * 256)
+      valAddr = @r->_reqHdrVals + (i * 256)
       _StrToAddr(valAddr, hdrVl$, 256)
       EXIT SUB
     END IF
   NEXT i
 
   ' Add new header
-  IF r->reqHdrCount < MAX_REQ_HDRS THEN
-    nameAddr = @r->reqHdrNames + (r->reqHdrCount * 64)
+  IF r->_reqHdrCount < MAX_REQ_HDRS THEN
+    nameAddr = @r->_reqHdrNames + (r->_reqHdrCount * 64)
     _StrToAddr(nameAddr, hdrNm$, 64)
-    valAddr = @r->reqHdrVals + (r->reqHdrCount * 256)
+    valAddr = @r->_reqHdrVals + (r->_reqHdrCount * 256)
     _StrToAddr(valAddr, hdrVl$, 256)
-    r->reqHdrCount = r->reqHdrCount + 1
+    r->_reqHdrCount = r->_reqHdrCount + 1
   END IF
 END SUB
 
@@ -403,28 +403,28 @@ SUB LONGINT HttpSendRequest(ADDRESS req, ADDRESS tcpConn, ~
   END IF
 
   ' Host header (with port if non-standard)
-  hostStr$ = CSTR(@r->reqHost)
-  IF r->reqPort = 80 OR r->reqPort = 443 THEN
+  hostStr$ = CSTR(@r->_reqHost)
+  IF r->_reqPort = 80 OR r->_reqPort = 443 THEN
     rc = _HttpSendStr(tcpConn, "Host: " + hostStr$ + _crlf$)
   ELSE
     rc = _HttpSendStr(tcpConn, ~
-         FMT$("Host: %s:%ld", hostStr$, r->reqPort) + _crlf$)
+         FMT$("Host: %s:%ld", hostStr$, r->_reqPort) + _crlf$)
   END IF
   IF rc < 0 THEN
-    r->reqHdrCount = 0
+    r->_reqHdrCount = 0
     HttpSendRequest = HTTP_ERR_SEND
     EXIT SUB
   END IF
 
   ' Custom request headers
-  FOR i = 0 TO r->reqHdrCount - 1
-    nameAddr = @r->reqHdrNames + (i * 64)
-    valAddr = @r->reqHdrVals + (i * 256)
+  FOR i = 0 TO r->_reqHdrCount - 1
+    nameAddr = @r->_reqHdrNames + (i * 64)
+    valAddr = @r->_reqHdrVals + (i * 256)
     curNm$ = CSTR(nameAddr)
     curVl$ = CSTR(valAddr)
     rc = _HttpSendStr(tcpConn, curNm$ + ": " + curVl$ + _crlf$)
     IF rc < 0 THEN
-      r->reqHdrCount = 0
+      r->_reqHdrCount = 0
       HttpSendRequest = HTTP_ERR_SEND
       EXIT SUB
     END IF
@@ -433,7 +433,7 @@ SUB LONGINT HttpSendRequest(ADDRESS req, ADDRESS tcpConn, ~
   ' Connection: close
   rc = _HttpSendStr(tcpConn, "Connection: close" + _crlf$)
   IF rc < 0 THEN
-    r->reqHdrCount = 0
+    r->_reqHdrCount = 0
     HttpSendRequest = HTTP_ERR_SEND
     EXIT SUB
   END IF
@@ -441,13 +441,13 @@ SUB LONGINT HttpSendRequest(ADDRESS req, ADDRESS tcpConn, ~
   ' Blank line ends headers
   rc = _HttpSendStr(tcpConn, _crlf$)
   IF rc < 0 THEN
-    r->reqHdrCount = 0
+    r->_reqHdrCount = 0
     HttpSendRequest = HTTP_ERR_SEND
     EXIT SUB
   END IF
 
   ' Clear request headers for next use
-  r->reqHdrCount = 0
+  r->_reqHdrCount = 0
 
   HttpSendRequest = HTTP_SUCCESS
 END SUB
@@ -467,11 +467,11 @@ SUB LONGINT HttpReadStatus(ADDRESS tcpConn, ~
   rp = resp
 
   ' Reset transfer state
-  rp->xfer = XFER_CLOSE
+  rp->_xfer = XFER_CLOSE
   rp->contentLen = 0
-  rp->bodyLeft = 0
-  rp->chunkState = CHK_SIZE
-  rp->chunkLeft = 0
+  rp->_bodyLeft = 0
+  rp->_chunkState = CHK_SIZE
+  rp->_chunkLeft = 0
   rp->respHdrCount = 0
 
   ' Flush any leftover buffered data in tcpclient
@@ -522,14 +522,14 @@ SUB LONGINT HttpReadStatus(ADDRESS tcpConn, ~
         ' Detect Content-Length
         IF UCASE$(tmpNm$) = "CONTENT-LENGTH" THEN
           rp->contentLen = CLNG(VAL(tmpVl$))
-          rp->bodyLeft = rp->contentLen
-          rp->xfer = XFER_LENGTH
+          rp->_bodyLeft = rp->contentLen
+          rp->_xfer = XFER_LENGTH
         END IF
 
         ' Detect Transfer-Encoding: chunked
         IF UCASE$(tmpNm$) = "TRANSFER-ENCODING" THEN
           IF INSTR(UCASE$(tmpVl$), "CHUNKED") > 0 THEN
-            rp->xfer = XFER_CHUNKED
+            rp->_xfer = XFER_CHUNKED
           END IF
         END IF
 
@@ -605,20 +605,20 @@ SUB LONGINT HttpReadBody(ADDRESS tcpConn, ADDRESS resp, ~
   rp = resp
 
   ' Chunked mode - use chunk decoder
-  IF rp->xfer = XFER_CHUNKED THEN
+  IF rp->_xfer = XFER_CHUNKED THEN
     HttpReadBody = _HttpReadChunked(tcpConn, resp, dataBuf, bufSz)
     EXIT SUB
   END IF
 
   ' Determine how much to read
-  IF rp->xfer = XFER_LENGTH THEN
-    IF rp->bodyLeft <= 0 THEN
+  IF rp->_xfer = XFER_LENGTH THEN
+    IF rp->_bodyLeft <= 0 THEN
       HttpReadBody = 0
       EXIT SUB
     END IF
     toRead = bufSz
-    IF toRead > rp->bodyLeft THEN
-      toRead = rp->bodyLeft
+    IF toRead > rp->_bodyLeft THEN
+      toRead = rp->_bodyLeft
     END IF
   ELSE
     toRead = bufSz
@@ -628,7 +628,7 @@ SUB LONGINT HttpReadBody(ADDRESS tcpConn, ADDRESS resp, ~
   totalRd = TcpRecvBuf(tcpConn, dataBuf, toRead)
 
   IF totalRd <= 0 THEN
-    IF rp->xfer = XFER_CLOSE THEN
+    IF rp->_xfer = XFER_CLOSE THEN
       HttpReadBody = 0
     ELSE
       HttpReadBody = HTTP_ERR_RECV
@@ -637,8 +637,8 @@ SUB LONGINT HttpReadBody(ADDRESS tcpConn, ADDRESS resp, ~
   END IF
 
   ' Update remaining body length for Content-Length mode
-  IF rp->xfer = XFER_LENGTH THEN
-    rp->bodyLeft = rp->bodyLeft - totalRd
+  IF rp->_xfer = XFER_LENGTH THEN
+    rp->_bodyLeft = rp->_bodyLeft - totalRd
   END IF
 
   HttpReadBody = totalRd

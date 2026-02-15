@@ -45,7 +45,7 @@
  *   1. HttpOpen stores host/port in req and resets req headers to 0.
  *      -> Call HttpSetHeader AFTER HttpOpen, not before.
  *   2. HttpSendRequest sends all req headers, then clears them
- *      (reqHdrCount=0). Headers must be re-set for the next request.
+ *      (_reqHdrCount=0). Headers must be re-set for the next request.
  *   3. HttpReadStatus resets ALL response state in resp (status,
  *      content-length, transfer mode, chunk state, headers) before
  *      reading. Previous response data in resp is replaced.
@@ -82,28 +82,29 @@
 
 ' HttpRequest - Request state (host, port, custom headers)
 '   Passed to functions that build/send requests.
-'   reqHdrNames/reqHdrVals are flat buffers: 16 slots of 64/256 bytes.
+'   All fields are private (managed by HttpOpen, HttpSetHeader, etc.)
 STRUCT HttpRequest
-  STRING reqHost SIZE 128
-  LONGINT reqPort
-  STRING reqHdrNames SIZE 1024
-  STRING reqHdrVals SIZE 4096
-  LONGINT reqHdrCount
+  STRING _reqHost SIZE 128
+  LONGINT _reqPort
+  STRING _reqHdrNames SIZE 1024
+  STRING _reqHdrVals SIZE 4096
+  LONGINT _reqHdrCount
 END STRUCT
 
-' HttpResponse - Response state (status, transfer tracking, headers)
+' HttpResponse - Response state (status, headers, transfer tracking)
 '   Filled by HttpReadStatus, queried by header accessors.
-'   respHdrNames/respHdrVals are flat buffers: 32 slots of 64/256 bytes.
+'   Public: statusCode, contentLen, respHdrNames/Vals/Count
+'   Private (_prefix): transfer tracking fields
 STRUCT HttpResponse
   LONGINT statusCode
   LONGINT contentLen
-  LONGINT bodyLeft
-  LONGINT xfer
-  LONGINT chunkState
-  LONGINT chunkLeft
   STRING respHdrNames SIZE 2048
   STRING respHdrVals SIZE 8192
   LONGINT respHdrCount
+  LONGINT _bodyLeft
+  LONGINT _xfer
+  LONGINT _chunkState
+  LONGINT _chunkLeft
 END STRUCT
 
 
@@ -174,7 +175,7 @@ CONST HTTP_PLAIN           = 0    ' Plain TCP (http)
 ' After the call returns:
 '   - resp struct retains response headers (query with
 '     HttpGetResponseHeader, HttpResponseHeaderCount, etc.)
-'   - req struct's headers are cleared (reqHdrCount=0)
+'   - req struct's headers are cleared (_reqHdrCount=0)
 '   - tcpConn is closed (connection no longer usable)
 '   - All three structs are ready for reuse with the next request.
 ' =====================================================================
@@ -239,7 +240,7 @@ DECLARE SUB LONGINT HttpRequest(ADDRESS req, ADDRESS resp, ~
 '
 ' After the call returns:
 '   - resp struct retains response headers
-'   - req struct's headers are cleared (reqHdrCount=0)
+'   - req struct's headers are cleared (_reqHdrCount=0)
 '   - tcpConn is closed
 '   - All three structs are ready for reuse with the next request.
 ' =====================================================================
@@ -326,7 +327,7 @@ DECLARE SUB HttpSetHeader(ADDRESS req, STRING hdrName, ~
 '   path$   - Request path with optional query (e.g. "/api?key=val")
 '   Returns: HTTP_SUCCESS on success, negative error code on failure
 '   IMPORTANT: Clears all request headers in req after sending
-'         (reqHdrCount=0), even on error. Headers must be re-set
+'         (_reqHdrCount=0), even on error. Headers must be re-set
 '         via HttpSetHeader before the next HttpSendRequest call.
 '   Note: Automatically sends Host and Connection: close headers.
 '         For POST/PUT/PATCH, follow with HttpWriteBody or
@@ -359,7 +360,7 @@ DECLARE SUB LONGINT HttpWriteBodyChunked(ADDRESS tcpConn, ~
 '   resp    - HttpResponse struct (filled with status + headers)
 '   Returns: HTTP status code (e.g. 200, 404) or negative error code
 '   IMPORTANT: Resets ALL fields in resp before reading (statusCode,
-'         contentLen, bodyLeft, xfer, chunkState, chunkLeft, and all
+'         contentLen, _bodyLeft, _xfer, _chunkState, _chunkLeft, and all
 '         response headers). Any previous response data is replaced.
 '   Note: Also reads and stores all response headers in resp.
 '         Must be called before HttpGetResponseHeader or HttpReadBody.
