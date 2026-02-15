@@ -32,7 +32,7 @@ The library provides three API tiers:
    HttpResponseHeaderCount, HttpResponseHeaderName,
    HttpResponseHeaderVal, HttpReadBody, HttpClose
 
-Plus utility: UrlEncode
+Plus utilities: UrlEncode, HttpDumpReqHeaders, HttpDumpRespHeaders
 
 See HTTPClient.h for full signatures and usage documentation.
 
@@ -162,6 +162,15 @@ Struct fields prefixed with _ are private/internal. Do not read or
 write them directly. Use the provided API functions instead.
 Public fields (e.g. statusCode, contentLen) can be read after the
 appropriate API call (e.g. HttpReadStatus).
+
+Headers are stored internally as arrays of HttpHeader structs
+(hdrName SIZE 64, hdrVal SIZE 256 = 320 bytes per slot). Request
+headers (max 16) and response headers (max 32) share the same
+layout. Use HttpDumpReqHeaders/HttpDumpRespHeaders to inspect them:
+
+    PRINT HttpDumpRespHeaders(myResp)
+    ' Content-Type = text/html
+    ' Content-Length = 1234
 
 
 Limitations

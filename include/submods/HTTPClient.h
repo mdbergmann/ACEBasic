@@ -58,8 +58,8 @@
  *      Each HttpOpen/HttpReadStatus cycle resets the relevant struct.
  *
  * Size limits:
- *   - Header name: max 63 characters (64-byte slot)
- *   - Header value: max 255 characters (256-byte slot)
+ *   - Header name: max 63 characters (HDR_NAME_SZ = 64 bytes)
+ *   - Header value: max 255 characters (HDR_VAL_SZ = 256 bytes)
  *   - Host name: max 127 characters (128-byte field)
  *   - Request headers: max 16 per HttpRequest struct
  *   - Response headers: max 32 per HttpResponse struct
@@ -83,26 +83,40 @@
 ' STRUCT DEFINITIONS
 ' =====================================================================
 
+' HttpHeader - one name/value pair (320 bytes per slot)
+'   Used internally as array elements within HttpRequest and HttpResponse.
+'   Header name: max 63 characters (64-byte field)
+'   Header value: max 255 characters (256-byte field)
+STRUCT HttpHeader
+  STRING hdrName SIZE 64
+  STRING hdrVal SIZE 256
+END STRUCT
+
+' Header slot size constants
+CONST HDR_NAME_SZ   = 64
+CONST HDR_VAL_SZ    = 256
+CONST HDR_SLOT_SZ   = 320
+
 ' HttpRequest - Request state (host, port, custom headers)
 '   Passed to functions that build/send requests.
 '   All fields are private (managed by HttpOpen, HttpSetHeader, etc.)
+'   _reqHdrs holds up to 16 HttpHeader entries (16 * 320 = 5120 bytes)
 STRUCT HttpRequest
   STRING _reqHost SIZE 128
   LONGINT _reqPort
-  STRING _reqHdrNames SIZE 1024
-  STRING _reqHdrVals SIZE 4096
+  STRING _reqHdrs SIZE 5120
   LONGINT _reqHdrCount
 END STRUCT
 
 ' HttpResponse - Response state (status, headers, transfer tracking)
 '   Filled by HttpReadStatus, queried by header accessors.
-'   Public: statusCode, contentLen, respHdrNames/Vals/Count
-'   Private (_prefix): transfer tracking fields
+'   Public: statusCode, contentLen, respHdrCount
+'   Private (_prefix): transfer tracking fields and header storage
+'   _respHdrs holds up to 32 HttpHeader entries (32 * 320 = 10240 bytes)
 STRUCT HttpResponse
   LONGINT statusCode
   LONGINT contentLen
-  STRING respHdrNames SIZE 2048
-  STRING respHdrVals SIZE 8192
+  STRING _respHdrs SIZE 10240
   LONGINT respHdrCount
   LONGINT _bodyLeft
   LONGINT _xfer
@@ -420,6 +434,16 @@ DECLARE SUB HttpClose(ADDRESS tcpConn) EXTERNAL
 ' =====================================================================
 ' UTILITY FUNCTIONS
 ' =====================================================================
+
+' HttpDumpReqHeaders - Format request headers for display
+'   req     - HttpRequest struct
+'   Returns: String with each header as "name = value\n"
+DECLARE SUB STRING HttpDumpReqHeaders(ADDRESS req) EXTERNAL
+
+' HttpDumpRespHeaders - Format response headers for display
+'   resp    - HttpResponse struct
+'   Returns: String with each header as "name = value\n"
+DECLARE SUB STRING HttpDumpRespHeaders(ADDRESS resp) EXTERNAL
 
 ' UrlEncode - Percent-encode a string per RFC 3986
 '   raw$    - String to encode

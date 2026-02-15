@@ -43,21 +43,30 @@ CONST MAX_REQ_HDRS  = 16
 CONST MAX_RSP_HDRS  = 32
 CONST MAX_LINE_LEN  = 1024
 
+' Header slot sizes (sizeof HttpHeader = HDR_NAME_SZ + HDR_VAL_SZ = 320)
+CONST HDR_NAME_SZ   = 64
+CONST HDR_VAL_SZ    = 256
+CONST HDR_SLOT_SZ   = 320
+
 { ============== Struct Definitions ============== }
+
+' HttpHeader - one name/value pair (320 bytes per slot)
+STRUCT HttpHeader
+  STRING hdrName SIZE 64
+  STRING hdrVal SIZE 256
+END STRUCT
 
 STRUCT HttpRequest
   STRING _reqHost SIZE 128
   LONGINT _reqPort
-  STRING _reqHdrNames SIZE 1024
-  STRING _reqHdrVals SIZE 4096
+  STRING _reqHdrs SIZE 5120
   LONGINT _reqHdrCount
 END STRUCT
 
 STRUCT HttpResponse
   LONGINT statusCode
   LONGINT contentLen
-  STRING respHdrNames SIZE 2048
-  STRING respHdrVals SIZE 8192
+  STRING _respHdrs SIZE 10240
   LONGINT respHdrCount
   LONGINT _bodyLeft
   LONGINT _xfer
@@ -120,6 +129,67 @@ SUB _StrToAddr(ADDRESS destAddr, STRING src$, LONGINT maxLen)
     POKE destAddr + i, PEEK(srcAddr + i)
   NEXT i
   POKE destAddr + sLen, 0
+END SUB
+
+{ ============== Internal Helpers - Header array ============== }
+
+' Set name + value at slot idx in a header array
+SUB _HdrSetSlot(ADDRESS hdrsBase, LONGINT idx, ~
+                STRING nm$, STRING vl$)
+  LONGINT hdrAddr
+  hdrAddr = hdrsBase + (idx * HDR_SLOT_SZ)
+  _StrToAddr(hdrAddr, nm$, HDR_NAME_SZ)
+  _StrToAddr(hdrAddr + HDR_NAME_SZ, vl$, HDR_VAL_SZ)
+END SUB
+
+' Get header name at slot idx
+SUB STRING _HdrGetName(ADDRESS hdrsBase, LONGINT idx)
+  _HdrGetName = CSTR(hdrsBase + (idx * HDR_SLOT_SZ))
+END SUB
+
+' Get header value at slot idx
+SUB STRING _HdrGetVal(ADDRESS hdrsBase, LONGINT idx)
+  _HdrGetVal = CSTR(hdrsBase + (idx * HDR_SLOT_SZ) + HDR_NAME_SZ)
+END SUB
+
+' Set only the value at slot idx (name stays unchanged)
+SUB _HdrSetVal(ADDRESS hdrsBase, LONGINT idx, STRING vl$)
+  _StrToAddr(hdrsBase + (idx * HDR_SLOT_SZ) + HDR_NAME_SZ, vl$, HDR_VAL_SZ)
+END SUB
+
+' Find header by name (case-insensitive), return index or -1
+SUB LONGINT _HdrFind(ADDRESS hdrsBase, LONGINT cnt, STRING nm$)
+  LONGINT i, retVal
+  STRING upperNm$ SIZE 64
+  upperNm$ = UCASE$(nm$)
+  retVal = -1
+  FOR i = 0 TO cnt - 1
+    IF UCASE$(CSTR(hdrsBase + (i * HDR_SLOT_SZ))) = upperNm$ THEN
+      retVal = i
+      i = cnt
+    END IF
+  NEXT i
+  _HdrFind = retVal
+END SUB
+
+' Clear all slots (null-terminate each name)
+SUB _HdrClear(ADDRESS hdrsBase, LONGINT maxSlots)
+  LONGINT i
+  FOR i = 0 TO maxSlots - 1
+    POKE hdrsBase + (i * HDR_SLOT_SZ), 0
+  NEXT i
+END SUB
+
+' Format all headers as "name = value\n" string
+SUB STRING _HdrDump(ADDRESS hdrsBase, LONGINT cnt)
+  STRING result$ SIZE 8192
+  LONGINT i
+  result$ = ""
+  FOR i = 0 TO cnt - 1
+    result$ = result$ + _HdrGetName(hdrsBase, i) + ~
+              " = " + _HdrGetVal(hdrsBase, i) + CHR$(10)
+  NEXT i
+  _HdrDump = result$
 END SUB
 
 { ============== Internal Helpers - TCP wrappers ============== }
@@ -334,44 +404,28 @@ END SUB
 
 SUB HttpClearReqHeaders(ADDRESS req) EXTERNAL
   DECLARE STRUCT HttpRequest *r
-  LONGINT i, baseN, baseV
   r = req
-  baseN = @r->_reqHdrNames
-  baseV = @r->_reqHdrVals
-  FOR i = 0 TO MAX_REQ_HDRS - 1
-    POKE baseN + (i * 64), 0
-    POKE baseV + (i * 256), 0
-  NEXT i
+  _HdrClear(@r->_reqHdrs, MAX_REQ_HDRS)
   r->_reqHdrCount = 0
 END SUB
 
 SUB HttpSetHeader(ADDRESS req, STRING hdrNm$, ~
                   STRING hdrVl$) EXTERNAL
   DECLARE STRUCT HttpRequest *r
-  LONGINT i, nameAddr, valAddr
-  STRING upperNm$ SIZE 64
-  STRING curNm$ SIZE 64
+  LONGINT idx
 
   r = req
-  upperNm$ = UCASE$(hdrNm$)
 
   ' Overwrite if header already exists (case-insensitive)
-  FOR i = 0 TO r->_reqHdrCount - 1
-    nameAddr = @r->_reqHdrNames + (i * 64)
-    curNm$ = CSTR(nameAddr)
-    IF UCASE$(curNm$) = upperNm$ THEN
-      valAddr = @r->_reqHdrVals + (i * 256)
-      _StrToAddr(valAddr, hdrVl$, 256)
-      EXIT SUB
-    END IF
-  NEXT i
+  idx = _HdrFind(@r->_reqHdrs, r->_reqHdrCount, hdrNm$)
+  IF idx >= 0 THEN
+    _HdrSetVal(@r->_reqHdrs, idx, hdrVl$)
+    EXIT SUB
+  END IF
 
   ' Add new header
   IF r->_reqHdrCount < MAX_REQ_HDRS THEN
-    nameAddr = @r->_reqHdrNames + (r->_reqHdrCount * 64)
-    _StrToAddr(nameAddr, hdrNm$, 64)
-    valAddr = @r->_reqHdrVals + (r->_reqHdrCount * 256)
-    _StrToAddr(valAddr, hdrVl$, 256)
+    _HdrSetSlot(@r->_reqHdrs, r->_reqHdrCount, hdrNm$, hdrVl$)
     r->_reqHdrCount = r->_reqHdrCount + 1
   END IF
 END SUB
@@ -381,9 +435,7 @@ SUB LONGINT HttpSendRequest(ADDRESS req, ADDRESS tcpConn, ~
                             STRING reqPath$) EXTERNAL
   DECLARE STRUCT HttpRequest *r
   SHARED _crlf$
-  LONGINT i, rc, nameAddr, valAddr
-  STRING curNm$ SIZE 64
-  STRING curVl$ SIZE 256
+  LONGINT i, rc
   STRING hostStr$ SIZE 128
 
   r = req
@@ -411,11 +463,9 @@ SUB LONGINT HttpSendRequest(ADDRESS req, ADDRESS tcpConn, ~
 
   ' Custom request headers
   FOR i = 0 TO r->_reqHdrCount - 1
-    nameAddr = @r->_reqHdrNames + (i * 64)
-    valAddr = @r->_reqHdrVals + (i * 256)
-    curNm$ = CSTR(nameAddr)
-    curVl$ = CSTR(valAddr)
-    rc = _HttpSendStr(tcpConn, curNm$ + ": " + curVl$ + _crlf$)
+    rc = _HttpSendStr(tcpConn, ~
+         _HdrGetName(@r->_reqHdrs, i) + ": " + ~
+         _HdrGetVal(@r->_reqHdrs, i) + _crlf$)
     IF rc < 0 THEN
       r->_reqHdrCount = 0
       HttpSendRequest = HTTP_ERR_SEND
@@ -456,7 +506,6 @@ SUB LONGINT HttpReadStatus(ADDRESS tcpConn, ~
   STRING lnStr$ SIZE 1025
   STRING tmpNm$ SIZE 64
   STRING tmpVl$ SIZE 256
-  LONGINT nameAddr, valAddr
 
   rp = resp
 
@@ -511,10 +560,7 @@ SUB LONGINT HttpReadStatus(ADDRESS tcpConn, ~
           tmpNm$ = LEFT$(lnStr$, colonPos - 1)
           tmpVl$ = LTRIM$(MID$(lnStr$, colonPos + 1))
 
-          nameAddr = @rp->respHdrNames + (rp->respHdrCount * 64)
-          _StrToAddr(nameAddr, tmpNm$, 64)
-          valAddr = @rp->respHdrVals + (rp->respHdrCount * 256)
-          _StrToAddr(valAddr, tmpVl$, 256)
+          _HdrSetSlot(@rp->_respHdrs, rp->respHdrCount, tmpNm$, tmpVl$)
 
           ' Detect Content-Length
           IF UCASE$(tmpNm$) = "CONTENT-LENGTH" THEN
@@ -542,24 +588,15 @@ END SUB
 SUB STRING HttpGetResponseHeader(ADDRESS resp, ~
                                  STRING hdrNm$) EXTERNAL
   DECLARE STRUCT HttpResponse *rp
-  LONGINT i, nameAddr, valAddr
-  STRING upperNm$ SIZE 64
-  STRING curNm$ SIZE 64
+  LONGINT idx
 
   rp = resp
-  upperNm$ = UCASE$(hdrNm$)
-
-  FOR i = 0 TO rp->respHdrCount - 1
-    nameAddr = @rp->respHdrNames + (i * 64)
-    curNm$ = CSTR(nameAddr)
-    IF UCASE$(curNm$) = upperNm$ THEN
-      valAddr = @rp->respHdrVals + (i * 256)
-      HttpGetResponseHeader = CSTR(valAddr)
-      EXIT SUB
-    END IF
-  NEXT i
-
-  HttpGetResponseHeader = ""
+  idx = _HdrFind(@rp->_respHdrs, rp->respHdrCount, hdrNm$)
+  IF idx >= 0 THEN
+    HttpGetResponseHeader = _HdrGetVal(@rp->_respHdrs, idx)
+  ELSE
+    HttpGetResponseHeader = ""
+  END IF
 END SUB
 
 SUB LONGINT HttpResponseHeaderCount(ADDRESS resp) EXTERNAL
@@ -571,27 +608,23 @@ END SUB
 SUB STRING HttpResponseHeaderName(ADDRESS resp, ~
                                   LONGINT idx) EXTERNAL
   DECLARE STRUCT HttpResponse *rp
-  LONGINT nameAddr
   rp = resp
   IF idx < 0 OR idx >= rp->respHdrCount THEN
     HttpResponseHeaderName = ""
     EXIT SUB
   END IF
-  nameAddr = @rp->respHdrNames + (idx * 64)
-  HttpResponseHeaderName = CSTR(nameAddr)
+  HttpResponseHeaderName = _HdrGetName(@rp->_respHdrs, idx)
 END SUB
 
 SUB STRING HttpResponseHeaderVal(ADDRESS resp, ~
                                  LONGINT idx) EXTERNAL
   DECLARE STRUCT HttpResponse *rp
-  LONGINT valAddr
   rp = resp
   IF idx < 0 OR idx >= rp->respHdrCount THEN
     HttpResponseHeaderVal = ""
     EXIT SUB
   END IF
-  valAddr = @rp->respHdrVals + (idx * 256)
-  HttpResponseHeaderVal = CSTR(valAddr)
+  HttpResponseHeaderVal = _HdrGetVal(@rp->_respHdrs, idx)
 END SUB
 
 SUB LONGINT HttpReadBody(ADDRESS tcpConn, ADDRESS resp, ~
@@ -695,6 +728,18 @@ SUB LONGINT HttpWriteBodyChunked(ADDRESS tcpConn, ~
 END SUB
 
 { ============== Public API - Utility ============== }
+
+SUB STRING HttpDumpReqHeaders(ADDRESS req) EXTERNAL
+  DECLARE STRUCT HttpRequest *r
+  r = req
+  HttpDumpReqHeaders = _HdrDump(@r->_reqHdrs, r->_reqHdrCount)
+END SUB
+
+SUB STRING HttpDumpRespHeaders(ADDRESS resp) EXTERNAL
+  DECLARE STRUCT HttpResponse *rp
+  rp = resp
+  HttpDumpRespHeaders = _HdrDump(@rp->_respHdrs, rp->respHdrCount)
+END SUB
 
 SUB STRING UrlEncode(STRING raw$) EXTERNAL
   STRING result$ SIZE 1024
