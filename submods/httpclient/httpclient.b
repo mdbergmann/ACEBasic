@@ -74,15 +74,17 @@ STRUCT UrlParts
   LONGINT ssl
 END STRUCT
 
+{ ============== Line Reader Result ============== }
+
+STRUCT HttpLine
+  STRING buf SIZE 1025
+  LONGINT ok
+END STRUCT
+
 { ============== Module Data ============== }
 
 ' Global init flag
 LONGINT _httpInited
-
-' Line reader (workspace)
-ADDRESS _lineBuf
-STRING _lineResult$ SIZE 1025
-LONGINT _lineOk
 
 ' CRLF constant
 STRING _crlf$ SIZE 4
@@ -92,20 +94,12 @@ STRING _crlf$ SIZE 4
 
 SUB _HttpInit
   SHARED _httpInited
-  SHARED _lineBuf, _lineResult$, _lineOk
   SHARED _crlf$
 
   IF _httpInited = 1 THEN EXIT SUB
 
   ' Initialize TCP subsystem
   TcpInit
-
-  ' Allocate line buffer
-  _lineBuf = ALLOC(MAX_LINE_LEN + 1)
-
-  ' Init line reader
-  _lineResult$ = ""
-  _lineOk = 0
 
   ' CRLF constant
   _crlf$ = CHR$(13) + CHR$(10)
@@ -134,17 +128,17 @@ SUB LONGINT _HttpSendRaw(ADDRESS tcpConn, ADDRESS buf, LONGINT bufLen)
   _HttpSendRaw = TcpSend(tcpConn, buf, bufLen)
 END SUB
 
-SUB _HttpRecvLine(ADDRESS tcpConn)
-  SHARED _lineBuf, _lineResult$, _lineOk
+SUB _HttpRecvLine(ADDRESS tcpConn, ADDRESS lr)
+  DECLARE STRUCT HttpLine *l
   LONGINT rc
 
-  rc = TcpRecvLine(tcpConn, _lineBuf, MAX_LINE_LEN)
+  l = lr
+  rc = TcpRecvLine(tcpConn, @l->buf, MAX_LINE_LEN)
   IF rc >= 0 THEN
-    _lineResult$ = CSTR(_lineBuf)
-    _lineOk = 1
+    l->ok = 1
   ELSE
-    _lineResult$ = ""
-    _lineOk = 0
+    POKE @l->buf, 0
+    l->ok = 0
   END IF
 END SUB
 
@@ -237,9 +231,10 @@ END SUB
 SUB LONGINT _HttpReadChunked(ADDRESS tcpConn, ADDRESS resp, ~
                              ADDRESS bufAddr, LONGINT bufSz)
   DECLARE STRUCT HttpResponse *rp
-  SHARED _lineResult$, _lineOk
+  DECLARE STRUCT HttpLine ln
   LONGINT toRead, nRead, retVal
   LONGINT looping
+  STRING lnStr$ SIZE 1025
 
   rp = resp
   retVal = 0
@@ -250,19 +245,20 @@ SUB LONGINT _HttpReadChunked(ADDRESS tcpConn, ADDRESS resp, ~
       looping = 0
     ELSEIF rp->_chunkState = CHK_TRAIL THEN
       ' Consume trailing CRLF after chunk data
-      _HttpRecvLine(tcpConn)
+      _HttpRecvLine(tcpConn, ln)
       rp->_chunkState = CHK_SIZE
     ELSEIF rp->_chunkState = CHK_SIZE THEN
       ' Read hex chunk size line
-      _HttpRecvLine(tcpConn)
-      IF _lineOk = 0 THEN
+      _HttpRecvLine(tcpConn, ln)
+      IF ln->ok = 0 THEN
         retVal = 0
         looping = 0
       ELSE
-        rp->_chunkLeft = _HttpParseHex(_lineResult$)
+        lnStr$ = CSTR(@ln->buf)
+        rp->_chunkLeft = _HttpParseHex(lnStr$)
         IF rp->_chunkLeft = 0 THEN
           ' Final zero-length chunk - consume trailing CRLF
-          _HttpRecvLine(tcpConn)
+          _HttpRecvLine(tcpConn, ln)
           rp->_chunkState = CHK_DONE
           retVal = 0
           looping = 0
@@ -454,9 +450,10 @@ END SUB
 SUB LONGINT HttpReadStatus(ADDRESS tcpConn, ~
                            ADDRESS resp) EXTERNAL
   DECLARE STRUCT HttpResponse *rp
-  SHARED _lineResult$, _lineOk
+  DECLARE STRUCT HttpLine ln
   LONGINT spPos, sc
   LONGINT colonPos, gotBlank
+  STRING lnStr$ SIZE 1025
   STRING tmpNm$ SIZE 64
   STRING tmpVl$ SIZE 256
   LONGINT nameAddr, valAddr
@@ -475,19 +472,20 @@ SUB LONGINT HttpReadStatus(ADDRESS tcpConn, ~
   TcpBufFlush(tcpConn)
 
   ' Read status line: "HTTP/1.x NNN reason"
-  _HttpRecvLine(tcpConn)
-  IF _lineOk = 0 THEN
+  _HttpRecvLine(tcpConn, ln)
+  IF ln->ok = 0 THEN
     HttpReadStatus = HTTP_ERR_RECV
     EXIT SUB
   END IF
 
   ' Parse status code (3 digits after first space)
-  spPos = INSTR(_lineResult$, " ")
+  lnStr$ = CSTR(@ln->buf)
+  spPos = INSTR(lnStr$, " ")
   IF spPos = 0 THEN
     HttpReadStatus = HTTP_ERR_PARSE
     EXIT SUB
   END IF
-  sc = CLNG(VAL(MID$(_lineResult$, spPos + 1, 3)))
+  sc = CLNG(VAL(MID$(lnStr$, spPos + 1, 3)))
   IF sc < 100 OR sc > 999 THEN
     HttpReadStatus = HTTP_ERR_PARSE
     EXIT SUB
@@ -499,38 +497,41 @@ SUB LONGINT HttpReadStatus(ADDRESS tcpConn, ~
   gotBlank = 0
 
   WHILE gotBlank = 0
-    _HttpRecvLine(tcpConn)
-    IF _lineOk = 0 THEN
-      gotBlank = 1
-    ELSEIF LEN(_lineResult$) = 0 THEN
+    _HttpRecvLine(tcpConn, ln)
+    IF ln->ok = 0 THEN
       gotBlank = 1
     ELSE
-      ' Parse "Name: Value" (handle optional whitespace after colon)
-      colonPos = INSTR(_lineResult$, ":")
-      IF colonPos > 0 AND rp->respHdrCount < MAX_RSP_HDRS THEN
-        tmpNm$ = LEFT$(_lineResult$, colonPos - 1)
-        tmpVl$ = LTRIM$(MID$(_lineResult$, colonPos + 1))
+      lnStr$ = CSTR(@ln->buf)
+      IF LEN(lnStr$) = 0 THEN
+        gotBlank = 1
+      ELSE
+        ' Parse "Name: Value" (handle optional whitespace after colon)
+        colonPos = INSTR(lnStr$, ":")
+        IF colonPos > 0 AND rp->respHdrCount < MAX_RSP_HDRS THEN
+          tmpNm$ = LEFT$(lnStr$, colonPos - 1)
+          tmpVl$ = LTRIM$(MID$(lnStr$, colonPos + 1))
 
-        nameAddr = @rp->respHdrNames + (rp->respHdrCount * 64)
-        _StrToAddr(nameAddr, tmpNm$, 64)
-        valAddr = @rp->respHdrVals + (rp->respHdrCount * 256)
-        _StrToAddr(valAddr, tmpVl$, 256)
+          nameAddr = @rp->respHdrNames + (rp->respHdrCount * 64)
+          _StrToAddr(nameAddr, tmpNm$, 64)
+          valAddr = @rp->respHdrVals + (rp->respHdrCount * 256)
+          _StrToAddr(valAddr, tmpVl$, 256)
 
-        ' Detect Content-Length
-        IF UCASE$(tmpNm$) = "CONTENT-LENGTH" THEN
-          rp->contentLen = CLNG(VAL(tmpVl$))
-          rp->_bodyLeft = rp->contentLen
-          rp->_xfer = XFER_LENGTH
-        END IF
-
-        ' Detect Transfer-Encoding: chunked
-        IF UCASE$(tmpNm$) = "TRANSFER-ENCODING" THEN
-          IF INSTR(UCASE$(tmpVl$), "CHUNKED") > 0 THEN
-            rp->_xfer = XFER_CHUNKED
+          ' Detect Content-Length
+          IF UCASE$(tmpNm$) = "CONTENT-LENGTH" THEN
+            rp->contentLen = CLNG(VAL(tmpVl$))
+            rp->_bodyLeft = rp->contentLen
+            rp->_xfer = XFER_LENGTH
           END IF
-        END IF
 
-        rp->respHdrCount = rp->respHdrCount + 1
+          ' Detect Transfer-Encoding: chunked
+          IF UCASE$(tmpNm$) = "TRANSFER-ENCODING" THEN
+            IF INSTR(UCASE$(tmpVl$), "CHUNKED") > 0 THEN
+              rp->_xfer = XFER_CHUNKED
+            END IF
+          END IF
+
+          rp->respHdrCount = rp->respHdrCount + 1
+        END IF
       END IF
     END IF
   WEND
