@@ -7,6 +7,13 @@ REM #using ace:submods/amissl/amissl.o
 
 #include <submods/tcpclient.h>
 
+{ ============== exec.library Declarations ============== }
+
+DECLARE FUNCTION ADDRESS AllocVec(LONGINT byteSize, LONGINT requirements) LIBRARY exec
+DECLARE FUNCTION FreeVec(ADDRESS memoryBlock) LIBRARY exec
+DECLARE FUNCTION LONGINT AvailMem(LONGINT requirements) LIBRARY exec
+DECLARE FUNCTION CopyMem(ADDRESS source, ADDRESS dest, LONGINT sz) LIBRARY exec
+
 { ============== Constants ============== }
 
 ' Error codes
@@ -94,15 +101,6 @@ STRUCT HttpLine
   STRING buf SIZE 1025
   LONGINT ok
 END STRUCT
-
-{ ============== exec.library Declarations ============== }
-
-DECLARE FUNCTION ADDRESS AllocVec(LONGINT byteSize, ~
-                                  LONGINT requirements) LIBRARY exec
-DECLARE FUNCTION FreeVec(ADDRESS memoryBlock) LIBRARY exec
-DECLARE FUNCTION LONGINT AvailMem(LONGINT requirements) LIBRARY exec
-DECLARE FUNCTION CopyMem(ADDRESS source, ADDRESS dest, ~
-                         LONGINT sz) LIBRARY exec
 
 { ============== Module Data ============== }
 
