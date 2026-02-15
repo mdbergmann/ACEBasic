@@ -56,6 +56,7 @@ extern	CODE	*exit_for_cx;
 extern	BOOL	end_of_source;
 extern	BOOL	have_equal;
 extern	BOOL	have_lparen;
+extern	char   	ut_id[MAXIDSIZE];
 
 /* functions */
 
@@ -222,16 +223,36 @@ int  exprtype;
    insymbol();
    if (sym == endofline) { block_if(cx1); return; } /* block IF statement */
    
-   if (sym==ident || sym==shortconst || sym==longconst)  /* label? */ 
+   if (sym==ident || sym==shortconst || sym==longconst)  /* label? */
    {
+     BOOL is_call = FALSE;
+
+     /* check for function/sub/extfunc call in THEN clause */
+     if (sym == ident)
+     {
+      char fn_chk[MAXIDSIZE], sub_chk[80], ext_chk[MAXIDSIZE+1];
+      strcpy(fn_chk,id); remove_qualifier(fn_chk);
+      strcpy(sub_chk,"_SUB_"); strcat(sub_chk,id);
+      make_ext_name(ext_chk,ut_id);
+      if (exist(fn_chk,function) || exist(sub_chk,subprogram) ||
+          exist(ext_chk,extfunc))
+      {
+       statement();
+       if (sym == colon) statement();
+       is_call = TRUE;
+      }
+     }
+
+     if (!is_call)
+     {
      /* assume implied GOTO at first */
      if (sym != ident) make_label_from_linenum(sym,id);
      strcpy(buf,id);
      strcat(buf,":\0");
- 
-     if (!exist(buf,label)) 
+
+     if (!exist(buf,label))
         strcpy(destbuf,"* "); /* mark for later label check (see sym.c) */
-     else 
+     else
         strcpy(destbuf,"  "); /* it's a declared label */
 
      strcpy(idholder,id);  /* save info for possible "jmp" or assign */
@@ -239,17 +260,17 @@ int  exprtype;
      oldtyp=typ;
 
      insymbol();
-    
+
      /* variable or array element or implicit branch? */
      if (lastsym != ident ||
-        (lastsym == ident && 
-         sym != equal && sym != lparen && sym != memberpointer)) 
+        (lastsym == ident &&
+         sym != equal && sym != lparen && sym != memberpointer))
      {
  	/* NOT an assignment statement */
 	strcpy(id,idholder);  /* restore id */
     	gen("jmp",id,destbuf);
      }
-     else 
+     else
        if (lastsym == ident)
        {
 	/* assignment */
@@ -257,20 +278,21 @@ int  exprtype;
 	obj=oldobj;
 	typ=oldtyp;
 	if (sym == equal) have_equal=TRUE;
-	if (sym == lparen) 
-            if (!exist(id,array)) { _error(71); insymbol(); return; } 
+	if (sym == lparen)
+            if (!exist(id,array)) { _error(71); insymbol(); return; }
 	else
  	    have_lparen=TRUE;
- 	assign();	   
+ 	assign();
 	have_lparen=FALSE;
 	have_equal=FALSE;
         if (sym == colon) statement();  /* multi-statement */
        }
+     } /* end if (!is_call) */
     }
     else
        /* not an ident or line number */
        {
-        statement();	
+        statement();
         if (sym == colon) statement();  /* multi-statement */
        }  
    } /* END THEN code */
