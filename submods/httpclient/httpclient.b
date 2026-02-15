@@ -448,7 +448,7 @@ SUB HttpSetHeader(ADDRESS req, STRING hdrNm$, ~
 END SUB
 
 SUB LONGINT HttpSendRequest(ADDRESS req, ADDRESS tcpConn, ~
-                            STRING meth$, ~
+                            STRING method$, ~
                             STRING reqPath$) EXTERNAL
   DECLARE STRUCT HttpRequest *r
   SHARED _crlf$
@@ -458,7 +458,7 @@ SUB LONGINT HttpSendRequest(ADDRESS req, ADDRESS tcpConn, ~
   r = req
 
   ' Request line: METHOD path HTTP/1.1\r\n
-  rc = _HttpSendStr(tcpConn, meth$ + " " + reqPath$ + " HTTP/1.1" + _crlf$)
+  rc = _HttpSendStr(tcpConn, method$ + " " + reqPath$ + " HTTP/1.1" + _crlf$)
   IF rc < 0 THEN
     HttpSendRequest = HTTP_ERR_SEND
     EXIT SUB
@@ -982,13 +982,13 @@ END SUB
 
 SUB LONGINT HttpRequest(ADDRESS req, ADDRESS resp, ~
                         ADDRESS tcpConn, STRING url$, ~
-                        STRING meth$, STRING ct$, ~
-                        STRING body$, ADDRESS respBuf, ~
-                        LONGINT bufSz) EXTERNAL
+                        STRING method$, STRING contentType$, ~
+                        STRING body$) EXTERNAL
   DECLARE STRUCT UrlParts urlP
-  LONGINT rc, sc
-  LONGINT totalLen, bytesGot, rdDone
+  LONGINT rc, sc, bufAddr
   LONGINT hasBody
+
+  _HttpInit
 
   _HttpParseUrl(url$, urlP)
   IF LEN(CSTR(@urlP->host)) = 0 THEN
@@ -1004,7 +1004,7 @@ SUB LONGINT HttpRequest(ADDRESS req, ADDRESS resp, ~
 
   ' Determine if this method sends a body
   hasBody = 0
-  IF meth$ <> "GET" AND meth$ <> "HEAD" AND meth$ <> "DELETE" THEN
+  IF method$ <> "GET" AND method$ <> "HEAD" AND method$ <> "DELETE" THEN
     IF LEN(body$) > 0 THEN
       hasBody = 1
     END IF
@@ -1012,13 +1012,13 @@ SUB LONGINT HttpRequest(ADDRESS req, ADDRESS resp, ~
 
   ' Set Content-Type and Content-Length for body-bearing requests
   IF hasBody THEN
-    IF LEN(ct$) > 0 THEN
-      HttpSetHeader(req, "Content-Type", ct$)
+    IF LEN(contentType$) > 0 THEN
+      HttpSetHeader(req, "Content-Type", contentType$)
     END IF
     HttpSetHeader(req, "Content-Length", FMT$("%ld", LEN(body$)))
   END IF
 
-  rc = HttpSendRequest(req, tcpConn, meth$, CSTR(@urlP->path))
+  rc = HttpSendRequest(req, tcpConn, method$, CSTR(@urlP->path))
   IF rc < 0 THEN
     HttpClose(tcpConn)
     HttpRequest = rc
@@ -1043,50 +1043,39 @@ SUB LONGINT HttpRequest(ADDRESS req, ADDRESS resp, ~
   END IF
 
   ' Read response body (unless HEAD)
-  IF meth$ <> "HEAD" THEN
-    totalLen = 0
-    rdDone = 0
-    WHILE rdDone = 0
-      bytesGot = HttpReadBody(tcpConn, resp, respBuf + totalLen, ~
-                              bufSz - 1 - totalLen)
-      IF bytesGot > 0 THEN
-        totalLen = totalLen + bytesGot
-        IF totalLen >= bufSz - 1 THEN rdDone = 1
-      ELSE
-        rdDone = 1
-      END IF
-    WEND
-    ' Null-terminate
-    POKE respBuf + totalLen, 0
+  IF method$ <> "HEAD" THEN
+    bufAddr = _HttpReadAllBody(tcpConn, resp)
+    HttpClose(tcpConn)
+    IF bufAddr = 0 THEN
+      HttpRequest = HTTP_ERR_NOMEM
+    ELSE
+      HttpRequest = bufAddr
+    END IF
+  ELSE
+    HttpClose(tcpConn)
+    HttpRequest = sc
   END IF
-
-  HttpClose(tcpConn)
-  HttpRequest = sc
 END SUB
 
 SUB LONGINT HttpPost(ADDRESS req, ADDRESS resp, ~
                      ADDRESS tcpConn, STRING url$, ~
-                     STRING ct$, STRING body$, ~
-                     ADDRESS respBuf, ~
-                     LONGINT bufSz) EXTERNAL
+                     STRING contentType$, STRING body$) EXTERNAL
   HttpPost = HttpRequest(req, resp, tcpConn, url$, ~
-                         "POST", ct$, body$, respBuf, bufSz)
+                         "POST", contentType$, body$)
 END SUB
 
 SUB LONGINT HttpPut(ADDRESS req, ADDRESS resp, ~
                     ADDRESS tcpConn, STRING url$, ~
-                    STRING ct$, STRING body$, ~
-                    ADDRESS respBuf, ~
-                    LONGINT bufSz) EXTERNAL
+                    STRING contentType$, STRING body$) EXTERNAL
   HttpPut = HttpRequest(req, resp, tcpConn, url$, ~
-                        "PUT", ct$, body$, respBuf, bufSz)
+                        "PUT", contentType$, body$)
 END SUB
 
 { ============== Public API - Streaming ============== }
 
 SUB LONGINT HttpRequestStream(ADDRESS req, ADDRESS resp, ~
                               ADDRESS tcpConn, STRING url$, ~
-                              STRING meth$, STRING ct$, ~
+                              STRING method$, STRING contentType$, ~
                               ADDRESS onSend, ~
                               ADDRESS onRecv) EXTERNAL
   DECLARE STRUCT UrlParts urlP
@@ -1113,7 +1102,7 @@ SUB LONGINT HttpRequestStream(ADDRESS req, ADDRESS resp, ~
 
   ' Determine if this method sends a body
   hasBody = 0
-  IF meth$ <> "GET" AND meth$ <> "HEAD" AND meth$ <> "DELETE" THEN
+  IF method$ <> "GET" AND method$ <> "HEAD" AND method$ <> "DELETE" THEN
     IF onSend <> 0 THEN
       hasBody = 1
     END IF
@@ -1121,13 +1110,13 @@ SUB LONGINT HttpRequestStream(ADDRESS req, ADDRESS resp, ~
 
   ' Set up headers for body-bearing requests with chunked encoding
   IF hasBody THEN
-    IF LEN(ct$) > 0 THEN
-      HttpSetHeader(req, "Content-Type", ct$)
+    IF LEN(contentType$) > 0 THEN
+      HttpSetHeader(req, "Content-Type", contentType$)
     END IF
     HttpSetHeader(req, "Transfer-Encoding", "chunked")
   END IF
 
-  rc = HttpSendRequest(req, tcpConn, meth$, CSTR(@urlP->path))
+  rc = HttpSendRequest(req, tcpConn, method$, CSTR(@urlP->path))
   IF rc < 0 THEN
     HttpClose(tcpConn)
     HttpRequestStream = rc
@@ -1165,7 +1154,7 @@ SUB LONGINT HttpRequestStream(ADDRESS req, ADDRESS resp, ~
   END IF
 
   ' Read response body via callback (unless HEAD or no callback)
-  IF meth$ <> "HEAD" AND onRecv <> 0 THEN
+  IF method$ <> "HEAD" AND onRecv <> 0 THEN
     rdDone = 0
     WHILE rdDone = 0
       bytesGot = HttpReadBody(tcpConn, resp, sBufAddr, READ_BUF_SIZE)
@@ -1195,18 +1184,18 @@ END SUB
 
 SUB LONGINT HttpPostStream(ADDRESS req, ADDRESS resp, ~
                            ADDRESS tcpConn, STRING url$, ~
-                           STRING ct$, ADDRESS onSend, ~
+                           STRING contentType$, ADDRESS onSend, ~
                            ADDRESS onRecv) EXTERNAL
   HttpPostStream = HttpRequestStream(req, resp, tcpConn, ~
-                                     url$, "POST", ct$, ~
+                                     url$, "POST", contentType$, ~
                                      onSend, onRecv)
 END SUB
 
 SUB LONGINT HttpPutStream(ADDRESS req, ADDRESS resp, ~
                           ADDRESS tcpConn, STRING url$, ~
-                          STRING ct$, ADDRESS onSend, ~
+                          STRING contentType$, ADDRESS onSend, ~
                           ADDRESS onRecv) EXTERNAL
   HttpPutStream = HttpRequestStream(req, resp, tcpConn, ~
-                                    url$, "PUT", ct$, ~
+                                    url$, "PUT", contentType$, ~
                                     onSend, onRecv)
 END SUB

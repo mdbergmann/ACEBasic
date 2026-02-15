@@ -9,8 +9,7 @@ DECLARE STRUCT TcpConn myTcp
 DECLARE STRUCT HttpRequest myReq
 DECLARE STRUCT HttpResponse myResp
 
-STRING resp$ SIZE 32768
-LONGINT sc
+LONGINT rc, bodyAddr
 
 PRINT "=== HTTP POST/PUT Test ==="
 PRINT
@@ -26,54 +25,62 @@ PRINT
 
 ' --- Test 2: POST form data ---
 PRINT "Test 2: POST to httpbin.org/post"
-sc = HttpPost(myReq, myResp, myTcp, ~
+rc = HttpPost(myReq, myResp, myTcp, ~
               "http://httpbin.org/post", ~
               "application/x-www-form-urlencoded", ~
-              "greeting=hello&who=world", ~
-              SADD(resp$), 32768)
-PRINT "  Status: "; sc
-ASSERT sc = 200, "T2: POST status not 200"
-IF LEN(resp$) > 400 THEN
-  PRINT "  Body (first 400): "; LEFT$(resp$, 400)
+              "greeting=hello&who=world")
+ASSERT rc > 0, "T2: HttpPost failed"
+bodyAddr = rc
+PRINT "  Status: "; myResp->statusCode
+ASSERT myResp->statusCode = 200, "T2: POST status not 200"
+PRINT "  Body length: "; myResp->contentLen
+IF myResp->contentLen > 400 THEN
+  PRINT "  Body (first 400): "; LEFT$(CSTR(bodyAddr), 400)
 ELSE
-  PRINT "  Body: "; resp$
+  PRINT "  Body: "; CSTR(bodyAddr)
 END IF
+HttpFreeBuf(bodyAddr)
 PRINT
 
 ' --- Test 3: PUT JSON data ---
 PRINT "Test 3: PUT to httpbin.org/put"
-resp$ = ""
 STRING q$ SIZE 4
 STRING jsonBody$ SIZE 64
 q$ = CHR$(34)
 jsonBody$ = "{" + q$ + "key" + q$ + ":" + q$ + "value" + q$ + "}"
-sc = HttpPut(myReq, myResp, myTcp, ~
+rc = HttpPut(myReq, myResp, myTcp, ~
              "http://httpbin.org/put", ~
              "application/json", ~
-             jsonBody$, ~
-             SADD(resp$), 32768)
-PRINT "  Status: "; sc
-ASSERT sc = 200, "T3: PUT status not 200"
-IF LEN(resp$) > 400 THEN
-  PRINT "  Body (first 400): "; LEFT$(resp$, 400)
+             jsonBody$)
+ASSERT rc > 0, "T3: HttpPut failed"
+bodyAddr = rc
+PRINT "  Status: "; myResp->statusCode
+ASSERT myResp->statusCode = 200, "T3: PUT status not 200"
+PRINT "  Body length: "; myResp->contentLen
+IF myResp->contentLen > 400 THEN
+  PRINT "  Body (first 400): "; LEFT$(CSTR(bodyAddr), 400)
 ELSE
-  PRINT "  Body: "; resp$
+  PRINT "  Body: "; CSTR(bodyAddr)
 END IF
+HttpFreeBuf(bodyAddr)
 PRINT
 
 ' --- Test 4: HttpRequest with GET (generic) ---
 PRINT "Test 4: HttpRequest GET httpbin.org/get"
-resp$ = ""
-sc = HttpRequest(myReq, myResp, myTcp, ~
+rc = HttpRequest(myReq, myResp, myTcp, ~
                  "http://httpbin.org/get", ~
-                 "GET", "", "", SADD(resp$), 32768)
-PRINT "  Status: "; sc
-ASSERT sc = 200, "T4: GET status not 200"
-IF LEN(resp$) > 400 THEN
-  PRINT "  Body (first 400): "; LEFT$(resp$, 400)
+                 "GET", "", "")
+ASSERT rc > 0, "T4: HttpRequest failed"
+bodyAddr = rc
+PRINT "  Status: "; myResp->statusCode
+ASSERT myResp->statusCode = 200, "T4: GET status not 200"
+PRINT "  Body length: "; myResp->contentLen
+IF myResp->contentLen > 400 THEN
+  PRINT "  Body (first 400): "; LEFT$(CSTR(bodyAddr), 400)
 ELSE
-  PRINT "  Body: "; resp$
+  PRINT "  Body: "; CSTR(bodyAddr)
 END IF
+HttpFreeBuf(bodyAddr)
 PRINT
 
 PRINT "=== Test Done ==="

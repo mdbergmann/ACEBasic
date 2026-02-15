@@ -181,15 +181,9 @@ CONST HTTP_PLAIN           = 0    ' Plain TCP (http)
 '   - Scheme determines SSL (https) or plain (http)
 '   - Port defaults to 80 (http) or 443 (https)
 '
-' HttpGet auto-allocates the response buffer based on Content-Length
-'   (exact allocation) or via growing buffer for chunked transfers.
-'   Caller must free the buffer with HttpFreeBuf().
-'
-' HttpPost/HttpPut/HttpRequest use caller-provided buffers:
-'   - Pass SADD(str$) as respBuf, where str$ is a STRING SIZE N
-'   - bufSz is the total buffer size in bytes
-'   - Response body is capped to bufSz-1 bytes and null-terminated
-'   - Return HTTP status code or negative error code (HTTP_ERR_*)
+' HttpGet/HttpPost/HttpPut/HttpRequest auto-allocate the response
+'   buffer based on Content-Length (exact allocation) or via growing
+'   buffer for chunked transfers. Caller must free with HttpFreeBuf().
 '
 ' After the call returns:
 '   - resp struct retains response headers (query with
@@ -219,26 +213,31 @@ DECLARE SUB LONGINT HttpHead(ADDRESS req, ADDRESS resp, ~
                              ADDRESS tcpConn, ~
                              STRING url) EXTERNAL
 
-' HttpPost - Perform an HTTP POST with string body
+' HttpPost - Perform an HTTP POST with auto-allocated response buffer
+'   Returns: ADDRESS of allocated body buffer (null-terminated) if > 0,
+'            or negative error code (HTTP_ERR_*) on failure.
+'   On success: resp->statusCode, resp->contentLen set. Free with HttpFreeBuf().
 DECLARE SUB LONGINT HttpPost(ADDRESS req, ADDRESS resp, ~
                              ADDRESS tcpConn, STRING url, ~
-                             STRING ct, STRING body, ~
-                             ADDRESS respBuf, ~
-                             LONGINT bufSz) EXTERNAL
+                             STRING contentType, STRING body) EXTERNAL
 
-' HttpPut - Perform an HTTP PUT with string body
+' HttpPut - Perform an HTTP PUT with auto-allocated response buffer
+'   Returns: ADDRESS of allocated body buffer (null-terminated) if > 0,
+'            or negative error code (HTTP_ERR_*) on failure.
+'   On success: resp->statusCode, resp->contentLen set. Free with HttpFreeBuf().
 DECLARE SUB LONGINT HttpPut(ADDRESS req, ADDRESS resp, ~
                             ADDRESS tcpConn, STRING url, ~
-                            STRING ct, STRING body, ~
-                            ADDRESS respBuf, ~
-                            LONGINT bufSz) EXTERNAL
+                            STRING contentType, STRING body) EXTERNAL
 
-' HttpRequest - Generic request with arbitrary HTTP method
+' HttpRequest - Generic request with auto-allocated response buffer
+'   Returns: ADDRESS of allocated body buffer (null-terminated) if > 0,
+'            or negative error code (HTTP_ERR_*) on failure.
+'   For HEAD requests: returns HTTP status code directly (no body buffer).
+'   On success: resp->statusCode, resp->contentLen set. Free with HttpFreeBuf().
 DECLARE SUB LONGINT HttpRequest(ADDRESS req, ADDRESS resp, ~
                                 ADDRESS tcpConn, STRING url, ~
-                                STRING meth, STRING ct, ~
-                                STRING body, ADDRESS respBuf, ~
-                                LONGINT bufSz) EXTERNAL
+                                STRING method, STRING contentType, ~
+                                STRING body) EXTERNAL
 
 
 ' =====================================================================
@@ -281,19 +280,19 @@ DECLARE SUB LONGINT HttpGetStream(ADDRESS req, ADDRESS resp, ~
 ' HttpPostStream - Streaming POST with chunked request body
 DECLARE SUB LONGINT HttpPostStream(ADDRESS req, ADDRESS resp, ~
                                    ADDRESS tcpConn, STRING url, ~
-                                   STRING ct, ADDRESS onSend, ~
+                                   STRING contentType, ADDRESS onSend, ~
                                    ADDRESS onRecv) EXTERNAL
 
 ' HttpPutStream - Streaming PUT with chunked request body
 DECLARE SUB LONGINT HttpPutStream(ADDRESS req, ADDRESS resp, ~
                                   ADDRESS tcpConn, STRING url, ~
-                                  STRING ct, ADDRESS onSend, ~
+                                  STRING contentType, ADDRESS onSend, ~
                                   ADDRESS onRecv) EXTERNAL
 
 ' HttpRequestStream - Generic streaming request
 DECLARE SUB LONGINT HttpRequestStream(ADDRESS req, ADDRESS resp, ~
                                       ADDRESS tcpConn, STRING url, ~
-                                      STRING meth, STRING ct, ~
+                                      STRING method, STRING contentType, ~
                                       ADDRESS onSend, ~
                                       ADDRESS onRecv) EXTERNAL
 
@@ -351,7 +350,7 @@ DECLARE SUB HttpSetHeader(ADDRESS req, STRING hdrName, ~
 ' HttpSendRequest - Send request line and headers
 '   req     - HttpRequest struct (headers, host)
 '   tcpConn - TcpConn struct (connection)
-'   meth$   - HTTP method (e.g. "GET", "POST")
+'   method$ - HTTP method (e.g. "GET", "POST")
 '   path$   - Request path with optional query (e.g. "/api?key=val")
 '   Returns: HTTP_SUCCESS on success, negative error code on failure
 '   IMPORTANT: Clears all request headers in req after sending
@@ -361,7 +360,7 @@ DECLARE SUB HttpSetHeader(ADDRESS req, STRING hdrName, ~
 '         For POST/PUT/PATCH, follow with HttpWriteBody or
 '         HttpWriteBodyChunked to send the request body.
 DECLARE SUB LONGINT HttpSendRequest(ADDRESS req, ADDRESS tcpConn, ~
-                                    STRING meth, ~
+                                    STRING method, ~
                                     STRING reqPath) EXTERNAL
 
 ' HttpWriteBody - Send a fixed-length request body

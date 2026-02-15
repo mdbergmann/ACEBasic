@@ -42,13 +42,16 @@ PRINT
 
 ' --- Test 2: HTTPS POST ---
 PRINT "Test 2: HttpPost https://httpbin.org/post"
-sc = HttpPost(myReq, myResp, myTcp, ~
+rc = HttpPost(myReq, myResp, myTcp, ~
               "https://httpbin.org/post", ~
               "application/x-www-form-urlencoded", ~
-              "greeting=hello", respBuf, 8192)
-PRINT "  Status: "; sc
-ASSERT sc = 200, "T2: HTTPS POST status not 200"
-PRINT "  Body length: "; LEN(CSTR(respBuf))
+              "greeting=hello")
+ASSERT rc > 0, "T2: HttpPost failed"
+bodyAddr = rc
+PRINT "  Status: "; myResp->statusCode
+ASSERT myResp->statusCode = 200, "T2: HTTPS POST status not 200"
+PRINT "  Body length: "; myResp->contentLen
+HttpFreeBuf(bodyAddr)
 PRINT
 
 ' --- Test 3: Low-level HTTPS ---

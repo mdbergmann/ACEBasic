@@ -62,6 +62,17 @@ High-level GET (auto-allocated buffer):
       HttpFreeBuf(rc)
     END IF
 
+High-level POST (auto-allocated buffer):
+
+    rc = HttpPost(myReq, myResp, myTcp, ~
+                  "http://httpbin.org/post", ~
+                  "application/x-www-form-urlencoded", ~
+                  "greeting=hello&who=world")
+    IF rc > 0 THEN
+      IF myResp->statusCode = 200 THEN PRINT CSTR(rc)
+      HttpFreeBuf(rc)
+    END IF
+
 Low-level POST:
 
     REM #using ace:submods/httpclient/httpclient.o
