@@ -263,7 +263,7 @@ char *addrbuf;
 void assign_to_struct(item)
 SYM *item;
 {
-/* assign either an address to 
+/* assign either an address to
    a structure variable or a
    value to one of its members.
 */
@@ -272,6 +272,8 @@ char   addrbuf[40],absbuf[40],numbuf[40];
 STRUCM *member;
 int    exprtype,storetype;
 ULONG  total_offset;
+ULONG  deref_offsets[16];
+int    num_derefs,i;
 
  if (sym == memberpointer)
  {
@@ -295,13 +297,23 @@ ULONG  total_offset;
       { _error(67); insymbol(); }  /* not a member! */
    else
    {
-    /* resolve chained -> for embedded struct members,
-       accumulating offset from outermost struct base */
+    /* resolve chained -> for embedded struct and struct pointer members,
+       recording dereference points for struct pointers */
     total_offset = member->offset;
+    num_derefs = 0;
 
     insymbol();
-    while (sym == memberpointer && member->type == structure)
+    while (sym == memberpointer
+           && (member->type == structure || member->type == structptrtype))
     {
+     if (member->type == structptrtype)
+     {
+      /* record dereference point */
+      if (num_derefs < 16)
+         deref_offsets[num_derefs++] = total_offset;
+      total_offset = 0;
+     }
+
      insymbol();
      if (sym != ident)
         { _error(7); member = NULL; break; }
@@ -328,9 +340,13 @@ ULONG  total_offset;
      insymbol();
      exprtype=expr();
 
-     /* treat byte type as a SHORT when coercing */
+     /* treat byte type as a SHORT when coercing,
+        treat struct pointer as LONG */
      if (member->type == bytetype)
         storetype=shorttype;
+     else
+     if (member->type == structptrtype)
+        storetype=longtype;
      else
         storetype=member->type;  /* short, long, single */
 
@@ -349,6 +365,14 @@ ULONG  total_offset;
       }
       else
           gen("movea.l",addrbuf,"a0"); /* start address of structure */
+
+      /* apply struct pointer dereferences */
+      for (i = 0; i < num_derefs; i++)
+      {
+       ltoa(deref_offsets[i],absbuf,10);
+       strcat(absbuf,"(a0)");
+       gen("movea.l",absbuf,"a0");
+      }
 
       /* offset from struct start (using accumulated total_offset) */
       if (member->type != stringtype)

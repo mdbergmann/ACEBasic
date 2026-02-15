@@ -2009,7 +2009,6 @@ ULONG  total_off;
 			     insymbol();
 			     if (sym == memberpointer)
 			     {
-			      total_off = 0;
 			      insymbol();
 			      if (sym != ident)
 			         _error(7);
@@ -2021,11 +2020,25 @@ ULONG  total_off;
 			       else
 				 {
 				  total_off = member->offset;
-				  /* resolve chained -> for embedded structs */
+
+				  /* load struct base address */
+				  gen("movea.l","(a0)","a0");
+
+				  /* resolve chained -> with deref support */
 				  insymbol();
 				  while (sym == memberpointer
-				         && member->type == structure)
+				         && (member->type == structure
+				             || member->type == structptrtype))
 				  {
+				   if (member->type == structptrtype)
+				   {
+				    /* dereference pointer */
+				    ltoa(total_off,buf,10);
+				    strcat(buf,"(a0)");
+				    gen("movea.l",buf,"a0");
+				    total_off = 0;
+				   }
+
 				   insymbol();
 				   if (sym != ident)
 				      { _error(7); member = NULL; break; }
@@ -2039,7 +2052,6 @@ ULONG  total_off;
 				  {
 				   /* push address of struct member */
 				   sprintf(numbuf,"#%ld",total_off);
-				   gen("movea.l","(a0)","a0");
 				   gen("adda.l",numbuf,"a0");
 				   gen("move.l","a0","-(sp)");
 				   /* store type for SWAP command */

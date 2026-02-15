@@ -415,6 +415,7 @@ enum {	bytetype = 	2000,
 	singletype,
 	doubletype,
 	stringtype,
+	structptrtype,
 	notype };
 
 /* objects */

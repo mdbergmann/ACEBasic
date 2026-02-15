@@ -114,11 +114,10 @@ else
      case addresssym  : mem_type=longtype; break;
      case singlesym   : mem_type=singletype; break;
      case stringsym   : mem_type=stringtype; break;    
-     case ident       :	mem_type=structure; 
-			if (!exist(id,structdef) || 
-			    strcmp(id,structdef_item->name) == 0)
+     case ident       :	mem_type=structure;
+			if (!exist(id,structdef))
 			{
-				_error(65); /* unknown or current structdef */
+				_error(65); /* unknown structdef */
 				mem_type = undefined;
 			}
 			else
@@ -132,12 +131,23 @@ else
     else
     {
       insymbol();
-      if (sym != ident)
+
+      /* typed struct pointer: Inner *ptr */
+      if (mem_type == structure && sym == multiply)
+      {
+       mem_type = structptrtype;
+       insymbol();
+      }
+
+      /* reject embedded self-reference (infinite size) */
+      if (mem_type == structure && struct_mbr_def == structdef_item)
+       _error(65);
+      else if (sym != ident)
 	  { _error(7); insymbol(); }
       else
-      { 
-     	add_struct_member(structdef_item,id,mem_type,struct_mbr_def); 
-      	mem_count++; 
+      {
+     	add_struct_member(structdef_item,id,mem_type,struct_mbr_def);
+      	mem_count++;
       }
     }
 
@@ -309,6 +319,8 @@ char   strsize[20],bss_spec[40];
 			   strcpy(bss_spec,"ds.b ");
 			   strcat(bss_spec,strsize);
 			   enter_BSS("  ",bss_spec);
+			   break;
+	 case structptrtype : enter_BSS("  ","ds.l 1");
 			   break;
         }
         curr_member = curr_member->next;

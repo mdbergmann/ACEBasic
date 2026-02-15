@@ -327,14 +327,24 @@ ULONG  total_offset;
     else
         gen("movea.l",addrbuf,"a0"); /* start address of struct */
 
-    /* embedded struct member? resolve chained -> */
-    if (mbr_type == structure)
+    /* embedded struct or struct pointer member? resolve chained -> */
+    if (mbr_type == structure || mbr_type == structptrtype)
     {
      total_offset = member->offset;
 
      insymbol();
-     while (sym == memberpointer && mbr_type == structure)
+     while (sym == memberpointer
+            && (mbr_type == structure || mbr_type == structptrtype))
      {
+      if (mbr_type == structptrtype)
+      {
+       /* dereference pointer: load pointer value into a0 */
+       ltoa(total_offset,absbuf,10);
+       strcat(absbuf,"(a0)");
+       gen("movea.l",absbuf,"a0");
+       total_offset = 0;
+      }
+
       insymbol();
       if (sym != ident)
          { _error(7); mbr_type = undefined; break; }
@@ -346,7 +356,7 @@ ULONG  total_offset;
       mbr_type = member->type;
       total_offset += member->offset;
 
-      if (mbr_type == structure)
+      if (mbr_type == structure || mbr_type == structptrtype)
        insymbol();
      }
 
@@ -357,6 +367,15 @@ ULONG  total_offset;
       sprintf(numbuf,"#%ld",total_offset);
       gen("adda.l",numbuf,"a0");
       gen("move.l","a0","-(sp)");
+      mbr_type=longtype;
+     }
+     else
+     if (mbr_type == structptrtype)
+     {
+      /* no further -> : push pointer value as LONGINT */
+      ltoa(total_offset,absbuf,10);
+      strcat(absbuf,"(a0)");
+      gen("move.l",absbuf,"-(sp)");
       mbr_type=longtype;
      }
      else
