@@ -24,9 +24,9 @@ PRINT "  UrlEncode results OK"
 PRINT
 
 ' --- Test 2: POST form data ---
-PRINT "Test 2: POST to httpbin.org/post"
+PRINT "Test 2: POST to httpbun.com/post"
 rc = HttpPost(myReq, myResp, myTcp, ~
-              "http://httpbin.org/post", ~
+              "http://httpbun.com/post", ~
               "application/x-www-form-urlencoded", ~
               "greeting=hello&who=world")
 ASSERT rc > 0, "T2: HttpPost failed"
@@ -43,13 +43,13 @@ HttpFreeBuf(bodyAddr)
 PRINT
 
 ' --- Test 3: PUT JSON data ---
-PRINT "Test 3: PUT to httpbin.org/put"
+PRINT "Test 3: PUT to httpbun.com/put"
 STRING q$ SIZE 4
 STRING jsonBody$ SIZE 64
 q$ = CHR$(34)
 jsonBody$ = "{" + q$ + "key" + q$ + ":" + q$ + "value" + q$ + "}"
 rc = HttpPut(myReq, myResp, myTcp, ~
-             "http://httpbin.org/put", ~
+             "http://httpbun.com/put", ~
              "application/json", ~
              jsonBody$)
 ASSERT rc > 0, "T3: HttpPut failed"
@@ -66,9 +66,9 @@ HttpFreeBuf(bodyAddr)
 PRINT
 
 ' --- Test 4: HttpRequest with GET (generic) ---
-PRINT "Test 4: HttpRequest GET httpbin.org/get"
+PRINT "Test 4: HttpRequest GET httpbun.com/get"
 rc = HttpRequest(myReq, myResp, myTcp, ~
-                 "http://httpbin.org/get", ~
+                 "http://httpbun.com/get", ~
                  "GET", "", "")
 ASSERT rc > 0, "T4: HttpRequest failed"
 bodyAddr = rc

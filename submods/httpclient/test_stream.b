@@ -49,10 +49,10 @@ PRINT "=== HTTP Streaming Test ==="
 PRINT
 
 ' --- Test 1: HttpGetStream ---
-PRINT "Test 1: HttpGetStream httpbin.org/get"
+PRINT "Test 1: HttpGetStream httpbun.com/get"
 totalBytes = 0
 sc = HttpGetStream(myReq, myResp, myTcp, ~
-                   "http://httpbin.org/get", BIND(@CountBytes))
+                   "http://httpbun.com/get", BIND(@CountBytes))
 PRINT "  Status: "; sc
 PRINT "  Bytes received: "; totalBytes
 ASSERT sc = 200, "T1: HttpGetStream status not 200"
@@ -60,17 +60,44 @@ ASSERT totalBytes > 0, "T1: no bytes received"
 PRINT
 
 ' --- Test 2: HttpPostStream with send callback ---
-PRINT "Test 2: HttpPostStream httpbin.org/post"
+PRINT "Test 2: HttpPostStream httpbun.com/post"
 totalBytes = 0
 sendDone = 0
 sc = HttpPostStream(myReq, myResp, myTcp, ~
-                    "http://httpbin.org/post", ~
+                    "http://httpbun.com/post", ~
                     "application/x-www-form-urlencoded", ~
                     BIND(@SendBody), BIND(@CountBytes))
 PRINT "  Status: "; sc
 PRINT "  Bytes received: "; totalBytes
 ASSERT sc = 200, "T2: HttpPostStream status not 200"
 ASSERT totalBytes > 0, "T2: no bytes received"
+PRINT
+
+' --- Test 3: HttpPutStream with send + receive callbacks ---
+PRINT "Test 3: HttpPutStream httpbun.com/put"
+totalBytes = 0
+sendDone = 0
+sc = HttpPutStream(myReq, myResp, myTcp, ~
+                   "http://httpbun.com/put", ~
+                   "application/x-www-form-urlencoded", ~
+                   BIND(@SendBody), BIND(@CountBytes))
+PRINT "  Status: "; sc
+PRINT "  Bytes received: "; totalBytes
+ASSERT sc = 200, "T3: HttpPutStream status not 200"
+ASSERT totalBytes > 0, "T3: no bytes received"
+PRINT
+
+' --- Test 4: HttpRequestStream with DELETE (no send body) ---
+PRINT "Test 4: HttpRequestStream DELETE httpbun.com/anything"
+totalBytes = 0
+sc = HttpRequestStream(myReq, myResp, myTcp, ~
+                       "http://httpbun.com/anything", ~
+                       "DELETE", "", ~
+                       0&, BIND(@CountBytes))
+PRINT "  Status: "; sc
+PRINT "  Bytes received: "; totalBytes
+ASSERT sc = 200, "T4: HttpRequestStream status not 200"
+ASSERT totalBytes > 0, "T4: no bytes received"
 PRINT
 
 PRINT "=== Test Done ==="

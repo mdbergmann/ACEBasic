@@ -11,7 +11,7 @@ DECLARE STRUCT HttpResponse myResp
 
 STRING resp$ SIZE 8192
 ADDRESS respBuf
-LONGINT sc, bodyAddr, rc
+LONGINT sc, bodyAddr, rc, totalRd, bytesGot, rdDone
 
 respBuf = SADD(resp$)
 
@@ -19,9 +19,9 @@ PRINT "=== HTTPS Test ==="
 PRINT
 
 ' --- Test 1: HTTPS GET ---
-PRINT "Test 1: HttpGet https://httpbin.org/get"
+PRINT "Test 1: HttpGet https://httpbun.com/get"
 rc = HttpGet(myReq, myResp, myTcp, ~
-             "https://httpbin.org/get")
+             "https://httpbun.com/get")
 IF rc < 0 THEN
   IF rc = HTTP_ERR_NO_LIB THEN
     PRINT "  SKIP (AmiSSL not installed)"
@@ -41,9 +41,9 @@ HttpFreeBuf(bodyAddr)
 PRINT
 
 ' --- Test 2: HTTPS POST ---
-PRINT "Test 2: HttpPost https://httpbin.org/post"
+PRINT "Test 2: HttpPost https://httpbun.com/post"
 rc = HttpPost(myReq, myResp, myTcp, ~
-              "https://httpbin.org/post", ~
+              "https://httpbun.com/post", ~
               "application/x-www-form-urlencoded", ~
               "greeting=hello")
 ASSERT rc > 0, "T2: HttpPost failed"
@@ -56,8 +56,7 @@ PRINT
 
 ' --- Test 3: Low-level HTTPS ---
 PRINT "Test 3: Low-level HttpOpen with SSL"
-LONGINT rc
-rc = HttpOpen(myReq, myTcp, "httpbin.org", 443, HTTP_SSL)
+rc = HttpOpen(myReq, myTcp, "httpbun.com", 443, HTTP_SSL)
 ASSERT rc = HTTP_SUCCESS, "T3: HttpOpen SSL failed"
 rc = HttpSendRequest(myReq, myTcp, "GET", "/get")
 ASSERT rc >= 0, "T3: HttpSendRequest failed"
@@ -65,7 +64,6 @@ sc = HttpReadStatus(myTcp, myResp)
 PRINT "  Status: "; sc
 ASSERT sc = 200, "T3: status not 200"
 
-LONGINT totalRd, bytesGot, rdDone
 totalRd = 0
 rdDone = 0
 WHILE rdDone = 0

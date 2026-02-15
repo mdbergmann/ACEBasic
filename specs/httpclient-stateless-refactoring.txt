@@ -245,3 +245,114 @@ Notes:
   - test_chunked.b also updated (was missing from spec file list).
   - Host stored via struct field assignment (r->reqHost = host$).
   - Headers stored via POKE-based _StrToAddr into flat STRING buffers.
+
+
+Follow-up: Header Struct + Auto-Allocated Buffers
+--------------------------------------------------
+Branch: refactor-header-struct (based on master after stateless merge)
+
+Step 5: Refactor headers into HttpHeader struct (c7c511a)
+  - New STRUCT HttpHeader { STRING hdrName SIZE 64; STRING hdrVal SIZE 256 }
+  - Replaced flat STRING buffers (_reqHdrs/_respHdrs) with typed
+    HttpHeader-based access via shared helpers
+  - Internal helpers: _HdrSetSlot, _HdrGetName, _HdrGetVal, _HdrSetVal,
+    _HdrFind, _HdrClear, _HdrDump — all operate on ADDRESS + index
+  - HttpRequest._reqHdrs is STRING SIZE 5120 (16 * 320 bytes per slot)
+  - HttpResponse uses respHdrNames/respHdrVals (unchanged flat layout)
+  - Updated HTTPClient.h with HttpHeader struct and new constants
+
+Step 6: Auto-allocated response buffers (1ccf4e5, eea0447)
+  - Added exec.library declarations (AllocVec, FreeVec, AvailMem, CopyMem)
+  - New internal helper: _HttpReadAllBody — reads entire response into
+    an AllocVec'd buffer (Content-Length: exact alloc; chunked/close:
+    growing buffer with realloc pattern, then exact copy)
+  - HttpGet auto-allocates response buffer, returns status code,
+    caller retrieves body via rp->_bodyBuf and must call HttpFreeBuf
+  - HttpPost/HttpPut/HttpRequest similarly auto-allocate
+  - New public SUB: HttpFreeBuf(ADDRESS buf) — wraps FreeVec
+  - Updated test_post.b and test_https.b for new API
+  - LIBRARY "exec.library" opened in _HttpInit
+
+Compiler bug fix (745548e) — required by Step 6:
+  - Fix #79: single-line IF THEN did not handle function/sub calls
+  - FreeVec(buf) and CopyMem(...) inside IF...THEN triggered error 71
+  - Root cause: control.c if_statement() only considered GOTO/assignment
+    for ident+lparen after THEN, never checked for function/sub calls
+  - Fix: added exist() check for function/subprogram/extfunc before
+    label/assignment logic; delegates to statement() when found
+
+Status:
+  [x] Step 5: HttpHeader struct refactoring
+  [x] Step 6: Auto-allocated response buffers
+  [x] Compiler fix #79 (blocker for Step 6)
+  [x] Emulator test: httpclient compiles clean (verified)
+  [ ] Emulator test: run all httpclient test files on network
+
+
+Follow-up: Test Coverage + Service Migration
+---------------------------------------------
+Branch: refactor-header-struct (continued)
+
+Motivation:
+  httpbin.org unreliable (hangs, connection failures). 8 of 26 public
+  functions had zero test coverage. Goal: reliable test service + 100%
+  public API coverage.
+
+Step 7: Replace httpbin.org with httpbun.com
+  - httpbun.com is API-compatible (same /get, /post, /put endpoints)
+  - Drop-in hostname replacement in 4 files:
+    test_lowlevel_full.b, test_post.b, test_stream.b, test_https.b
+  - No changes to google.com test files (test_tcp, test_lowlevel,
+    test_http_get, test_chunked)
+
+Step 8: New test_local.b — offline header + error tests
+  - T1: HttpSetHeader + HttpDumpReqHeaders (set 2 headers, verify dump)
+  - T2: HttpSetHeader overwrite (set Accept twice, verify single entry)
+  - T3: HttpClearReqHeaders (clear, verify dump empty)
+  - T4: Set headers after clear (verify HttpSetHeader works post-clear)
+  - T5: Error handling — bad host (assert HTTP_ERR_DNS)
+  - T6: Error handling — bad port (assert rc < 0)
+  - T1-T4 are pure struct operations, no network needed
+
+Step 9: HttpDumpRespHeaders test in test_lowlevel_full.b
+  - New T5: GET /get, call HttpDumpRespHeaders, assert non-empty,
+    assert contains "Content-Type"
+
+Step 10: HttpPutStream + HttpRequestStream in test_stream.b
+  - T3: HttpPutStream PUT to httpbun.com/put with SendBody+CountBytes
+  - T4: HttpRequestStream DELETE to httpbun.com/anything with CountBytes
+
+Coverage after implementation — all 26 public functions:
+  HttpGet              - test_http_get.b, test_https.b
+  HttpHead             - (tested via HttpRequest with HEAD method)
+  HttpPost             - test_post.b, test_https.b
+  HttpPut              - test_post.b
+  HttpRequest          - test_post.b
+  HttpGetStream        - test_stream.b T1
+  HttpPostStream       - test_stream.b T2
+  HttpPutStream        - test_stream.b T3 (NEW)
+  HttpRequestStream    - test_stream.b T4 (NEW)
+  HttpOpen             - test_lowlevel.b, test_lowlevel_full.b, test_local.b
+  HttpClose            - test_lowlevel.b, test_lowlevel_full.b
+  HttpSetHeader        - test_lowlevel_full.b, test_local.b T1/T2 (NEW)
+  HttpClearReqHeaders  - test_local.b T3/T4 (NEW)
+  HttpSendRequest      - test_lowlevel_full.b
+  HttpWriteBody        - test_lowlevel_full.b T3
+  HttpWriteBodyChunked - test_lowlevel_full.b T4
+  HttpReadStatus       - test_lowlevel_full.b, test_lowlevel.b
+  HttpGetResponseHeader      - test_lowlevel_full.b T2
+  HttpResponseHeaderCount    - test_lowlevel_full.b T2
+  HttpResponseHeaderName     - test_lowlevel_full.b T2
+  HttpResponseHeaderVal      - test_lowlevel_full.b T2
+  HttpReadBody         - test_lowlevel_full.b, test_lowlevel.b
+  HttpFreeBuf          - test_post.b, test_http_get.b
+  HttpDumpReqHeaders   - test_local.b T1 (NEW)
+  HttpDumpRespHeaders  - test_lowlevel_full.b T5 (NEW)
+  UrlEncode            - test_post.b T1
+
+Status:
+  [ ] Step 7: httpbin.org → httpbun.com
+  [ ] Step 8: test_local.b
+  [ ] Step 9: HttpDumpRespHeaders test
+  [ ] Step 10: HttpPutStream + HttpRequestStream tests
+  [ ] Emulator verification: all 9 tests pass

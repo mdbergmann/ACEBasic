@@ -55,4 +55,51 @@ EndIf
 Path AmiSSL: ADD
 ;END AmiSSL
 
+; === Compile httpclient module ===
+cd ace:submods/httpclient
+echo "=== Compiling httpclient module ===" >ace:build-output.txt
+bas -mE httpclient >>ace:build-output.txt
+echo "=== httpclient module done ===" >>ace:build-output.txt
+
+; === Compile all test files ===
+echo "=== Compiling test_tcp ===" >>ace:build-output.txt
+bas -E test_tcp >>ace:build-output.txt
+echo "=== Compiling test_lowlevel ===" >>ace:build-output.txt
+bas -E test_lowlevel >>ace:build-output.txt
+echo "=== Compiling test_lowlevel_full ===" >>ace:build-output.txt
+bas -E test_lowlevel_full >>ace:build-output.txt
+echo "=== Compiling test_http_get ===" >>ace:build-output.txt
+bas -E test_http_get >>ace:build-output.txt
+echo "=== Compiling test_chunked ===" >>ace:build-output.txt
+bas -E test_chunked >>ace:build-output.txt
+echo "=== Compiling test_post ===" >>ace:build-output.txt
+bas -E test_post >>ace:build-output.txt
+echo "=== Compiling test_stream ===" >>ace:build-output.txt
+bas -E test_stream >>ace:build-output.txt
+echo "=== Compiling test_https ===" >>ace:build-output.txt
+bas -E test_https >>ace:build-output.txt
+echo "=== Compiling test_local ===" >>ace:build-output.txt
+bas -E test_local >>ace:build-output.txt
+echo "=== All compilations done ===" >>ace:build-output.txt
+
+; === Run all tests ===
+echo "=== Running test_tcp ===" >>ace:build-output.txt
+test_tcp >>ace:build-output.txt
+echo "=== Running test_lowlevel ===" >>ace:build-output.txt
+test_lowlevel >>ace:build-output.txt
+echo "=== Running test_lowlevel_full ===" >>ace:build-output.txt
+test_lowlevel_full >>ace:build-output.txt
+echo "=== Running test_http_get ===" >>ace:build-output.txt
+test_http_get >>ace:build-output.txt
+echo "=== Running test_chunked ===" >>ace:build-output.txt
+test_chunked >>ace:build-output.txt
+echo "=== Running test_post ===" >>ace:build-output.txt
+test_post >>ace:build-output.txt
+echo "=== Running test_stream ===" >>ace:build-output.txt
+test_stream >>ace:build-output.txt
+echo "=== Running test_https ===" >>ace:build-output.txt
+test_https >>ace:build-output.txt
+echo "=== Running test_local ===" >>ace:build-output.txt
+test_local >>ace:build-output.txt
+echo "=== ALL TESTS DONE ===" >>ace:build-output.txt
 

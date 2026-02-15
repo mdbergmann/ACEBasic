@@ -15,6 +15,7 @@ LONGINT totalRd, bytesGot, rdDone
 STRING resp$ SIZE 16384
 ADDRESS respBuf
 STRING ct$ SIZE 256
+STRING respDump$ SIZE 8192
 
 respBuf = SADD(resp$)
 
@@ -25,7 +26,7 @@ PRINT
 ' T1: Custom headers via HttpSetHeader
 ' ---------------------------------------------------------------
 PRINT "T1: Custom headers via HttpSetHeader"
-rc = HttpOpen(myReq, myTcp, "httpbin.org", 80, HTTP_PLAIN)
+rc = HttpOpen(myReq, myTcp, "httpbun.com", 80, HTTP_PLAIN)
 ASSERT rc = HTTP_SUCCESS, "T1: HttpOpen failed"
 
 HttpSetHeader(myReq, "Accept", "application/json")
@@ -61,7 +62,7 @@ PRINT
 ' T2: Response header enumeration
 ' ---------------------------------------------------------------
 PRINT "T2: Response header enumeration"
-rc = HttpOpen(myReq, myTcp, "httpbin.org", 80, HTTP_PLAIN)
+rc = HttpOpen(myReq, myTcp, "httpbun.com", 80, HTTP_PLAIN)
 ASSERT rc = HTTP_SUCCESS, "T2: HttpOpen failed"
 
 rc = HttpSendRequest(myReq, myTcp, "GET", "/get")
@@ -105,7 +106,7 @@ PRINT
 ' T3: Low-level POST with HttpWriteBody (Content-Length)
 ' ---------------------------------------------------------------
 PRINT "T3: Low-level POST with HttpWriteBody"
-rc = HttpOpen(myReq, myTcp, "httpbin.org", 80, HTTP_PLAIN)
+rc = HttpOpen(myReq, myTcp, "httpbun.com", 80, HTTP_PLAIN)
 ASSERT rc = HTTP_SUCCESS, "T3: HttpOpen failed"
 
 STRING postBody$ SIZE 64
@@ -148,7 +149,7 @@ PRINT
 ' T4: Low-level POST with HttpWriteBodyChunked
 ' ---------------------------------------------------------------
 PRINT "T4: Low-level POST with HttpWriteBodyChunked"
-rc = HttpOpen(myReq, myTcp, "httpbin.org", 80, HTTP_PLAIN)
+rc = HttpOpen(myReq, myTcp, "httpbun.com", 80, HTTP_PLAIN)
 ASSERT rc = HTTP_SUCCESS, "T4: HttpOpen failed"
 
 HttpSetHeader(myReq, "Content-Type", "text/plain")
@@ -196,6 +197,38 @@ HttpClose(myTcp)
 ASSERT sc = 200, "T4: status not 200"
 ASSERT INSTR(CSTR(respBuf), "Hello World") > 0, "T4: chunked body not in response"
 PRINT "  Found chunked body in response"
+PRINT
+
+' ---------------------------------------------------------------
+' T5: HttpDumpRespHeaders
+' ---------------------------------------------------------------
+PRINT "T5: HttpDumpRespHeaders"
+rc = HttpOpen(myReq, myTcp, "httpbun.com", 80, HTTP_PLAIN)
+ASSERT rc = HTTP_SUCCESS, "T5: HttpOpen failed"
+
+rc = HttpSendRequest(myReq, myTcp, "GET", "/get")
+ASSERT rc >= 0, "T5: HttpSendRequest failed"
+
+sc = HttpReadStatus(myTcp, myResp)
+PRINT "  Status:"; sc
+
+respDump$ = HttpDumpRespHeaders(myResp)
+PRINT "  Response headers:"
+PRINT respDump$
+ASSERT LEN(respDump$) > 0, "T5: response header dump empty"
+ASSERT INSTR(respDump$, "Content-Type") > 0, "T5: Content-Type not in dump"
+PRINT "  Found Content-Type in dump"
+
+' Drain body
+rdDone = 0
+WHILE rdDone = 0
+  bytesGot = HttpReadBody(myTcp, myResp, respBuf, 4096)
+  IF bytesGot <= 0 THEN rdDone = 1
+WEND
+
+HttpClose(myTcp)
+
+ASSERT sc = 200, "T5: status not 200"
 PRINT
 
 PRINT "=== Test Done ==="
