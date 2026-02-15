@@ -26,22 +26,13 @@ PRINT
 ' ---------------------------------------------------------------
 PRINT "T1: Custom headers via HttpSetHeader"
 rc = HttpOpen(myReq, myTcp, "httpbin.org", 80, HTTP_PLAIN)
-IF rc <> HTTP_SUCCESS THEN
-  PRINT "  HttpOpen failed:"; rc
-  PRINT "  FAIL"
-  GOTO EndT1
-END IF
+ASSERT rc = HTTP_SUCCESS, "T1: HttpOpen failed"
 
 HttpSetHeader(myReq, "Accept", "application/json")
 HttpSetHeader(myReq, "X-Test-Custom", "hello-ace")
 
 rc = HttpSendRequest(myReq, myTcp, "GET", "/get")
-IF rc < 0 THEN
-  PRINT "  SendRequest failed:"; rc
-  HttpClose(myTcp)
-  PRINT "  FAIL"
-  GOTO EndT1
-END IF
+ASSERT rc >= 0, "T1: HttpSendRequest failed"
 
 sc = HttpReadStatus(myTcp, myResp)
 PRINT "  Status:"; sc
@@ -61,20 +52,9 @@ POKE respBuf + totalRd, 0
 
 HttpClose(myTcp)
 
-' Check: status=200 AND body contains our custom header
-IF sc = 200 THEN
-  IF INSTR(CSTR(respBuf), "hello-ace") > 0 THEN
-    PRINT "  Found custom header in response"
-    PRINT "  PASS"
-  ELSE
-    PRINT "  Custom header NOT found in response"
-    PRINT "  FAIL"
-  END IF
-ELSE
-  PRINT "  Expected 200, got"; sc
-  PRINT "  FAIL"
-END IF
-EndT1:
+ASSERT sc = 200, "T1: status not 200"
+ASSERT INSTR(CSTR(respBuf), "hello-ace") > 0, "T1: custom header not in response"
+PRINT "  Found custom header in response"
 PRINT
 
 ' ---------------------------------------------------------------
@@ -82,19 +62,10 @@ PRINT
 ' ---------------------------------------------------------------
 PRINT "T2: Response header enumeration"
 rc = HttpOpen(myReq, myTcp, "httpbin.org", 80, HTTP_PLAIN)
-IF rc <> HTTP_SUCCESS THEN
-  PRINT "  HttpOpen failed:"; rc
-  PRINT "  FAIL"
-  GOTO EndT2
-END IF
+ASSERT rc = HTTP_SUCCESS, "T2: HttpOpen failed"
 
 rc = HttpSendRequest(myReq, myTcp, "GET", "/get")
-IF rc < 0 THEN
-  PRINT "  SendRequest failed:"; rc
-  HttpClose(myTcp)
-  PRINT "  FAIL"
-  GOTO EndT2
-END IF
+ASSERT rc >= 0, "T2: HttpSendRequest failed"
 
 sc = HttpReadStatus(myTcp, myResp)
 PRINT "  Status:"; sc
@@ -125,13 +96,9 @@ WEND
 
 HttpClose(myTcp)
 
-IF cnt > 0 AND INSTR(ct$, "json") > 0 THEN
-  PRINT "  PASS"
-ELSE
-  PRINT "  Expected count>0 and json content-type"
-  PRINT "  FAIL"
-END IF
-EndT2:
+ASSERT sc = 200, "T2: status not 200"
+ASSERT cnt > 0, "T2: no response headers"
+ASSERT INSTR(ct$, "json") > 0, "T2: Content-Type not json"
 PRINT
 
 ' ---------------------------------------------------------------
@@ -139,11 +106,7 @@ PRINT
 ' ---------------------------------------------------------------
 PRINT "T3: Low-level POST with HttpWriteBody"
 rc = HttpOpen(myReq, myTcp, "httpbin.org", 80, HTTP_PLAIN)
-IF rc <> HTTP_SUCCESS THEN
-  PRINT "  HttpOpen failed:"; rc
-  PRINT "  FAIL"
-  GOTO EndT3
-END IF
+ASSERT rc = HTTP_SUCCESS, "T3: HttpOpen failed"
 
 STRING postBody$ SIZE 64
 postBody$ = "greeting=hello&who=amiga"
@@ -152,21 +115,11 @@ HttpSetHeader(myReq, "Content-Type", "application/x-www-form-urlencoded")
 HttpSetHeader(myReq, "Content-Length", "24")
 
 rc = HttpSendRequest(myReq, myTcp, "POST", "/post")
-IF rc < 0 THEN
-  PRINT "  SendRequest failed:"; rc
-  HttpClose(myTcp)
-  PRINT "  FAIL"
-  GOTO EndT3
-END IF
+ASSERT rc >= 0, "T3: HttpSendRequest failed"
 
 rc = HttpWriteBody(myTcp, SADD(postBody$), LEN(postBody$))
 PRINT "  WriteBody rc:"; rc
-IF rc < 0 THEN
-  PRINT "  WriteBody failed"
-  HttpClose(myTcp)
-  PRINT "  FAIL"
-  GOTO EndT3
-END IF
+ASSERT rc >= 0, "T3: HttpWriteBody failed"
 
 sc = HttpReadStatus(myTcp, myResp)
 PRINT "  Status:"; sc
@@ -186,21 +139,9 @@ POKE respBuf + totalRd, 0
 
 HttpClose(myTcp)
 
-IF sc = 200 THEN
-  IF INSTR(CSTR(respBuf), "greeting") > 0 AND ~
-     INSTR(CSTR(respBuf), "hello") > 0 THEN
-    PRINT "  Found form data in response"
-    PRINT "  PASS"
-  ELSE
-    PRINT "  Form data NOT found in response"
-    PRINT "  Body (first 400): "; LEFT$(CSTR(respBuf), 400)
-    PRINT "  FAIL"
-  END IF
-ELSE
-  PRINT "  Expected 200, got"; sc
-  PRINT "  FAIL"
-END IF
-EndT3:
+ASSERT sc = 200, "T3: status not 200"
+ASSERT INSTR(CSTR(respBuf), "greeting") > 0, "T3: form data not in response"
+PRINT "  Found form data in response"
 PRINT
 
 ' ---------------------------------------------------------------
@@ -208,22 +149,13 @@ PRINT
 ' ---------------------------------------------------------------
 PRINT "T4: Low-level POST with HttpWriteBodyChunked"
 rc = HttpOpen(myReq, myTcp, "httpbin.org", 80, HTTP_PLAIN)
-IF rc <> HTTP_SUCCESS THEN
-  PRINT "  HttpOpen failed:"; rc
-  PRINT "  FAIL"
-  GOTO EndT4
-END IF
+ASSERT rc = HTTP_SUCCESS, "T4: HttpOpen failed"
 
 HttpSetHeader(myReq, "Content-Type", "text/plain")
 HttpSetHeader(myReq, "Transfer-Encoding", "chunked")
 
 rc = HttpSendRequest(myReq, myTcp, "POST", "/post")
-IF rc < 0 THEN
-  PRINT "  SendRequest failed:"; rc
-  HttpClose(myTcp)
-  PRINT "  FAIL"
-  GOTO EndT4
-END IF
+ASSERT rc >= 0, "T4: HttpSendRequest failed"
 
 STRING chunk1$ SIZE 32
 STRING chunk2$ SIZE 32
@@ -232,28 +164,16 @@ chunk2$ = "World"
 
 rc = HttpWriteBodyChunked(myTcp, SADD(chunk1$), LEN(chunk1$))
 PRINT "  Chunk1 rc:"; rc
-IF rc < 0 THEN
-  HttpClose(myTcp)
-  PRINT "  FAIL"
-  GOTO EndT4
-END IF
+ASSERT rc >= 0, "T4: chunk1 failed"
 
 rc = HttpWriteBodyChunked(myTcp, SADD(chunk2$), LEN(chunk2$))
 PRINT "  Chunk2 rc:"; rc
-IF rc < 0 THEN
-  HttpClose(myTcp)
-  PRINT "  FAIL"
-  GOTO EndT4
-END IF
+ASSERT rc >= 0, "T4: chunk2 failed"
 
 ' Send final empty chunk
 rc = HttpWriteBodyChunked(myTcp, 0&, 0)
 PRINT "  Final chunk rc:"; rc
-IF rc < 0 THEN
-  HttpClose(myTcp)
-  PRINT "  FAIL"
-  GOTO EndT4
-END IF
+ASSERT rc >= 0, "T4: final chunk failed"
 
 sc = HttpReadStatus(myTcp, myResp)
 PRINT "  Status:"; sc
@@ -273,20 +193,9 @@ POKE respBuf + totalRd, 0
 
 HttpClose(myTcp)
 
-IF sc = 200 THEN
-  IF INSTR(CSTR(respBuf), "Hello World") > 0 THEN
-    PRINT "  Found chunked body in response"
-    PRINT "  PASS"
-  ELSE
-    PRINT "  Chunked body NOT found in response"
-    PRINT "  Body (first 400): "; LEFT$(CSTR(respBuf), 400)
-    PRINT "  FAIL"
-  END IF
-ELSE
-  PRINT "  Expected 200, got"; sc
-  PRINT "  FAIL"
-END IF
-EndT4:
+ASSERT sc = 200, "T4: status not 200"
+ASSERT INSTR(CSTR(respBuf), "Hello World") > 0, "T4: chunked body not in response"
+PRINT "  Found chunked body in response"
 PRINT
 
-PRINT "=== All tests done ==="
+PRINT "=== Test Done ==="

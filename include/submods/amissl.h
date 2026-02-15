@@ -9,10 +9,9 @@
  *
  * Usage:
  *   #include <submods/amissl.h>
- *   EXTERNAL amissl
  *
  * Typical sequence:
- *   rc = SslInit(bsdSockBase&)
+ *   rc = SslInit
  *   ssl& = SslNewConn(sockFd&)
  *   SslWrite(ssl&, buf&, len&)
  *   n& = SslRead(ssl&, buf&, len&)
@@ -29,10 +28,10 @@ CONST SSL_ERR_CONNECT = -2   ' SSL/TLS handshake failed
 CONST SSL_ERR_NO_LIB  = -3   ' Required library not available
 
 ' SslInit - Initialize AmiSSL libraries and create SSL context
-'   bsdSockBase - Base address of bsdsocket.library (from ASSEM)
+'   Opens bsdsocket.library internally (closed by SslCleanup).
 '   Returns: SSL_SUCCESS (0) or negative error code
 '   Note: Lazy init - calling multiple times is safe (returns success).
-DECLARE SUB LONGINT SslInit(LONGINT bsdSockBase) EXTERNAL
+DECLARE SUB LONGINT SslInit EXTERNAL
 
 ' SslCleanup - Close AmiSSL libraries and free SSL context
 '   Note: Safe to call even if SslInit was not called.

@@ -33,12 +33,8 @@ IF sc = HTTP_ERR_SSL_INIT THEN
   GOTO SkipAll
 END IF
 PRINT "  Status: "; sc
-IF sc = 200 THEN
-  PRINT "  Body length: "; LEN(CSTR(respBuf))
-  PRINT "  PASS"
-ELSE
-  PRINT "  FAIL"
-END IF
+ASSERT sc = 200, "T1: HTTPS GET status not 200"
+PRINT "  Body length: "; LEN(CSTR(respBuf))
 PRINT
 
 ' --- Test 2: HTTPS POST ---
@@ -48,53 +44,37 @@ sc = HttpPost(myReq, myResp, myTcp, ~
               "application/x-www-form-urlencoded", ~
               "greeting=hello", respBuf, 8192)
 PRINT "  Status: "; sc
-IF sc = 200 THEN
-  PRINT "  Body length: "; LEN(CSTR(respBuf))
-  PRINT "  PASS"
-ELSE
-  PRINT "  FAIL"
-END IF
+ASSERT sc = 200, "T2: HTTPS POST status not 200"
+PRINT "  Body length: "; LEN(CSTR(respBuf))
 PRINT
 
 ' --- Test 3: Low-level HTTPS ---
 PRINT "Test 3: Low-level HttpOpen with SSL"
 LONGINT rc
 rc = HttpOpen(myReq, myTcp, "httpbin.org", 443, HTTP_SSL)
-IF rc <> HTTP_SUCCESS THEN
-  PRINT "  Open failed: "; rc
-  PRINT "  FAIL"
-  GOTO SkipLowLevel
-END IF
+ASSERT rc = HTTP_SUCCESS, "T3: HttpOpen SSL failed"
 rc = HttpSendRequest(myReq, myTcp, "GET", "/get")
-IF rc < 0 THEN
-  PRINT "  SendRequest failed: "; rc
-  HttpClose(myTcp)
-  PRINT "  FAIL"
-  GOTO SkipLowLevel
-END IF
+ASSERT rc >= 0, "T3: HttpSendRequest failed"
 sc = HttpReadStatus(myTcp, myResp)
 PRINT "  Status: "; sc
-IF sc = 200 THEN
-  LONGINT totalRd, bytesGot, rdDone
-  totalRd = 0
-  rdDone = 0
-  WHILE rdDone = 0
-    bytesGot = HttpReadBody(myTcp, myResp, respBuf + totalRd, 4096)
-    IF bytesGot > 0 THEN
-      totalRd = totalRd + bytesGot
-    ELSE
-      rdDone = 1
-    END IF
-  WEND
-  POKE respBuf + totalRd, 0
-  PRINT "  Body length: "; totalRd
-  PRINT "  PASS"
-ELSE
-  PRINT "  FAIL"
-END IF
+ASSERT sc = 200, "T3: status not 200"
+
+LONGINT totalRd, bytesGot, rdDone
+totalRd = 0
+rdDone = 0
+WHILE rdDone = 0
+  bytesGot = HttpReadBody(myTcp, myResp, respBuf + totalRd, 4096)
+  IF bytesGot > 0 THEN
+    totalRd = totalRd + bytesGot
+  ELSE
+    rdDone = 1
+  END IF
+WEND
+POKE respBuf + totalRd, 0
+PRINT "  Body length: "; totalRd
+
 HttpClose(myTcp)
-SkipLowLevel:
 PRINT
 
 SkipAll:
-PRINT "=== All tests done ==="
+PRINT "=== Test Done ==="

@@ -17,10 +17,11 @@ PRINT
 
 ' --- Test 1: UrlEncode ---
 PRINT "Test 1: UrlEncode"
-PRINT "  Encode 'hello world' = "; UrlEncode("hello world")
-PRINT "  Encode 'a=1&b=2'     = "; UrlEncode("a=1&b=2")
-PRINT "  Encode 'foo@bar.com' = "; UrlEncode("foo@bar.com")
-PRINT "  Encode 'no-change_ok.txt~' = "; UrlEncode("no-change_ok.txt~")
+ASSERT UrlEncode("hello world") = "hello%20world", "T1: space encode"
+ASSERT UrlEncode("a=1&b=2") = "a%3D1%26b%3D2", "T1: special chars"
+ASSERT UrlEncode("foo@bar.com") = "foo%40bar.com", "T1: @ encode"
+ASSERT UrlEncode("no-change_ok.txt~") = "no-change_ok.txt~", "T1: unreserved"
+PRINT "  UrlEncode results OK"
 PRINT
 
 ' --- Test 2: POST form data ---
@@ -31,16 +32,11 @@ sc = HttpPost(myReq, myResp, myTcp, ~
               "greeting=hello&who=world", ~
               SADD(resp$), 32768)
 PRINT "  Status: "; sc
-IF sc = 200 THEN
-  PRINT "  PASS - got 200"
-  ' Show first 400 chars of response
-  IF LEN(resp$) > 400 THEN
-    PRINT "  Body (first 400): "; LEFT$(resp$, 400)
-  ELSE
-    PRINT "  Body: "; resp$
-  END IF
+ASSERT sc = 200, "T2: POST status not 200"
+IF LEN(resp$) > 400 THEN
+  PRINT "  Body (first 400): "; LEFT$(resp$, 400)
 ELSE
-  PRINT "  FAIL - expected 200, got "; sc
+  PRINT "  Body: "; resp$
 END IF
 PRINT
 
@@ -57,15 +53,11 @@ sc = HttpPut(myReq, myResp, myTcp, ~
              jsonBody$, ~
              SADD(resp$), 32768)
 PRINT "  Status: "; sc
-IF sc = 200 THEN
-  PRINT "  PASS - got 200"
-  IF LEN(resp$) > 400 THEN
-    PRINT "  Body (first 400): "; LEFT$(resp$, 400)
-  ELSE
-    PRINT "  Body: "; resp$
-  END IF
+ASSERT sc = 200, "T3: PUT status not 200"
+IF LEN(resp$) > 400 THEN
+  PRINT "  Body (first 400): "; LEFT$(resp$, 400)
 ELSE
-  PRINT "  FAIL - expected 200, got "; sc
+  PRINT "  Body: "; resp$
 END IF
 PRINT
 
@@ -76,16 +68,12 @@ sc = HttpRequest(myReq, myResp, myTcp, ~
                  "http://httpbin.org/get", ~
                  "GET", "", "", SADD(resp$), 32768)
 PRINT "  Status: "; sc
-IF sc = 200 THEN
-  PRINT "  PASS - got 200"
-  IF LEN(resp$) > 400 THEN
-    PRINT "  Body (first 400): "; LEFT$(resp$, 400)
-  ELSE
-    PRINT "  Body: "; resp$
-  END IF
+ASSERT sc = 200, "T4: GET status not 200"
+IF LEN(resp$) > 400 THEN
+  PRINT "  Body (first 400): "; LEFT$(resp$, 400)
 ELSE
-  PRINT "  FAIL - expected 200, got "; sc
+  PRINT "  Body: "; resp$
 END IF
 PRINT
 
-PRINT "=== All tests done ==="
+PRINT "=== Test Done ==="

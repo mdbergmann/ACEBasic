@@ -19,28 +19,17 @@ PRINT "=== HTTP Low-Level API Test ==="
 
 ' Open connection
 rc = HttpOpen(myReq, myTcp, "www.google.com", 80, HTTP_PLAIN)
-IF rc <> HTTP_SUCCESS THEN
-  PRINT "HttpOpen failed:"; rc
-  STOP
-END IF
+ASSERT rc = HTTP_SUCCESS, "HttpOpen failed"
 PRINT "Connected"
 
 ' Send GET request using low-level API
 rc = HttpSendRequest(myReq, myTcp, "GET", "/")
-IF rc < 0 THEN
-  PRINT "HttpSendRequest failed:"; rc
-  HttpClose(myTcp)
-  STOP
-END IF
+ASSERT rc >= 0, "HttpSendRequest failed"
 PRINT "Request sent"
 
 ' Read status line + headers
 sc = HttpReadStatus(myTcp, myResp)
-IF sc < 0 THEN
-  PRINT "HttpReadStatus failed:"; sc
-  HttpClose(myTcp)
-  STOP
-END IF
+ASSERT sc > 0, "HttpReadStatus failed"
 PRINT "Status code:"; sc
 
 ' Read some response headers
@@ -53,15 +42,12 @@ PRINT "Server: "; srvHdr$
 ' Read body (first chunk)
 dataBuf = ALLOC(4096)
 n = HttpReadBody(myTcp, myResp, dataBuf, 4095)
-IF n > 0 THEN
-  POKE dataBuf + n, 0
-  PRINT "Body bytes:"; n
-  PRINT "--- Body (first 200 chars) ---"
-  PRINT LEFT$(CSTR(dataBuf), 200)
-  PRINT "--- End ---"
-ELSE
-  PRINT "HttpReadBody returned:"; n
-END IF
+ASSERT n > 0, "HttpReadBody returned no data"
+POKE dataBuf + n, 0
+PRINT "Body bytes:"; n
+PRINT "--- Body (first 200 chars) ---"
+PRINT LEFT$(CSTR(dataBuf), 200)
+PRINT "--- End ---"
 
 HttpClose(myTcp)
 PRINT "Connection closed."

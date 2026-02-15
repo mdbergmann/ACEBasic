@@ -26,7 +26,7 @@ The library provides three API tiers:
 2. Streaming (callback-based for large/binary transfers):
    HttpGetStream, HttpPostStream, HttpPutStream, HttpRequestStream
 
-3. Low-level handle-based (full control):
+3. Low-level struct-based (full control):
    HttpOpen, HttpSetHeader, HttpSendRequest, HttpWriteBody,
    HttpWriteBodyChunked, HttpReadStatus, HttpGetResponseHeader,
    HttpResponseHeaderCount, HttpResponseHeaderName,
@@ -43,31 +43,46 @@ Quick Example
 High-level GET:
 
     REM #using ace:submods/httpclient/httpclient.o
-    #include <submods/HTTPClient.h>
+    REM #using ace:submods/tcpclient/tcpclient.o
+    REM #using ace:submods/amissl/amissl.o
+    #include <submods/httpclient.h>
+    EXTERNAL httpclient
+
+    DECLARE STRUCT TcpConn myTcp
+    DECLARE STRUCT HttpRequest myReq
+    DECLARE STRUCT HttpResponse myResp
 
     STRING resp$ SIZE 8192
     LONGINT st
 
-    st = HttpGet("http://httpbin.org/get", SADD(resp$), 8192)
+    st = HttpGet(myReq, myResp, myTcp, ~
+                 "http://httpbin.org/get", SADD(resp$), 8192)
     IF st = 200 THEN PRINT resp$
 
 Low-level POST:
 
     REM #using ace:submods/httpclient/httpclient.o
-    #include <submods/HTTPClient.h>
+    REM #using ace:submods/tcpclient/tcpclient.o
+    REM #using ace:submods/amissl/amissl.o
+    #include <submods/httpclient.h>
+    EXTERNAL httpclient
 
-    LONGINT h, st
+    DECLARE STRUCT TcpConn myTcp
+    DECLARE STRUCT HttpRequest myReq
+    DECLARE STRUCT HttpResponse myResp
+
+    LONGINT st
     STRING body$ SIZE 64
     body$ = "key=value"
 
-    h = HttpOpen("httpbin.org", 80, HTTP_PLAIN)
-    HttpSetHeader(h, "Content-Type", "application/x-www-form-urlencoded")
-    HttpSetHeader(h, "Content-Length", "9")
-    st = HttpSendRequest(h, "POST", "/post")
-    HttpWriteBody(h, SADD(body$), LEN(body$))
-    st = HttpReadStatus(h)
+    st = HttpOpen(myReq, myTcp, "httpbin.org", 80, HTTP_PLAIN)
+    HttpSetHeader(myReq, "Content-Type", "application/x-www-form-urlencoded")
+    HttpSetHeader(myReq, "Content-Length", "9")
+    st = HttpSendRequest(myReq, myTcp, "POST", "/post")
+    HttpWriteBody(myTcp, SADD(body$), LEN(body$))
+    st = HttpReadStatus(myTcp, myResp)
     PRINT "Status:"; st
-    HttpClose(h)
+    HttpClose(myTcp)
 
 
 Building
@@ -86,19 +101,29 @@ Using in Your Programs
 
 1. Include the header and declare the external module:
 
-    #include <submods/HTTPClient.h>
+    #include <submods/httpclient.h>
+    EXTERNAL httpclient
 
-2. Add a #using directive so bas auto-links the module:
+2. Add #using directives so bas auto-links the required modules:
 
     REM #using ace:submods/httpclient/httpclient.o
+    REM #using ace:submods/tcpclient/tcpclient.o
+    REM #using ace:submods/amissl/amissl.o
 
-3. Compile your program:
+3. Declare the three structs your program will use:
+
+    DECLARE STRUCT TcpConn myTcp
+    DECLARE STRUCT HttpRequest myReq
+    DECLARE STRUCT HttpResponse myResp
+
+4. Compile your program:
 
     bas myprogram
 
-   Or instead of #using, link the module manually on the command line:
+   Or instead of #using, link modules manually on the command line:
 
-    bas myprogram ace:submods/httpclient/httpclient.o
+    bas myprogram ace:submods/httpclient/httpclient.o ~
+        ace:submods/tcpclient/tcpclient.o ace:submods/amissl/amissl.o
 
 
 Running Tests
@@ -133,7 +158,6 @@ Test files:
 Limitations
 -----------
 
-- Single connection at a time (call HttpClose before re-opening)
 - Maximum 32 response headers stored per connection
 - No certificate verification (accepts all certificates)
 - No HTTP/2 (HTTP/1.1 only)

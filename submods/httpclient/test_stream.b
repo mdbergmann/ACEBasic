@@ -55,11 +55,8 @@ sc = HttpGetStream(myReq, myResp, myTcp, ~
                    "http://httpbin.org/get", BIND(@CountBytes))
 PRINT "  Status: "; sc
 PRINT "  Bytes received: "; totalBytes
-IF sc = 200 AND totalBytes > 0 THEN
-  PRINT "  PASS"
-ELSE
-  PRINT "  FAIL"
-END IF
+ASSERT sc = 200, "T1: HttpGetStream status not 200"
+ASSERT totalBytes > 0, "T1: no bytes received"
 PRINT
 
 ' --- Test 2: HttpPostStream with send callback ---
@@ -72,11 +69,8 @@ sc = HttpPostStream(myReq, myResp, myTcp, ~
                     BIND(@SendBody), BIND(@CountBytes))
 PRINT "  Status: "; sc
 PRINT "  Bytes received: "; totalBytes
-IF sc = 200 AND totalBytes > 0 THEN
-  PRINT "  PASS"
-ELSE
-  PRINT "  FAIL"
-END IF
+ASSERT sc = 200, "T2: HttpPostStream status not 200"
+ASSERT totalBytes > 0, "T2: no bytes received"
 PRINT
 
-PRINT "=== All tests done ==="
+PRINT "=== Test Done ==="

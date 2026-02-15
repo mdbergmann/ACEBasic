@@ -16,10 +16,7 @@ PRINT "=== TCP Raw Send/Recv Test ==="
 TcpInit
 
 rc = TcpOpen(myTcp, "www.google.com", 80, 0)
-IF rc <> TCP_SUCCESS THEN
-  PRINT "TcpOpen failed:"; rc
-  STOP
-END IF
+ASSERT rc = TCP_SUCCESS, "TcpOpen failed"
 PRINT "Connected"
 
 ' Send raw HTTP GET
@@ -29,25 +26,17 @@ request$ = "GET / HTTP/1.1" + CHR$(13) + CHR$(10) + ~
            CHR$(13) + CHR$(10)
 n = TcpSend(myTcp, SADD(request$), LEN(request$))
 PRINT "Sent"; n; "bytes"
-
-IF n < 1 THEN
-  PRINT "Send failed"
-  TcpClose(myTcp)
-  STOP
-END IF
+ASSERT n > 0, "TcpSend failed"
 
 ' Read response (first chunk)
 rcvBuf = ALLOC(4096)
 n = TcpRecv(myTcp, rcvBuf, 4095)
-IF n > 0 THEN
-  POKE rcvBuf + n, 0
-  PRINT "Received"; n; "bytes"
-  PRINT "--- Response ---"
-  PRINT CSTR(rcvBuf)
-  PRINT "--- End ---"
-ELSE
-  PRINT "Recv failed:"; n
-END IF
+ASSERT n > 0, "TcpRecv failed"
+POKE rcvBuf + n, 0
+PRINT "Received"; n; "bytes"
+PRINT "--- Response (first 200 chars) ---"
+PRINT LEFT$(CSTR(rcvBuf), 200)
+PRINT "--- End ---"
 
 TcpClose(myTcp)
 PRINT "Connection closed."

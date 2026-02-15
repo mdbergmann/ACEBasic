@@ -15,6 +15,7 @@ LONGINT _sslInited
 LONGINT _masterBase
 LONGINT _amisslBase
 LONGINT _sslCtx
+LONGINT _bsdBase
 
 ' ASSEM temporaries (module-level, BSS names: _modv__ASM*)
 LONGINT _asmA0
@@ -323,9 +324,9 @@ END SUB
 
 { ============== Public API ============== }
 
-SUB LONGINT SslInit(LONGINT bsdSockBase) EXTERNAL
+SUB LONGINT SslInit EXTERNAL
   SHARED _sslInited, _masterBase, _amisslBase, _sslCtx
-  SHARED _asmSockBase
+  SHARED _asmSockBase, _bsdBase
   LONGINT rc
 
   ' Already initialized?
@@ -338,8 +339,14 @@ SUB LONGINT SslInit(LONGINT bsdSockBase) EXTERNAL
     EXIT SUB
   END IF
 
-  ' Store bsdsocket.library base for AmiSSL init
-  _asmSockBase = bsdSockBase
+  ' Open bsdsocket.library for AmiSSL init
+  _bsdBase = _ExecOpenLib(SADD("bsdsocket.library"), 0)
+  IF _bsdBase = 0 THEN
+    _sslInited = -1
+    SslInit = SSL_ERR_NO_LIB
+    EXIT SUB
+  END IF
+  _asmSockBase = _bsdBase
 
   ' Open amisslmaster.library via exec (not LIBRARY - would exit on fail)
   _masterBase = _ExecOpenLib(SADD("amisslmaster.library"), 0)
@@ -401,7 +408,7 @@ SUB LONGINT SslInit(LONGINT bsdSockBase) EXTERNAL
 END SUB
 
 SUB SslCleanup EXTERNAL
-  SHARED _sslInited, _masterBase, _amisslBase, _sslCtx
+  SHARED _sslInited, _masterBase, _amisslBase, _sslCtx, _bsdBase
 
   IF _sslInited <> 1 THEN EXIT SUB
 
@@ -418,6 +425,11 @@ SUB SslCleanup EXTERNAL
   IF _masterBase <> 0 THEN
     _ExecCloseLib(_masterBase)
     _masterBase = 0
+  END IF
+
+  IF _bsdBase <> 0 THEN
+    _ExecCloseLib(_bsdBase)
+    _bsdBase = 0
   END IF
 
   _sslInited = 0

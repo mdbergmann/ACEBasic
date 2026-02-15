@@ -22,39 +22,24 @@ PRINT "=== HTTP Regression Test ==="
 PRINT "T1: HttpHead"
 sc = HttpHead(myReq, myResp, myTcp, "http://www.google.com/")
 PRINT "  status:"; sc
-IF sc = 200 THEN
-  PRINT "  PASS"
-ELSE
-  PRINT "  FAIL"
-END IF
+ASSERT sc = 200, "T1: HttpHead status not 200"
 
 ' --- Test 2: Low-level GET (step by step) ---
 PRINT "T2: Low-level GET"
 PRINT "  opening..."
 rc = HttpOpen(myReq, myTcp, "www.google.com", 80, 0)
 PRINT "  rc:"; rc
-IF rc <> HTTP_SUCCESS THEN
-  PRINT "  FAIL (open)"
-  GOTO skipT2
-END IF
+ASSERT rc = HTTP_SUCCESS, "T2: HttpOpen failed"
 
 PRINT "  sending..."
 rc = HttpSendRequest(myReq, myTcp, "GET", "/")
 PRINT "  send rc:"; rc
-IF rc < 0 THEN
-  PRINT "  FAIL (send)"
-  HttpClose(myTcp)
-  GOTO skipT2
-END IF
+ASSERT rc >= 0, "T2: HttpSendRequest failed"
 
 PRINT "  reading status..."
 sc = HttpReadStatus(myTcp, myResp)
 PRINT "  status:"; sc
-IF sc < 0 THEN
-  PRINT "  FAIL (status)"
-  HttpClose(myTcp)
-  GOTO skipT2
-END IF
+ASSERT sc = 200, "T2: status not 200"
 
 PRINT "  reading body..."
 totalLen = 0
@@ -77,9 +62,8 @@ WEND
 POKE respBuf + totalLen, 0
 
 PRINT "  body bytes:"; totalLen
+ASSERT totalLen > 0, "T2: no body bytes received"
 PRINT "  closing..."
 HttpClose(myTcp)
-PRINT "  PASS"
-skipT2:
 
 PRINT "=== Test Done ==="
