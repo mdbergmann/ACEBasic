@@ -29,11 +29,11 @@
 
 ' TcpConn - Per-connection state struct (owned by caller)
 STRUCT TcpConn
-  LONGINT sockFd          ' socket file descriptor (-1 = not connected)
-  LONGINT sslHnd          ' SSL handle (0 = plain TCP)
-  LONGINT bufPos          ' current read position in buffer
-  LONGINT bufLen          ' bytes available in buffer
-  STRING bufData SIZE 4096 ' read-ahead buffer
+  LONGINT _sockFd          ' socket file descriptor (-1 = not connected)
+  LONGINT _sslHnd          ' SSL handle (0 = plain TCP)
+  LONGINT _bufPos          ' current read position in buffer
+  LONGINT _bufLen          ' bytes available in buffer
+  STRING _bufData SIZE 4096 ' read-ahead buffer
 END STRUCT
 
 ' Error constants
@@ -43,7 +43,7 @@ CONST TCP_ERR_DNS        = -2   ' Host name resolution failed
 CONST TCP_ERR_SEND       = -3   ' Send failed
 CONST TCP_ERR_RECV       = -4   ' Receive failed
 CONST TCP_ERR_SSL        = -5   ' SSL init or handshake failed
-CONST TCP_ERR_BAD_HANDLE = -7   ' Invalid connection (sockFd = -1)
+CONST TCP_ERR_BAD_HANDLE = -7   ' Invalid connection (_sockFd = -1)
 
 ' Buffer size (matches internal buffer)
 CONST TCP_BUF_SIZE   = 4096

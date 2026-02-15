@@ -35,19 +35,16 @@ CONST SOCK_STREAM    = 1
 { ============== TcpConn Struct ============== }
 
 STRUCT TcpConn
-  LONGINT sockFd
-  LONGINT sslHnd
-  LONGINT bufPos
-  LONGINT bufLen
-  STRING bufData SIZE 4096
+  LONGINT _sockFd
+  LONGINT _sslHnd
+  LONGINT _bufPos
+  LONGINT _bufLen
+  STRING _bufData SIZE 4096
 END STRUCT
 
 { ============== Module Data ============== }
 
 LONGINT _tcpInited
-
-' Reusable sockaddr_in buffer (16 bytes)
-ADDRESS _tcpSockAddr
 
 ' BSD socket library base (for SSL init)
 LONGINT _bsdSockBase
@@ -82,8 +79,9 @@ SUB LONGINT _TcpResolve(STRING host$)
 END SUB
 
 SUB LONGINT _TcpDoConnect(LONGINT ipAddr, LONGINT port)
-  SHARED _tcpSockAddr
   LONGINT sock, rc
+  STRING sockAddr$ SIZE 16
+  ADDRESS sa
 
   sock = socket(AF_INET, SOCK_STREAM, 0)
   IF sock < 0 THEN
@@ -91,12 +89,13 @@ SUB LONGINT _TcpDoConnect(LONGINT ipAddr, LONGINT port)
     EXIT SUB
   END IF
 
-  POKE _tcpSockAddr, 16
-  POKE _tcpSockAddr + 1, 2
-  POKEW _tcpSockAddr + 2, port
-  POKEL _tcpSockAddr + 4, ipAddr
+  sa = @sockAddr$
+  POKE sa, 16
+  POKE sa + 1, 2
+  POKEW sa + 2, port
+  POKEL sa + 4, ipAddr
 
-  rc = connect(sock, _tcpSockAddr, 16)
+  rc = connect(sock, sa, 16)
   IF rc < 0 THEN
     CloseSocket(sock)
     _TcpDoConnect = -1
@@ -117,23 +116,23 @@ SUB LONGINT _TcpFillBuf(ADDRESS conn)
   c = conn
 
   ' Buffer still has data
-  IF c->bufPos < c->bufLen THEN
-    _TcpFillBuf = c->bufLen - c->bufPos
+  IF c->_bufPos < c->_bufLen THEN
+    _TcpFillBuf = c->_bufLen - c->_bufPos
     EXIT SUB
   END IF
 
   ' Refill from socket
-  bufAddr = @c->bufData
-  c->bufPos = 0
-  c->bufLen = 0
+  bufAddr = @c->_bufData
+  c->_bufPos = 0
+  c->_bufLen = 0
 
-  IF c->sslHnd <> 0 THEN
-    n = SslRead(c->sslHnd, bufAddr, TCP_BUF_SIZE)
+  IF c->_sslHnd <> 0 THEN
+    n = SslRead(c->_sslHnd, bufAddr, TCP_BUF_SIZE)
   ELSE
-    n = recv(c->sockFd, bufAddr, TCP_BUF_SIZE, 0)
+    n = recv(c->_sockFd, bufAddr, TCP_BUF_SIZE, 0)
   END IF
 
-  IF n > 0 THEN c->bufLen = n
+  IF n > 0 THEN c->_bufLen = n
   _TcpFillBuf = n
 END SUB
 
@@ -141,7 +140,7 @@ END SUB
 
 SUB LONGINT TcpInit EXTERNAL
   SHARED _tcpInited
-  SHARED _tcpSockAddr, _bsdSockBase, _tcpSslReady
+  SHARED _bsdSockBase, _tcpSslReady
 
   IF _tcpInited = 1 THEN
     TcpInit = TCP_SUCCESS
@@ -154,9 +153,6 @@ SUB LONGINT TcpInit EXTERNAL
   ASSEM
     move.l  _BSDSOCKETBase,_modv__BSDSOCKBASE
   END ASSEM
-
-  ' Allocate sockaddr buffer
-  _tcpSockAddr = ALLOC(16)
 
   _tcpSslReady = 0
   _tcpInited = 1
@@ -210,7 +206,7 @@ SUB LONGINT TcpOpen(ADDRESS conn, STRING host$, ~
   IF useSSL = 1 THEN
     ' Lazy SSL init
     IF _tcpSslReady = 0 THEN
-      rc = SslInit(_bsdSockBase)
+      rc = SslInit
       IF rc < 0 THEN
         CloseSocket(sock)
         TcpOpen = TCP_ERR_SSL
@@ -230,10 +226,10 @@ SUB LONGINT TcpOpen(ADDRESS conn, STRING host$, ~
   END IF
 
   ' Initialize struct fields
-  c->sockFd = sock
-  c->sslHnd = ssl
-  c->bufPos = 0
-  c->bufLen = 0
+  c->_sockFd = sock
+  c->_sslHnd = ssl
+  c->_bufPos = 0
+  c->_bufLen = 0
   TcpOpen = TCP_SUCCESS
 END SUB
 
@@ -241,17 +237,17 @@ SUB TcpClose(ADDRESS conn) EXTERNAL
   DECLARE STRUCT TcpConn *c
   c = conn
 
-  IF c->sockFd = -1 THEN EXIT SUB
+  IF c->_sockFd = -1 THEN EXIT SUB
 
-  IF c->sslHnd <> 0 THEN
-    SslFreeConn(c->sslHnd)
-    c->sslHnd = 0
+  IF c->_sslHnd <> 0 THEN
+    SslFreeConn(c->_sslHnd)
+    c->_sslHnd = 0
   END IF
 
-  CloseSocket(c->sockFd)
-  c->sockFd = -1
-  c->bufPos = 0
-  c->bufLen = 0
+  CloseSocket(c->_sockFd)
+  c->_sockFd = -1
+  c->_bufPos = 0
+  c->_bufLen = 0
 END SUB
 
 SUB LONGINT TcpSend(ADDRESS conn, ADDRESS buf, ~
@@ -259,15 +255,15 @@ SUB LONGINT TcpSend(ADDRESS conn, ADDRESS buf, ~
   DECLARE STRUCT TcpConn *c
   c = conn
 
-  IF c->sockFd = -1 THEN
+  IF c->_sockFd = -1 THEN
     TcpSend = TCP_ERR_BAD_HANDLE
     EXIT SUB
   END IF
 
-  IF c->sslHnd <> 0 THEN
-    TcpSend = SslWrite(c->sslHnd, buf, bufLen)
+  IF c->_sslHnd <> 0 THEN
+    TcpSend = SslWrite(c->_sslHnd, buf, bufLen)
   ELSE
-    TcpSend = send(c->sockFd, buf, bufLen, 0)
+    TcpSend = send(c->_sockFd, buf, bufLen, 0)
   END IF
 END SUB
 
@@ -276,15 +272,15 @@ SUB LONGINT TcpRecv(ADDRESS conn, ADDRESS buf, ~
   DECLARE STRUCT TcpConn *c
   c = conn
 
-  IF c->sockFd = -1 THEN
+  IF c->_sockFd = -1 THEN
     TcpRecv = TCP_ERR_BAD_HANDLE
     EXIT SUB
   END IF
 
-  IF c->sslHnd <> 0 THEN
-    TcpRecv = SslRead(c->sslHnd, buf, bufSz)
+  IF c->_sslHnd <> 0 THEN
+    TcpRecv = SslRead(c->_sslHnd, buf, bufSz)
   ELSE
-    TcpRecv = recv(c->sockFd, buf, bufSz, 0)
+    TcpRecv = recv(c->_sockFd, buf, bufSz, 0)
   END IF
 END SUB
 
@@ -295,7 +291,7 @@ SUB LONGINT TcpRecvBuf(ADDRESS conn, ADDRESS destBuf, ~
 
   c = conn
 
-  IF c->sockFd = -1 THEN
+  IF c->_sockFd = -1 THEN
     TcpRecvBuf = TCP_ERR_BAD_HANDLE
     EXIT SUB
   END IF
@@ -313,13 +309,13 @@ SUB LONGINT TcpRecvBuf(ADDRESS conn, ADDRESS destBuf, ~
   END IF
 
   ' Copy up to maxBytes from buffer
-  bufAddr = @c->bufData
-  avail = c->bufLen - c->bufPos
+  bufAddr = @c->_bufData
+  avail = c->_bufLen - c->_bufPos
   IF avail > maxBytes THEN avail = maxBytes
   FOR i = 0 TO avail - 1
-    POKE destBuf + i, PEEK(bufAddr + c->bufPos + i)
+    POKE destBuf + i, PEEK(bufAddr + c->_bufPos + i)
   NEXT i
-  c->bufPos = c->bufPos + avail
+  c->_bufPos = c->_bufPos + avail
   TcpRecvBuf = avail
 END SUB
 
@@ -332,12 +328,12 @@ SUB LONGINT TcpRecvLine(ADDRESS conn, ADDRESS lineBuf, ~
 
   c = conn
 
-  IF c->sockFd = -1 THEN
+  IF c->_sockFd = -1 THEN
     TcpRecvLine = -1
     EXIT SUB
   END IF
 
-  bufAddr = @c->bufData
+  bufAddr = @c->_bufData
   resultLen = 0
   found = 0
   lineErr = 0
@@ -351,9 +347,9 @@ SUB LONGINT TcpRecvLine(ADDRESS conn, ADDRESS lineBuf, ~
 
     IF lineErr = 0 THEN
       ' Scan for LF (byte 10)
-      scanPos = c->bufPos
+      scanPos = c->_bufPos
       gotLF = 0
-      WHILE scanPos < c->bufLen AND gotLF = 0
+      WHILE scanPos < c->_bufLen AND gotLF = 0
         IF PEEK(bufAddr + scanPos) = 10 THEN
           gotLF = 1
         ELSE
@@ -364,28 +360,28 @@ SUB LONGINT TcpRecvLine(ADDRESS conn, ADDRESS lineBuf, ~
       IF gotLF = 1 THEN
         ' Found LF: copy bytes before it (strip CR if present)
         copyEnd = scanPos
-        IF copyEnd > c->bufPos THEN
+        IF copyEnd > c->_bufPos THEN
           IF PEEK(bufAddr + copyEnd - 1) = 13 THEN
             copyEnd = copyEnd - 1
           END IF
         END IF
-        FOR i = c->bufPos TO copyEnd - 1
+        FOR i = c->_bufPos TO copyEnd - 1
           IF resultLen < maxLen THEN
             POKE lineBuf + resultLen, PEEK(bufAddr + i)
             resultLen = resultLen + 1
           END IF
         NEXT i
-        c->bufPos = scanPos + 1
+        c->_bufPos = scanPos + 1
         found = 1
       ELSE
         ' No LF yet: copy all remaining buffer bytes
-        FOR i = c->bufPos TO c->bufLen - 1
+        FOR i = c->_bufPos TO c->_bufLen - 1
           IF resultLen < maxLen THEN
             POKE lineBuf + resultLen, PEEK(bufAddr + i)
             resultLen = resultLen + 1
           END IF
         NEXT i
-        c->bufPos = c->bufLen
+        c->_bufPos = c->_bufLen
       END IF
     END IF
   WEND
@@ -404,8 +400,8 @@ SUB TcpBufFlush(ADDRESS conn) EXTERNAL
   DECLARE STRUCT TcpConn *c
   c = conn
 
-  IF c->sockFd = -1 THEN EXIT SUB
+  IF c->_sockFd = -1 THEN EXIT SUB
 
-  c->bufPos = 0
-  c->bufLen = 0
+  c->_bufPos = 0
+  c->_bufLen = 0
 END SUB
