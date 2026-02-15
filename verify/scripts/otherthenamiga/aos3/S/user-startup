@@ -47,7 +47,6 @@ assign ACEinclude: ACE:include
 path ACE:bin add
 protect ACE:bin/bas +s
 
-
 ;BEGIN AmiSSL
 Assign AmiSSL: "SYS:AmiSSL"
 If Exists AmiSSL:Libs
@@ -55,8 +54,5 @@ If Exists AmiSSL:Libs
 EndIf
 Path AmiSSL: ADD
 ;END AmiSSL
-
-
-
 
 
