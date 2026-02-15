@@ -62,7 +62,7 @@ SCREEN CLOSE 1
 
 ### Utilities and Libraries
 - **Double-precision math** - IEEE 64-bit floating point (15+ significant digits) with full arithmetic, trigonometric, and string conversion
-- **HTTP client** - Full HTTP/1.1 client with GET/POST/PUT, chunked transfers, streaming callbacks, and HTTPS via AmiSSL
+- **TCP/HTTP client** - Struct-based TCP client with SSL/TLS support, plus full HTTP/1.1 client with GET/POST/PUT, chunked transfers, streaming callbacks, and HTTPS via AmiSSL
 - **Lisp-style list library** - Singly-linked lists with higher-order functions (map, filter, reduce, etc.) - requires OS 3.0+
 - **ASSERT statement** - Runtime assertion checking for defensive programming
 - **Sound support** - Audio playback, speech synthesis, and SAGA 16-bit audio (Vampire)
@@ -313,12 +313,22 @@ Lisp-style singly-linked list implementation with:
 
 Requires AmigaOS 3.0+ (uses AllocVec). Closures with `INVOKABLE` keyword needed for callbacks.
 
+### TCP Client Submodule (`submods/tcpclient/`)
+
+Struct-based TCP client with optional SSL/TLS support via AmiSSL. The caller owns `TcpConn` structs, so there is no connection limit. Provides raw send/receive, buffered reads, and line-oriented reading with automatic CR/LF handling.
+
+- **Connection**: `TcpOpen` (plain or SSL), `TcpClose`, `TcpInit`, `TcpCleanup`
+- **Send**: `TcpSend` (raw bytes)
+- **Receive**: `TcpRecv` (unbuffered), `TcpRecvBuf` (buffered), `TcpRecvLine` (line-oriented), `TcpBufFlush`
+
+Requires bsdsocket.library (AmiTCP, Roadshow). SSL requires AmiSSL.
+
 ### HTTP Client Submodule (`submods/httpclient/`)
 
-Full HTTP/1.1 client library with three API tiers:
+Full HTTP/1.1 client library built on tcpclient, with three API tiers:
 - **High-level**: One-call functions (`HttpGet`, `HttpPost`, `HttpPut`, `HttpRequest`)
 - **Streaming**: Callback-based transfers for large data (`HttpGetStream`, `HttpPostStream`, `HttpPutStream`)
-- **Low-level**: Handle-based control (`HttpOpen`, `HttpSetHeader`, `HttpSendRequest`, `HttpReadBody`, `HttpClose`)
+- **Low-level**: Struct-based control (`HttpOpen`, `HttpSetHeader`, `HttpSendRequest`, `HttpReadBody`, `HttpClose`)
 
 Supports HTTP and HTTPS (via AmiSSL), chunked transfer encoding, custom headers, and URL encoding. Requires bsdsocket.library (AmiTCP, Roadshow).
 
@@ -428,6 +438,6 @@ The modern fork adds significant new features while maintaining compatibility:
 - **v2.7** - Closures and function pointers, MUI submodule, filled circles/ellipses, callback SUBs
 - **v2.7.1** - ELSEIF keyword, LCASE$ function, list submodule with higher-order functions
 - **v2.8** - YAP preprocessor, INVOKABLE keyword, REM #using directive, installer, major compiler refactoring
-- **Post-v2.8** - P96/RTG screens (mode 13), tail-call optimization, 12 new string functions, buffered file I/O, HTTP client submodule, SagaSound submodule, turtle graphics submodule, double-precision math submodule, CONST SINGLE fix
+- **Post-v2.8** - P96/RTG screens (mode 13), tail-call optimization, 12 new string functions, buffered file I/O, TCP client submodule, HTTP client submodule, SagaSound submodule, turtle graphics submodule, double-precision math submodule, CONST SINGLE fix
 
 See `CHANGELOG.txt` for full details. For the original 1998 release notes, see `docs/HISTORY-1998-Release.txt`.
