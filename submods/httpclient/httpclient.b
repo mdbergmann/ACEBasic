@@ -81,9 +81,6 @@ ADDRESS _lineBuf
 STRING _lineResult$ SIZE 1025
 LONGINT _lineOk
 
-' Streaming buffer (workspace, shared for send/receive)
-ADDRESS _streamBuf
-
 ' CRLF constant
 STRING _crlf$ SIZE 4
 
@@ -93,7 +90,6 @@ STRING _crlf$ SIZE 4
 SUB _HttpInit
   SHARED _httpInited
   SHARED _lineBuf, _lineResult$, _lineOk
-  SHARED _streamBuf
   SHARED _crlf$
 
   IF _httpInited = 1 THEN EXIT SUB
@@ -103,9 +99,6 @@ SUB _HttpInit
 
   ' Allocate line buffer
   _lineBuf = ALLOC(MAX_LINE_LEN + 1)
-
-  ' Allocate streaming buffer
-  _streamBuf = ALLOC(READ_BUF_SIZE)
 
   ' Init line reader
   _lineResult$ = ""
@@ -922,10 +915,14 @@ SUB LONGINT HttpRequestStream(ADDRESS req, ADDRESS resp, ~
                               ADDRESS onSend, ~
                               ADDRESS onRecv) EXTERNAL
   SHARED _urlHost$, _urlPort, _urlPath$, _urlSSL
-  SHARED _streamBuf, _crlf$
+  SHARED _crlf$
   LONGINT rc, sc
   LONGINT hasBody, sendLen, bytesGot, cbRet
   LONGINT rdDone
+  STRING sBuf$ SIZE 4096
+  ADDRESS sBufAddr
+
+  sBufAddr = @sBuf$
 
   _HttpParseUrl(url$)
   IF LEN(_urlHost$) = 0 THEN
@@ -966,9 +963,9 @@ SUB LONGINT HttpRequestStream(ADDRESS req, ADDRESS resp, ~
   IF hasBody THEN
     sendLen = 1
     WHILE sendLen > 0
-      sendLen = INVOKE onSend(_streamBuf, READ_BUF_SIZE)
+      sendLen = INVOKE onSend(sBufAddr, READ_BUF_SIZE)
       IF sendLen > 0 THEN
-        rc = HttpWriteBodyChunked(tcpConn, _streamBuf, sendLen)
+        rc = HttpWriteBodyChunked(tcpConn, sBufAddr, sendLen)
         IF rc < 0 THEN
           HttpClose(tcpConn)
           HttpRequestStream = HTTP_ERR_SEND
@@ -977,7 +974,7 @@ SUB LONGINT HttpRequestStream(ADDRESS req, ADDRESS resp, ~
       END IF
     WEND
     ' Send final zero-length chunk
-    rc = HttpWriteBodyChunked(tcpConn, _streamBuf, 0)
+    rc = HttpWriteBodyChunked(tcpConn, sBufAddr, 0)
     IF rc < 0 THEN
       HttpClose(tcpConn)
       HttpRequestStream = HTTP_ERR_SEND
@@ -996,9 +993,9 @@ SUB LONGINT HttpRequestStream(ADDRESS req, ADDRESS resp, ~
   IF meth$ <> "HEAD" AND onRecv <> 0 THEN
     rdDone = 0
     WHILE rdDone = 0
-      bytesGot = HttpReadBody(tcpConn, resp, _streamBuf, READ_BUF_SIZE)
+      bytesGot = HttpReadBody(tcpConn, resp, sBufAddr, READ_BUF_SIZE)
       IF bytesGot > 0 THEN
-        cbRet = INVOKE onRecv(_streamBuf, bytesGot)
+        cbRet = INVOKE onRecv(sBufAddr, bytesGot)
         IF cbRet = HTTP_ABORT THEN
           HttpClose(tcpConn)
           HttpRequestStream = HTTP_ERR_CALLBACK
