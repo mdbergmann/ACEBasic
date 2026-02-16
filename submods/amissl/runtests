@@ -1,0 +1,58 @@
+.key outfile
+; RunTests - AmiSSL test runner
+; Compiles and runs tests (module .o must already exist)
+; Run from ace:submods/amissl/
+;
+; Usage:
+;   cd ace:submods/amissl
+;   execute RunTests                     ; output to console
+;   execute RunTests ace:test-output.txt ; output to file
+
+IF "<outfile>" EQ ""
+  SET ofile *
+ELSE
+  SET ofile "<outfile>"
+ENDIF
+
+FAILAT 21
+STACK 65000
+SET nPass 0
+SET nFail 0
+
+echo "" >>$ofile
+echo "=======================================" >>$ofile
+echo "  AmiSSL Test Suite" >>$ofile
+echo "=======================================" >>$ofile
+echo "" >>$ofile
+
+; --- test_amissl ---
+echo "--- test_amissl ---" >>$ofile
+bas test_amissl >>$ofile
+IF WARN
+  echo "  *** BUILD FAILED ***" >>$ofile
+  SET nFail `eval $nFail + 1`
+  SKIP summary
+ENDIF
+test_amissl >T:_ssltest.tmp
+type T:_ssltest.tmp >>$ofile
+search T:_ssltest.tmp "ASSERT FAILED" QUIET
+IF NOT WARN
+  echo "  >>> FAILED <<<" >>$ofile
+  SET nFail `eval $nFail + 1`
+ELSE
+  echo "  PASSED" >>$ofile
+  SET nPass `eval $nPass + 1`
+ENDIF
+echo "" >>$ofile
+
+LAB summary
+echo "=======================================" >>$ofile
+echo "  Results: $nPass passed, $nFail failed" >>$ofile
+echo "=======================================" >>$ofile
+IF VAL $nFail GT 0
+  echo "" >>$ofile
+  echo "  !!! SOME TESTS FAILED !!!" >>$ofile
+  echo "" >>$ofile
+ENDIF
+
+delete T:_ssltest.tmp QUIET
