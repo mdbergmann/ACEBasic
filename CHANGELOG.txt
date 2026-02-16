@@ -54,6 +54,11 @@ Changes:
   - Turtle Graphics Moved to Submodule (#72): 13 built-in turtle commands
     removed from compiler/runtime, replaced by external turtle.b submod.
 
+  - CubicIDE Plugin: Use regedit for proper preset/filetype registration
+    instead of manual file copying (install.bat by Josef Wegner). Updated
+    autocase, syntax dictionaries, and quickinfo to cover all keywords and
+    functions from quickref.txt.
+
   - Codegen Abstraction: Extracted gen_ffp_call, gen_bool_test,
     gen_stack_cleanup helpers. Enhanced peephole optimizer.
 
