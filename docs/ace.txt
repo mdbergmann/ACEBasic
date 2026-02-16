@@ -1736,11 +1736,16 @@ Structures have been included in ACE mainly because of their utility in
 gaining access to operating system functions. 
  
 Structure members may be of the following type: BYTE (in structures only),
-SHORTINT, LONGINT, ADDRESS, SINGLE, STRING. The latter can have an optional 
-size specification. A structure may also have as a member another structure. 
- 
-If you want to have a pointer to a structure (or a pointer to anything else) 
-as a member, simply declare it to be of type ADDRESS.
+SHORTINT, LONGINT, ADDRESS, SINGLE, STRING. Any of these types can have an
+optional SIZE specifier to declare a fixed-size array of that type within the
+struct: <type> <ident> SIZE <count>. SIZE means element count for all types.
+
+A structure may also have as a member another structure, either embedded
+(the member occupies the full size of the inner struct), as a typed pointer
+(StructType *member, 4 bytes), or as a struct array (StructType member
+SIZE n, n embedded instances).
+
+For an untyped pointer to anything, use ADDRESS as the member type.
  
 Allowing structures to have other structures as members makes converting 
 system structures from C to ACE much easier than it otherwise would be, eg:
@@ -1757,49 +1762,182 @@ system structures from C to ACE much easier than it otherwise would be, eg:
 	END STRUCT
  
 	DECLARE STRUCT myFirstStruct mine
-	DECLARE STRUCT DateStamp *myDate
-	
-	.
-	.
- 
-	myDate = @mine->ds	'..assign address of mine->ds to myDate.
- 
+
+	mine->ds->days = 23	'..chained -> accesses nested member directly.
+	mine->ds->secs = 100
+
                                   - page 24 -
- 
+
+You can also extract the address of an embedded struct member and work with
+it through a pointer variable, as in earlier versions of ACE:
+
+	DECLARE STRUCT DateStamp *myDate
+	myDate = @mine->ds	'..assign address of mine->ds to myDate.
 	myDate->days = 23
  
 	.
 	.
  
-If an array is required as a structure member, it is currently necessary 
-to use STRING <ident> SIZE <bytes>. Most system structures use character
-arrays (strings) anyway. As an example, if you wanted a SHORTINT array 
-member with 50 elements (0..49) you could say:
- 
-	STRUCT mySecondStruct
-	  STRING myArray SIZE 100	'..reserve space for the array
-	  .
-	  .
+Any base type can have a SIZE specifier to create a typed array member:
+
+	STRUCT MyStruct
+	  BYTE buf SIZE 256         '..256-byte buffer
+	  LONGINT vals SIZE 10      '..array of 10 LONGINTs (40 bytes)
+	  SHORTINT flags SIZE 8     '..array of 8 SHORTINTs (16 bytes)
+	  SINGLE coords SIZE 3      '..array of 3 SINGLEs (12 bytes)
+	  STRING tag SIZE 64         '..64-byte string (unchanged)
+	  LONGINT scalar             '..regular scalar member
 	END STRUCT
-	
-	DECLARE STRUCT mySecondStruct aStruct
- 
-	DIM N%(100) ADDRESS @aStruct->myArray
- 
-You can of course use SIZEOF to determine the number of bytes ACE would
-set aside for a particular array. A two line program would accomplish
-this:
- 
-	DIM a_short_array%(49)
-	PRINT SIZEOF(a_short_array%)
- 
-The value thus derived can then be used when declaring a structure such
-as the one shown above.
- 
-Note that in the case of the array and structure members above, it is 
-necessary to take the address of the member and assign it to a normal
-array or structure (pointer to structure - see below) variable. 
- 
+
+	DECLARE STRUCT MyStruct s
+
+Typed array members support indexed access with parenthesized syntax:
+
+	s->vals(0) = 100&           '..write element 0
+	s->vals(3) = 400&           '..write element 3
+	x& = s->vals(2)             '..read element 2
+
+Both constant and variable indices are supported:
+
+	FOR i% = 0 TO 9
+	  s->vals(i%) = i% * 10&
+	NEXT i%
+
+Without an index, the member pushes its base address (backward compatible
+with PEEK/POKE access):
+
+	addr& = @s->vals            '..base address of LONGINT array
+	POKEL addr& + 4, 42&        '..set vals(1) via pointer arithmetic
+
+You can also overlay a regular DIM array onto a struct array member using
+DIM .. ADDRESS, which can be useful for passing the array to SUBs:
+
+	DIM N%(10) ADDRESS @s->vals
+
+STRING SIZE continues to work as before and is unchanged.
+
+Indexed access also works through nested contexts: embedded structs, typed
+struct pointers, and struct arrays (all described below). For example:
+
+	outer->inner->vals(i%)       '..through embedded struct
+	holder->ptr->vals(i%)        '..through typed struct pointer
+	container->items(j)->vals(i%) '..inside a struct array element
+	deep->a->b->vals(i%)         '..arbitrary nesting depth
+
+
+Typed struct pointer members
+............................
+
+A struct member can be declared as a typed pointer to another struct:
+
+	STRUCT Inner
+	  LONGINT x
+	  LONGINT y
+	END STRUCT
+
+	STRUCT Outer
+	  Inner *ptr                 '..typed pointer to Inner (4 bytes)
+	  LONGINT z
+	END STRUCT
+
+The pointer member stores a 4-byte ADDRESS, but the compiler knows the
+pointed-to type, enabling -> chaining through the pointer:
+
+	DECLARE STRUCT Outer o
+	o->ptr = ALLOC(SIZEOF(Inner))
+	o->ptr->x = 42&             '..access through typed pointer
+	o->ptr->y = 99&
+
+You can also point it at an existing struct variable:
+
+	DECLARE STRUCT Inner i
+	i->x = 111&
+	o->ptr = i                  '..point to existing struct
+	PRINT o->ptr->x             '..prints 111
+
+Without further ->, the pointer value itself is returned:
+
+	ADDRESS addr
+	addr = o->ptr               '..read the pointer value
+
+A struct may contain both embedded and pointer members of the same type:
+
+	STRUCT Mixed
+	  Inner embedded             '..full Inner embedded here
+	  Inner *ptr                 '..4-byte pointer to an Inner
+	END STRUCT
+
+
+Self-referential structs
+........................
+
+A struct type may reference itself as a pointer member, enabling linked
+lists, trees, and other recursive data structures:
+
+	STRUCT Node
+	  LONGINT num
+	  Node *nxt                  '..pointer to next Node
+	END STRUCT
+
+Note: only pointer (*) self-references are allowed. An embedded
+self-reference (without *) would be infinite size and is rejected.
+
+Example: building and traversing a linked list:
+
+	DECLARE STRUCT Node n1
+	DECLARE STRUCT Node n2
+	DECLARE STRUCT Node n3
+
+	n1->num = 10& : n2->num = 20& : n3->num = 30&
+	n1->nxt = n2 : n2->nxt = n3 : n3->nxt = 0&
+
+	'..traverse via chained ->
+	PRINT n1->num               '..prints 10
+	PRINT n1->nxt->num          '..prints 20
+	PRINT n1->nxt->nxt->num     '..prints 30
+
+
+Struct arrays as members
+........................
+
+An array of structs can be declared as a member using SIZE:
+
+	STRUCT Vec2
+	  LONGINT x
+	  LONGINT y
+	END STRUCT
+
+	STRUCT Holder
+	  Vec2 pts SIZE 5            '..5 embedded Vec2 structs (40 bytes)
+	  LONGINT cnt
+	END STRUCT
+
+	DECLARE STRUCT Holder c
+
+SIZE means element count (not byte count). The array occupies
+count * SIZEOF(element_type) bytes contiguously in the struct.
+
+Indexed access with chained -> accesses individual elements:
+
+	c->pts(0)->x = 10&
+	c->pts(0)->y = 20&
+	c->pts(4)->x = 90&
+
+Both constant and variable indices are supported:
+
+	FOR i% = 0 TO 4
+	  c->pts(i%)->x = (i% + 1) * 100&
+	  c->pts(i%)->y = (i% + 1) * 200&
+	NEXT i%
+
+Without an index, the member pushes the base address of the array:
+
+	addr& = @c->pts              '..base address of struct array
+
+SIZEOF reflects the full struct including the array:
+
+	PRINT SIZEOF(Holder)         '..prints 44 (5*8 + 4)
+
 When declaring a structure, the only difference between the following two
 forms:
  
@@ -1832,9 +1970,10 @@ The SIZEOF function can be used to determine the size of a structure type
  
 if allocating memory for a structure (see examples/misc/linkedlist.b).
  
-ACE structures are stand-alone data objects, and cannot be elements in an 
-array, although structure *addresses* _can_ be. For an example of the 
-latter, see examples/misc/array_of_structs.b.
+ACE structures are stand-alone data objects, and cannot be elements in
+regular arrays, although structure *addresses* _can_ be. For an example of
+the latter, see examples/misc/array_of_structs.b. Note that struct arrays
+within other structs are supported (see "Struct arrays as members" above).
  
 An ACE structure can be SHARED to allow its member's values to be modified, 
 or a structure's address can be passed to a subprogram, eg:

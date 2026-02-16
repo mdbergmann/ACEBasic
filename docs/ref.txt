@@ -2954,21 +2954,43 @@ STRUCT *	- Defines a new structure data type, thus:
 		  where <type> can be BYTE,SHORTINT,LONGINT,ADDRESS,SINGLE,
 		  STRING and <ident1>..<identN> are structure members of one
 		  of these data types.
+		- Any member type can have an optional SIZE specifier to
+		  declare a fixed-size array: <type> <ident> SIZE <count>.
+		  SIZE means element count for all types. For example:
+		    BYTE buf SIZE 256       (256 bytes)
+		    LONGINT vals SIZE 10    (10 LONGINTs = 40 bytes)
+		    SHORTINT flags SIZE 8   (8 SHORTINTs = 16 bytes)
+		    SINGLE coords SIZE 3    (3 SINGLEs = 12 bytes)
+		    STRING name SIZE 64     (64-byte string buffer)
+		- Array members can be accessed with indexed syntax:
+		    s->vals(i)     reads/writes element i
+		  Without an index, the member pushes its base address.
 		- A structure member may also be another structure. In this
-		  case, <type> must be the name of a previously defined 
-		  structure type. See ace.txt's "Structures" section for 
-		  more about this.
-		- Where a member is of type STRING, an optional size can be
-		  specified (STRING <ident> [SIZE <size>]).
+		  case, <type> must be the name of a previously defined
+		  structure type. Chained -> accesses nested members:
+		    outer->inner->field
+		- A typed struct pointer member is declared with *:
+		    Inner *ptr
+		  This stores a 4-byte ADDRESS but enables -> chaining
+		  through the pointer: s->ptr->field.
+		- A struct type may reference itself as a pointer member
+		  (self-referential struct), enabling linked lists/trees:
+		    STRUCT Node
+		      LONGINT num
+		      Node *nxt
+		    END STRUCT
+		- Arrays of structs can be members using SIZE:
+		    Inner items SIZE 10
+		  Indexed access with chained ->: s->items(i)->field.
 		- See also: DECLARE and the section on structures in ace.txt.
 		- Structures have been provided in ACE primarily to make
 		  communicating with the operating system a little nicer
 		  and to make dynamic data structures possible (see the
 		  example programs turtle/bst.b and misc/linkedlist.b).
-		- ACE structures cannot currently be array elements although
-		  there is nothing to stop you from storing structure start
-		  addresses in array elements. For an example of this, see  
-		  examples/misc/array_of_structs.b.
+		- ACE structures are stand-alone data objects, and cannot be
+		  elements in regular arrays, although structure *addresses*
+		  can be. For an example, see examples/misc/array_of_structs.b.
+		  Struct arrays within other structs are supported (see above).
 		- See "Structures" section in ace.txt for more details.
 			
 --------------------------------------------------------------------------------
