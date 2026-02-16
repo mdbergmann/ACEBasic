@@ -92,19 +92,18 @@ STRUCT HttpHeader
   STRING hdrVal SIZE 256
 END STRUCT
 
-' Header slot size constants
+' Header field size constants (for _StrToAddr max-length params)
 CONST HDR_NAME_SZ   = 64
 CONST HDR_VAL_SZ    = 256
-CONST HDR_SLOT_SZ   = 320
 
 ' HttpRequest - Request state (host, port, custom headers)
 '   Passed to functions that build/send requests.
 '   All fields are private (managed by HttpOpen, HttpSetHeader, etc.)
-'   _reqHdrs holds up to 16 HttpHeader entries (16 * 320 = 5120 bytes)
+'   _reqHdrs holds up to 16 HttpHeader entries as a struct array
 STRUCT HttpRequest
   STRING _reqHost SIZE 128
   LONGINT _reqPort
-  STRING _reqHdrs SIZE 5120
+  HttpHeader _reqHdrs SIZE 16
   LONGINT _reqHdrCount
 END STRUCT
 
@@ -112,11 +111,11 @@ END STRUCT
 '   Filled by HttpReadStatus, queried by header accessors.
 '   Public: statusCode, contentLen, respHdrCount
 '   Private (_prefix): transfer tracking fields and header storage
-'   _respHdrs holds up to 32 HttpHeader entries (32 * 320 = 10240 bytes)
+'   _respHdrs holds up to 32 HttpHeader entries as a struct array
 STRUCT HttpResponse
   LONGINT statusCode
   LONGINT contentLen
-  STRING _respHdrs SIZE 10240
+  HttpHeader _respHdrs SIZE 32
   LONGINT respHdrCount
   LONGINT _bodyLeft
   LONGINT _xfer

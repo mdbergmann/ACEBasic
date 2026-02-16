@@ -37,7 +37,7 @@ STRUCT TcpConn
   LONGINT _sslHnd          ' SSL handle (0 = plain TCP)
   LONGINT _bufPos          ' current read position in buffer
   LONGINT _bufLen          ' bytes available in buffer
-  STRING _bufData SIZE 4096 ' read-ahead buffer
+  BYTE _bufData SIZE 4096   ' read-ahead buffer
 END STRUCT
 
 ' Error constants
