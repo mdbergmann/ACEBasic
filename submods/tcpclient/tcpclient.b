@@ -215,7 +215,7 @@ SUB LONGINT TcpOpen(ADDRESS conn, STRING host$, ~
       _tcpSslReady = 1
     END IF
 
-    ssl = SslNewConn(sock)
+    ssl = SslNewConn(sock, SADD(host$))
     IF ssl = 0 THEN
       CloseSocket(sock)
       TcpOpen = TCP_ERR_SSL

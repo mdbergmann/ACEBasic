@@ -1,0 +1,100 @@
+.key outfile
+; RunTests - DP-Float test runner
+; Compiles and runs tests (module .o must already exist)
+; Run from ace:submods/dp-float/
+;
+; Usage:
+;   cd ace:submods/dp-float
+;   execute RunTests                     ; output to console
+;   execute RunTests ace:test-output.txt ; output to file
+
+IF "<outfile>" EQ ""
+  SET ofile "*"
+ELSE
+  SET ofile "<outfile>"
+ENDIF
+
+FAILAT 21
+STACK 65000
+SET nPass 0
+SET nFail 0
+
+echo "" >>$ofile
+echo "=======================================" >>$ofile
+echo "  DP-Float Test Suite" >>$ofile
+echo "=======================================" >>$ofile
+echo "" >>$ofile
+
+; --- test_dp_float ---
+echo "--- test_dp_float ---" >>$ofile
+bas test_dp_float >>$ofile
+IF WARN
+  echo "  *** BUILD FAILED ***" >>$ofile
+  SET nFail `eval $nFail + 1`
+  SKIP next2
+ENDIF
+test_dp_float >T:_dptest.tmp
+type T:_dptest.tmp >>$ofile
+search T:_dptest.tmp "ASSERT FAILED" QUIET
+IF NOT WARN
+  echo "  >>> FAILED <<<" >>$ofile
+  SET nFail `eval $nFail + 1`
+ELSE
+  echo "  PASSED" >>$ofile
+  SET nPass `eval $nPass + 1`
+ENDIF
+LAB next2
+echo "" >>$ofile
+
+; --- test_dp_float_math ---
+echo "--- test_dp_float_math ---" >>$ofile
+bas test_dp_float_math >>$ofile
+IF WARN
+  echo "  *** BUILD FAILED ***" >>$ofile
+  SET nFail `eval $nFail + 1`
+  SKIP next3
+ENDIF
+test_dp_float_math >T:_dptest.tmp
+type T:_dptest.tmp >>$ofile
+search T:_dptest.tmp "ASSERT FAILED" QUIET
+IF NOT WARN
+  echo "  >>> FAILED <<<" >>$ofile
+  SET nFail `eval $nFail + 1`
+ELSE
+  echo "  PASSED" >>$ofile
+  SET nPass `eval $nPass + 1`
+ENDIF
+LAB next3
+echo "" >>$ofile
+
+; --- test_dp_float_str ---
+echo "--- test_dp_float_str ---" >>$ofile
+bas test_dp_float_str >>$ofile
+IF WARN
+  echo "  *** BUILD FAILED ***" >>$ofile
+  SET nFail `eval $nFail + 1`
+  SKIP summary
+ENDIF
+test_dp_float_str >T:_dptest.tmp
+type T:_dptest.tmp >>$ofile
+search T:_dptest.tmp "ASSERT FAILED" QUIET
+IF NOT WARN
+  echo "  >>> FAILED <<<" >>$ofile
+  SET nFail `eval $nFail + 1`
+ELSE
+  echo "  PASSED" >>$ofile
+  SET nPass `eval $nPass + 1`
+ENDIF
+echo "" >>$ofile
+
+LAB summary
+echo "=======================================" >>$ofile
+echo "  Results: $nPass passed, $nFail failed" >>$ofile
+echo "=======================================" >>$ofile
+IF VAL $nFail GT 0
+  echo "" >>$ofile
+  echo "  !!! SOME TESTS FAILED !!!" >>$ofile
+  echo "" >>$ofile
+ENDIF
+
+delete T:_dptest.tmp QUIET

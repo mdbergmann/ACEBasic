@@ -38,10 +38,11 @@ DECLARE SUB LONGINT SslInit EXTERNAL
 DECLARE SUB SslCleanup EXTERNAL
 
 ' SslNewConn - Create SSL connection on an existing TCP socket
-'   sockFd - TCP socket file descriptor (already connected)
+'   sockFd   - TCP socket file descriptor (already connected)
+'   hostName - ADDRESS of null-terminated hostname for SNI, or 0 to skip
 '   Returns: SSL handle (positive) or 0 on failure
-'   Note: Performs SSL_new + SSL_set_fd + SSL_connect.
-DECLARE SUB LONGINT SslNewConn(LONGINT sockFd) EXTERNAL
+'   Note: Performs SSL_new + SSL_set_fd + SSL_set_tlsext_host_name + SSL_connect.
+DECLARE SUB LONGINT SslNewConn(LONGINT sockFd, ADDRESS hostName) EXTERNAL
 
 ' SslFreeConn - Shut down and free an SSL connection
 '   ssl - SSL handle from SslNewConn

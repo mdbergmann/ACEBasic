@@ -118,17 +118,19 @@ SUB LONGINT _AmiSSLInit
 
   _asmA6 = _amisslBase
 
-  ' Build tag list: [AmiSSL_SocketBase=$80000001, sockBase, TAG_DONE=0, 0]
+  ' Build tag list on stack and call InitAmiSSLA (LVO -36, a0=tagList)
+  ' Tag list: [AmiSSL_SocketBase=$80000001, sockBase, TAG_DONE=0, 0]
   ASSEM
     movem.l d0-d1/a0-a1/a6,-(sp)
-    lea     _sslTagList,a0
-    move.l  #$80000001,(a0)
-    move.l  _modv__ASMSOCKBASE,4(a0)
-    clr.l   8(a0)
-    clr.l   12(a0)
+    clr.l   -(sp)
+    clr.l   -(sp)
+    move.l  _modv__ASMSOCKBASE,-(sp)
+    move.l  #$80000001,-(sp)
+    move.l  sp,a0
     move.l  _modv__ASMA6,a6
     jsr     -36(a6)
     move.l  d0,_modv__ASMD0
+    lea     16(sp),sp
     movem.l (sp)+,d0-d1/a0-a1/a6
   END ASSEM
 
@@ -258,6 +260,32 @@ SUB LONGINT _SslConnectInt(LONGINT ssl)
   END ASSEM
 
   _SslConnectInt = _asmD0
+END SUB
+
+SUB LONGINT _SslSetHostname(LONGINT ssl, ADDRESS hostName)
+  SHARED _asmA0, _asmA1, _asmA6, _asmD0, _asmD1, _amisslBase
+
+  _asmA0 = ssl
+  _asmD0 = 55
+  _asmD1 = 0
+  _asmA1 = hostName
+  _asmA6 = _amisslBase
+
+  ' SSL_ctrl(ssl, SSL_CTRL_SET_TLSEXT_HOSTNAME=55, TLSEXT_NAMETYPE_host_name=0, name)
+  ' LVO -8856
+  ASSEM
+    movem.l d0-d1/a0-a1/a6,-(sp)
+    move.l  _modv__ASMA0,a0
+    move.l  _modv__ASMD0,d0
+    move.l  _modv__ASMD1,d1
+    move.l  _modv__ASMA1,a1
+    move.l  _modv__ASMA6,a6
+    jsr     -8856(a6)
+    move.l  d0,_modv__ASMD0
+    movem.l (sp)+,d0-d1/a0-a1/a6
+  END ASSEM
+
+  _SslSetHostname = _asmD0
 END SUB
 
 SUB LONGINT _SslReadInt(LONGINT ssl, ADDRESS buf, LONGINT num)
@@ -435,7 +463,7 @@ SUB SslCleanup EXTERNAL
   _sslInited = 0
 END SUB
 
-SUB LONGINT SslNewConn(LONGINT sockFd) EXTERNAL
+SUB LONGINT SslNewConn(LONGINT sockFd, ADDRESS hostName) EXTERNAL
   SHARED _sslCtx
   LONGINT ssl, rc
 
@@ -450,6 +478,11 @@ SUB LONGINT SslNewConn(LONGINT sockFd) EXTERNAL
     _SslFreeInt(ssl)
     SslNewConn = 0
     EXIT SUB
+  END IF
+
+  ' Set SNI hostname if provided
+  IF hostName <> 0 THEN
+    _SslSetHostname(ssl, hostName)
   END IF
 
   rc = _SslConnectInt(ssl)
@@ -477,10 +510,3 @@ SUB LONGINT SslWrite(LONGINT ssl, ADDRESS buf, LONGINT num) EXTERNAL
   SslWrite = _SslWriteInt(ssl, buf, num)
 END SUB
 
-{ ============== ASSEM Storage ============== }
-' Tag list for AmiSSL init (4 longints = 16 bytes).
-' Referenced directly in _AmiSSLInit ASSEM block via LEA.
-
-ASSEM
-_sslTagList: dc.l 0,0,0,0
-END ASSEM

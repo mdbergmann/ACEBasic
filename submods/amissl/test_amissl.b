@@ -63,7 +63,7 @@ END IF
 ASSERT rc >= 0, "connect() failed"
 
 ' SSL handshake
-ssl = SslNewConn(sock)
+ssl = SslNewConn(sock, SADD("httpbin.org"))
 IF ssl = 0 THEN
   CloseSocket(sock)
 END IF
