@@ -9,7 +9,7 @@
 ;   execute RunTests ace:test-output.txt ; output to file
 
 IF "<outfile>" EQ ""
-  SET ofile "*"
+  SET ofile *
 ELSE
   SET ofile "<outfile>"
 ENDIF
