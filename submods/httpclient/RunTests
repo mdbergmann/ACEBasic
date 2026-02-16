@@ -22,7 +22,7 @@ echo "=======================================" >>$ofile
 echo "" >>$ofile
 
 echo "Building httpclient module..." >>$ofile
-bas -m httpclient >>$ofile
+bas -mO httpclient >>$ofile
 IF WARN
   echo "*** MODULE BUILD FAILED ***" >>$ofile
   SKIP end
@@ -79,7 +79,7 @@ ENDIF
 echo "" >>$ofile
 
 echo "--- test_post ---" >>$ofile
-bas test_post httpclient.o >>$ofile
+bas test_post >>$ofile
 IF NOT WARN
   test_post >>$ofile
 ELSE

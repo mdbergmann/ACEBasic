@@ -263,7 +263,7 @@ char *addrbuf;
 void assign_to_struct(item)
 SYM *item;
 {
-/* assign either an address to 
+/* assign either an address to
    a structure variable or a
    value to one of its members.
 */
@@ -271,6 +271,9 @@ SYM    *structype;
 char   addrbuf[40],absbuf[40],numbuf[40];
 STRUCM *member;
 int    exprtype,storetype;
+ULONG  total_offset;
+ULONG  deref_offsets[16];
+int    num_derefs,i;
 
  if (sym == memberpointer)
  {
@@ -294,23 +297,256 @@ int    exprtype,storetype;
       { _error(67); insymbol(); }  /* not a member! */
    else
    {
-    /* assign value */
+    /* resolve chained -> for embedded struct and struct pointer members,
+       recording dereference points for struct pointers */
+    total_offset = member->offset;
+    num_derefs = 0;
+
     insymbol();
+    while (sym == memberpointer
+           && (member->type == structure || member->type == structptrtype))
+    {
+     if (member->type == structptrtype)
+     {
+      /* record dereference point */
+      if (num_derefs < 16)
+         deref_offsets[num_derefs++] = total_offset;
+      total_offset = 0;
+     }
+
+     insymbol();
+     if (sym != ident)
+        { _error(7); member = NULL; break; }
+
+     member = structmem_exist(member->structdef,id);
+     if (member == NULL)
+        { _error(67); break; }
+
+     total_offset += member->offset;
+     insymbol();
+    }
+
+    /* struct array indexing in assignment? */
+    if (member != NULL && member->type == structure && sym == lparen
+        && member->structdef != NULL
+        && member->strsize > member->structdef->size)
+    {
+     int idx_type;
+     ULONG elem_size = member->structdef->size;
+     ULONG post_offset;
+
+     /* load struct base address */
+     gen_frame_addr(item->address, addrbuf);
+     if (item->shared && lev == ONE)
+     {
+      gen("movea.l",addrbuf,"a0");
+      gen("movea.l","(a0)","a0");
+     }
+     else
+         gen("movea.l",addrbuf,"a0");
+
+     /* apply pre-array struct pointer dereferences */
+     for (i = 0; i < num_derefs; i++)
+     {
+      ltoa(deref_offsets[i],absbuf,10);
+      strcat(absbuf,"(a0)");
+      gen("movea.l",absbuf,"a0");
+     }
+
+     /* offset to array base */
+     sprintf(numbuf,"#%ld",total_offset);
+     gen("adda.l",numbuf,"a0");
+
+     /* save a0 (will be clobbered by expr) */
+     gen("move.l","a0","-(sp)");
+
+     /* evaluate index expression */
+     insymbol();  /* skip ( */
+     idx_type = expr();
+     if (sym != rparen) _error(9);
+
+     /* pop index into d0 */
+     if (idx_type == shorttype)
+        gen("move.w","(sp)+","d0");
+     else
+        gen("move.l","(sp)+","d0");
+
+     /* multiply by element size */
+     sprintf(numbuf,"#%ld",elem_size);
+     gen("mulu",numbuf,"d0");
+
+     /* restore a0 and add indexed offset */
+     gen("movea.l","(sp)+","a0");
+     gen("adda.l","d0","a0");
+
+     /* resolve further -> chaining into the indexed element */
+     post_offset = 0;
+     insymbol();  /* past ) */
+     while (sym == memberpointer)
+     {
+      insymbol();
+      if (sym != ident)
+         { _error(7); return; }
+
+      member = structmem_exist(member->structdef,id);
+      if (member == NULL)
+         { _error(67); return; }
+
+      if (member->type == structptrtype)
+      {
+       sprintf(numbuf,"#%ld",post_offset);
+       gen("adda.l",numbuf,"a0");
+       gen("movea.l","(a0)","a0");
+       post_offset = 0;
+      }
+
+      post_offset += member->offset;
+      insymbol();
+     }
+
+     /* typed array indexing after struct array? */
+     if (member != NULL && member->strsize > 0
+         && member->type != stringtype && member->type != structure
+         && sym == lparen)
+     {
+      gen_typed_array_addr(post_offset, member->type);
+      gen("move.l","a0","-(sp)");
+      if (sym != equal)
+         { _error(5); return; }
+      insymbol();
+      exprtype = expr();
+      if (member->type == bytetype) storetype = shorttype;
+      else storetype = member->type;
+      storetype = assign_coerce(storetype,exprtype);
+      if (storetype == notype)
+         _error(4);
+      else
+         gen_store_value_a0(member->type);
+      return;
+     }
+
+     /* expect = */
+     if (sym != equal)
+        { _error(5); return; }
+
+     /* check for invalid assignment to array member */
+     if (member->strsize > 0 && member->type != stringtype
+         && member->type != structure)
+        { _error(4); return; }
+
+     /* push target address onto stack */
+     sprintf(numbuf,"#%ld",post_offset);
+     gen("adda.l",numbuf,"a0");
+     gen("move.l","a0","-(sp)");
+
+     /* evaluate RHS expression */
+     insymbol();
+     exprtype = expr();
+
+     /* coerce types */
+     if (member->type == bytetype)
+        storetype = shorttype;
+     else
+     if (member->type == structptrtype)
+        storetype = longtype;
+     else
+        storetype = member->type;
+
+     storetype = assign_coerce(storetype,exprtype);
+     if (storetype == notype)
+        _error(4);
+     else
+     {
+      /* pop RHS value, pop target address, store */
+      if (member->type == bytetype)
+      {
+       gen("move.w","(sp)+","d0");
+       gen("movea.l","(sp)+","a0");
+       gen("move.b","d0","(a0)");
+      }
+      else
+      if (member->type == stringtype)
+      {
+       gen("move.l","(sp)+","a1");
+       gen("movea.l","(sp)+","a0");
+       gen_rt_call("_strcpy");
+      }
+      else
+      if (member->type == shorttype)
+      {
+       gen("move.w","(sp)+","d0");
+       gen("movea.l","(sp)+","a0");
+       gen("move.w","d0","(a0)");
+      }
+      else
+      {
+       gen("move.l","(sp)+","d0");
+       gen("movea.l","(sp)+","a0");
+       gen("move.l","d0","(a0)");
+      }
+     }
+     return;
+    }
+
+    if (member == NULL)
+       ;  /* error already reported */
+    else
+    if (member->strsize > 0 && member->type != stringtype
+        && member->type != structure && sym == lparen)
+    {
+     /* indexed typed array assignment */
+     gen_frame_addr(item->address, addrbuf);
+     if (item->shared && lev == ONE)
+     {
+      gen("movea.l",addrbuf,"a0");
+      gen("movea.l","(a0)","a0");
+     }
+     else
+         gen("movea.l",addrbuf,"a0");
+     for (i = 0; i < num_derefs; i++)
+     {
+      ltoa(deref_offsets[i],absbuf,10);
+      strcat(absbuf,"(a0)");
+      gen("movea.l",absbuf,"a0");
+     }
+     gen_typed_array_addr(total_offset, member->type);
+     gen("move.l","a0","-(sp)");
+     if (sym != equal)
+        { _error(5); return; }
+     insymbol();
+     exprtype = expr();
+     if (member->type == bytetype) storetype = shorttype;
+     else storetype = member->type;
+     storetype = assign_coerce(storetype,exprtype);
+     if (storetype == notype)
+        _error(4);
+     else
+        gen_store_value_a0(member->type);
+    }
+    else
     if (sym != equal)
        _error(5);
+    else
+    if (member->strsize > 0 && member->type != stringtype
+        && member->type != structure)
+       _error(4);  /* can't assign to array member */
     else
     {
      insymbol();
      exprtype=expr();
 
-     /* treat byte type as a SHORT when coercing */ 
-     if (member->type == bytetype) 
+     /* treat byte type as a SHORT when coercing,
+        treat struct pointer as LONG */
+     if (member->type == bytetype)
         storetype=shorttype;
+     else
+     if (member->type == structptrtype)
+        storetype=longtype;
      else
         storetype=member->type;  /* short, long, single */
 
      storetype = assign_coerce(storetype,exprtype);
-     if (storetype == notype) 
+     if (storetype == notype)
          _error(4);   /* type mismatch */
      else
      {
@@ -319,16 +555,24 @@ int    exprtype,storetype;
 
       if (item->shared && lev == ONE)
       {
-	 gen("movea.l",addrbuf,"a0");  /* structure variable address */	
+	 gen("movea.l",addrbuf,"a0");  /* structure variable address */
 	 gen("movea.l","(a0)","a0");   /* start address of structure */
       }
       else
           gen("movea.l",addrbuf,"a0"); /* start address of structure */
 
-      /* offset from struct start */ 
+      /* apply struct pointer dereferences */
+      for (i = 0; i < num_derefs; i++)
+      {
+       ltoa(deref_offsets[i],absbuf,10);
+       strcat(absbuf,"(a0)");
+       gen("movea.l",absbuf,"a0");
+      }
+
+      /* offset from struct start (using accumulated total_offset) */
       if (member->type != stringtype)
       {
-       ltoa(member->offset,absbuf,10);
+       ltoa(total_offset,absbuf,10);
        strcat(absbuf,"(a0)");
       }
 
@@ -340,7 +584,7 @@ int    exprtype,storetype;
       else
       if (member->type == stringtype)  /* string */
       {
-       sprintf(numbuf,"#%ld",member->offset);
+       sprintf(numbuf,"#%ld",total_offset);
        gen("move.l","(sp)+","a1");  /* source */
        gen("adda.l",numbuf,"a0");   /* destination = struct address + offset */
        gen_rt_call("_strcpy");      /* copy source to destination */
@@ -351,8 +595,8 @@ int    exprtype,storetype;
       else
          gen("move.l","(sp)+",absbuf);  /* long, single */
      }
-    } 
-   } 
+    }
+   }
   }
  }
  else

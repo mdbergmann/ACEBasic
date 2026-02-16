@@ -415,6 +415,7 @@ enum {	bytetype = 	2000,
 	singletype,
 	doubletype,
 	stringtype,
+	structptrtype,
 	notype };
 
 /* objects */
@@ -470,6 +471,7 @@ typedef struct structmem {
 			  int   type;
 			  ULONG offset;
 			  ULONG strsize;
+			  struct symstruct *structdef;
 			  struct structmem *next;
 			 } STRUCM;
   
@@ -638,6 +640,9 @@ void	gen_bool_test();
 void	gen_stack_cleanup();
 void	gen_ext_to_long();
 void	gen_index_scale();
+int	gen_push_value_a0();
+void	gen_store_value_a0();
+void	gen_typed_array_addr();
 
 /* invoke.c */
 int	handle_invoke();

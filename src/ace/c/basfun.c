@@ -1912,6 +1912,7 @@ char   subname[MAXIDSIZE+5];
 SYM    *structype;
 STRUCM *member;
 BOOL   found;
+ULONG  total_off;
 
 			/* 
 			** Make external variable/function
@@ -2005,37 +2006,59 @@ BOOL   found;
 			     if (varptr_item->shared && lev == ONE) 
 				gen("movea.l","(a0)","a0");
 
-			     insymbol();  
+			     insymbol();
 			     if (sym == memberpointer)
 			     {
-			      insymbol();  
-			      if (sym != ident) 
+			      insymbol();
+			      if (sym != ident)
 			         _error(7);
 			      {
 			       structype = varptr_item->other;
-			       member = structype->structmem->next;
-			       found=FALSE;
-			       while ((member != NULL) && (!found))
-			       {
-			        if (strcmp(member->name,id) == 0)
-				   found=TRUE;
-			        else
-			 	   member = member->next;
-			       }
-			       if (!found)
+			       member = structmem_exist(structype,id);
+			       if (member == NULL)
 			 	  _error(67);  /* not a valid member */
 			       else
 				 {
-				  /* push address of struct member */
-				  sprintf(numbuf,"#%ld",member->offset);
+				  total_off = member->offset;
+
+				  /* load struct base address */
 				  gen("movea.l","(a0)","a0");
-				  gen("adda.l",numbuf,"a0");
-				  gen("move.l","a0","-(sp)");
-				  /* store type for SWAP command */
-				  struct_member_type = member->type;	  	
+
+				  /* resolve chained -> with deref support */
+				  insymbol();
+				  while (sym == memberpointer
+				         && (member->type == structure
+				             || member->type == structptrtype))
+				  {
+				   if (member->type == structptrtype)
+				   {
+				    /* dereference pointer */
+				    ltoa(total_off,buf,10);
+				    strcat(buf,"(a0)");
+				    gen("movea.l",buf,"a0");
+				    total_off = 0;
+				   }
+
+				   insymbol();
+				   if (sym != ident)
+				      { _error(7); member = NULL; break; }
+				   member = structmem_exist(member->structdef,id);
+				   if (member == NULL)
+				      { _error(67); break; }
+				   total_off += member->offset;
+				   insymbol();
+				  }
+				  if (member != NULL)
+				  {
+				   /* push address of struct member */
+				   sprintf(numbuf,"#%ld",total_off);
+				   gen("adda.l",numbuf,"a0");
+				   gen("move.l","a0","-(sp)");
+				   /* store type for SWAP command */
+				   struct_member_type = member->type;
+				  }
 				 }
 			       }
-			      insymbol();
 			     }
 			     else
 			     {

@@ -39,7 +39,7 @@ STRUCT TcpConn
   LONGINT _sslHnd
   LONGINT _bufPos
   LONGINT _bufLen
-  STRING _bufData SIZE 4096
+  BYTE _bufData SIZE 4096
 END STRUCT
 
 { ============== Module Data ============== }

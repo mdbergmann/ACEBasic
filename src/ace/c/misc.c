@@ -280,6 +280,45 @@ char buf[40],numbuf[40];
  gen_push(typ, numbuf);
 }
 
+/* Emit code to compute typed array element address.
+** On entry: a0 = struct base, sym = lparen.
+** Parses (index), consumes through rparen.
+** On exit: a0 = address of indexed element, sym past rparen.
+*/
+void gen_typed_array_addr(base_offset, mbr_type)
+ULONG base_offset;
+int mbr_type;
+{
+char numbuf[40];
+int idx_type;
+ULONG elem_size;
+
+ if (mbr_type == bytetype) elem_size = 1;
+ else if (mbr_type == shorttype) elem_size = 2;
+ else elem_size = 4;
+
+ sprintf(numbuf,"#%ld",base_offset);
+ gen("adda.l",numbuf,"a0");
+ gen("move.l","a0","-(sp)");
+
+ insymbol();
+ idx_type = expr();
+ if (sym != rparen) _error(9);
+
+ if (idx_type == shorttype)
+    gen("move.w","(sp)+","d0");
+ else
+    gen("move.l","(sp)+","d0");
+
+ sprintf(numbuf,"#%ld",elem_size);
+ gen("mulu",numbuf,"d0");
+
+ gen("movea.l","(sp)+","a0");
+ gen("adda.l","d0","a0");
+
+ insymbol();
+}
+
 int push_struct(item)
 SYM *item;
 {
@@ -291,6 +330,7 @@ SYM    *structype;
 char   addrbuf[40],absbuf[40],numbuf[40];
 STRUCM *member;
 int    mbr_type=undefined;
+ULONG  total_offset;
 
  insymbol();
 
@@ -326,7 +366,203 @@ int    mbr_type=undefined;
     else
         gen("movea.l",addrbuf,"a0"); /* start address of struct */
 
-    /* offset from struct start */ 
+    /* embedded struct or struct pointer member? resolve chained -> */
+    if (mbr_type == structure || mbr_type == structptrtype)
+    {
+     total_offset = member->offset;
+
+     insymbol();
+     while (sym == memberpointer
+            && (mbr_type == structure || mbr_type == structptrtype))
+     {
+      if (mbr_type == structptrtype)
+      {
+       /* dereference pointer: load pointer value into a0 */
+       ltoa(total_offset,absbuf,10);
+       strcat(absbuf,"(a0)");
+       gen("movea.l",absbuf,"a0");
+       total_offset = 0;
+      }
+
+      insymbol();
+      if (sym != ident)
+         { _error(7); mbr_type = undefined; break; }
+
+      member = structmem_exist(member->structdef,id);
+      if (member == NULL)
+         { _error(67); mbr_type = undefined; break; }
+
+      mbr_type = member->type;
+      total_offset += member->offset;
+
+      if (mbr_type == structure || mbr_type == structptrtype)
+       insymbol();
+     }
+
+     /* struct array indexing? */
+     if (mbr_type == structure && sym == lparen
+         && member->structdef != NULL
+         && member->strsize > member->structdef->size)
+     {
+      int idx_type;
+      ULONG elem_size = member->structdef->size;
+
+      /* offset to array base */
+      sprintf(numbuf,"#%ld",total_offset);
+      gen("adda.l",numbuf,"a0");
+
+      /* save a0 (will be clobbered by expr) */
+      gen("move.l","a0","-(sp)");
+
+      /* evaluate index expression */
+      insymbol();  /* skip ( */
+      idx_type = expr();
+      if (sym != rparen) _error(9);
+
+      /* pop index into d0 */
+      if (idx_type == shorttype)
+         gen("move.w","(sp)+","d0");
+      else
+         gen("move.l","(sp)+","d0");
+
+      /* multiply by element size */
+      sprintf(numbuf,"#%ld",elem_size);
+      gen("mulu",numbuf,"d0");
+
+      /* restore a0 and add indexed offset */
+      gen("movea.l","(sp)+","a0");
+      gen("adda.l","d0","a0");
+
+      total_offset = 0;
+
+      /* check for further -> chaining into indexed element */
+      insymbol();  /* past ) */
+      while (sym == memberpointer
+             && (mbr_type == structure || mbr_type == structptrtype))
+      {
+       if (mbr_type == structptrtype)
+       {
+        ltoa(total_offset,absbuf,10);
+        strcat(absbuf,"(a0)");
+        gen("movea.l",absbuf,"a0");
+        total_offset = 0;
+       }
+
+       insymbol();
+       if (sym != ident)
+          { _error(7); mbr_type = undefined; break; }
+
+       member = structmem_exist(member->structdef,id);
+       if (member == NULL)
+          { _error(67); mbr_type = undefined; break; }
+
+       mbr_type = member->type;
+       total_offset += member->offset;
+
+       if (mbr_type == structure || mbr_type == structptrtype)
+        insymbol();
+      }
+     }
+
+     /* final member: push value or address */
+     if (mbr_type == structure)
+     {
+      /* no further -> : push address of embedded struct */
+      sprintf(numbuf,"#%ld",total_offset);
+      gen("adda.l",numbuf,"a0");
+      gen("move.l","a0","-(sp)");
+      mbr_type=longtype;
+     }
+     else
+     if (mbr_type == structptrtype)
+     {
+      /* no further -> : push pointer value as LONGINT */
+      ltoa(total_offset,absbuf,10);
+      strcat(absbuf,"(a0)");
+      gen("move.l",absbuf,"-(sp)");
+      mbr_type=longtype;
+     }
+     else
+     if (mbr_type != undefined)
+     {
+      /* push scalar/string/array from nested struct */
+      if (member->strsize > 0 && mbr_type != stringtype)
+      {
+       insymbol();
+       if (sym == lparen)
+       {
+        gen_typed_array_addr(total_offset, mbr_type);
+        mbr_type = gen_push_value_a0(mbr_type);
+        return(mbr_type);
+       }
+       else
+       {
+        /* no index: push base address */
+        sprintf(numbuf,"#%ld",total_offset);
+        gen("adda.l",numbuf,"a0");
+        gen("move.l","a0","-(sp)");
+        mbr_type=longtype;
+        return(mbr_type);
+       }
+      }
+      else
+      if (mbr_type == bytetype)
+      {
+       ltoa(total_offset,absbuf,10);
+       strcat(absbuf,"(a0)");
+       gen("move.b",absbuf,"d0");
+       gen("ext.w","d0","  ");
+       gen("move.w","d0","-(sp)");
+       mbr_type=shorttype;
+      }
+      else
+      if (mbr_type == shorttype)
+      {
+       ltoa(total_offset,absbuf,10);
+       strcat(absbuf,"(a0)");
+       gen("move.w",absbuf,"-(sp)");
+      }
+      else
+      if (mbr_type == stringtype)
+      {
+       sprintf(numbuf,"#%ld",total_offset);
+       gen("adda.l",numbuf,"a0");
+       gen("move.l","a0","-(sp)");
+      }
+      else
+      {
+       ltoa(total_offset,absbuf,10);
+       strcat(absbuf,"(a0)");
+       gen("move.l",absbuf,"-(sp)");
+      }
+      insymbol();
+     }
+     return(mbr_type);
+    }
+
+    /* array member? */
+    if (member->strsize > 0 && mbr_type != stringtype)
+    {
+     insymbol();
+     if (sym == lparen)
+     {
+      gen_typed_array_addr(member->offset, mbr_type);
+      mbr_type = gen_push_value_a0(mbr_type);
+      return(mbr_type);
+     }
+     else
+     {
+      /* no index: push base address */
+      sprintf(numbuf,"#%ld",member->offset);
+      gen("adda.l",numbuf,"a0");
+      gen("move.l","a0","-(sp)");
+      mbr_type=longtype;
+      return(mbr_type);
+     }
+    }
+    else
+    {
+    /* offset from struct start */
     if (mbr_type != stringtype)
     {
      ltoa(member->offset,absbuf,10);
@@ -352,7 +588,8 @@ int    mbr_type=undefined;
      gen("move.l","a0","-(sp)");  /* push string address */
     }
     else
-       gen("move.l",absbuf,"-(sp)");  /* long, single */ 
+       gen("move.l",absbuf,"-(sp)");  /* long, single */
+    }
    }
   }
   insymbol();

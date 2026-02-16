@@ -741,6 +741,9 @@ SYM  *structtype;
    strcpy(new_structmem->name,name);
    new_structmem->type = mtype;
    new_structmem->offset = symtabitem->size;
+   new_structmem->strsize = 0;
+   new_structmem->structdef = (mtype == structure || mtype == structptrtype)
+                              ? structtype : NULL;
    
    /* link member into list */
    find_structmem_tail(symtabitem);
@@ -761,8 +764,10 @@ SYM  *structtype;
     case stringtype : symtabitem->size += MAXSTRLEN; 
 		      curr_structmem->strsize = MAXSTRLEN;
 		      break;
-    case structure  : symtabitem->size += structtype->size; 
+    case structure  : symtabitem->size += structtype->size;
 		      curr_structmem->strsize = structtype->size;
+		      break;
+    case structptrtype : symtabitem->size += 4;
 		      break;
    }
   }     
