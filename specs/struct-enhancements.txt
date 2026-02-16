@@ -393,10 +393,111 @@ Relation to Phase 1
 --------------------
 Phase 1 adds SIZE for base types (BYTE, SHORT, LONG, SINGLE).
 Phase 5 adds SIZE for struct-typed members. Both use the same SIZE
-keyword and similar codegen patterns. They could be implemented
-together or separately. Phase 5 additionally needs indexed access
-codegen with multiply, which base-type arrays would also benefit
-from in a future enhancement (e.g. s->longArr(i)).
+keyword and similar codegen patterns. Phase 6 adds indexed access
+for Phase 1's typed arrays (e.g. s->longArr(i)), matching the
+indexed access that Phase 5 provides for struct arrays.
+
+
+=======================================================================
+PHASE 6: Indexed access for typed array members
+=======================================================================
+
+Syntax
+------
+  STRUCT MyStruct
+    LONGINT values SIZE 10
+    SHORTINT flags SIZE 8
+    BYTE buf SIZE 256
+    SINGLE coords SIZE 3
+  END STRUCT
+
+  DECLARE STRUCT MyStruct s
+  s->values(3) = 42&          ' write element 3
+  x& = s->values(3)           ' read element 3
+  s->buf(i%) = 65             ' variable index
+
+Previously, typed array members could only be accessed via PEEK/POKE
+with manual pointer arithmetic:
+  POKEL @s->values + 3*4, 42&
+  x& = PEEKL(@s->values + 3*4)
+
+The new syntax matches struct array indexing (Phase 5) but is simpler:
+no -> chaining after the index (elements are scalars, not structs).
+
+Element sizes
+-------------
+  BYTE      -> 1 byte   (mulu #1)
+  SHORTINT  -> 2 bytes  (mulu #2)
+  LONGINT   -> 4 bytes  (mulu #4)
+  SINGLE    -> 4 bytes  (mulu #4)
+
+Non-indexed access still returns the base address (backward compatible):
+  addr& = @s->values           ' base address of array
+  POKEL addr&, 42&             ' still works
+
+Code generation (read)
+----------------------
+  adda.l #member_offset, a0    ' base of array
+  move.l a0, -(sp)             ' save a0
+  ; evaluate index expression
+  move.w/l (sp)+, d0           ' pop index
+  mulu #elem_size, d0          ' index * element size
+  movea.l (sp)+, a0            ' restore a0
+  adda.l d0, a0                ' a0 = &element[index]
+  ; push value at (a0) by type:
+  ;   byte: move.b (a0),d0 / ext.w d0 / move.w d0,-(sp)
+  ;   short: move.w (a0),-(sp)
+  ;   long/single: move.l (a0),-(sp)
+
+Code generation (write)
+-----------------------
+  ; same index computation as read, then:
+  move.l a0, -(sp)             ' push target address
+  ; evaluate RHS expression
+  ; pop value, pop address, store by type
+
+Supported contexts
+------------------
+  s->arr(i)                    ' direct access
+  outer->inner->arr(i)         ' through embedded struct chain
+  holder->ptr->arr(i)          ' through struct pointer chain
+  c->items(j)->arr(i)          ' inside struct array element
+  deep->a->b->arr(i)           ' arbitrary nesting depth
+
+Helper functions (to reduce code duplication)
+---------------------------------------------
+Three helpers were extracted since the same patterns appear in
+multiple code paths (nested/top-level read, post-struct-array/
+direct write):
+
+  gen_typed_array_addr(offset, type)   misc.c
+    Computes element address. Parses (index), emits index multiply,
+    leaves a0 pointing at the element. Calls insymbol/expr so it
+    lives in misc.c rather than codegen.c.
+
+  gen_push_value_a0(type)              codegen.c
+    Pushes value at (a0) onto stack with correct move size.
+    Returns effective type (bytetype -> shorttype).
+
+  gen_store_value_a0(type)             codegen.c
+    Pops value and target address from stack, stores value
+    with correct move size.
+
+Files modified
+--------------
+  misc.c     - gen_typed_array_addr() helper + 2 read-side call sites
+  assign.c   - 2 write-side call sites (post-struct-array + direct)
+  codegen.c  - gen_push_value_a0() + gen_store_value_a0()
+  acedef.h   - prototypes for the 3 new helpers
+
+Backward compatibility
+----------------------
+Without parentheses, typed array members still return the base
+address as before. PEEK/POKE access continues to work. Scalar
+members are unaffected.
+
+Dependency: Requires Phase 1 (typed array members exist).
+Uses same index computation pattern as Phase 5 (struct arrays).
 
 
 =======================================================================
@@ -422,6 +523,11 @@ Phase 4: Self-referential structs             ~10 lines changed
 Phase 5: Struct arrays (Inner items SIZE n)   ~60 lines changed
          Arrays of structs as struct members with indexed access.
          Requires Phase 2 (structdef pointer, chaining).
+
+Phase 6: Typed array indexing (s->arr(i))    ~100 lines changed
+         Parenthesized index access for BYTE/SHORT/LONG/SINGLE
+         SIZE n members. Three codegen helpers extracted.
+         Requires Phase 1.
 
 Each phase should be implemented and tested in a separate branch.
 
@@ -457,3 +563,24 @@ Phase 5 tests:
   - test_struct_array_loop: iterate over struct array with FOR loop
   - test_struct_array_nested: struct array inside struct with other members
   - test_struct_array_const_idx: constant index folds to immediate offset
+
+Phase 6 tests (in struct_array.b and struct_arr_idx.b):
+  struct_array.b (extended):
+  - LONGINT indexed: constant index read/write for all 4 elements
+  - SHORTINT indexed: constant index including boundary (index 7)
+  - BYTE indexed: constant index including boundary (index 15)
+  - SINGLE indexed: constant index with floating-point values
+  - Variable index: FOR loop write/read for LONGINT, SHORTINT, BYTE
+  - Expression as index: s->vals(1+1), s->vals(idx%+1)
+  - Cross-check: POKE at base address visible via indexed read
+  - Cross-check: indexed write visible via PEEK at base address
+  - Scalar member unaffected after indexed operations
+
+  struct_arr_idx.b (new):
+  - Embedded struct: ew->inner->longs(i), shorts(i), bytes(i)
+  - Struct pointer: pw->ptr->longs(i), shorts(i), bytes(i)
+  - Struct array + typed array: ah->items(i)->vals(j), flags(j)
+  - Double variable index: nested FOR loops over struct+typed arrays
+  - Deep nesting (3 levels): dw->deep->nested->arr(i)
+  - Non-indexed backward compat: @ew->inner->longs returns address
+  - Cross-check: POKE at embedded base visible via nested indexed read
