@@ -1,6 +1,72 @@
                                   CHANGELOG
                                   =========
 
+v2.9.0 (2026-02-16)
+-------------------
+
+New Features:
+
+  - Struct Enhancements (#81):
+    - Typed array members: any base type can now use SIZE n, not just STRING.
+      Access elements with s->arr(i).
+    - Nested struct access: chain the -> operator through embedded structs
+      (e.g. outer->inner->field).
+    - Typed struct pointers: members can point to a specific struct type,
+      enabling -> chaining through pointers as well.
+    - Self-referential structs: a struct can contain a pointer to its own
+      type (e.g. for linked lists).
+    - Struct arrays as members: embed a fixed-size array of structs inside
+      another struct, accessed via s->items(i)->field.
+
+  - New String Functions (#73): TRIM$/LTRIM$/RTRIM$, STARTSWITH/ENDSWITH,
+    RINSTR, REPLACE$/REVERSE$/REPEAT$, LPAD$/RPAD$, FMT$ (sprintf-style
+    formatting with up to 8 args), and MID$ statement form for in-place
+    modification.
+
+  - P96/RTG Screen Support: SCREEN mode 13 for Picasso96 retargetable
+    graphics with 8/15/16/24/32-bit depths. COLOR r,g,b for direct RGB
+    drawing on HiColor/TrueColor screens.
+
+  - Tail-Call Optimization (#67): Self-recursive SUBs with numeric params
+    are automatically optimized to jumps, eliminating stack growth.
+
+  - Buffered File I/O (#63): fgetline/fgets/fgetchars now use bulk
+    Read+Seek instead of per-char fgetc. ~12x throughput improvement.
+
+  - HTTP Client Submodule (#71): Full HTTP/HTTPS client with TCP transport,
+    chunked transfer encoding, streaming, and AmiSSL support. Stateless
+    struct-based API. Extracted into tcpclient, amissl, and httpclient
+    submodules.
+
+  - DP-Float Submodule: Double-precision math via mathieeedoubbas/trans
+    libraries. 32 functions: arithmetic, trig, hyperbolic, exp/log,
+    string conversion.
+
+New Submodules:
+
+  - httpclient.b / tcpclient.b / amissl.b: HTTP/HTTPS networking stack.
+  - dp-float.b: Double-precision floating-point math.
+  - sagasound.b: Vampire SAGA 16-bit audio (16 channels, up to 56 kHz).
+  - turtle.b: Turtle graphics (moved from built-in commands to submodule).
+
+Changes:
+
+  - Turtle Graphics Moved to Submodule (#72): 13 built-in turtle commands
+    removed from compiler/runtime, replaced by external turtle.b submod.
+
+  - Codegen Abstraction: Extracted gen_ffp_call, gen_bool_test,
+    gen_stack_cleanup helpers. Enhanced peephole optimizer.
+
+Bug Fixes:
+
+  - Fix #79: Single-line IF THEN now handles SUB/FUNCTION calls correctly
+    (previously misidentified as undimensioned arrays).
+
+  - Fix #76: CONST SINGLE now generates correct FFP literals (was
+    corrupting bit patterns via implicit int-to-float conversion).
+
+------------------------------------------------------------------------------
+
 v2.8.0 (2026-02-09)
 -------------------
 
