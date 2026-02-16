@@ -404,6 +404,27 @@ int    num_derefs,i;
       insymbol();
      }
 
+     /* typed array indexing after struct array? */
+     if (member != NULL && member->strsize > 0
+         && member->type != stringtype && member->type != structure
+         && sym == lparen)
+     {
+      gen_typed_array_addr(post_offset, member->type);
+      gen("move.l","a0","-(sp)");
+      if (sym != equal)
+         { _error(5); return; }
+      insymbol();
+      exprtype = expr();
+      if (member->type == bytetype) storetype = shorttype;
+      else storetype = member->type;
+      storetype = assign_coerce(storetype,exprtype);
+      if (storetype == notype)
+         _error(4);
+      else
+         gen_store_value_a0(member->type);
+      return;
+     }
+
      /* expect = */
      if (sym != equal)
         { _error(5); return; }
@@ -469,6 +490,39 @@ int    num_derefs,i;
 
     if (member == NULL)
        ;  /* error already reported */
+    else
+    if (member->strsize > 0 && member->type != stringtype
+        && member->type != structure && sym == lparen)
+    {
+     /* indexed typed array assignment */
+     gen_frame_addr(item->address, addrbuf);
+     if (item->shared && lev == ONE)
+     {
+      gen("movea.l",addrbuf,"a0");
+      gen("movea.l","(a0)","a0");
+     }
+     else
+         gen("movea.l",addrbuf,"a0");
+     for (i = 0; i < num_derefs; i++)
+     {
+      ltoa(deref_offsets[i],absbuf,10);
+      strcat(absbuf,"(a0)");
+      gen("movea.l",absbuf,"a0");
+     }
+     gen_typed_array_addr(total_offset, member->type);
+     gen("move.l","a0","-(sp)");
+     if (sym != equal)
+        { _error(5); return; }
+     insymbol();
+     exprtype = expr();
+     if (member->type == bytetype) storetype = shorttype;
+     else storetype = member->type;
+     storetype = assign_coerce(storetype,exprtype);
+     if (storetype == notype)
+        _error(4);
+     else
+        gen_store_value_a0(member->type);
+    }
     else
     if (sym != equal)
        _error(5);

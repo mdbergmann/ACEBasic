@@ -280,6 +280,45 @@ char buf[40],numbuf[40];
  gen_push(typ, numbuf);
 }
 
+/* Emit code to compute typed array element address.
+** On entry: a0 = struct base, sym = lparen.
+** Parses (index), consumes through rparen.
+** On exit: a0 = address of indexed element, sym past rparen.
+*/
+void gen_typed_array_addr(base_offset, mbr_type)
+ULONG base_offset;
+int mbr_type;
+{
+char numbuf[40];
+int idx_type;
+ULONG elem_size;
+
+ if (mbr_type == bytetype) elem_size = 1;
+ else if (mbr_type == shorttype) elem_size = 2;
+ else elem_size = 4;
+
+ sprintf(numbuf,"#%ld",base_offset);
+ gen("adda.l",numbuf,"a0");
+ gen("move.l","a0","-(sp)");
+
+ insymbol();
+ idx_type = expr();
+ if (sym != rparen) _error(9);
+
+ if (idx_type == shorttype)
+    gen("move.w","(sp)+","d0");
+ else
+    gen("move.l","(sp)+","d0");
+
+ sprintf(numbuf,"#%ld",elem_size);
+ gen("mulu",numbuf,"d0");
+
+ gen("movea.l","(sp)+","a0");
+ gen("adda.l","d0","a0");
+
+ insymbol();
+}
+
 int push_struct(item)
 SYM *item;
 {
@@ -449,10 +488,22 @@ ULONG  total_offset;
       /* push scalar/string/array from nested struct */
       if (member->strsize > 0 && mbr_type != stringtype)
       {
-       sprintf(numbuf,"#%ld",total_offset);
-       gen("adda.l",numbuf,"a0");
-       gen("move.l","a0","-(sp)");
-       mbr_type=longtype;
+       insymbol();
+       if (sym == lparen)
+       {
+        gen_typed_array_addr(total_offset, mbr_type);
+        mbr_type = gen_push_value_a0(mbr_type);
+        return(mbr_type);
+       }
+       else
+       {
+        /* no index: push base address */
+        sprintf(numbuf,"#%ld",total_offset);
+        gen("adda.l",numbuf,"a0");
+        gen("move.l","a0","-(sp)");
+        mbr_type=longtype;
+        return(mbr_type);
+       }
       }
       else
       if (mbr_type == bytetype)
@@ -489,13 +540,25 @@ ULONG  total_offset;
      return(mbr_type);
     }
 
-    /* array member? push address (like string) */
+    /* array member? */
     if (member->strsize > 0 && mbr_type != stringtype)
     {
-     sprintf(numbuf,"#%ld",member->offset);
-     gen("adda.l",numbuf,"a0");
-     gen("move.l","a0","-(sp)");
-     mbr_type=longtype;
+     insymbol();
+     if (sym == lparen)
+     {
+      gen_typed_array_addr(member->offset, mbr_type);
+      mbr_type = gen_push_value_a0(mbr_type);
+      return(mbr_type);
+     }
+     else
+     {
+      /* no index: push base address */
+      sprintf(numbuf,"#%ld",member->offset);
+      gen("adda.l",numbuf,"a0");
+      gen("move.l","a0","-(sp)");
+      mbr_type=longtype;
+      return(mbr_type);
+     }
     }
     else
     {

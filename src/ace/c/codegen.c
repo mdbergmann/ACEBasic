@@ -411,3 +411,56 @@ void gen_asm_end()
 {
  fprintf(dest,"\n\tEND\n");
 }
+
+/* Push value at address (a0) onto stack, dispatching by type.
+** Returns effective push type (bytetype -> shorttype).
+*/
+int gen_push_value_a0(mbr_type)
+int mbr_type;
+{
+ if (mbr_type == bytetype)
+ {
+  gen("move.b","(a0)","d0");
+  gen("ext.w","d0","  ");
+  gen("move.w","d0","-(sp)");
+  return(shorttype);
+ }
+ else
+ if (mbr_type == shorttype)
+ {
+  gen("move.w","(a0)","-(sp)");
+  return(shorttype);
+ }
+ else
+ {
+  gen("move.l","(a0)","-(sp)");
+  return(mbr_type);
+ }
+}
+
+/* Pop value and target address from stack, store value at address.
+** Stack layout: [target_addr] [value] <- top
+*/
+void gen_store_value_a0(mbr_type)
+int mbr_type;
+{
+ if (mbr_type == bytetype)
+ {
+  gen("move.w","(sp)+","d0");
+  gen("movea.l","(sp)+","a0");
+  gen("move.b","d0","(a0)");
+ }
+ else
+ if (mbr_type == shorttype)
+ {
+  gen("move.w","(sp)+","d0");
+  gen("movea.l","(sp)+","a0");
+  gen("move.w","d0","(a0)");
+ }
+ else
+ {
+  gen("move.l","(sp)+","d0");
+  gen("movea.l","(sp)+","a0");
+  gen("move.l","d0","(a0)");
+ }
+}
