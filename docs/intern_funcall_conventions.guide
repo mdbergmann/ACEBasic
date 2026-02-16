@@ -4,7 +4,7 @@
 @NODE MAIN "Main Menu"
 
 			       +------------+
-			       | ACE v2.8.0 |
+			       | ACE v2.9.0 |
 			       +------------+
 
                       @{" Overview                 " link overview}
