@@ -29,7 +29,7 @@ echo "" >>$ofile
 echo "--- test_tcp ---" >>$ofile
 bas test_tcp >>$ofile
 IF WARN
-  echo "  *** BUILD FAILED ***" >>$ofile
+  echo "  !!! BUILD FAILED !!!" >>$ofile
   SET nFail `eval $nFail + 1`
   SKIP next2
 ENDIF
@@ -50,7 +50,7 @@ echo "" >>$ofile
 echo "--- test_lowlevel ---" >>$ofile
 bas test_lowlevel >>$ofile
 IF WARN
-  echo "  *** BUILD FAILED ***" >>$ofile
+  echo "  !!! BUILD FAILED !!!" >>$ofile
   SET nFail `eval $nFail + 1`
   SKIP next3
 ENDIF
@@ -71,7 +71,7 @@ echo "" >>$ofile
 echo "--- test_lowlevel_full ---" >>$ofile
 bas test_lowlevel_full >>$ofile
 IF WARN
-  echo "  *** BUILD FAILED ***" >>$ofile
+  echo "  !!! BUILD FAILED !!!" >>$ofile
   SET nFail `eval $nFail + 1`
   SKIP next4
 ENDIF
@@ -92,7 +92,7 @@ echo "" >>$ofile
 echo "--- test_http_get ---" >>$ofile
 bas test_http_get >>$ofile
 IF WARN
-  echo "  *** BUILD FAILED ***" >>$ofile
+  echo "  !!! BUILD FAILED !!!" >>$ofile
   SET nFail `eval $nFail + 1`
   SKIP next5
 ENDIF
@@ -113,7 +113,7 @@ echo "" >>$ofile
 echo "--- test_chunked ---" >>$ofile
 bas test_chunked >>$ofile
 IF WARN
-  echo "  *** BUILD FAILED ***" >>$ofile
+  echo "  !!! BUILD FAILED !!!" >>$ofile
   SET nFail `eval $nFail + 1`
   SKIP next6
 ENDIF
@@ -134,7 +134,7 @@ echo "" >>$ofile
 echo "--- test_post ---" >>$ofile
 bas test_post >>$ofile
 IF WARN
-  echo "  *** BUILD FAILED ***" >>$ofile
+  echo "  !!! BUILD FAILED !!!" >>$ofile
   SET nFail `eval $nFail + 1`
   SKIP next7
 ENDIF
@@ -155,7 +155,7 @@ echo "" >>$ofile
 echo "--- test_stream ---" >>$ofile
 bas test_stream >>$ofile
 IF WARN
-  echo "  *** BUILD FAILED ***" >>$ofile
+  echo "  !!! BUILD FAILED !!!" >>$ofile
   SET nFail `eval $nFail + 1`
   SKIP next8
 ENDIF
@@ -176,7 +176,7 @@ echo "" >>$ofile
 echo "--- test_https ---" >>$ofile
 bas test_https >>$ofile
 IF WARN
-  echo "  *** BUILD FAILED ***" >>$ofile
+  echo "  !!! BUILD FAILED !!!" >>$ofile
   SET nFail `eval $nFail + 1`
   SKIP summary
 ENDIF

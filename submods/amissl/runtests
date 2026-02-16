@@ -29,7 +29,7 @@ echo "" >>$ofile
 echo "--- test_amissl ---" >>$ofile
 bas test_amissl >>$ofile
 IF WARN
-  echo "  *** BUILD FAILED ***" >>$ofile
+  echo "  !!! BUILD FAILED !!!" >>$ofile
   SET nFail `eval $nFail + 1`
   SKIP summary
 ENDIF
