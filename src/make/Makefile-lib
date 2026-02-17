@@ -72,10 +72,10 @@ endif
 # SOURCE FILES
 ################################################################################
 
-# C source files (31 modules)
+# C source files (28 modules)
 C_SOURCES = aceports.c alloc.c arg.c base.c bevel.c c_string.c ffpstr.c \
-            fgets.c filereq.c files.c gadget.c gtgadget.c iff.c \
-            ILBMLib_bytes.c inpbox.c input.c intuievent.c make_ILBMLib.c \
+            fgets.c filereq.c files.c gadget.c gtgadget.c \
+            inpbox.c input.c intuievent.c \
             menu.c pow.c print.c rfiles.c say.c scrfunc.c ser.c sleep.c \
             sysreq.c system.c text.c val.c window.c
 

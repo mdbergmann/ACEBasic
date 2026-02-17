@@ -73,7 +73,7 @@ endif
 # SOURCE FILES
 ################################################################################
 
-# Source files (30 modules - verified against makeace script)
+# Source files (29 modules - verified against makeace script)
 #
 # Note: The following files are NOT listed here because they are included
 #       via #include directives in other source files:
@@ -81,7 +81,7 @@ endif
 #         - symvar.c  (included in sym.c)
 SOURCES = alloc.c assign.c basfun.c codegen.c control.c declare.c \
           event.c expr.c factor.c file.c gadget.c gfx.c \
-          iff.c invoke.c lex.c libfunc.c memory.c menu.c message.c \
+          invoke.c lex.c libfunc.c memory.c menu.c message.c \
           misc.c opt.c parse.c parsevar.c print.c screen.c \
           serial.c statement.c sub.c sym.c ver.c window.c
 

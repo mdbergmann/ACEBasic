@@ -814,11 +814,6 @@ ERR		- syntax: ERR
 			404 - Error waiting on message channel
 			405 - Bad message channel
 
-			500 - Error opening IFF file
-			501 - Error closing IFF file
-			502 - Error reading IFF file
-			503 - Bad IFF channel 	
-	   
 			600 - Error opening screen
 	
 			700 - Error opening window
@@ -1461,62 +1456,6 @@ IF		- syntax: IF..THEN..[ELSE..]
 				  '..do something or maybe nothing
 				END IF		
  
---------------------------------------------------------------------------------
-IFF *		- syntax: IFF(channel,n)
-		- This function returns information about the IFF graphics
-		  file associated with the specified channel.
-		- The channel parameter must be in the range 1..255.
-		- The values returned are dictated by N thus:
-
-		  N	Return value
-		  - 	------------
-		  0	Address of name of IFF picture form (eg: ILBM). 
-			Use ACE's CSTR function to retrieve the string.		
-		  1	Width of picture.
-		  2	Height of picture.
-		  3	Depth of picture.
-		  4	Screen Mode to use in SCREEN command. Note: if
-			IFF(channel,3) returns a depth of 6, HAM mode
-			is currently assumed even though it might be
-			extra-halfbrite. If the picture doesn't render
-			correctly, use screen-mode 6 rather than 5 (see
-			SCREEN command). Alternatively, don't specify 
-			the screen-id when using the IFF READ command.
-			This issue may be resolved in a future revision.
-
-		- Information returned by values to this function when
-		  N is in the range 1..4 can be used directly in a SCREEN
-		  command.
-		- See also IFF OPEN, IFF READ and ERR.
-		
---------------------------------------------------------------------------------
-IFF CLOSE *	- syntax: IFF CLOSE [#]channel
-		- Closes the specified IFF channel.
-		- If a screen was opened by IFF READ, IFF CLOSE will
-		  close this.	
-		- See also ERR.
-
---------------------------------------------------------------------------------
-IFF OPEN *	- syntax: IFF OPEN [#]channel,file-name
-		- This command associates an IFF picture file with the
-		  specified channel.
-		- All subsequent IFF command/function calls use this
-		  channel number.
-		- The IFF OPEN command also stores important information
-		  about the picture file for IFF READ and IFF(channel,n).
-		- See also ERR.
-
---------------------------------------------------------------------------------
-IFF READ *	- syntax: IFF READ [#]channel[,screen-id]
-		- This command loads the IFF picture from the file 
-		  associated with the specified channel.
-		- The screen-id is optional. If not supplied, a non-ACE
-		  screen and window will be used to display the picture,
-		  which is closed later by a call to IFF CLOSE.
-		- Otherwise, the screen should be opened in accordance with 
-		  the information returned via the IFF function (see above).
-		- See also ERR and ace.txt.
-		
 --------------------------------------------------------------------------------
 IMP		- Boolean operator: X IMP Y.
  

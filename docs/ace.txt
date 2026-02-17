@@ -60,7 +60,6 @@
 	Requesters..................................2271    36
  
 	Turtle Graphics.............................2295    36
-	Loading & displaying IFF pictures...........2443    39
  
  
                                   - page 1 -
@@ -2995,21 +2994,7 @@ and "The Children's Machine: Rethinking School in the Age of the Computer".
 The archetypal book on TG is "Turtle Geometry" by Abelson and diSessa.
  
  
-Loading & displaying IFF pictures
----------------------------------
-IFF graphics files can now be loaded and displayed with ACE by using 
-a few simple commands and functions.
- 
-The short example program examples/gfx/iff.b demonstrates typical usage.
- 
-IFF READ uses the freeware ILBM.library but you don't need to have this
-since it will be created by ACE automatically at run-time if need be. If
-LIBS:ilbm.library is not found at run-time ACE will use the library's binary 
-image - which is stored in db.lib - to create ram:ILBMtmp/ilbm.library. This
-file and the directory ILBMtmp will be removed when the program exits. The
-idea of using a binary image like this was Roland Acton's.
- 
-See ref.txt for details of the IFF commands and function.
+IFF picture support is available as a submodule. See submods/iff/readme.txt.
  
  
 Sound
@@ -3273,7 +3258,7 @@ that doesn't exist - the program will either quit or just not have the desired
 effect. 
  
 Note that while the ERR function and ON ERROR event trapping are supported,
-only file I/O, serial I/O, IFF, IPC (MESSAGE) and window/screen open errors 
+only file I/O, serial I/O, IPC (MESSAGE) and window/screen open errors
 are currently reported via these mechanisms. See ref.txt for details.
  
  

@@ -87,7 +87,6 @@ extern	BOOL 	gfxused;
 extern	BOOL 	intuitionused;
 extern	BOOL 	translateused;
 extern	BOOL	ontimerused;
-extern	BOOL	iffused;
 extern	BOOL	gadtoolsused;
 extern	BOOL 	basdatapresent;
 extern	BOOL 	readpresent;
@@ -404,12 +403,6 @@ static void emit_startup_xrefs()
    {
     enter_XREF("_openintuition");
     enter_XREF("_closeintuition");
-   }
-
-   if (iffused)
-   {
-    enter_XREF("_create_ILBMLib");
-    enter_XREF("_remove_ILBMLib");
    }
 
    if (gadtoolsused)

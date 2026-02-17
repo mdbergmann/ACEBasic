@@ -1049,9 +1049,6 @@ char  idholder[50];
  /* if...then...else... */
  if (sym == ifsym) { check_for_event(); if_statement(); }
  else
- /* IFF */
- if (sym == iffsym) iff();
- else
  /* INVOKE -- indirect function call through a variable */
  if (sym == invokesym)
   handle_invoke_stmt();

@@ -71,7 +71,6 @@ GOTO GOTO <label> : GOTO transfers control to the specified label or line.
 HANDLE( handle = HANDLE(n) : HANDLE() returns the dos file handle pointer for file number n. Returns 0 if file doesn't exist.
 HEX$( hex$ = HEX$(n) : HEX$() returns a string containing the hexadecimal representation of n.
 IF IF <condition> [THEN] .. [ELSE ..] [END IF] : IF starts a conditional block. Supports single-line IF..THEN..ELSE and multi-line IF..THEN..ELSE..END IF.
-IFF( info = IFF(channel,n) : IFF() returns IFF file info. n: 0=form name address, 1=width, 2=height, 3=depth, 4=screen mode.
 IMP IMP is the boolean implication operator.
 INKEY$ key$ = INKEY$ : INKEY$ returns a single character string when a keystroke is pending, otherwise the NULL string.
 INPUT INPUT [<prompt>][;|,] var[,..] : INPUT reads values from the keyboard. A semicolon shows "? " prompt, a comma shows nothing.

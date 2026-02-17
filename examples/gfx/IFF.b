@@ -1,34 +1,45 @@
-'..Display an IFF picture on an appropriate screen.
+'..Display an IFF picture using the IFF submodule.
+'..Requires: ilbm.library installed in LIBS:
 
-SUB cleanup
-  screen close 1
-  iff close #1
-END SUB
+REM #using ACE:submods/iff/iff.o
+#include <submods/iff.h>
+
+rc% = IffInit
+IF rc% < 0 THEN
+  PRINT "Cannot open ilbm.library"
+  STOP
+END IF
 
 f$ = FileBox$("Select an IFF file")
-if f$="" then stop
+IF f$ = "" THEN
+  IffShutdown
+  STOP
+END IF
 
-iff open #1,f$
+rc% = IffOpen(1, f$)
+IF rc% < 0 THEN
+  MsgBox f$ + " is not an IFF file.", "Continue"
+  IffShutdown
+  STOP
+END IF
 
-if Err <> 0 then 
-  MsgBox f$+" is not an IFF file.","Continue"
-  stop
-end if
+'..Open a screen matching the picture dimensions
+SCREEN 1, IffWidth(1), IffHeight(1), IffDepth(1), IffScreenMode(1)
 
-'print iff(1,1),iff(1,2),iff(1,3),iff(1,4)
+IF ERR THEN
+  MsgBox "Unable to open screen.", "Continue"
+  IffClose(1)
+ELSE
+  '..Display picture on ACE screen 1 (pass screen address)
+  scrAddr& = WINDOW(7)
+  rc% = IffDisplay(1, scrAddr&)
+  IF rc% < 0 THEN
+    MsgBox "Error reading " + f$ + ".", "Continue"
+  ELSE
+    WHILE INKEY$ = "" AND NOT MOUSE(0) : SLEEP : WEND
+  END IF
+  IffClose(1)
+  SCREEN CLOSE 1
+END IF
 
-screen 1,iff(1,1),iff(1,2),iff(1,3),iff(1,4)
-
-if Err then 
-  MsgBox "Unable to open screen.","Continue"
-  iff close #1
-else
-  iff read #1,1
-  if Err then 
-    MsgBox "Error reading "+f$+".","Continue"
-    cleanup
-  else
-    while inkey$="" and NOT mouse(0):sleep:wend
-    cleanup
-  end if
-end if
+IffShutdown

@@ -120,7 +120,6 @@ BOOL intuitionused=FALSE;
 BOOL translateused=FALSE;
 BOOL narratorused=FALSE;
 
-BOOL iffused=FALSE;		/* create+delete ILBM.library? */
 BOOL gadtoolsused=FALSE;	/* GadTools gadgets used? */
 BOOL oldgadgetused=FALSE;	/* old-style gadgets used? */
 

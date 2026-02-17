@@ -1056,7 +1056,6 @@ BOOL numfunc()
   case fresym	 	: return(TRUE);
   case gadgetsym 	: return(TRUE);
   case handlesym 	: return(TRUE);
-  case iffsym		: return(TRUE);
   case intsym    	: return(TRUE);
   case locsym	 	: return(TRUE);
   case lofsym	 	: return(TRUE);
@@ -1426,33 +1425,6 @@ char varptr_obj_name[MAXIDSIZE];
 			   gen_rt_call("_handle");
 			   gen("move.l","d0","-(sp)");
 			   nftype=longtype;
-			  }
-			  else { _error(4); nftype=undefined; }
-			  break;
-
-	 /* IFF */
-	 case iffsym : if (nftype != stringtype)
-			  {
-			   check_for_event();
-
-			   /* channel */
-			   if (make_integer(nftype) == shorttype)
-			      make_long();
-
-			   /* function number */
-			   if (sym == comma) 
-			   {
-			    insymbol();
-			    if (make_integer(expr()) == shorttype)
-			       make_long();
-
-			    gen_rt_call("_iff_func");
-			    gen_stack_cleanup(8);
-			    gen("move.l","d0","-(sp)");	/* push return value */
-			
-			    nftype = longtype;
-			   }
-			   else { _error(16); nftype=undefined; }
 			  }
 			  else { _error(4); nftype=undefined; }
 			  break;

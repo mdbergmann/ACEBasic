@@ -267,7 +267,6 @@ extern	BOOL	mathffpused;
 extern	BOOL	mathtransused;
 extern	BOOL	intuitionused;
 extern	BOOL	gfxused;
-extern	BOOL	iffused;
 extern	BOOL	ontimerused;
 extern	BOOL	gadtoolsused;
 extern	BOOL	basdatapresent;
@@ -317,9 +316,6 @@ char buf[40],bytes[40];
     gen_lib_open_check("_openintuition", "_intuition_ok");
     gen_lib_open_check("_opengfx", "_gfx_ok");
    }
-
-   /* create temporary ILBM.library */
-   if (iffused) fprintf(dest,"\tjsr\t_create_ILBMLib\n");
 
    /* get timer event trapping start time */
    if (ontimerused) fprintf(dest,"\tjsr\t_ontimerstart\n");
@@ -378,9 +374,6 @@ void gen_exit_code()
    if (mathffpused) fprintf(dest,"\tjsr\t_closemathffp\n");
    if (translateused) fprintf(dest,"\tjsr\t_closetranslator\n");
    if (gadtoolsused) fprintf(dest,"\tjsr\t_closegadtools\n");
-
-   /* delete temporary ILBM.library */
-   if (iffused) fprintf(dest,"\tjsr\t_remove_ILBMLib\n");
 
    /* restore registers */
    fprintf(dest,"\tmovem.l\t(sp)+,d1-d7/a0-a6\n");

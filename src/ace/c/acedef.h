@@ -320,7 +320,6 @@ enum { 	abssym = 0,
 	getattrsym,
 	globalsym,
 	handlesym,
-	iffsym,
 	inputboxsym,
 	inputboxstrsym,
 	integerkindsym,
@@ -801,11 +800,6 @@ void	message_read();
 void	message_write();
 void	message_wait();
 void	message_clear();
-
-void	iff();
-void	iff_open();
-void	iff_read();
-void	iff_close();
 
 BYTE 	check_for_ace_lib();
 void	enter_new_library();
