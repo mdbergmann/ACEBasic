@@ -40,7 +40,7 @@ New Features:
 
   - DP-Float Submodule: Double-precision math via mathieeedoubbas/trans
     libraries. 32 functions: arithmetic, trig, hyperbolic, exp/log,
-    string conversion.
+    string conversion. (by David Benn, reviewed and converted to submod).
 
 New Submodules:
 
