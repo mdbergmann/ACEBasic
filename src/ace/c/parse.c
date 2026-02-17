@@ -80,6 +80,8 @@ extern	BOOL	list_source;
 extern	BOOL 	wdw_close_opt;
 extern	BOOL 	module_opt;
 extern	BOOL	cpu020_opt;
+extern	BOOL	trace_opt;
+extern	int	tracename_count;
 extern	BOOL	cli_args;
 extern	BOOL 	mathffpused;
 extern	BOOL 	mathtransused;
@@ -106,6 +108,8 @@ char xdef_name[80];
 char bytes[40],buf[40];
 int  subprog;
 int  sub_type,def_expr_type;
+BOOL sub_is_void;
+char saved_trace_label[40];
 
  while (!end_of_source)
  {
@@ -137,7 +141,9 @@ int  sub_type,def_expr_type;
     strcpy(sub_name,"_SUB_");
     strcat(sub_name,id);
 
-    if (!exist(sub_name,subprogram)) 
+    sub_is_void = (sub_type == undefined);
+
+    if (!exist(sub_name,subprogram))
     {
       if (sub_type == undefined) sub_type = typ;
       enter(sub_name,sub_type,subprogram,0);  /* new SUB */
@@ -262,7 +268,70 @@ int  sub_type,def_expr_type;
 	sub_ptr->address = extfunc;  /* This has a numeric value of 3004:
 					hopefully large enough to avoid
 					clashes with real stack offsets. */
-	
+
+    /* -- Trace: SUB entry -- */
+    saved_trace_label[0] = '\0';
+    if (trace_opt && !sub_ptr->is_callback && subprog == subsym)
+    {
+	char trace_label[80], trace_data[200];
+	char addrbuf[40];
+	int pi;
+
+	/* Create string constant with SUB name (without _SUB_ prefix) */
+	sprintf(trace_label, "_tn%d:", tracename_count);
+	sprintf(trace_data, "dc.b \"%s\",0", sub_name+5);
+	enter_DATA(trace_label, trace_data);
+
+	/* Save label reference for exit code */
+	sprintf(saved_trace_label, "_tn%d", tracename_count);
+	tracename_count++;
+
+	/* Call _trace_enter(name_ptr) - name in a0 */
+	/* Trace functions save/restore all registers internally */
+	gen("lea", saved_trace_label, "a0");
+	gen("jsr", "_trace_enter", "  ");
+	enter_XREF("_trace_enter");
+
+	/* Emit each parameter value */
+	for (pi = 0; pi < sub_ptr->no_of_params; pi++)
+	{
+	    if (pi > 0)
+	    {
+		gen("jsr", "_trace_param_sep", "  ");
+		enter_XREF("_trace_param_sep");
+	    }
+
+	    gen_frame_addr(sub_ptr->p_addr[pi], addrbuf);
+
+	    switch (sub_ptr->p_type[pi])
+	    {
+		case shorttype:
+		    gen("move.w", addrbuf, "d0");
+		    gen("jsr", "_trace_param_short", "  ");
+		    enter_XREF("_trace_param_short");
+		    break;
+		case longtype:
+		    gen("move.l", addrbuf, "d0");
+		    gen("jsr", "_trace_param_long", "  ");
+		    enter_XREF("_trace_param_long");
+		    break;
+		case singletype:
+		    gen("move.l", addrbuf, "d0");
+		    gen("jsr", "_trace_param_single", "  ");
+		    enter_XREF("_trace_param_single");
+		    break;
+		case stringtype:
+		    gen("move.l", addrbuf, "a0");
+		    gen("jsr", "_trace_param_str", "  ");
+		    enter_XREF("_trace_param_str");
+		    break;
+	    }
+	}
+
+	gen("jsr", "_trace_end_params", "  ");
+	enter_XREF("_trace_end_params");
+    }
+
     /* SUB or DEF FN code? */
     if (subprog == subsym)
     {
@@ -336,6 +405,69 @@ int  sub_type,def_expr_type;
 
     /* exit code */
     if (subprog == subsym) gen(exit_sub_label,"  ","  ");
+
+    /* -- Trace: SUB exit -- */
+    if (trace_opt && !sub_ptr->is_callback && subprog == subsym
+	&& saved_trace_label[0] != '\0')
+    {
+	char addrbuf[40];
+
+	/* Trace functions save/restore all registers internally */
+	gen("lea", saved_trace_label, "a0");
+
+	if (sub_is_void)
+	{
+	    gen("jsr", "_trace_exit_void", "  ");
+	    enter_XREF("_trace_exit_void");
+	}
+	else if (sub_ptr->address == extfunc)
+	{
+	    /* INVOKABLE/module: return value already in d0 */
+	    gen("jsr", "_trace_exit_long", "  ");
+	    enter_XREF("_trace_exit_long");
+	}
+	else
+	{
+	    /* Return value is in caller's frame (a4), not callee's (a5).
+	       sub_ptr->address was allocated at level ZERO. */
+	    switch (sub_ptr->type)
+	    {
+		case shorttype:
+		    itoa(-1*sub_ptr->address, addrbuf, 10);
+		    strcat(addrbuf, "(a4)");
+		    gen("move.w", addrbuf, "d0");
+		    gen("jsr", "_trace_exit_short", "  ");
+		    enter_XREF("_trace_exit_short");
+		    break;
+		case longtype:
+		    itoa(-1*sub_ptr->address, addrbuf, 10);
+		    strcat(addrbuf, "(a4)");
+		    gen("move.l", addrbuf, "d0");
+		    gen("jsr", "_trace_exit_long", "  ");
+		    enter_XREF("_trace_exit_long");
+		    break;
+		case singletype:
+		    itoa(-1*sub_ptr->address, addrbuf, 10);
+		    strcat(addrbuf, "(a4)");
+		    gen("move.l", addrbuf, "d0");
+		    gen("jsr", "_trace_exit_single", "  ");
+		    enter_XREF("_trace_exit_single");
+		    break;
+		case stringtype:
+		    itoa(-1*sub_ptr->address, addrbuf, 10);
+		    strcat(addrbuf, "(a4)");
+		    gen("move.l", addrbuf, "a1");
+		    gen("jsr", "_trace_exit_str", "  ");
+		    enter_XREF("_trace_exit_str");
+		    break;
+		default:
+		    gen("jsr", "_trace_exit_void", "  ");
+		    enter_XREF("_trace_exit_void");
+		    break;
+	    }
+	}
+    }
+
     gen("unlk","a5","  ");
     if (sub_ptr->is_callback) gen("movem.l","(sp)+","d1-d7/a0-a6");
     gen("rts","  ","  ");
@@ -412,6 +544,25 @@ static void emit_startup_xrefs()
    }
 
    enter_XREF("_starterr");
+
+   if (trace_opt)
+   {
+    enter_XREF("_trace_open");
+    enter_XREF("_trace_close");
+    enter_XREF("_trace_enabled");
+    enter_XREF("_trace_enter");
+    enter_XREF("_trace_param_long");
+    enter_XREF("_trace_param_short");
+    enter_XREF("_trace_param_single");
+    enter_XREF("_trace_param_str");
+    enter_XREF("_trace_param_sep");
+    enter_XREF("_trace_end_params");
+    enter_XREF("_trace_exit_void");
+    enter_XREF("_trace_exit_long");
+    enter_XREF("_trace_exit_short");
+    enter_XREF("_trace_exit_single");
+    enter_XREF("_trace_exit_str");
+   }
 
    /*
    ** A module may need to jump to _EXIT_PROG so
@@ -556,6 +707,7 @@ void usage()
  printf("  -l         List source code during compilation\n");
  printf("  -m         Compile as shared module (no startup code)\n");
  printf("  -O         Enable peephole optimization\n");
+ printf("  -t         Enable SUB call/return tracing\n");
  printf("  -w         Enable window close gadget handling\n");
 }
 
@@ -589,6 +741,8 @@ BOOL legalopt=TRUE;
   if (*opt == 'w') wdw_close_opt=TRUE;
   else
   if (*opt == '2') cpu020_opt=TRUE;
+  else
+  if (*opt == 't') trace_opt=TRUE;
   else
      legalopt=FALSE;
   opt++;

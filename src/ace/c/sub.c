@@ -337,8 +337,9 @@ char  addrbuf[40];
        _error(38); /* duplicate parameter */
    }
 
-   /* store parameter type */
+   /* store parameter type and address */
    sub_ptr->p_type[param_count]=param_type;
+   sub_ptr->p_addr[param_count]=curr_item->address;
    param_count++;
 
    insymbol();

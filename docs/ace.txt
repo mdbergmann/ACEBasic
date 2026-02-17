@@ -348,9 +348,9 @@ Compiler options
 ----------------
 The full command line syntax for ACE is:
  
-	ace [words | -2bcEilmOw] <sourcefile>[.b[as]]
- 
-which indicates that there are currently nine optional compiler switches.
+	ace [words | -2bcEilmOtw] <sourcefile>[.b[as]]
+
+which indicates that there are currently ten optional compiler switches.
  
 Before giving a description of these switches however, let me say something
 about the optional "words" parameter. If the command:
@@ -419,6 +419,15 @@ v2.0 and it will continue to be improved. In addition to peephole optimisation,
 the -O switch enables tail-call optimisation for eligible recursive SUBs (see
 the "Tail-Call Optimisation" section below).
  
+The "t" switch enables SUB tracing. When active, the compiler instruments every
+SUB with entry and exit code that logs calls to T:ace_trace.log. Each entry
+shows the SUB name and parameter values; each exit shows the SUB name and
+return value (if typed). Recursive calls are indented to show call depth.
+Tracing can be controlled at runtime with the TRON and TROFF statements:
+TRON enables trace output, TROFF suppresses it. When a program compiled with
+-t starts, tracing is enabled by default. Programs compiled without -t ignore
+TRON and TROFF. The trace log is opened at program start and closed at exit.
+
 The "w" switch tells ACE to include checks for window close-gadget clicks.
 ACE checks all open windows and upon detecting a close-gadget click, the
 clicked window is closed and the program exits. However, any other open
@@ -430,7 +439,7 @@ See also the OPTION command in ref.txt.
  
 The syntax for the bas script is:
 
-	bas [-2bcEilmOSwx] <sourcefile> [<objectfile>]
+	bas [-2bcEilmOStwx] <sourcefile> [<objectfile>]
 
 where <sourcefile> is the program to be compiled (without the .b[as]
 extension) and <objectfile> is a C, assembly or ACE module which has been

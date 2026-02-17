@@ -193,6 +193,9 @@ BOOL module_opt=FALSE;		/*
 
 BOOL cpu020_opt=TRUE;		/* 68020+ code generation (default) */
 
+BOOL trace_opt=FALSE;		/* SUB call tracing */
+int  tracename_count=0;		/* trace name label counter */
+
 /* misc. flags */
 BOOL have_lparen=FALSE;
 BOOL have_equal=FALSE;	        /* see assign() & push_indices() */

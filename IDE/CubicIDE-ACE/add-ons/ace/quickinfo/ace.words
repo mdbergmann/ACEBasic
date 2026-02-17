@@ -181,6 +181,8 @@ TIME$ time$ = TIME$ : TIME$ returns the current time as hh:mm:ss.
 TIMER seconds = TIMER : TIMER returns seconds elapsed since midnight as a single-precision value.
 TRANSLATE$( phonemes$ = TRANSLATE$(X$) : TRANSLATE$() returns the phoneme-string equivalent of the specified word string.
 TRIM$( result$ = TRIM$(X$) : TRIM$() returns X$ with all leading and trailing whitespace (spaces and tabs) removed.
+TROFF TROFF : TROFF disables SUB trace output at runtime. Only effective in programs compiled with the -t switch. See also TRON.
+TRON TRON : TRON enables SUB trace output at runtime. Only effective in programs compiled with the -t switch. Trace output goes to T:ace_trace.log. See also TROFF.
 UCASE$( upper$ = UCASE$(X$) : UCASE$() returns the string with all alphabetic characters in upper case.
 UNTIL UNTIL <condition> : UNTIL terminates a REPEAT..UNTIL loop when the condition becomes true.
 VAL( value = VAL(X$) : VAL() returns the numeric value of X$ as single-precision. Supports &H (hex) and &O (octal) prefixes. For large integers use LONGINT().

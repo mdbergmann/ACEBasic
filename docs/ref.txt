@@ -3174,6 +3174,26 @@ TURNRIGHT *	- Removed. Now in turtle submodule as TgTurnRight(n).
 		  See submods/turtle/ and include/submods/turtle.h.	
  
 --------------------------------------------------------------------------------
+TROFF *		- syntax: TROFF
+		- Disables SUB trace output at runtime.
+		- Only effective in programs compiled with the -t switch.
+		- Trace output to T:ace_trace.log is suppressed until TRON
+		  is encountered.
+		- See also TRON.
+
+--------------------------------------------------------------------------------
+TRON *		- syntax: TRON
+		- Enables SUB trace output at runtime.
+		- Only effective in programs compiled with the -t switch.
+		- When a program is compiled with -t, tracing is ON by
+		  default. Use TROFF at the start to selectively enable
+		  tracing for specific sections of code.
+		- Trace output is written to T:ace_trace.log and includes
+		  SUB name, parameter values, return values, and call
+		  depth indentation for recursive calls.
+		- See also TROFF.
+
+--------------------------------------------------------------------------------
 UCASE$		- syntax: UCASE$(<string-expression>)
 		- Returns <string-expression> with all alphabetic characters 
 		  in upper case. 

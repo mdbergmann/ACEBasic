@@ -1,0 +1,61 @@
+SUB Tracing - Implementation State
+====================================
+Branch: sub-tracing
+
+Phase A: Runtime trace library
+  A1. Create src/lib/asm/trace.s          - DONE
+  A2. Add to Makefile-lib                 - DONE
+  A3. Rebuild runtime library (emulator)  - DONE
+  A4. Verify with test                    - DONE
+
+Phase B: Compiler flag + TRON/TROFF
+  B1. Add trace_opt to parsevar.c         - DONE
+  B2. Add extern to parse.c              - DONE
+  B3. Add -t case to check_options()     - DONE
+  B4. Add -t to usage()                  - DONE
+  B5. tronsym/troffsym already exist     - DONE (already in acedef.h)
+  B6. TRON/TROFF already in rword[]      - DONE (already in lexvar.c)
+  B7. Add TRON/TROFF cases to statement()- DONE
+  B8. Build compiler (emulator)          - DONE
+  B9. Verify                             - DONE
+
+Phase C: SYM struct change
+  C1. Add p_addr[MAXPARAMS] to SYM       - DONE
+  C2. Store param addresses in sub.c     - DONE
+  C3. Add tracename_count to parsevar.c  - DONE
+  C4. Build compiler                     - DONE
+  C5. Verify                             - DONE
+
+Phase D: Compiler instrumentation - startup/shutdown
+  D1. Add trace XREFs to emit_startup_xrefs() - DONE
+  D2. Add trace_open to gen_startup_code()    - DONE
+  D3. Add trace_close to gen_exit_code()      - DONE
+  D4. Build compiler                          - DONE
+  D5. Verify                                  - DONE
+
+Phase E: Compiler instrumentation - SUB entry
+  E1. Add trace entry code in block()    - DONE
+  E2. Build compiler                     - DONE
+  E3. Verify                             - DONE
+
+Phase F: Compiler instrumentation - SUB exit
+  F1. Add trace exit code in block()     - DONE
+  F2. Build compiler                     - DONE
+  F3. Verify                             - DONE
+
+Phase G: Integration test
+  G1. Test programs created              - DONE (test_trace.b, test_tron.b, test_notrace.b)
+  G2. test_trace: all SUBs traced        - DONE (Add, Greet, Factorial recursive, NoParams)
+  G3. test_notrace: compiles without -t  - DONE (no trace overhead)
+  G4. test_tron: TRON/TROFF selective    - DONE (only DOUBLE(20) traced)
+  G5. Void SUB exit shows no value       - DONE (fixed sub_is_void flag)
+
+Phase H: Polish
+  H1. docs/ace.txt: -t switch documented          - DONE
+  H2. docs/ref.txt: TRON/TROFF entries added      - DONE
+  H3. docs/quickref.txt: TRON/TROFF entries added  - DONE
+  H4. IDE autocase/basic: TRON/TROFF added         - DONE
+  H5. IDE syntax/commands: TRON/TROFF added        - DONE
+  H6. IDE quickinfo/ace.words: TRON/TROFF added    - DONE
+
+ALL PHASES COMPLETE.

@@ -271,6 +271,7 @@ extern	BOOL	ontimerused;
 extern	BOOL	gadtoolsused;
 extern	BOOL	basdatapresent;
 extern	BOOL	module_opt;
+extern	BOOL	trace_opt;
 
 void gen_startup_code(addr_lev)
 int addr_lev;
@@ -323,6 +324,10 @@ char buf[40],bytes[40];
    if (gadtoolsused)
     gen_lib_open_check("_opengadtools", "_gadtools_ok");
 
+   /* open trace file if tracing enabled */
+   if (trace_opt)
+    fprintf(dest,"\tjsr\t_trace_open\n");
+
    /* size of stack frame */
    if (addr_lev == 0)
       strcpy(bytes,"#\0");
@@ -358,6 +363,10 @@ void gen_exit_code()
    if (intuitionused || gfxused || mathffpused || mathtransused ||
        translateused || gadtoolsused)
       fprintf(dest,"_ABORT_PROG:\n");
+
+   /* close trace file if tracing enabled */
+   if (trace_opt)
+    fprintf(dest,"\tjsr\t_trace_close\n");
 
    /* Free memory allocated via ALLOC and db.lib calls to alloc(). */
    fprintf(dest,"\tjsr\t_free_alloc\n");

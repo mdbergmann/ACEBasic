@@ -486,6 +486,7 @@ typedef struct symstruct {
 			  SHORT  *index;     	     /* array indices */
 			  SHORT	 no_of_params;       /* # of SUB parameters */
 			  int	 p_type[MAXPARAMS];  /* SUB parameter types */
+			  int	 p_addr[MAXPARAMS];  /* SUB parameter frame offsets */
 			  UBYTE  decl;		     /* forward reference? */
 			  UBYTE  *reg;	     	     /* lib function regs */
 			  char   *libname;	     /* library name */

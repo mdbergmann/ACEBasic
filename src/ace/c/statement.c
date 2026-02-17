@@ -80,6 +80,7 @@ extern	SYM	*last_addr_sub_sym;
 extern	int	addr[];
 extern	int	labelcount;
 extern	char	templongname[80];
+extern	BOOL	trace_opt;
 
 /* ------*/
 /* sound */
@@ -1235,8 +1236,30 @@ char  idholder[50];
  if (sym == systemsym)
   handle_system();
  else
+ /* tron */
+ if (sym == tron)
+ {
+  if (trace_opt)
+  {
+   gen("move.w","#1","_trace_enabled");
+   enter_XREF("_trace_enabled");
+  }
+  insymbol();
+ }
+ else
+ /* troff */
+ if (sym == troff)
+ {
+  if (trace_opt)
+  {
+   gen("clr.w","_trace_enabled","  ");
+   enter_XREF("_trace_enabled");
+  }
+  insymbol();
+ }
+ else
  /* until */
- if ((sym == untilsym) && (lastsym == colon)) 
+ if ((sym == untilsym) && (lastsym == colon))
  {
   lastsym=undefined;
   return; /* eg: repeat:..:until i>10 */
