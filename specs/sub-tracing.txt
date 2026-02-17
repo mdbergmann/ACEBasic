@@ -1,0 +1,1126 @@
+SUB Tracing Mechanism - Detailed Specification and Plan
+=======================================================
+
+Date: 2026-02-12 (updated 2026-02-17: added TRON/TROFF)
+Branch: sub-tracing (from master)
+
+Overview
+--------
+Add a compile-time flag (-t) that instruments every SUB with entry/exit trace
+calls, combined with TRON/TROFF statements for runtime control. At runtime,
+a trace library writes to T:ace_trace.log showing:
+  - SUB entry with name and parameter values
+  - SUB exit with name and return value
+  - Indentation for nested/recursive calls
+
+The -t flag instruments all SUBs with trace hooks. By default, tracing is
+active (all SUB calls are logged). The user can use TRON (Trace ON) and
+TROFF (Trace OFF) statements to selectively enable/disable trace output
+at runtime, limiting it to specific code regions.
+
+Output format example (full tracing with -t):
+  -> Add(3, 5)
+  <- Add = 8
+  -> ProcessList($41A0, 42)
+    -> Helper(42)
+    <- Helper = 84
+  <- ProcessList = 1
+
+Output format example (selective tracing with TRON/TROFF):
+  Source:
+    result = Calculate(10, 20)    ' not traced
+    TRON
+    result = Calculate(10, 20)    ' traced
+    TROFF
+    result = Calculate(10, 20)    ' not traced
+
+  T:ace_trace.log:
+    -> Calculate(10, 20)
+    <- Calculate = 30
+
+Scope
+-----
+- Only user-defined SUBs are traced (not DEF FN, not library calls)
+- CALLBACK SUBs are NOT traced (called from external C/asm, different param setup)
+- INVOKABLE SUBs are traced (with d0 return)
+- Module SUBs (compiled with -m -t) are traced (with d0 return)
+- Does NOT trace: system library calls, implicit type conversions,
+  expression evaluation, or DEF FN
+- TRON/TROFF only have effect when compiled with -t; without -t they
+  are accepted but generate no code (no-ops)
+
+Components
+----------
+1. Compiler flag (-t)
+2. TRON/TROFF statements (lexer + statement handler)
+3. Compiler instrumentation (parse.c block())
+4. Runtime trace library (new: src/lib/asm/trace.s)
+5. Build system updates (Makefile-lib, bas script)
+6. acedef.h changes (SYM struct)
+
+============================================================
+COMPONENT 1: Compiler Flag (-t)
+============================================================
+
+Files changed:
+  - src/ace/c/parsevar.c  (add global variable)
+  - src/ace/c/parse.c     (extern declaration, check_options, usage)
+
+Details:
+
+1a. In parsevar.c, after line 193 (cpu020_opt):
+    Add: BOOL trace_opt=FALSE;    /* SUB call tracing */
+
+1b. In parse.c, in the extern block (around line 82):
+    Add: extern BOOL trace_opt;
+
+1c. In check_options() (parse.c ~line 569), add after the 't' case:
+    Add case: if (*opt == 't') trace_opt=TRUE;
+    (Insert between existing cases, e.g. after 'c' for asm_comments)
+
+1d. In usage() (parse.c ~line 552):
+    Add: printf("  -t         Enable SUB call/return tracing\n");
+
+============================================================
+COMPONENT 2: TRON/TROFF Statements
+============================================================
+
+TRON (Trace ON) and TROFF (Trace OFF) are runtime statements that
+control whether trace output is written. They allow the user to
+selectively trace specific code regions.
+
+Files changed:
+  - src/ace/c/lexvar.c    (add TRON/TROFF as reserved words)
+  - src/ace/c/lex.c       (token IDs)
+  - src/ace/c/acedef.h    (token ID constants)
+  - src/ace/c/statement.c (statement handlers)
+
+Details:
+
+2a. Token IDs in acedef.h:
+    Add two new token constants (after existing ones):
+    #define tronsym    <next_id>
+    #define troffsym   <next_id+1>
+
+2b. Reserved words in lexvar.c:
+    Add to rword[] array (in alphabetical position):
+    "TRON"  -> tronsym
+    "TROFF" -> troffsym
+
+2c. Statement handlers in statement.c:
+    In the statement() dispatcher, add cases:
+
+    case tronsym:
+        if (trace_opt)
+        {
+            gen("move.w","#1","_trace_enabled");
+            enter_XREF("_trace_enabled");
+        }
+        insymbol();   /* consume TRON token */
+        break;
+
+    case troffsym:
+        if (trace_opt)
+        {
+            gen("clr.w","_trace_enabled","  ");
+            enter_XREF("_trace_enabled");
+        }
+        insymbol();   /* consume TROFF token */
+        break;
+
+    Without -t, TRON/TROFF are parsed but generate no code (no-ops).
+
+============================================================
+COMPONENT 3: Compiler Instrumentation (parse.c block())
+============================================================
+
+Files changed:
+  - src/ace/c/parse.c     (block function + emit_startup_xrefs)
+  - src/ace/c/codegen.c   (gen_startup_code + gen_exit_code)
+
+The compiler emits trace calls at three locations:
+  A) Program startup  -> open trace file
+  B) SUB entry        -> log name + parameters
+  C) SUB exit         -> log name + return value
+  D) Program exit     -> close trace file
+
+-------------------------------------------------------
+3A. Program startup: open trace file
+-------------------------------------------------------
+
+In codegen.c gen_startup_code(), after all library opens (after the
+gadtools check, line 328) and BEFORE the link a4 (line 339), add:
+
+    if (trace_opt)
+       fprintf(dest,"\tjsr\t_trace_open\n");
+
+_trace_open sets _trace_enabled = 1 by default. This means that
+compiling with -t without any TRON/TROFF statements traces everything
+(backward-compatible behavior). If the user wants selective tracing,
+they place TROFF at the start and TRON/TROFF around regions of interest.
+
+In emit_startup_xrefs() (parse.c), in the !module_opt branch, add:
+
+    if (trace_opt)
+    {
+       enter_XREF("_trace_open");
+       enter_XREF("_trace_close");
+       enter_XREF("_trace_enabled");
+       enter_XREF("_trace_enter");
+       enter_XREF("_trace_param_long");
+       enter_XREF("_trace_param_short");
+       enter_XREF("_trace_param_single");
+       enter_XREF("_trace_param_str");
+       enter_XREF("_trace_param_sep");
+       enter_XREF("_trace_end_params");
+       enter_XREF("_trace_exit_void");
+       enter_XREF("_trace_exit_long");
+       enter_XREF("_trace_exit_short");
+       enter_XREF("_trace_exit_single");
+       enter_XREF("_trace_exit_str");
+    }
+
+Note: For module compilation (-m -t), XREFs are emitted on-demand via
+enter_XREF in the trace code emission below. The linker resolves them
+when the module is linked with the main program.
+
+-------------------------------------------------------
+3B. SUB entry: log name + parameter values
+-------------------------------------------------------
+
+Location: parse.c block(), AFTER sub_params() (line 182) and AFTER
+the CALLBACK/INVOKABLE/module handling (line 266), but BEFORE the
+TCO re-entry label (line 270).
+
+Insert a new block:
+
+    /* -- Trace: SUB entry -- */
+    if (trace_opt && !sub_ptr->is_callback)
+    {
+        char trace_label[80], trace_data[200];
+        char addrbuf[40];
+        int pi;
+
+        /* Create string constant with SUB name (without _SUB_ prefix) */
+        /* Use enter_DATA to emit: _tracename_N: dc.b "SubName",0 */
+        sprintf(trace_label, "_tn%d:", tracename_count);
+        sprintf(trace_data, "dc.b \"%s\",0", sub_name+5); /* skip _SUB_ */
+        enter_DATA(trace_label, trace_data);
+
+        /* Remove trailing colon for reference */
+        sprintf(trace_label, "_tn%d", tracename_count);
+        tracename_count++;
+
+        /* Save registers we'll clobber */
+        gen("movem.l","d0-d2/a0-a1","-(sp)");
+
+        /* Call _trace_enter(name_ptr) - name in a0 */
+        gen("lea", trace_label, "a0");
+        gen("jsr", "_trace_enter", "  ");
+        enter_XREF("_trace_enter");
+
+        /* Emit each parameter value */
+        for (pi = 0; pi < sub_ptr->no_of_params; pi++)
+        {
+            if (pi > 0)
+            {
+                gen("jsr", "_trace_param_sep", "  ");
+                enter_XREF("_trace_param_sep");
+            }
+
+            /* Compute parameter's frame address */
+            /* Parameters are local variables - they have been entered
+               into the symbol table by sub_params(). We need to find
+               them. However, we don't have easy access to them by index.
+
+               Alternative: parameters are at known offsets.
+               With sub_params, each param is entered as a variable via
+               enter(). The addresses are sequential from addr[lev].
+               But we can recompute: first param is at offset -8 (for
+               longs) or sequential negative offsets.
+
+               Simpler approach: iterate the frame by type.
+               Parameter offsets in the callee frame:
+                 First param:  smallest negative offset after -0
+                 Each short takes 2 bytes, each long takes 4 bytes
+                 Starting at offset = first allocation after link.
+
+               Actually, sub_params() creates variables via enter()
+               which allocates them in addr[lev]. So param 1 is at
+               the first allocation, param 2 at the next, etc.
+
+               We CAN compute this: walk from -2 or -4 up.
+               But easier: we store param addresses during emission.
+            */
+
+            /* See implementation note below */
+        }
+
+        gen("jsr", "_trace_end_params", "  ");
+        enter_XREF("_trace_end_params");
+
+        /* Restore saved registers */
+        gen("movem.l","(sp)+","d0-d2/a0-a1");
+    }
+
+IMPLEMENTATION NOTE - Parameter Address Discovery:
+
+The challenge is that sub_params() has already run when we emit trace
+code, so the parameter variables exist in the symbol table as local
+variables at level ONE. We need their frame addresses.
+
+Approach: Add a small array to store parameter addresses during
+sub_params(). In sub.c sub_params(), after each enter() call (line 326),
+save the address:
+
+    sub_ptr->p_addr[param_count] = curr_item->address;
+
+This requires adding p_addr[MAXPARAMS] to the SYM struct in acedef.h.
+(Small change, MAXPARAMS is already 12.)
+
+Then in the trace emission, for each parameter:
+
+    gen_frame_addr(sub_ptr->p_addr[pi], addrbuf);
+
+    switch (sub_ptr->p_type[pi])
+    {
+        case shorttype:
+            gen("move.w", addrbuf, "d0");
+            gen("jsr", "_trace_param_short", "  ");
+            enter_XREF("_trace_param_short");
+            break;
+        case longtype:
+        case longtype:  /* ADDRESS is stored as longtype */
+            gen("move.l", addrbuf, "d0");
+            gen("jsr", "_trace_param_long", "  ");
+            enter_XREF("_trace_param_long");
+            break;
+        case singletype:
+            gen("move.l", addrbuf, "d0");
+            gen("jsr", "_trace_param_single", "  ");
+            enter_XREF("_trace_param_single");
+            break;
+        case stringtype:
+            gen("move.l", addrbuf, "a0");
+            gen("jsr", "_trace_param_str", "  ");
+            enter_XREF("_trace_param_str");
+            break;
+    }
+
+For CALLBACK SUBs: skip tracing (parameters come from registers, not
+frame - and CALLBACKs are called from C/asm, not from BASIC).
+
+For INVOKABLE SUBs: trace normally (called like regular SUBs).
+
+-------------------------------------------------------
+3C. SUB exit: log name + return value
+-------------------------------------------------------
+
+Location: parse.c block(), just BEFORE the exit_sub_label (line 339),
+i.e. before "gen(exit_sub_label,"  ","  ");".
+
+Insert:
+
+    /* -- Trace: SUB exit -- */
+    if (trace_opt && !sub_ptr->is_callback)
+    {
+        char trace_label[40];
+        /* Re-reference the same name string we created at entry.
+           tracename_count was incremented, so the label is
+           _tn(tracename_count-1). We stored it above. */
+        /* Actually easier: save trace_label_ref in a local at entry */
+
+        gen("movem.l","d0-d2/a0-a1","-(sp)");
+
+        gen("lea", saved_trace_label, "a0");
+
+        /* Emit return value based on SUB type */
+        if (sub_ptr->address == extfunc)
+        {
+            /* INVOKABLE/module: return in d0 */
+            /* But d0 was just saved! Need it from saved area.
+               d0 is at 16(sp) after saving 5 regs (d0-d2/a0-a1 = 20 bytes).
+               Actually: movem.l d0-d2/a0-a1 pushes 5 longs = 20 bytes.
+               d0 is at 16(sp) (last pushed = a1 at (sp), a0 at 4(sp),
+               d2 at 8(sp), d1 at 12(sp), d0 at 16(sp)) */
+            gen("move.l", "16(sp)", "d0");
+            gen("jsr", "_trace_exit_long", "  ");
+            enter_XREF("_trace_exit_long");
+        }
+        else
+        {
+            /* Normal SUB: return value in frame variable */
+            char addrbuf[40];
+            gen_frame_addr(sub_ptr->address, addrbuf);
+
+            switch (sub_ptr->type)
+            {
+                case shorttype:
+                    gen("move.w", addrbuf, "d0");
+                    gen("jsr", "_trace_exit_short", "  ");
+                    enter_XREF("_trace_exit_short");
+                    break;
+                case longtype:
+                    gen("move.l", addrbuf, "d0");
+                    gen("jsr", "_trace_exit_long", "  ");
+                    enter_XREF("_trace_exit_long");
+                    break;
+                case singletype:
+                    gen("move.l", addrbuf, "d0");
+                    gen("jsr", "_trace_exit_single", "  ");
+                    enter_XREF("_trace_exit_single");
+                    break;
+                case stringtype:
+                    gen("move.l", addrbuf, "a0");
+                    gen("jsr", "_trace_exit_str", "  ");
+                    enter_XREF("_trace_exit_str");
+                    break;
+                default:
+                    gen("jsr", "_trace_exit_void", "  ");
+                    enter_XREF("_trace_exit_void");
+                    break;
+            }
+        }
+
+        gen("movem.l","(sp)+","d0-d2/a0-a1");
+    }
+
+Important: The trace exit code must appear BEFORE the _EXIT_SUB_ label,
+because the exit label is jumped to by EXIT SUB statements. So trace
+exit logging happens at every SUB exit path.
+
+Wait - actually that's wrong. If EXIT SUB jumps to _EXIT_SUB_, we want
+the trace to happen there too. So the trace code should go AFTER the
+_EXIT_SUB_ label, not before.
+
+CORRECTION: Place trace exit code AFTER exit_sub_label, BEFORE unlk:
+
+    if (subprog == subsym) gen(exit_sub_label,"  ","  ");
+
+    /* -- Trace: SUB exit -- */
+    if (trace_opt && !sub_ptr->is_callback)
+    {
+        /* ... trace exit code ... */
+    }
+
+    gen("unlk","a5","  ");
+
+This way, EXIT SUB jumping to _EXIT_SUB_ also traces.
+
+-------------------------------------------------------
+3D. Program exit: close trace file
+-------------------------------------------------------
+
+In codegen.c gen_exit_code(), BEFORE the _free_alloc call (line 367),
+add:
+
+    if (trace_opt)
+       fprintf(dest,"\tjsr\t_trace_close\n");
+
+This ensures the trace file is flushed and closed before cleanup.
+
+============================================================
+COMPONENT 4: Runtime Trace Library
+============================================================
+
+New file: src/lib/asm/trace.s
+
+The trace library uses AmigaDOS file I/O directly. All functions are
+small, leaf-style routines that preserve caller's registers.
+
+Calling convention:
+  - _trace_enter:        a0 = pointer to SUB name string (null-terminated)
+  - _trace_param_long:   d0 = LONGINT value
+  - _trace_param_short:  d0.w = SHORTINT value
+  - _trace_param_single: d0 = FFP float (raw 32 bits)
+  - _trace_param_str:    a0 = pointer to string data
+  - _trace_param_sep:    (no params)
+  - _trace_end_params:   (no params)
+  - _trace_exit_void:    a0 = pointer to SUB name string
+  - _trace_exit_long:    a0 = name, d0 = LONGINT return value
+  - _trace_exit_short:   a0 = name, d0.w = SHORTINT return value
+  - _trace_exit_single:  a0 = name, d0 = FFP return value
+  - _trace_exit_str:     a0 = name, then string addr also in a0?
+                          Actually: a0 = name, a1 = string return value
+  - _trace_open:         (no params) - opens T:ace_trace.log
+  - _trace_close:        (no params) - closes the file
+
+REVISED calling convention for exit functions:
+  - _trace_exit_*:   a0 = name string, d0 = return value (or a1 for str)
+  This means we need to load both the name pointer AND the return value
+  before calling. The compiler instrumentation handles this.
+
+Internal state (BSS):
+  _trace_fh:      ds.l 1    ; file handle from Open()
+  _trace_enabled: ds.w 1    ; 0 = tracing off, 1 = tracing on
+  _trace_depth:   ds.w 1    ; nesting depth (for indentation)
+  _trace_buf:     ds.b 256  ; formatting buffer
+
+Internal helpers:
+  _trace_indent   - write (depth * 2) spaces
+  _trace_write    - write string at a0 to trace file
+  _trace_ltoa     - convert d0.l to decimal string in buffer
+  _trace_stoa     - convert d0.w to decimal string in buffer
+
+Implementation (~250-300 lines of 68000 asm):
+
+;----- _trace_open -----
+; Open T:ace_trace.log for writing, enable tracing by default
+_trace_open:
+    movem.l d0-d1/a0-a1/a6,-(sp)
+    move.l  _DOSBase,a6
+    lea     _trace_filename,a0
+    move.l  a0,d1
+    move.l  #1006,d2           ; MODE_NEWFILE
+    jsr     _LVOOpen(a6)
+    move.l  d0,_trace_fh
+    move.w  #1,_trace_enabled  ; tracing ON by default
+    clr.w   _trace_depth
+    movem.l (sp)+,d0-d1/a0-a1/a6
+    rts
+
+;----- _trace_close -----
+_trace_close:
+    movem.l d0-d1/a6,-(sp)
+    move.l  _trace_fh,d1
+    beq.s   .done
+    move.l  _DOSBase,a6
+    jsr     _LVOClose(a6)
+    clr.l   _trace_fh
+.done:
+    movem.l (sp)+,d0-d1/a6
+    rts
+
+;----- _trace_enter -----
+; a0 = name string
+_trace_enter:
+    movem.l d0-d3/a0-a3/a6,-(sp)
+    tst.w   _trace_enabled
+    beq.s   .done
+    move.l  _trace_fh,d1
+    beq.s   .done
+    move.l  a0,a2              ; save name
+    bsr     _trace_indent
+    ; write "-> "
+    lea     _trace_arrow_in,a0
+    bsr     _trace_write
+    ; write name
+    move.l  a2,a0
+    bsr     _trace_write
+    ; write "("
+    lea     _trace_lparen,a0
+    bsr     _trace_write
+    ; increment depth
+    addq.w  #1,_trace_depth
+.done:
+    movem.l (sp)+,d0-d3/a0-a3/a6
+    rts
+
+;----- _trace_param_long -----
+; d0.l = value
+_trace_param_long:
+    movem.l d0-d3/a0-a3/a6,-(sp)
+    tst.w   _trace_enabled
+    beq.s   .done
+    move.l  _trace_fh,d1
+    beq.s   .done
+    ; d0 already has the value (saved on stack, need to reload)
+    move.l  28(sp),d0          ; d0 from saved registers
+    lea     _trace_buf,a0
+    bsr     _trace_ltoa        ; convert d0 to string at a0
+    bsr     _trace_write       ; write buffer
+.done:
+    movem.l (sp)+,d0-d3/a0-a3/a6
+    rts
+
+;----- _trace_param_short -----
+; d0.w = value
+_trace_param_short:
+    movem.l d0-d3/a0-a3/a6,-(sp)
+    tst.w   _trace_enabled
+    beq.s   .done
+    move.l  _trace_fh,d1
+    beq.s   .done
+    move.l  28(sp),d0          ; d0 from saved regs
+    ext.l   d0                 ; sign-extend to long
+    lea     _trace_buf,a0
+    bsr     _trace_ltoa
+    bsr     _trace_write
+.done:
+    movem.l (sp)+,d0-d3/a0-a3/a6
+    rts
+
+;----- _trace_param_single -----
+; d0 = FFP float (raw 32 bits)
+; Display as hex since FFP->decimal is complex.
+; Format: $XXXXXXXX (f)
+_trace_param_single:
+    movem.l d0-d3/a0-a3/a6,-(sp)
+    tst.w   _trace_enabled
+    beq.s   .done
+    move.l  _trace_fh,d1
+    beq.s   .done
+    move.l  28(sp),d0          ; d0 from saved regs
+    lea     _trace_buf,a0
+    move.b  #'$',(a0)+
+    bsr     _trace_hex32       ; convert d0 to 8 hex chars at a0
+    move.b  #0,(a0)
+    lea     _trace_buf,a0
+    bsr     _trace_write
+.done:
+    movem.l (sp)+,d0-d3/a0-a3/a6
+    rts
+
+;----- _trace_param_str -----
+; a0 = string pointer
+_trace_param_str:
+    movem.l d0-d3/a0-a3/a6,-(sp)
+    tst.w   _trace_enabled
+    beq.s   .done
+    move.l  _trace_fh,d1
+    beq.s   .done
+    ; write opening quote
+    lea     _trace_quote,a0
+    bsr     _trace_write
+    ; write the string (truncated to 64 chars to prevent overflow)
+    move.l  36(sp),a0          ; a0 from saved regs
+    bsr     _trace_write_trunc ; write max 64 chars
+    ; write closing quote
+    lea     _trace_quote,a0
+    bsr     _trace_write
+.done:
+    movem.l (sp)+,d0-d3/a0-a3/a6
+    rts
+
+;----- _trace_param_sep -----
+_trace_param_sep:
+    movem.l d0-d3/a0-a3/a6,-(sp)
+    tst.w   _trace_enabled
+    beq.s   .done
+    move.l  _trace_fh,d1
+    beq.s   .done
+    lea     _trace_comma,a0
+    bsr     _trace_write
+.done:
+    movem.l (sp)+,d0-d3/a0-a3/a6
+    rts
+
+;----- _trace_end_params -----
+_trace_end_params:
+    movem.l d0-d3/a0-a3/a6,-(sp)
+    tst.w   _trace_enabled
+    beq.s   .done
+    move.l  _trace_fh,d1
+    beq.s   .done
+    lea     _trace_rparen_nl,a0
+    bsr     _trace_write
+.done:
+    movem.l (sp)+,d0-d3/a0-a3/a6
+    rts
+
+;----- _trace_exit_long -----
+; a0 = name, d0 = return value
+_trace_exit_long:
+    movem.l d0-d3/a0-a3/a6,-(sp)
+    tst.w   _trace_enabled
+    beq.s   .done
+    move.l  _trace_fh,d1
+    beq.s   .done
+    subq.w  #1,_trace_depth
+    bsr     _trace_indent
+    lea     _trace_arrow_out,a0
+    bsr     _trace_write
+    ; write name
+    move.l  36(sp),a0          ; a0 from saved regs (name)
+    bsr     _trace_write
+    ; write " = "
+    lea     _trace_equals,a0
+    bsr     _trace_write
+    ; write value
+    move.l  28(sp),d0          ; d0 from saved regs (value)
+    lea     _trace_buf,a0
+    bsr     _trace_ltoa
+    bsr     _trace_write
+    ; newline
+    lea     _trace_nl,a0
+    bsr     _trace_write
+.done:
+    movem.l (sp)+,d0-d3/a0-a3/a6
+    rts
+
+;----- _trace_exit_short -----
+; a0 = name, d0.w = return value
+_trace_exit_short:
+    movem.l d0-d3/a0-a3/a6,-(sp)
+    tst.w   _trace_enabled
+    beq.s   .done
+    move.l  _trace_fh,d1
+    beq.s   .done
+    subq.w  #1,_trace_depth
+    bsr     _trace_indent
+    lea     _trace_arrow_out,a0
+    bsr     _trace_write
+    move.l  36(sp),a0
+    bsr     _trace_write
+    lea     _trace_equals,a0
+    bsr     _trace_write
+    move.l  28(sp),d0
+    ext.l   d0
+    lea     _trace_buf,a0
+    bsr     _trace_ltoa
+    bsr     _trace_write
+    lea     _trace_nl,a0
+    bsr     _trace_write
+.done:
+    movem.l (sp)+,d0-d3/a0-a3/a6
+    rts
+
+;----- _trace_exit_single -----
+; a0 = name, d0 = FFP value
+_trace_exit_single:
+    movem.l d0-d3/a0-a3/a6,-(sp)
+    tst.w   _trace_enabled
+    beq.s   .done
+    move.l  _trace_fh,d1
+    beq.s   .done
+    subq.w  #1,_trace_depth
+    bsr     _trace_indent
+    lea     _trace_arrow_out,a0
+    bsr     _trace_write
+    move.l  36(sp),a0
+    bsr     _trace_write
+    lea     _trace_equals,a0
+    bsr     _trace_write
+    move.l  28(sp),d0
+    lea     _trace_buf,a0
+    move.b  #'$',(a0)+
+    bsr     _trace_hex32
+    move.b  #0,(a0)
+    lea     _trace_buf,a0
+    bsr     _trace_write
+    lea     _trace_nl,a0
+    bsr     _trace_write
+.done:
+    movem.l (sp)+,d0-d3/a0-a3/a6
+    rts
+
+;----- _trace_exit_str -----
+; a0 = name, a1 = string return value
+_trace_exit_str:
+    movem.l d0-d3/a0-a3/a6,-(sp)
+    tst.w   _trace_enabled
+    beq.s   .done
+    move.l  _trace_fh,d1
+    beq.s   .done
+    subq.w  #1,_trace_depth
+    bsr     _trace_indent
+    lea     _trace_arrow_out,a0
+    bsr     _trace_write
+    move.l  36(sp),a0          ; name
+    bsr     _trace_write
+    lea     _trace_equals,a0
+    bsr     _trace_write
+    lea     _trace_quote,a0
+    bsr     _trace_write
+    move.l  32(sp),a0          ; a1 = string value (from saved regs)
+    bsr     _trace_write_trunc
+    lea     _trace_quote,a0
+    bsr     _trace_write
+    lea     _trace_nl,a0
+    bsr     _trace_write
+.done:
+    movem.l (sp)+,d0-d3/a0-a3/a6
+    rts
+
+;----- _trace_exit_void -----
+; a0 = name (no return value)
+_trace_exit_void:
+    movem.l d0-d3/a0-a3/a6,-(sp)
+    tst.w   _trace_enabled
+    beq.s   .done
+    move.l  _trace_fh,d1
+    beq.s   .done
+    subq.w  #1,_trace_depth
+    bsr     _trace_indent
+    lea     _trace_arrow_out,a0
+    bsr     _trace_write
+    move.l  36(sp),a0
+    bsr     _trace_write
+    lea     _trace_nl,a0
+    bsr     _trace_write
+.done:
+    movem.l (sp)+,d0-d3/a0-a3/a6
+    rts
+
+;===== Internal helpers =====
+
+;----- _trace_indent -----
+; Write (depth * 2) spaces to trace file
+_trace_indent:
+    move.w  _trace_depth,d3
+    beq.s   .idone
+    lea     _trace_spaces,a0   ; "  " (2 spaces)
+.iloop:
+    bsr     _trace_write
+    subq.w  #1,d3
+    bne.s   .iloop
+.idone:
+    rts
+
+;----- _trace_write -----
+; Write null-terminated string at a0 to trace file
+; Preserves all regs except d0-d1 (already saved by caller)
+_trace_write:
+    move.l  a0,a3              ; save start
+    ; compute length
+    move.l  a0,d3
+.wlen:
+    tst.b   (a0)+
+    bne.s   .wlen
+    sub.l   d3,a0
+    subq.l  #1,a0
+    move.l  a0,d3              ; d3 = length
+    beq.s   .wdone
+    move.l  _DOSBase,a6
+    move.l  _trace_fh,d1
+    move.l  a3,d2              ; buffer
+    jsr     _LVOWrite(a6)
+.wdone:
+    rts
+
+;----- _trace_write_trunc -----
+; Write string at a0, max 64 chars
+_trace_write_trunc:
+    move.l  a0,a3
+    moveq   #0,d3
+.tlen:
+    tst.b   (a0)+
+    beq.s   .tgo
+    addq.l  #1,d3
+    cmpi.l  #64,d3
+    blt.s   .tlen
+.tgo:
+    tst.l   d3
+    beq.s   .tdone
+    move.l  _DOSBase,a6
+    move.l  _trace_fh,d1
+    move.l  a3,d2
+    jsr     _LVOWrite(a6)
+.tdone:
+    rts
+
+;----- _trace_ltoa -----
+; Convert signed long in d0 to decimal string at a0
+; Returns a0 pointing to start of string (null-terminated)
+_trace_ltoa:
+    move.l  a0,a3              ; save buffer start
+    tst.l   d0
+    bpl.s   .lpos
+    neg.l   d0
+    move.b  #'-',(a0)+
+.lpos:
+    ; divide repeatedly by 10, push digits
+    moveq   #0,d2              ; digit count
+    move.l  sp,a1              ; save sp
+.ldiv:
+    ; d0 / 10 -> quotient in d0, remainder in d1
+    move.l  d0,d1
+    divu    #10,d1             ; d1.w = quotient, d1 high = remainder
+    move.w  d1,d0              ; quotient
+    swap    d1                 ; d1.w = remainder
+    add.w   #'0',d1
+    move.w  d1,-(sp)           ; push digit (as word)
+    addq.l  #1,d2
+    ext.l   d0
+    tst.l   d0
+    bne.s   .ldiv
+    ; pop digits in correct order
+.lpop:
+    move.w  (sp)+,d1
+    move.b  d1,(a0)+
+    subq.l  #1,d2
+    bne.s   .lpop
+    move.b  #0,(a0)            ; null terminate
+    move.l  a3,a0              ; return start
+    rts
+
+;----- _trace_hex32 -----
+; Convert unsigned long in d0 to 8 hex chars at a0
+; a0 is advanced past the hex digits (NOT null-terminated)
+_trace_hex32:
+    moveq   #7,d2
+.hloop:
+    rol.l   #4,d0
+    move.l  d0,d1
+    andi.l  #$0F,d1
+    cmpi.b  #10,d1
+    blt.s   .hdig
+    addq.b  #7,d1             ; 'A'-'0'-10 = 7
+.hdig:
+    add.b   #'0',d1
+    move.b  d1,(a0)+
+    dbf     d2,.hloop
+    rts
+
+;===== Data section =====
+
+    SECTION data,DATA
+
+_trace_filename:  dc.b "T:ace_trace.log",0
+_trace_arrow_in:  dc.b "-> ",0
+_trace_arrow_out: dc.b "<- ",0
+_trace_lparen:    dc.b "(",0
+_trace_rparen_nl: dc.b ")",10,0
+_trace_comma:     dc.b ", ",0
+_trace_equals:    dc.b " = ",0
+_trace_quote:     dc.b 34,0         ; double quote
+_trace_nl:        dc.b 10,0
+_trace_spaces:    dc.b "  ",0
+
+;===== BSS section =====
+
+    SECTION bss,BSS
+
+_trace_fh:      ds.l 1
+_trace_enabled: ds.w 1
+_trace_depth:   ds.w 1
+_trace_buf:     ds.b 256
+
+;===== XDEFs =====
+
+    xdef _trace_open
+    xdef _trace_close
+    xdef _trace_enabled
+    xdef _trace_enter
+    xdef _trace_param_long
+    xdef _trace_param_short
+    xdef _trace_param_single
+    xdef _trace_param_str
+    xdef _trace_param_sep
+    xdef _trace_end_params
+    xdef _trace_exit_void
+    xdef _trace_exit_long
+    xdef _trace_exit_short
+    xdef _trace_exit_single
+    xdef _trace_exit_str
+
+;===== XREFs =====
+
+    xref _DOSBase
+    xref _LVOOpen
+    xref _LVOClose
+    xref _LVOWrite
+
+NOTE on _trace_ltoa: The divu instruction works on unsigned 32/16
+division. For numbers > 65535, we need a proper 32-bit division.
+The existing runtime has _ldivu in lmath.s. We could use that, or
+implement a simple decimal conversion using repeated subtraction
+of powers of 10.
+
+REVISED _trace_ltoa: Use the existing _sprintf from the C library
+with "%ld" format, similar to how _strlong works in string.s:
+
+_trace_ltoa:
+    move.l  a0,a3
+    tst.l   d0
+    bpl.s   .pos
+    neg.l   d0
+    move.b  #'-',(a0)+
+.pos:
+    move.l  d0,-(sp)           ; push long value
+    pea     _trace_longfmt     ; push "%lu"
+    move.l  a0,-(sp)           ; push destination
+    jsr     _sprintf
+    add.l   #12,sp
+    move.l  a3,a0
+    rts
+
+_trace_longfmt: dc.b "%lu",0
+
+This is simpler and handles all 32-bit values correctly. The _sprintf
+function is already linked into every ACE program via the C runtime.
+
+============================================================
+COMPONENT 5: Build System Updates
+============================================================
+
+Files changed:
+  - src/make/Makefile-lib (add trace.s to build)
+  - bin/bas (pass -t flag through)
+
+5a. Makefile-lib:
+    Add trace.o to ASM_OBJS list (alongside existing .s files)
+    Add rule: trace.o: $(LIB_ASM)/trace.s
+
+5b. bin/bas:
+    The -t flag is already passed through to ace via $aceopts.
+    No change needed - the existing flag passthrough handles it.
+    (Lines 107-111: cmd_ace $aceopts T:$srcbase)
+
+============================================================
+COMPONENT 6: acedef.h Changes
+============================================================
+
+File changed:
+  - src/ace/c/acedef.h
+
+6a. Add p_addr array to SYM struct:
+    After the existing p_type[MAXPARAMS] field, add:
+    int p_addr[MAXPARAMS];    /* parameter frame offsets (for tracing) */
+
+6b. Add prototype for any new functions (if needed).
+
+============================================================
+IMPLEMENTATION PLAN (Step by Step)
+============================================================
+
+Phase A: Runtime trace library
+  A1. Create src/lib/asm/trace.s with all trace functions
+      (including _trace_enabled flag, checked by all trace functions)
+  A2. Add to Makefile-lib
+  A3. Rebuild runtime library (on emulator)
+  A4. Verify: write a small test .s file that calls _trace_open,
+      _trace_enter, _trace_param_long, _trace_exit_long, _trace_close
+      and check T:ace_trace.log output
+
+Phase B: Compiler flag + TRON/TROFF
+  B1. Add trace_opt to parsevar.c
+  B2. Add extern to parse.c
+  B3. Add -t case to check_options()
+  B4. Add -t to usage()
+  B5. Add tronsym/troffsym token IDs to acedef.h
+  B6. Add TRON/TROFF to rword[] in lexvar.c
+  B7. Add TRON/TROFF cases to statement() in statement.c
+  B8. Build compiler (on emulator)
+  B9. Verify: ace -t test.b should compile (no trace code emitted yet
+      since instrumentation not added, but flag and TRON/TROFF should
+      parse OK)
+
+Phase C: SYM struct change
+  C1. Add p_addr[MAXPARAMS] to SYM in acedef.h
+  C2. Store parameter addresses in sub.c sub_params()
+  C3. Add tracename_count global to parsevar.c
+  C4. Build compiler
+  C5. Verify: existing programs still compile correctly
+
+Phase D: Compiler instrumentation - startup/shutdown
+  D1. Add trace XREFs to emit_startup_xrefs() in parse.c
+  D2. Add trace_open call to gen_startup_code() in codegen.c
+  D3. Add trace_close call to gen_exit_code() in codegen.c
+  D4. Build compiler
+  D5. Verify: compile a test program with -t, inspect .s output
+      for jsr _trace_open / _trace_close
+
+Phase E: Compiler instrumentation - SUB entry
+  E1. Add trace entry code emission in block() after sub_params()
+  E2. Build compiler
+  E3. Verify: compile test with -t, inspect .s for trace_enter calls
+
+Phase F: Compiler instrumentation - SUB exit
+  F1. Add trace exit code emission in block() before unlk
+  F2. Build compiler
+  F3. Verify: compile test with -t, inspect .s for trace_exit calls
+
+Phase G: Integration test
+  G1. Write test_trace.b with nested SUB calls:
+      - SUB LONGINT Add(LONGINT a, LONGINT b)
+      - SUB Greet(STRING who$)
+      - SUB LONGINT Factorial(LONGINT n) (recursive)
+      - Main: call all three, check T:ace_trace.log
+  G2. Compile with -t, run on emulator
+  G3. Verify trace output matches expected format
+  G4. Compile WITHOUT -t, verify no trace overhead
+  G5. Test TRON/TROFF selective tracing:
+      - Call SUB before TRON (should not appear in log)
+      - TRON
+      - Call SUB (should appear in log)
+      - TROFF
+      - Call SUB after TROFF (should not appear in log)
+  G6. Test TROFF at program start (nothing traced until TRON)
+
+Phase H: Polish
+  H1. Handle edge cases: SUBs with 0 params, void SUBs
+  H2. Test with modules (-m -t)
+  H3. Test depth overflow (cap at 32 or similar)
+  H4. Update docs/ref.txt with -t flag and TRON/TROFF description
+  H5. Update CubicIDE files (autocase, syntax, quickinfo) for TRON/TROFF
+
+============================================================
+RISKS AND MITIGATIONS
+============================================================
+
+1. Stack overflow from trace calls
+   Risk: Each trace call saves/restores ~10 registers (40 bytes)
+   Mitigation: ACE programs use 40000-65000 stack. Normal SUB nesting
+   rarely exceeds 20 levels. 20 * 40 = 800 bytes overhead. Acceptable.
+
+2. Large code size when tracing
+   Risk: ~20-30 extra instructions per SUB
+   Mitigation: Only emitted with -t flag. Zero overhead without it.
+
+3. FFP float display
+   Risk: No easy FFP->decimal conversion available
+   Mitigation: Display as hex ($XXXXXXXX). Users can decode manually.
+   Future: could add FFP->decimal using mathffp.library SPFix + SPTst.
+
+4. _trace_ltoa overflow for large numbers
+   Risk: divu only handles 16-bit division
+   Mitigation: Use _sprintf with %lu format (already in runtime).
+
+5. String parameter display truncation
+   Risk: Very long strings could overflow buffer
+   Mitigation: Truncate to 64 chars in _trace_write_trunc.
+
+6. Trace file I/O performance
+   Risk: AmigaDOS Write() for every trace call could be slow
+   Mitigation: Acceptable for debugging. Could add buffering later
+   if needed, but simplicity wins for v1.
+
+7. _DOSBase availability
+   Risk: _trace_open is called after _startup which opens dos.library,
+   so _DOSBase is valid. Module mode may not have _DOSBase if the main
+   program doesn't use DOS directly.
+   Mitigation: The trace functions check _trace_fh != 0 before writing.
+   If _trace_open fails (no _DOSBase), all subsequent trace calls are
+   no-ops. Main programs always have _DOSBase via _startup.
+
+============================================================
+ESTIMATED SIZE
+============================================================
+
+  trace.s:         ~320 lines (assembly, includes _trace_enabled)
+  parse.c changes: ~80 lines (C)
+  codegen.c:       ~10 lines (C)
+  parsevar.c:      ~2 lines (C)
+  acedef.h:        ~3 lines (C, token IDs + p_addr)
+  lexvar.c:        ~2 lines (C, TRON/TROFF reserved words)
+  statement.c:     ~15 lines (C, TRON/TROFF handlers)
+  sub.c:           ~3 lines (C)
+  Makefile-lib:    ~3 lines
+
+  Total new/changed: ~440 lines
+  Test program:      ~50 lines (includes TRON/TROFF test)
+
+============================================================
+OPEN QUESTIONS
+============================================================
+
+1. Should modules (-m -t) also trace? Currently yes, but the trace
+   file is opened by the main program. Module trace calls will write
+   to the same file. This should work since all code runs in the same
+   process.
+
+2. Should DEF FN be traced? Currently no (they're simple expression
+   functions). Could add later.
+
+3. RESOLVED: CALLBACK SUBs are NOT traced (called from external C/asm,
+   different parameter setup, register save/restore makes it complex).
+
+4. File name configurable? Currently hardcoded to T:ace_trace.log.
+   Could make it an environment variable or compiler option later.
+
+5. TRON/TROFF without -t: Currently no-ops (parsed but no code emitted).
+   Alternative: TRON could implicitly enable instrumentation. But since
+   instrumentation is a compile-time decision affecting all SUB
+   definitions, and TRON is a runtime statement, this isn't feasible
+   without a two-pass compiler. Decision: require -t for instrumentation.

@@ -1,0 +1,197 @@
+FREE Statement — Specification
+==============================
+
+Goal: Add a FREE statement to deallocate individual ALLOC'd memory blocks.
+
+Currently ALLOC uses Intuition's AllocRemember/FreeRemember which only
+supports bulk deallocation (CLEAR ALLOC frees everything at once).
+This spec adds per-block deallocation using a custom tracking list
+with AllocMem/FreeMem.
+
+
+Syntax
+------
+  FREE <address-expression>
+
+Examples:
+  FREE ptr
+  FREE myStruct->buffer
+  FREE arr(i)
+
+The expression must evaluate to a LONGINT/ADDRESS — the value
+previously returned by ALLOC. Passing 0 or an invalid pointer is
+a safe no-op (silently ignored).
+
+
+Runtime Design (alloc.c)
+------------------------
+
+Replace AllocRemember with a custom doubly-linked list using
+prepended block headers. Each allocation looks like:
+
+  +--------+--------+--------+--------+------ ... ------+
+  | prev*  | next*  | size   | flags  |   user data     |
+  | 4 bytes| 4 bytes| 4 bytes| 4 bytes|   N bytes       |
+  +--------+--------+--------+--------+------ ... ------+
+  ^                                    ^
+  |                                    |
+  header start                         pointer returned to user
+
+Header size: 16 bytes (4 pointers/longs).
+
+Global list head: static AllocHeader *AceAllocHead = NULL;
+
+Functions to modify/add:
+
+1. ACEalloc(MemType, bytes) — MODIFIED
+   - AllocMem(sizeof(AllocHeader) + bytes, flags)
+   - Fill header: size=bytes, flags=computed, prev=NULL, next=AceAllocHead
+   - If AceAllocHead != NULL, set AceAllocHead->prev = newNode
+   - AceAllocHead = newNode
+   - Return pointer to user data (header + 16)
+   - On failure return 0 (unchanged behavior)
+
+2. ACEfree(ptr) — NEW
+   - If ptr == 0, return immediately (safe no-op)
+   - header = ptr - 16
+   - Unlink header from doubly-linked list:
+     - if header->prev: header->prev->next = header->next
+     - else: AceAllocHead = header->next  (was list head)
+     - if header->next: header->next->prev = header->prev
+   - FreeMem(header, sizeof(AllocHeader) + header->size)
+
+3. clear_alloc() — MODIFIED
+   - Walk AceAllocHead list, FreeMem each node
+   - Set AceAllocHead = NULL
+
+4. free_alloc() — MODIFIED (for AceAlloc part)
+   - Same walk-and-free as clear_alloc for ACE allocations
+   - Keep existing RememberList handling for internal db.lib allocs
+
+5. alloc() (internal db.lib) — UNCHANGED
+   - Still uses AllocRemember/FreeRemember for internal allocations
+
+Note: The internal alloc() for db.lib stays on AllocRemember since
+those allocations are never individually freed by user code.
+
+Note: enter_XREF("_IntuitionBase") is still needed because db.lib's
+internal alloc() still uses AllocRemember which requires Intuition.
+ALLOC in basfun.c already emits this XREF.
+
+
+Compiler Changes
+----------------
+
+### 1. Add FREE keyword (lexvar.c)
+
+Insert "FREE" in rword[] array after "FRE" (alphabetical order):
+
+  "FIELD","FILES","FIX","FN","FOR","FRE","FREE","FUNCTION",
+
+### 2. Add freesym token (acedef.h)
+
+Insert freesym after fresym in the AmigaBASIC reserved words enum:
+
+  fresym,
+  freesym,
+  functionsym,
+
+### 3. Add FREE statement handler (statement.c)
+
+Insert between "for.." and "gadget" blocks (after line 1007):
+
+  else
+  /* free */
+  if (sym == freesym)
+  {
+    insymbol();
+    ntype = expr();
+    if (ntype == stringtype) { _error(4); }
+    else
+    {
+      if (make_integer(ntype) == shorttype) make_long();
+      gen_rt_call("_ACEfree");
+      gen_stack_cleanup(4);
+    }
+  }
+
+This:
+- Parses the address expression (any numeric expression)
+- Coerces to LONGINT if needed
+- Calls _ACEfree runtime with the address on the stack
+- Cleans up 4 bytes (one LONGINT argument)
+
+### 4. No changes to basfun.c
+
+ALLOC itself doesn't change syntax — only the runtime implementation
+behind ACEalloc changes.
+
+
+File Change Summary
+-------------------
+
+  File                  Change
+  --------------------  ----------------------------------------
+  src/lib/c/alloc.c     New AllocHeader struct, rewrite ACEalloc,
+                        new ACEfree, update clear_alloc/free_alloc
+  src/ace/c/lexvar.c    Add "FREE" to rword[] array
+  src/ace/c/acedef.h    Add freesym to token enum
+  src/ace/c/statement.c Add FREE statement handler
+  docs/ref.txt          Document FREE statement
+  docs/quickref.txt     Add FREE entry
+  IDE/CubicIDE-ACE/...  Update autocase, commands dict, quickinfo
+
+
+Test Plan
+---------
+
+Create verify/tests/cases/memory/free.b:
+
+  1. Basic free: ALLOC then FREE, no crash
+  2. Free zero: FREE 0 (safe no-op)
+  3. Free + realloc: ALLOC, FREE, ALLOC again — works
+  4. Multiple allocs, free middle: ALLOC a,b,c; FREE b; FREE a; FREE c
+  5. Free + CLEAR ALLOC: ALLOC a,b; FREE a; CLEAR ALLOC (frees b)
+  6. POKE/PEEK between ALLOC and FREE: verify data survives
+  7. Program exit with un-freed allocs: still cleaned up automatically
+
+Expected output file: verify/tests/expected/free.expected
+
+
+Implementation Order
+--------------------
+
+  Step 1: Runtime changes (alloc.c) — AllocHeader, ACEalloc, ACEfree,
+          clear_alloc, free_alloc
+  Step 2: Compiler keyword + token (lexvar.c, acedef.h)
+  Step 3: Statement handler (statement.c)
+  Step 4: Test program (free.b + free.expected)
+  Step 5: Build runtime lib + compiler on emulator, run tests
+  Step 6: Documentation (ref.txt, quickref.txt, IDE files)
+
+
+Backward Compatibility
+----------------------
+
+- ALLOC returns the same pointer type (LONGINT) — no API change
+- CLEAR ALLOC still works — frees all remaining ACE allocations
+- Program-exit cleanup still works — free_alloc walks the new list
+- Existing programs that never call FREE work identically
+- Only behavioral difference: ACEalloc now uses AllocMem instead of
+  AllocRemember, adding 16 bytes overhead per allocation
+
+
+Risks
+-----
+
+- The 16-byte header per allocation is extra memory overhead.
+  Negligible for typical use (hundreds of allocations, not millions).
+
+- Passing a bogus (non-ALLOC'd) pointer to FREE will corrupt memory.
+  This is the same risk as C's free() — acceptable for a systems
+  language. No runtime validation is practical without significant
+  overhead.
+
+- Double-free will corrupt the list. Same as C — programmer's
+  responsibility. Could add a magic-number sentinel to the header
+  for debug builds, but not in this initial implementation.

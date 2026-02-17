@@ -1,0 +1,292 @@
+IFF Submodule Extraction
+========================
+
+Goal: Remove built-in IFF picture support from the compiler and runtime
+library, and provide equivalent functionality as a BASIC submodule.
+
+Motivation
+----------
+- IFF was never part of the original AmigaBASIC; it's an ACE extension
+- The runtime embeds a 6.9KB copy of Jeff Glatt's ilbm.library in EVERY
+  compiled program that uses IFF (via ILBMLib_bytes.c) -- wasteful
+- Tight coupling to runtime internals (Screen_list[], error_code)
+- Moving to a submod makes IFF opt-in, reduces compiler complexity,
+  and shrinks db.lib by ~960 lines of C
+- Users who need IFF can link the submod; those who don't pay nothing
+
+Current State
+-------------
+Language surface (4 constructs):
+  IFF OPEN [#]channel, filename$    -- open IFF file, read header
+  IFF READ [#]channel[, screen-id]  -- display picture via ilbm.library
+  IFF CLOSE [#]channel              -- close channel, cleanup screen/window
+  IFF(channel, n)                   -- query info (form type, w, h, depth, mode)
+
+Compiler files:
+  src/ace/c/iff.c        -- statement handlers (165 lines)
+  src/ace/c/basfun.c     -- IFF() function handler (~25 lines)
+  src/ace/c/statement.c  -- dispatcher: if (sym == iffsym) iff();
+  src/ace/c/codegen.c    -- startup: jsr _create_ILBMLib / exit: jsr _remove_ILBMLib
+  src/ace/c/parse.c      -- XREF generation for ILBMLib functions
+  src/ace/c/parsevar.c   -- BOOL iffused flag
+  src/ace/c/acedef.h     -- iffsym token, prototypes, iffused extern
+  src/ace/c/lexvar.c     -- "IFF" reserved word
+
+Runtime files:
+  src/lib/c/iff.c            -- IFFPicOpen/Read/Close, iff_func (363 lines)
+  src/lib/c/make_ILBMLib.c   -- create/remove embedded ilbm.library (85 lines)
+  src/lib/c/ILBMLib_bytes.c  -- 6924-byte embedded library binary (459 lines)
+  src/lib/c/ilbm_lib.h       -- ILBMFrame/BitMapHeader/CrngChunk structs (59 lines)
+
+Docs/IDE:
+  docs/ref.txt                                   -- IFF section
+  docs/quickref.txt                              -- IFF entry
+  IDE/CubicIDE-ACE/add-ons/ace/autocase/basic    -- IFF CLOSE/OPEN/READ, IFF(
+  IDE/CubicIDE-ACE/add-ons/ace/syntax/dictionaries/commands   -- IFF entries
+  IDE/CubicIDE-ACE/add-ons/ace/syntax/dictionaries/functions  -- IFF(
+  IDE/CubicIDE-ACE/add-ons/ace/quickinfo/ace.words            -- IFF entry
+
+Tests: None exist. No regression risk.
+
+Bmap files (kept, not removed):
+  bmaps/ilbm.bmap      -- needed by the submod
+  bmaps/iffparse.bmap   -- unrelated (for direct iffparse.library use)
+  bmaps/iff.bmap        -- unrelated
+
+Examples:
+  examples/gfx/IFF.b   -- update to use submod API
+
+
+Submodule Design
+----------------
+
+Location: submods/iff/iff.b
+Header:   include/submods/iff.h
+Tests:    submods/iff/test_iff_info.b, test_iff_display.b
+
+The submod uses ilbm.library (via LIBRARY/DECLARE FUNCTION). A copy of
+the library is shipped at submods/iff/ilbm.library, extracted from the
+current ILBMLib_bytes.c (6924 bytes). This is for developer convenience
+-- it must be installed to LIBS: on the target system to work. IffInit
+opens it via the standard OpenLibrary("ilbm.library",0) path.
+
+This replaces the current approach of embedding the library bytes into
+every compiled program's runtime. The library is installed once on the
+system rather than baked into every binary.
+
+API (SUB-based, returns error codes):
+
+  SUB LONGINT IffInit
+    Opens ilbm.library (from LIBS: via standard OpenLibrary).
+    Returns 0 on success, IFF_ERR_LIB (-4) if library not found.
+    Must be called before any other Iff function.
+
+  SUB IffShutdown
+    Closes ilbm.library. Call when done with all IFF operations.
+
+  SUB LONGINT IffOpen(channel%, fileName$)
+    Opens an IFF file and reads header info (form type, width, height, depth).
+    Returns 0 on success, negative on error.
+    Channels 1-15 (reduced from 255 -- 15 is plenty for a submod).
+
+  SUB LONGINT IffDisplay(channel%, screenAddr&)
+    Loads and displays the IFF picture via ilbm.library's LoadIFFToWindow.
+    screenAddr& = 0  -> ilbm.library opens its own screen/window
+    screenAddr& != 0 -> use the given Screen pointer (caller gets this
+                        from WINDOW(7) or similar)
+    Returns 0 on success, negative on error.
+    Stores resulting screen/window pointers for cleanup.
+
+  SUB IffClose(channel%)
+    Closes channel. If IffDisplay opened a screen/window, closes them.
+
+  SUB LONGINT IffWidth(channel%)
+    Returns picture width in pixels (0 if channel not open).
+
+  SUB LONGINT IffHeight(channel%)
+    Returns picture height in pixels.
+
+  SUB LONGINT IffDepth(channel%)
+    Returns number of bitplanes.
+
+  SUB LONGINT IffScreenMode(channel%)
+    Returns screen mode: 1=lores, 2=hires, 3=lores-lace, 4=hires-lace, 5=HAM.
+
+  SUB LONGINT IffFormType(channel%)
+    Returns address of form name string ("ILBM" or "ACBM").
+
+Design notes:
+
+- Separate query functions (IffWidth, IffHeight, etc.) instead of IFF(ch,n)
+  numeric selector -- clearer, self-documenting, no magic numbers.
+
+- screenAddr& replaces the old screen-id (1-9) concept. The old API was
+  coupled to ACE's internal Screen_list[]. The submod has no access to that.
+  Instead, the caller passes 0 (auto) or an actual Amiga Screen pointer.
+  For ACE programs: WINDOW(7) returns the screen address of the current window
+  (per docs/ref.txt). Users can also use PEEKL(WINDOW(7)) if needed.
+
+- Error handling: return codes instead of setting global ERR. The caller
+  checks the return value. Error constants in the header:
+    CONST IFF_OK       = 0
+    CONST IFF_ERR_OPEN = -1
+    CONST IFF_ERR_READ = -2
+    CONST IFF_ERR_CHAN = -3
+    CONST IFF_ERR_LIB  = -4
+
+- Channel data stored in module-level parallel arrays (15 slots):
+    DIM SHARED chanName$(15)      ' filename
+    DIM SHARED chanType$(15)      ' "ILBM" or "ACBM"
+    DIM SHARED chanWidth%(15)     ' SHORTINT arrays
+    DIM SHARED chanHeight%(15)
+    DIM SHARED chanDepth%(15)
+    DIM SHARED chanWinAddr&(15)   ' LONGINT: Window pointer
+    DIM SHARED chanScrAddr&(15)   ' LONGINT: Screen pointer
+
+- ILBMFrame struct: allocated via ALLOC (172 bytes), fields set via POKE
+  at known offsets. Key offsets:
+    iFlags:   0
+    iScreen:  160
+    iWindow:  156
+  After LoadIFFToWindow returns, read back iScreen/iWindow via PEEKL.
+
+- IFF header parsing: done in BASIC with OPEN/INPUT$/CLOSE. Read first 12
+  bytes for FORM + type, then find BMHD chunk, extract w/h/depth. Identical
+  logic to current runtime iff.c IFFPicOpen().
+
+
+Phase 1: Create the submod
+--------------------------
+Branch: iff-submod-extraction
+
+1a. Extract ilbm.library from ILBMLib_bytes.c
+    - Write a small C program (or script) that writes the ILBM_bytes[] array
+      to a binary file: submods/iff/ilbm.library (6924 bytes)
+    - Verify the extracted file matches what make_ILBMLib.c would produce
+
+1b. Create submods/iff/iff.b
+    - Module with LIBRARY "ilbm.library", DECLARE FUNCTION LoadIFFToWindow
+    - All SUBs listed above
+    - IffInit: OpenLibrary("ilbm.library",0) via ASSEM
+    - IFF header parsing in IffOpen (BASIC file I/O)
+    - ILBMFrame setup via ALLOC + POKE for IffDisplay
+    - Intuition CloseWindow/CloseScreen in IffClose via DECLARE FUNCTION
+
+1c. Create include/submods/iff.h
+    - DECLARE SUB for each public function
+    - Error constants
+
+1d. Create test programs
+    - test_iff_info.b: open an IFF file, query dimensions, verify values
+    - test_iff_display.b: open and display a picture, wait for keypress
+    (Need a small test IFF file -- could use an existing one from examples/)
+
+1e. Build and test on emulator
+    - Compile module: bas -m iff
+    - Compile tests with REM #using iff.o
+    - Verify all functions work
+
+Phase 2: Remove IFF from compiler and runtime
+----------------------------------------------
+
+2a. Compiler removal:
+    - Delete src/ace/c/iff.c
+    - Remove iff.c from src/make/Makefile-ace
+    - Remove from acedef.h: iffsym token, iff/iff_open/iff_read/iff_close
+      prototypes, iffused extern declaration
+    - Remove "IFF" from lexvar.c rword[] array (and adjust rword_sym[])
+    - Remove from parsevar.c: iffused declaration
+    - Remove from statement.c: iffsym case in dispatcher
+    - Remove from basfun.c: iffsym case in numericfunction()
+    - Remove from codegen.c: iffused checks in emit_startup_code/emit_exit_code
+    - Remove from parse.c: iffused check in emit_startup_xrefs
+
+2b. Runtime removal:
+    - Delete src/lib/c/iff.c
+    - Delete src/lib/c/make_ILBMLib.c
+    - Delete src/lib/c/ILBMLib_bytes.c
+    - Delete src/lib/c/ilbm_lib.h
+    - Remove all four from src/make/Makefile-lib
+
+2c. Build compiler and runtime on emulator
+    - make -f Makefile-ace clean all
+    - make -f Makefile-lib clean all
+    - Verify no build errors
+
+2d. Run test suite to confirm no regressions
+    - rx runner.rexx all (no IFF tests exist, so this verifies nothing broke)
+
+Phase 3: Update docs and IDE files
+------------------------------------
+
+3a. docs/ref.txt:
+    - Remove IFF OPEN/READ/CLOSE and IFF() sections
+    - Remove IFF error codes (500-503) from error table
+    - Add note in "removed features" or changelog that IFF is now a submod
+    - Add a "Submodules" section or note pointing to submods/iff/
+
+3b. docs/quickref.txt:
+    - Remove IFF entries
+    - Add IffOpen, IffDisplay, IffClose, IffWidth, IffHeight, IffDepth,
+      IffScreenMode, IffFormType entries
+
+3c. IDE/CubicIDE-ACE files:
+    - autocase/basic: remove IFF CLOSE, IFF OPEN, IFF READ, IFF(
+      add IffOpen(, IffDisplay(, IffClose(, IffWidth(, IffHeight(,
+      IffDepth(, IffScreenMode(, IffFormType(, IffInit, IffShutdown
+    - syntax/dictionaries/commands: remove IFF entries
+      add submod function names
+    - syntax/dictionaries/functions: remove IFF(
+      add submod function names
+    - quickinfo/ace.words: sync with quickref.txt
+
+3d. Update examples/gfx/IFF.b to use submod API
+
+Phase 4: Verification
+---------------------
+
+4a. Compile the updated IFF.b example with the submod
+4b. Run on emulator -- verify picture display works
+4c. Compile a program that does NOT use IFF -- verify it's smaller
+    (no more embedded ilbm.library bytes)
+4d. Verify "IFF" is no longer a reserved word (can be used as variable name)
+
+
+Migration Guide (for docs)
+---------------------------
+Old:                              New:
+  (nothing)                         REM #using iff.o
+                                    #include <submods/iff.h>
+                                    IffInit
+  IFF OPEN #1, f$                   rc% = IffOpen(1, f$)
+  IF ERR THEN ...                   IF rc% < 0 THEN ...
+  w = IFF(1, 1)                     w = IffWidth(1)
+  h = IFF(1, 2)                     h = IffHeight(1)
+  d = IFF(1, 3)                     d = IffDepth(1)
+  m = IFF(1, 4)                     m = IffScreenMode(1)
+  IFF READ #1, 1                    IffDisplay(1, scrAddr&)
+  IFF READ #1                       IffDisplay(1, 0)
+  IFF CLOSE #1                      IffClose(1)
+  (nothing)                         IffShutdown
+
+
+Risks and Open Questions
+------------------------
+1. WINDOW(7) -- does it return the Screen pointer for the active window?
+   Need to verify in docs/ref.txt. If not, we need another way for callers
+   to pass a screen address. Alternative: SCREEN(n) function if it exists,
+   or PEEKL on Window structure offset 46 (wd_WScreen).
+
+2. ILBMFrame struct offsets -- calculated from ilbm_lib.h but must be
+   verified by compiling a small C program on the emulator that prints
+   offsetof() for each field. Wrong offsets = crash.
+
+3. ilbm.library licensing -- Jeff Glatt's library is already embedded in
+   the GPL-licensed ACE runtime (ILBMLib_bytes.c). Extracting it to a
+   standalone file and shipping it with the submod should be fine under
+   the same terms. Shipped at submods/iff/ilbm.library for developer
+   convenience; must be copied to LIBS: on the target system.
+
+4. The reserved word "IFF" becoming free means old programs using IFF
+   commands will get confusing errors instead of a clear "unknown command".
+   This is acceptable -- it's a breaking change with a migration path.

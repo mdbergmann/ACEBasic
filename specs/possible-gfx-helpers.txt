@@ -1,0 +1,130 @@
+Possible Graphics Helper Submodules
+=====================================
+
+Ideas for submodule-based graphics helpers to make common 2D
+operations easier for ACE BASIC developers. Covers both portable
+RTG (P96) operations and SAGA-specific chunky framebuffer work.
+
+
+1. GfxBlit - Portable RTG/Native Blit Operations
+-------------------------------------------------
+
+Wraps graphics.library blit functions with a simple interface.
+Works on any screen (native planar, P96, SAGA). Hides the
+DECLARE FUNCTION ... LIBRARY graphics boilerplate and register
+setup.
+
+Main value: blit-to-blit copies (sprite stamping, double
+buffering, screen-to-screen) which ACE doesn't have built-in
+statements for. ACE already has LINE ... ,bf for filled rects
+and basic drawing primitives, so this focuses on the gap.
+
+API:
+
+  EXTERNAL gfxblit
+
+  ' Copy a rectangular region between rastports
+  GfxBlitCopy(srcRastPort&, sx%, sy%, w%, h%, ~
+              destRastPort&, dx%, dy%)
+
+  ' Fill a rectangle with a color
+  GfxBlitFill(rastPort&, x%, y%, w%, h%, color%)
+
+  ' Scroll a rectangular region by (dx, dy) pixels
+  GfxBlitScroll(rastPort&, x%, y%, w%, h%, dx%, dy%)
+
+  ' Cookie-cut blit (masked/transparent copy)
+  GfxBlitMasked(srcRastPort&, sx%, sy%, w%, h%, ~
+                destRastPort&, dx%, dy%, maskAddr&)
+
+Implementation: Each SUB calls the corresponding graphics.library
+function (ClipBlit, RectFill, ScrollRasterBF, BltBitMapRastPort)
+with the correct parameters.
+
+Priority: HIGH - most broadly useful, works on all Amiga systems
+with P96 (not just Vampire), fills a real gap in ACE.
+
+
+2. SagaGfx - SAGA Chunky Pixel Operations
+------------------------------------------
+
+SAGA/Vampire specific. CPU-based pixel operations on chunky
+framebuffers. The 68080 is fast enough for direct pixel work.
+Handles the byte-level offset math (offset = y * pitch + x)
+that is tedious and error-prone in BASIC.
+
+API:
+
+  EXTERNAL sagagfx
+
+  ' Plot a single pixel
+  SagaGfxPlot(frameAddr&, pitch%, x%, y%, color%)
+
+  ' Draw a horizontal line (fast, single row fill)
+  SagaGfxHLine(frameAddr&, pitch%, x1%, x2%, y%, color%)
+
+  ' Draw a vertical line
+  SagaGfxVLine(frameAddr&, pitch%, x%, y1%, y2%, color%)
+
+  ' Fill a rectangle
+  SagaGfxRect(frameAddr&, pitch%, x%, y%, w%, h%, color%)
+
+  ' Copy a rectangular block within/between framebuffers
+  SagaGfxBlit(srcAddr&, srcPitch%, srcX%, srcY%, ~
+              dstAddr&, dstPitch%, dstX%, dstY%, w%, h%)
+
+  ' Read a pixel value
+  SagaGfxGetPixel%(frameAddr&, pitch%, x%, y%)
+
+Implementation: Pure BASIC using POKE/PEEK for pixel access.
+Each SUB computes the framebuffer offset and writes bytes
+directly. For 8-bit chunky: offset = y * pitch + x, one
+byte per pixel.
+
+Could later add 16-bit and 32-bit variants if needed.
+
+Priority: MEDIUM - useful but SAGA-only. Worthwhile since
+Vampire is a primary target platform.
+
+
+3. ScreenUtil - Screen Setup Helpers
+------------------------------------
+
+Convenience wrappers for common screen setup boilerplate:
+opening a P96 screen, getting the framebuffer address, opening
+a backdrop window for IDCMP, setting palettes. Reduces the
+repeated code seen in p96_chunky.b and similar programs.
+
+API:
+
+  EXTERNAL screenutil
+
+  ' Open a P96 chunky screen with backdrop window
+  ' Returns screen ID (for use with other calls)
+  scrId% = ScreenUtilOpenP96%(width%, height%, depth%)
+
+  ' Get the linear framebuffer address for direct pixel access
+  frameAddr& = ScreenUtilFrameAddr&(scrId%)
+
+  ' Set a rainbow palette (entries 0-253, with 254=black 255=white)
+  ScreenUtilRainbowPalette(scrId%)
+
+  ' Set a grayscale palette
+  ScreenUtilGrayPalette(scrId%)
+
+  ' Close screen and its backdrop window
+  ScreenUtilClose(scrId%)
+
+Implementation: Uses ACE's SCREEN and WINDOW statements
+internally. Stores screen/window IDs for cleanup.
+
+Priority: LOW - nice-to-have convenience, less critical than
+the blit and pixel operations.
+
+
+Summary of Priorities
+---------------------
+
+  HIGH:   GfxBlit   - portable, fills real gap, all P96 systems
+  MEDIUM: SagaGfx   - useful for Vampire-specific chunky work
+  LOW:    ScreenUtil - convenience, reduces boilerplate

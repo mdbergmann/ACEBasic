@@ -1,0 +1,86 @@
+Runtime Library Optimizations
+==============================
+
+Spec for optimizing the ACE runtime library (src/lib/c/ and src/lib/asm/).
+
+Status: PLANNED (not started)
+
+=== HIGH IMPACT ===
+
+1. String Operations (c_string.c)
+   - Current: Naive byte-by-byte C implementations for copy/length/compare
+   - Proposed: Replace with m68k-optimized assembly using MOVEM/CMPM and
+     word-aligned bulk copies
+   - Expected: 10-20x speedup for large strings
+   - Files: src/lib/c/c_string.c -> new src/lib/asm/string.s
+
+2. Static Over-Allocation
+   - Current: Several modules allocate fixed arrays of 255 slots regardless
+     of actual usage:
+     - gadget.c: 255 gadget structs
+     - ser.c: 255 serial channel structs
+     - menu.c: menu bars for 18 windows
+   - Proposed: Dynamic (on-demand) allocation; most programs use 1-2 of each
+   - Expected: Dramatically reduced memory footprint
+   - Files: src/lib/c/gadget.c, src/lib/c/ser.c, src/lib/c/menu.c
+
+3. Repeated Library Open/Close
+   - Current: diskfont.library is opened and closed on every call in text.c
+     and gadget.c; same pattern in iff.c with ilbm.library
+   - Proposed: Cache library base globally, open once on first use, close
+     at program exit (or reference-count)
+   - Expected: Eliminates repeated OpenLibrary/CloseLibrary overhead
+   - Files: src/lib/c/text.c, src/lib/c/gadget.c, src/lib/c/iff.c
+
+=== MEDIUM IMPACT ===
+
+4. Embedded ILBM Library (ILBMLib_bytes.c)
+   - Current: Entire ILBM.library (~4KB) is embedded as a byte array in
+     db.lib. Every program that links db.lib pays this cost even if it
+     never uses IFF images.
+   - Proposed: Load on demand (from disk or only link when IFF functions
+     are referenced)
+   - Files: src/lib/c/ILBMLib_bytes.c, src/lib/c/iff.c
+
+5. Unnecessary FFP Math
+   - Current: sleep.c uses FFP floating-point to multiply by 50 (ticks per
+     second) when simple integer multiply would suffice. val.c has
+     duplicated parsing logic with ffpstr.c.
+   - Proposed: Replace FFP math with integer arithmetic in sleep.c;
+     consolidate val.c and ffpstr.c parsing
+   - Files: src/lib/c/sleep.c, src/lib/c/val.c, src/lib/asm/ffpstr.s
+
+6. gadget.c Dead Code & Inefficiency
+   - Current: ~900 lines with commented-out selection tracking, FontOK()
+     re-opening diskfont on every call, SetItemWidths() filling ALL items
+     including unused ones
+   - Proposed: Remove dead code, cache font check, only fill used items
+   - Files: src/lib/c/gadget.c
+
+=== LOW IMPACT (EASY WINS) ===
+
+7. Lookup Tables
+   - Current: alloc.c TheFlags() and say.c aud_chan_masks() use switch
+     statements
+   - Proposed: Replace with small lookup tables (faster and smaller code)
+   - Files: src/lib/c/alloc.c, src/lib/c/say.c
+
+8. menu.c Full Rebuild
+   - Current: ModifyMenu() does ClearMenuStrip + rebuild + SetMenuStrip
+     for any change
+   - Proposed: Incremental updates to avoid flicker and overhead
+   - Files: src/lib/c/menu.c
+
+9. arg.c Linear Search
+   - Current: Finding the Nth argument re-scans from the start each time
+   - Proposed: Build an index array at parse time, making ARG$(n) O(1)
+   - Files: src/lib/c/arg.c
+
+=== STRENGTHS (ALREADY GOOD) ===
+
+- Assembly files (ffp.s, misc.s, file.s) are generally tight and
+  well-optimized
+- AllocRemember-based memory management in alloc.c is elegant for bulk
+  cleanup
+- Good OS 1.3 backward compatibility (Arp.library fallbacks)
+- Error handling is thorough throughout
