@@ -293,7 +293,7 @@ LONG	screen_id,channel;
 ILBMFrame *picframe;
 struct Screen *screen;
 
-    /* 
+    /*
     ** Open ILBM library. Look in LIBS: then in RAM:ILBMtmp.
     */
     ILBMBase = (struct Library *)OpenLibrary("ilbm.library",0L);
@@ -303,14 +303,14 @@ struct Screen *screen;
 
     if (ILBMBase == NULL) { error_code = READ_ERR; return; }
 
-    /* 
-    ** Setup ILBMFrame structure. 
+    /*
+    ** Setup ILBMFrame structure.
     */
     if (screen_id == -1L || (screen_id >= 1 && screen_id <= 9))
     {
     	picframe = (ILBMFrame *)alloc(CLEARED_ANY_MEM,sizeof(ILBMFrame));
-    	if (picframe == NULL) 
-        { 
+    	if (picframe == NULL)
+        {
 		error_code = READ_ERR;
 		if (ILBMBase) CloseLibrary(ILBMBase);
 		return;

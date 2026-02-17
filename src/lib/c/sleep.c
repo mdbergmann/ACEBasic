@@ -30,14 +30,17 @@ extern long SPFix();
 extern long SPMul();
 extern long SPFlt();
 
+static long ffp50 = 0;
+
 void	sleep_for_secs(seconds)
 long	seconds;    /* FFP format as raw 32-bit */
 {
 LONG	ticks;
 
-	ticks = SPFix(SPMul(seconds, SPFlt(50)));
+	if (!ffp50) ffp50 = SPFlt(50);
+	ticks = SPFix(SPMul(seconds, ffp50));
 
-	if (ticks <= 0) 
+	if (ticks <= 0)
 		return;
 	else
 		Delay(ticks);

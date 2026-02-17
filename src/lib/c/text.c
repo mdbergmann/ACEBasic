@@ -99,7 +99,7 @@ struct 	TextFont *FontPtr;
 	{
 		/* append ".font" to name if not present */
 		font = (char *)alloc(CLEARED_ANY_MEM,stringlength(name)+6);
-					
+
 		stringcopy(font,name);
 		tmp = font;
 		while (*tmp && *tmp != '.') tmp++;
@@ -113,10 +113,10 @@ struct 	TextFont *FontPtr;
 		myFont.ta_Flags	= 0;
 
 		/* attempt to open font */
-		FontPtr = (struct TextFont *)OpenDiskFont(&myFont);	
+		FontPtr = (struct TextFont *)OpenDiskFont(&myFont);
 
 		/* set new font and close old one */
-		if (FontPtr) 
+		if (FontPtr)
 		{
 			CloseFont(RPort->Font);
 			SetFont(RPort,FontPtr);
@@ -124,5 +124,5 @@ struct 	TextFont *FontPtr;
 
 		/* cleanup */
 		CloseLibrary(DiskfontBase);
-	} 
+	}
 }

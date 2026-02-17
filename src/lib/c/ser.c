@@ -84,9 +84,8 @@ typedef struct serialsym {
 			  ULONG	 bufsize;		/* bufsize */	
 			 } SERIAL;
 
-/* globals */
-SERIAL 	serial[MAXCHANNELS];
-BOOL 	first_time=TRUE;
+/* globals -- array of pointers, allocated on demand */
+SERIAL 	*serial[MAXCHANNELS];
 
 /* functions */
 
@@ -144,113 +143,107 @@ ULONG unit;
 ULONG channel;
 {
 ULONG error;
-ULONG i,length;	
+ULONG i,length;
 BYTE  *b,*c;
 char  msgportname[40];
 UBYTE  parity,data,stop,wires,Xon,shared,fast;
 
         /* open a serial port channel */
 
-	if (first_time)
-	{
-		/* clear all channels first */
-		first_time = FALSE;
-		for (i=0;i<MAXCHANNELS;i++) 
-		{
-		    serial[i].SerRdReq = NULL;
-		    serial[i].SerWtReq = NULL;
-		    serial[i].SerRPort = NULL;
-		    serial[i].SerWPort = NULL;
-		    serial[i].device_name  = NULL;
-		}
-	}
-
 	if (channel < 1 || channel > 255)
 	   { error_code = BAD_CHANNEL; return; }
 
 	channel--;
 
+	/* allocate channel struct on demand */
+	if (serial[channel] == NULL)
+	{
+		serial[channel] = (SERIAL *)
+			AllocMem(sizeof(SERIAL),MEMF_ANY|MEMF_CLEAR);
+		if (serial[channel] == NULL)
+		   { error_code = OPEN_ERR; return; }
+	}
+
 	GetParameters(params,&parity,&data,&stop,&wires,&Xon,&shared,&fast);
 
-	if (baud == '?' || data == '?' || stop == '?') 
+	if (baud == '?' || data == '?' || stop == '?')
 	   { error_code = OPEN_ERR; return; }
 
 	/* store information -> rest is stored later */
-	serial[channel].baud = baud;
-	serial[channel].data = data;
-	serial[channel].stop = stop;
-	serial[channel].bufsize = rbuf_len;
+	serial[channel]->baud = baud;
+	serial[channel]->data = data;
+	serial[channel]->stop = stop;
+	serial[channel]->bufsize = rbuf_len;
 
 	/* create a reply port to which serial device can return request */
 	stringcopy(msgportname,"serial_read_port");
 	length = stringlength(msgportname);
-	msgportname[length] = (char)channel + '0';	
+	msgportname[length] = (char)channel + '0';
 	msgportname[length+1] = '\0';
-	serial[channel].SerRPort = (struct MsgPort *)CreatePort(msgportname,0);
-	if (serial[channel].SerRPort == NULL) 
+	serial[channel]->SerRPort = (struct MsgPort *)CreatePort(msgportname,0);
+	if (serial[channel]->SerRPort == NULL)
 	{
 		error_code = OPEN_ERR;
-		return;		
-
+		return;
 	}
 
-	/* create a serial read request block */	
-	serial[channel].SerRdReq = (struct IOExtSer *)
-		CreateExtIO(serial[channel].SerRPort,sizeof(struct IOExtSer));
+	/* create a serial read request block */
+	serial[channel]->SerRdReq = (struct IOExtSer *)
+		CreateExtIO(serial[channel]->SerRPort,sizeof(struct IOExtSer));
 
-	if (serial[channel].SerRdReq == NULL)
+	if (serial[channel]->SerRdReq == NULL)
 	{
-		DeletePort(serial[channel].SerRPort);
+		DeletePort(serial[channel]->SerRPort);
 		error_code = OPEN_ERR;
 		return;
 	}
 
 	/* use 3 or 7 wires? */
- 	if (wires == '3')
+	if (wires == '3')
 	{
 		/* three wires */
-		serial[channel].SerRdReq->io_SerFlags = 0;		
-		serial[channel].wires = 3;
-	}	
+		serial[channel]->SerRdReq->io_SerFlags = 0;
+		serial[channel]->wires = 3;
+	}
 	else
 	{
-		/* seven wires */ 
-		serial[channel].SerRdReq->io_SerFlags = SERF_7WIRE;
-		serial[channel].wires = 7;
+		/* seven wires */
+		serial[channel]->SerRdReq->io_SerFlags = SERF_7WIRE;
+		serial[channel]->wires = 7;
 	}
-		
+
 	/* shared access to serial port */
 	if (shared == 'S')
 	{
 		/* shared access */
-		serial[channel].SerRdReq->io_SerFlags |= SERF_SHARED;
-		serial[channel].shared = 1;
+		serial[channel]->SerRdReq->io_SerFlags |= SERF_SHARED;
+		serial[channel]->shared = 1;
 	}
 	else
 		/* exclusive access */
-		serial[channel].shared = 0;	
+		serial[channel]->shared = 0;
 
 	/* open serial device */
 
 	/* store serial device name */
 	if (devname == NULL) devname = DEFDEVNAME;
-	
-	serial[channel].device_name = 
+
+	serial[channel]->device_name =
 		(char *)AllocMem(stringlength(devname)+1,MEMF_ANY);
 
-	stringcopy(serial[channel].device_name,devname);
+	stringcopy(serial[channel]->device_name,devname);
 
 	/* store unit number */
-	serial[channel].unit = unit;
+	serial[channel]->unit = unit;
 
 	/* open device */
-	error = (ULONG)OpenDevice(serial[channel].device_name,unit,
-			          serial[channel].SerRdReq,0L);
+	error = (ULONG)OpenDevice(serial[channel]->device_name,unit,
+			          serial[channel]->SerRdReq,0L);
 
 	if (error != 0)
 	{
-		DeleteExtIO(serial[channel].SerRdReq,sizeof(struct IOExtSer));
-		DeletePort(serial[channel].SerRPort);
+		DeleteExtIO(serial[channel]->SerRdReq,sizeof(struct IOExtSer));
+		DeletePort(serial[channel]->SerRPort);
 		error_code = OPEN_ERR;
 		return;
 	}
@@ -258,42 +251,42 @@ UBYTE  parity,data,stop,wires,Xon,shared,fast;
 	/* clone a serial write request block */
 	stringcopy(msgportname,"serial_write_port");
 	length = stringlength(msgportname);
-	msgportname[length] = (char)channel + '0';	
+	msgportname[length] = (char)channel + '0';
 	msgportname[length+1] = '\0';
-	serial[channel].SerWPort = (struct MsgPort *)CreatePort(msgportname,0);
+	serial[channel]->SerWPort = (struct MsgPort *)CreatePort(msgportname,0);
 
-	serial[channel].SerWtReq = (struct IOExtSer *)
-		CreateExtIO(serial[channel].SerWPort,sizeof(struct IOExtSer));
+	serial[channel]->SerWtReq = (struct IOExtSer *)
+		CreateExtIO(serial[channel]->SerWPort,sizeof(struct IOExtSer));
 
-	b = (BYTE *)serial[channel].SerRdReq;
-	c = (BYTE *)serial[channel].SerWtReq;
+	b = (BYTE *)serial[channel]->SerRdReq;
+	c = (BYTE *)serial[channel]->SerWtReq;
 
 	for (i=0;i<sizeof(struct IOExtSer);i++) *c++ = *b++;
 
-	serial[channel].SerWtReq->IOSer.io_Message.mn_ReplyPort = 
-                                  serial[channel].SerWPort;
+	serial[channel]->SerWtReq->IOSer.io_Message.mn_ReplyPort =
+                                  serial[channel]->SerWPort;
 
 	/* disable Xon/Xoff feature? */
 	if (Xon != 'X')
 	{
 		/* disable Xon/off feature */
-	   	serial[channel].SerRdReq->io_SerFlags |= SERF_XDISABLED;
-		serial[channel].Xon = 0;
+		serial[channel]->SerRdReq->io_SerFlags |= SERF_XDISABLED;
+		serial[channel]->Xon = 0;
 	}
 	else
 		/* enable Xon/off feature */
-		serial[channel].Xon = 1;
+		serial[channel]->Xon = 1;
 
 	/* enable fast mode? */
 	if (fast == 'F')
 	{
 		/* enable fast (RAD_BOOGIE) mode */
-		serial[channel].SerRdReq->io_SerFlags |= SERF_RAD_BOOGIE;
-		serial[channel].fast = 1;
+		serial[channel]->SerRdReq->io_SerFlags |= SERF_RAD_BOOGIE;
+		serial[channel]->fast = 1;
 	}
 	else
 		/* don't enable fast mode */
-		serial[channel].fast = 0;
+		serial[channel]->fast = 0;
 
 	SetParameters(rbuf_len,baud,parity,data,stop,channel);
 }
@@ -308,42 +301,32 @@ ULONG channel;
 
 	channel--;
 
-	if (serial[channel].SerRdReq != NULL && 
-	    serial[channel].SerWtReq != NULL &&
-	    serial[channel].SerRPort != NULL &&
-	    serial[channel].SerWPort != NULL)
+	if (serial[channel] == NULL)
+	   { error_code = CLOSE_ERR; return; }
+
+	if (serial[channel]->SerRdReq != NULL &&
+	    serial[channel]->SerWtReq != NULL &&
+	    serial[channel]->SerRPort != NULL &&
+	    serial[channel]->SerWPort != NULL)
         {
-		CloseDevice(serial[channel].SerRdReq);
+		CloseDevice(serial[channel]->SerRdReq);
 
-		DeleteExtIO(serial[channel].SerRdReq);
-		DeleteExtIO(serial[channel].SerWtReq);
+		DeleteExtIO(serial[channel]->SerRdReq);
+		DeleteExtIO(serial[channel]->SerWtReq);
 
-		DeletePort(serial[channel].SerRPort);
-		DeletePort(serial[channel].SerWPort);
+		DeletePort(serial[channel]->SerRPort);
+		DeletePort(serial[channel]->SerWPort);
 	}
-	else 
-	  	{ error_code = CLOSE_ERR; return; }
+	else
+		{ error_code = CLOSE_ERR; return; }
 
-	if (serial[channel].device_name)
-  	   FreeMem(serial[channel].device_name,
-		   stringlength(serial[channel].device_name)+1);
+	if (serial[channel]->device_name)
+	   FreeMem(serial[channel]->device_name,
+		   stringlength(serial[channel]->device_name)+1);
 
-	/* clear this channel's stored information */
-	serial[channel].SerRdReq = NULL;
-	serial[channel].SerWtReq = NULL;
-	serial[channel].SerRPort = NULL;
-	serial[channel].SerWPort = NULL;
-  	serial[channel].device_name = NULL;
-  	serial[channel].unit=0;
-	serial[channel].baud=0;	
-	serial[channel].parity='?';
-	serial[channel].data=0;
-	serial[channel].stop=0;
-	serial[channel].wires=0;
-	serial[channel].Xon=0;
-	serial[channel].shared=0;	
-	serial[channel].fast=0;
-	serial[channel].bufsize=0;
+	/* free this channel's struct */
+	FreeMem(serial[channel],sizeof(SERIAL));
+	serial[channel] = NULL;
 }
 
 void SetParameters(rbuf_len,baud,parity,data,stop,channel)
@@ -357,63 +340,63 @@ ULONG extflags;
 
 	/* set serial port parameters */
 
-	flags = serial[channel].SerRdReq->io_SerFlags;
+	flags = serial[channel]->SerRdReq->io_SerFlags;
 	extflags = 0;
 
 	switch(parity)
 	{
 		/* NO parity */
 	  case	'N' :
-	  case	'n' : 	flags |= 0;
-			serial[channel].parity = 'N';
+	  case	'n' :	flags |= 0;
+			serial[channel]->parity = 'N';
 			break;
 
 		/* EVEN parity */
 	  case	'E' :
-	  case	'e' : 	flags |= SERF_PARTY_ON;	
-			flags &= ~SERF_PARTY_ODD;	
-			serial[channel].parity = 'E';
+	  case	'e' :	flags |= SERF_PARTY_ON;
+			flags &= ~SERF_PARTY_ODD;
+			serial[channel]->parity = 'E';
 			break;
 
 		/* ODD parity */
 	  case	'O' :
 	  case	'o' :	flags |= (SERF_PARTY_ON | SERF_PARTY_ODD);
-			serial[channel].parity = 'O';
+			serial[channel]->parity = 'O';
 			break;
 
 		/* MARK parity */
 	  case	'M' :
 	  case	'm' :	flags |= SERF_PARTY_ON;
 			extflags = SEXTF_MSPON | SEXTF_MARK;
-			serial[channel].parity = 'M';
+			serial[channel]->parity = 'M';
 			break;
 
 		/* SPACE parity */
 	  case	'S' :
 	  case	's' :	flags |= SERF_PARTY_ON;
 			extflags = SEXTF_MSPON;
-			serial[channel].parity = 'S';
+			serial[channel]->parity = 'S';
 			break;
 
 		/* default is NO parity */
 	  default:	flags |= 0;
-			serial[channel].parity = 'N';
+			serial[channel]->parity = 'N';
 			break;
 	}
 
-	if (serial[channel].SerWtReq)
+	if (serial[channel]->SerWtReq)
 	{
-	 serial[channel].SerWtReq->io_ReadLen	= data;
-	 serial[channel].SerWtReq->io_BrkTime	= BRK_TIME;
-	 serial[channel].SerWtReq->io_Baud	= baud;
-	 serial[channel].SerWtReq->io_WriteLen	= data;
-	 serial[channel].SerWtReq->io_StopBits	= stop;
-	 serial[channel].SerWtReq->io_RBufLen	= rbuf_len;
-	 serial[channel].SerWtReq->io_ExtFlags	= extflags;
-	 serial[channel].SerWtReq->io_SerFlags	= flags;
-	 serial[channel].SerWtReq->IOSer.io_Command = SDCMD_SETPARAMS;
+	 serial[channel]->SerWtReq->io_ReadLen	= data;
+	 serial[channel]->SerWtReq->io_BrkTime	= BRK_TIME;
+	 serial[channel]->SerWtReq->io_Baud	= baud;
+	 serial[channel]->SerWtReq->io_WriteLen	= data;
+	 serial[channel]->SerWtReq->io_StopBits	= stop;
+	 serial[channel]->SerWtReq->io_RBufLen	= rbuf_len;
+	 serial[channel]->SerWtReq->io_ExtFlags	= extflags;
+	 serial[channel]->SerWtReq->io_SerFlags	= flags;
+	 serial[channel]->SerWtReq->IOSer.io_Command = SDCMD_SETPARAMS;
 
-	 if (DoIO(serial[channel].SerWtReq)) 
+	 if (DoIO(serial[channel]->SerWtReq))
 		error_code = OPEN_ERR;
 	}
 	else
@@ -424,38 +407,38 @@ ULONG BytesIncoming(channel)
 ULONG channel;
 {
 	/* return number of bytes in serial port buffer */
-	
-	if (serial[channel].SerRdReq)
-	{
-	 	serial[channel].SerRdReq->IOSer.io_Command = SDCMD_QUERY;
 
-	 	if (DoIO(serial[channel].SerRdReq))
+	if (serial[channel] && serial[channel]->SerRdReq)
+	{
+		serial[channel]->SerRdReq->IOSer.io_Command = SDCMD_QUERY;
+
+		if (DoIO(serial[channel]->SerRdReq))
 			error_code = READ_ERR;
 	}
 	else
 	    { error_code = BAD_CHANNEL; return(0); }
 
 	/* # of bytes incoming */
-	return(serial[channel].SerRdReq->IOSer.io_Actual);  
+	return(serial[channel]->SerRdReq->IOSer.io_Actual);
 }
 
 ULONG SerialStatus(channel)
 ULONG channel;
 {
 	/* return serial port status bits */
-	
-	if (serial[channel].SerRdReq)
-	{
-	 	serial[channel].SerRdReq->IOSer.io_Command = SDCMD_QUERY;
 
-	 	if (DoIO(serial[channel].SerRdReq))
+	if (serial[channel] && serial[channel]->SerRdReq)
+	{
+		serial[channel]->SerRdReq->IOSer.io_Command = SDCMD_QUERY;
+
+		if (DoIO(serial[channel]->SerRdReq))
 			error_code = READ_ERR;
 	}
 	else
 	    { error_code = BAD_CHANNEL; return(0); }
 
 	/* status of lines and registers */
-	return((ULONG)serial[channel].SerRdReq->io_Status);
+	return((ULONG)serial[channel]->SerRdReq->io_Status);
 }
 
 void ReadSerial(len,buf,channel)
@@ -470,18 +453,18 @@ ULONG channel;
 
 	channel--;
 
-	if (serial[channel].SerRdReq)
+	if (serial[channel] && serial[channel]->SerRdReq)
 	{
-	  serial[channel].SerRdReq->IOSer.io_Data	= (APTR)buf;
-	  serial[channel].SerRdReq->IOSer.io_Length	= len;
-	  serial[channel].SerRdReq->IOSer.io_Command	= CMD_READ;
+	  serial[channel]->SerRdReq->IOSer.io_Data	= (APTR)buf;
+	  serial[channel]->SerRdReq->IOSer.io_Length	= len;
+	  serial[channel]->SerRdReq->IOSer.io_Command	= CMD_READ;
 
-	  if (DoIO(serial[channel].SerRdReq))
+	  if (DoIO(serial[channel]->SerRdReq))
 		error_code = READ_ERR;
 	}
 	else
 	    { error_code = BAD_CHANNEL; buf[0] = '\0'; return; }
- 
+
 	buf[len] = '\0';	/* NULL terminated C/ACE string */
 }
 
@@ -497,13 +480,13 @@ ULONG channel;
 
 	channel--;
 
-	if (serial[channel].SerWtReq)
+	if (serial[channel] && serial[channel]->SerWtReq)
 	{
-	  serial[channel].SerWtReq->IOSer.io_Data	= (APTR)buf;
-	  serial[channel].SerWtReq->IOSer.io_Length	= len;
-	  serial[channel].SerWtReq->IOSer.io_Command	= CMD_WRITE;
+	  serial[channel]->SerWtReq->IOSer.io_Data	= (APTR)buf;
+	  serial[channel]->SerWtReq->IOSer.io_Length	= len;
+	  serial[channel]->SerWtReq->IOSer.io_Command	= CMD_WRITE;
 
-	  if (DoIO(serial[channel].SerWtReq))
+	  if (DoIO(serial[channel]->SerWtReq))
 		error_code = WRITE_ERR;
 	}
 	else
@@ -515,62 +498,65 @@ ULONG n;
 ULONG channel;
 {
 /* serial port function: returns status information about
-   a serial port channel. 
+   a serial port channel.
 */
 
  if (channel < 1 || channel > 255)
     { error_code = BAD_CHANNEL; return(0L); }
 
  channel--;
- 
+
+ if (serial[channel] == NULL)
+    { error_code = BAD_CHANNEL; return(0L); }
+
  switch(n)
  {
 	/* # of pending characters */
-  	case 0 : 	return(BytesIncoming(channel));
+	case 0 :	return(BytesIncoming(channel));
 			break;
 
 	/* device unit # being used */
-	case 1 :	return(serial[channel].unit);
+	case 1 :	return(serial[channel]->unit);
 			break;
 
 	/* baud rate being used */
-	case 2 :	return(serial[channel].baud);
+	case 2 :	return(serial[channel]->baud);
 			break;
 
 	/* parity being used */
-	case 3 :	return(serial[channel].parity);
+	case 3 :	return(serial[channel]->parity);
 			break;
 
 	/* data bits being used */
-	case 4 :	return(serial[channel].data);
+	case 4 :	return(serial[channel]->data);
 			break;
 
 	/* stop bits being used */
-	case 5 :	return(serial[channel].stop);
+	case 5 :	return(serial[channel]->stop);
 			break;
 
 	/* number of wires being used */
-	case 6 :	return(serial[channel].wires);
+	case 6 :	return(serial[channel]->wires);
 			break;
 
 	/* Xon/Xoff ON or OFF? */
-	case 7 :	return(serial[channel].Xon);
+	case 7 :	return(serial[channel]->Xon);
 			break;
 
 	/* shared access to serial device? */
-	case 8 :	return(serial[channel].shared);
+	case 8 :	return(serial[channel]->shared);
 			break;
 
 	/* fast mode? */
-	case 9 :	return(serial[channel].fast);
+	case 9 :	return(serial[channel]->fast);
 			break;
 
 	/* buffer size being used */
-	case 10 :	return(serial[channel].bufsize);
+	case 10 :	return(serial[channel]->bufsize);
 			break;
 
 	/* address of serial device name */
-	case 11 :	return((ULONG)serial[channel].device_name);
+	case 11 :	return((ULONG)serial[channel]->device_name);
 			break;
 
 	/* serial port line and register status */

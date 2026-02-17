@@ -48,6 +48,7 @@ extern long cmdlen;
 /* final command line argument data */
 char   *argbuf=NULL;
 static long nargs=0L;
+static char *argptrs[32];
 
 void parse_cli_args()
 {
@@ -92,17 +93,20 @@ long nchars;
   /* increment argument counter */
   ++nargs;
 
+  /* record pointer to start of this argument */
+  if (nargs <= 32) argptrs[nargs-1] = dest;
+
   /* get quoted argument? */
   if (*src == QUOTE)
   {
    ++src; --nchars; /* skip first quote */
    while (*src != QUOTE && nchars > 0) { *dest++ = *src++; --nchars; }
-   *dest++ = '\0'; 
+   *dest++ = '\0';
    if (*src == QUOTE) { ++src; --nchars; } /* skip second quote */
   }
   else
   {
-   /* get unquoted argument */  
+   /* get unquoted argument */
    while (*src > ' ' && nchars > 0)  { *dest++ = *src++; --nchars; }
    *dest++ = '\0';
   }
@@ -113,7 +117,7 @@ char *arg(buf,n)
 char *buf;
 long n;
 {
-long   count,length,i;
+long   length,i;
 char   *src,*dest;
 struct CommandLineInterface *cli;
 
@@ -139,18 +143,10 @@ struct CommandLineInterface *cli;
     buf[0] = '\0';
  else
  {
-  /* get Nth argument */
-  count=1;
-  src=argbuf;
-  while (count != n) 
-  {
-   while (*src++ != '\0');
-   ++count;
-  } 
-
-  /* copy argument into buffer */
-  dest=buf;
-  while (*dest++ = *src++); 
+  /* get Nth argument via O(1) pointer lookup */
+  src = argptrs[n-1];
+  dest = buf;
+  while (*dest++ = *src++);
  }
 
  return(buf);

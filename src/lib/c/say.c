@@ -80,31 +80,33 @@ void nullify_struct_ptrs()
  RPort=NULL;
 }
 
+/* Audio channel mask lookup table: masks[4] + count for cases 0-11. */
+static struct { UBYTE masks[4]; UWORD count; } chanTable[12] = {
+	{ {1,  0, 0, 0},  1 },		/* 0 */
+	{ {2,  0, 0, 0},  1 },		/* 1 */
+	{ {4,  0, 0, 0},  1 },		/* 2 */
+	{ {8,  0, 0, 0},  1 },		/* 3 */
+	{ {3,  0, 0, 0},  1 },		/* 4 */
+	{ {5,  0, 0, 0},  1 },		/* 5 */
+	{ {10, 0, 0, 0},  1 },		/* 6 */
+	{ {12, 0, 0, 0},  1 },		/* 7 */
+	{ {2,  4, 0, 0},  2 },		/* 8 */
+	{ {1,  8, 0, 0},  2 },		/* 9 */
+	{ {3,  5, 10, 12}, 4 },	/* 10 = default */
+	{ {1,  2, 4, 8},  4 }		/* 11 */
+};
+
 UWORD aud_chan_masks(n)
 LONG n;
 {
  /* set the audio channel masks and return the number of masks
     (default is same as for n=10). */
+ UWORD count, i;
 
- switch(n)
- {
-  case 0  : audChanMasks[0]=1;  return(1); break;
-  case 1  : audChanMasks[0]=2;  return(1); break;
-  case 2  : audChanMasks[0]=4;  return(1); break;
-  case 3  : audChanMasks[0]=8;  return(1); break;
-  case 4  : audChanMasks[0]=3;  return(1); break;
-  case 5  : audChanMasks[0]=5;  return(1); break;
-  case 6  : audChanMasks[0]=10; return(1); break;
-  case 7  : audChanMasks[0]=12; return(1); break;
-  case 8  : audChanMasks[0]=2;  audChanMasks[1]=4;  return(2); break;
-  case 9  : audChanMasks[0]=1;  audChanMasks[1]=8;  return(2); break;
-  case 10 : audChanMasks[0]=3;  audChanMasks[1]=5;
-	    audChanMasks[2]=10; audChanMasks[3]=12; return(4); break;  
-  case 11 : audChanMasks[0]=1;  audChanMasks[1]=2;
-	    audChanMasks[2]=4;  audChanMasks[3]=8;  return(4); break;
-  default : audChanMasks[0]=3;  audChanMasks[1]=5;
-	    audChanMasks[2]=10; audChanMasks[3]=12; return(4); break;
- }
+ if (n < 0 || n > 11) n = 10;	/* default */
+ count = chanTable[n].count;
+ for (i = 0; i < count; i++) audChanMasks[i] = chanTable[n].masks[i];
+ return count;
 }
 
 int setup_write_req(speech,voice)

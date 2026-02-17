@@ -57,7 +57,7 @@ typedef	union  gadinfo_type {
 		       } GADINFO;
 
 typedef struct gadget_type {
-			BOOL	used/*,selected*/;
+			BOOL	used;
 			ULONG	type,style;
 			ULONG	maxval;
 			SHORT 	gadpairs[10];
@@ -69,9 +69,8 @@ typedef struct gadget_type {
 			GADINFO gadinfo;	
 		    } GAD;
 
-/* globals */
-static	BOOL	first_creation=TRUE;
-static	GAD 	gadlist[MAXGADGET+1];
+/* globals -- array of pointers, allocated on demand */
+static	GAD 	*gadlist[MAXGADGET+1];
 static	ULONG	gadnum=0;
 
 /* external variables */
@@ -115,7 +114,7 @@ struct TextFont *oldFont,*newFont;
 	{
 		/* append ".font" to name if not present */
 		font = (UBYTE *)alloc(CLEARED_ANY_MEM,stringlength(fontName)+6);
-					
+
 		stringcopy(font,fontName);
 		tmp = font;
 		while (*tmp && *tmp != '.') tmp++;
@@ -128,15 +127,15 @@ struct TextFont *oldFont,*newFont;
 		theFont.ta_Flags	= FPF_DISKFONT;
 
 		/* attempt to open font */
-		newFont = (struct TextFont *)OpenDiskFont(&theFont);	
+		newFont = (struct TextFont *)OpenDiskFont(&theFont);
 
-		/* 
-		** Set new font, set length and height parameters, 
+		/*
+		** Set new font, set length and height parameters,
 		** set old font again, close font under test. Style
 		** may also need to be restored if newFont's differs
 		** from oldFont's.
 		*/
-		if (newFont) 
+		if (newFont)
 		{
 			oldFont = RPort->Font;
 			oldStyle = RPort->AlgoStyle;
@@ -193,7 +192,7 @@ UBYTE *realName;
 		theFont.ta_Style = (UBYTE)textstyle;
 		theFont.ta_Flags = FPF_DISKFONT;
 
-		gadlist[id].gadtext.ITextFont = &theFont;
+		gadlist[id]->gadtext.ITextFont = &theFont;
 	
 		text_left = gad_center_X - text_length/2; 
 		text_top  = gad_center_Y - font_height/2;
@@ -203,97 +202,97 @@ UBYTE *realName;
 		/*
 		** Font not specified or invalid.
 		*/
-		gadlist[id].gadtext.ITextFont = NULL;
+		gadlist[id]->gadtext.ITextFont = NULL;
 
 		text_left = gad_center_X - (FontWidth*stringlength((UBYTE *)gadval))/2; 
 		text_top  = gad_center_Y - FontHeight/2;
 	}
 
 	/* border point pairs */
-	gadlist[id].gadpairs[0] = 0;
-	gadlist[id].gadpairs[1] = 0;
-	gadlist[id].gadpairs[2] = width;
-	gadlist[id].gadpairs[3] = 0;
-	gadlist[id].gadpairs[4] = width;
-	gadlist[id].gadpairs[5] = height;
-	gadlist[id].gadpairs[6] = 0;
-	gadlist[id].gadpairs[7] = height;
-	gadlist[id].gadpairs[8] = 0;
-	gadlist[id].gadpairs[9] = 0;
+	gadlist[id]->gadpairs[0] = 0;
+	gadlist[id]->gadpairs[1] = 0;
+	gadlist[id]->gadpairs[2] = width;
+	gadlist[id]->gadpairs[3] = 0;
+	gadlist[id]->gadpairs[4] = width;
+	gadlist[id]->gadpairs[5] = height;
+	gadlist[id]->gadpairs[6] = 0;
+	gadlist[id]->gadpairs[7] = height;
+	gadlist[id]->gadpairs[8] = 0;
+	gadlist[id]->gadpairs[9] = 0;
 
 	/* fill border structure */
-	gadlist[id].gadborder.LeftEdge 	= 0;
-	gadlist[id].gadborder.TopEdge 	= 0;
-	gadlist[id].gadborder.FrontPen 	= 1;
-	gadlist[id].gadborder.BackPen 	= 0;
-	gadlist[id].gadborder.DrawMode	= JAM2;
-	gadlist[id].gadborder.Count	= 5;
-	gadlist[id].gadborder.XY	= gadlist[id].gadpairs;
-	gadlist[id].gadborder.NextBorder= NULL;
+	gadlist[id]->gadborder.LeftEdge 	= 0;
+	gadlist[id]->gadborder.TopEdge 	= 0;
+	gadlist[id]->gadborder.FrontPen 	= 1;
+	gadlist[id]->gadborder.BackPen 	= 0;
+	gadlist[id]->gadborder.DrawMode	= JAM2;
+	gadlist[id]->gadborder.Count	= 5;
+	gadlist[id]->gadborder.XY	= gadlist[id]->gadpairs;
+	gadlist[id]->gadborder.NextBorder= NULL;
 
 	/* fill intuitext structure */
-	gadlist[id].gadtext.FrontPen	= 1;
-	gadlist[id].gadtext.BackPen	= 0;
-	gadlist[id].gadtext.DrawMode	= JAM2;
-	gadlist[id].gadtext.LeftEdge	= text_left;
-	gadlist[id].gadtext.TopEdge	= text_top;
+	gadlist[id]->gadtext.FrontPen	= 1;
+	gadlist[id]->gadtext.BackPen	= 0;
+	gadlist[id]->gadtext.DrawMode	= JAM2;
+	gadlist[id]->gadtext.LeftEdge	= text_left;
+	gadlist[id]->gadtext.TopEdge	= text_top;
 
-	gadlist[id].gadtext.IText = (UBYTE *)
+	gadlist[id]->gadtext.IText = (UBYTE *)
 				     alloc(CLEARED_ANY_MEM,
 					   stringlength((UBYTE *)gadval)+1);
-	stringcopy(gadlist[id].gadtext.IText,(UBYTE *)gadval);
-	gadlist[id].gadtext.NextText	= NULL;
+	stringcopy(gadlist[id]->gadtext.IText,(UBYTE *)gadval);
+	gadlist[id]->gadtext.NextText	= NULL;
 
 	/* fill gadget structure */
-	gadlist[id].gad.NextGadget	= NULL;
-	gadlist[id].gad.LeftEdge	= (SHORT)left;
-	gadlist[id].gad.TopEdge		= (SHORT)top;
-	gadlist[id].gad.Width		= width;
-	gadlist[id].gad.Height		= height;
-	gadlist[id].gad.Activation	= RELVERIFY;
-	gadlist[id].gad.GadgetType	= BOOLGADGET;
-	gadlist[id].gad.GadgetRender	= (APTR)&gadlist[id].gadborder;
-	gadlist[id].gad.SelectRender	= NULL;
-	gadlist[id].gad.GadgetText	= &gadlist[id].gadtext;
-	gadlist[id].gad.MutualExclude	= NULL;
-	gadlist[id].gad.SpecialInfo	= NULL;
-	gadlist[id].gad.GadgetID	= (USHORT)id;
-	gadlist[id].gad.UserData	= NULL;
+	gadlist[id]->gad.NextGadget	= NULL;
+	gadlist[id]->gad.LeftEdge	= (SHORT)left;
+	gadlist[id]->gad.TopEdge		= (SHORT)top;
+	gadlist[id]->gad.Width		= width;
+	gadlist[id]->gad.Height		= height;
+	gadlist[id]->gad.Activation	= RELVERIFY;
+	gadlist[id]->gad.GadgetType	= BOOLGADGET;
+	gadlist[id]->gad.GadgetRender	= (APTR)&gadlist[id]->gadborder;
+	gadlist[id]->gad.SelectRender	= NULL;
+	gadlist[id]->gad.GadgetText	= &gadlist[id]->gadtext;
+	gadlist[id]->gad.MutualExclude	= NULL;
+	gadlist[id]->gad.SpecialInfo	= NULL;
+	gadlist[id]->gad.GadgetID	= (USHORT)id;
+	gadlist[id]->gad.UserData	= NULL;
 
 	/* 
 	** Set selection style (1=bgnd color fill, 2=bgnd color box,
 	** 3=bgnd color fill+borderless+no text).
 	*/
 
-	gadlist[id].gad.Flags = NULL;  /* Clear flags from last usage. */
+	gadlist[id]->gad.Flags = NULL;  /* Clear flags from last usage. */
 
 	switch(gadstyle)
 	{
-	 case 1  : gadlist[id].gad.Flags = GADGHCOMP; 
+	 case 1  : gadlist[id]->gad.Flags = GADGHCOMP; 
 		   break;
 
-	 case 2  : gadlist[id].gad.Flags = GADGHBOX; 
+	 case 2  : gadlist[id]->gad.Flags = GADGHBOX; 
 		   break;
 
-	 case 3  : gadlist[id].gad.Flags = GADGHCOMP;  /* same as 1, but no BB */
+	 case 3  : gadlist[id]->gad.Flags = GADGHCOMP;  /* same as 1, but no BB */
 		   break;
 	}
 
 	/* disable gadget? */
-	if (status == 0) gadlist[id].gad.Flags |= GADGDISABLED;
+	if (status == 0) gadlist[id]->gad.Flags |= GADGDISABLED;
 
 	/* don't render a border - let bevelbox do that. */
-	gadlist[id].gad.GadgetRender = NULL;
+	gadlist[id]->gad.GadgetRender = NULL;
 
 	/* render the gadget! */
-	AddGadget(Wdw,&gadlist[id].gad,(UWORD)id);
-	RefreshGList(&gadlist[id].gad,Wdw,NULL,1);
+	AddGadget(Wdw,&gadlist[id]->gad,(UWORD)id);
+	RefreshGList(&gadlist[id]->gad,Wdw,NULL,1);
 	
 	/* make gadget beveled if not borderless */
-	gadlist[id].bb_x1 = left;
-	gadlist[id].bb_y1 = top;
-	gadlist[id].bb_x2 = right-1;
-	gadlist[id].bb_y2 = bottom-1;
+	gadlist[id]->bb_x1 = left;
+	gadlist[id]->bb_y1 = top;
+	gadlist[id]->bb_x2 = right-1;
+	gadlist[id]->bb_y2 = bottom-1;
 	if (gadstyle != 3) BevelBox(RAISED,bottom-1,right-1,top,left);
 }
 
@@ -308,96 +307,96 @@ SHORT width,height;
 	height 	= bottom-top;
 
 	/* how many characters can be accommodated by gadget? */
-	gadlist[id].maxval = MAXCHARS;
+	gadlist[id]->maxval = MAXCHARS;
 
 	/* border point pairs */
-	gadlist[id].gadpairs[0] = 0;
-	gadlist[id].gadpairs[1] = 0;
-	gadlist[id].gadpairs[2] = width;
-	gadlist[id].gadpairs[3] = 0;
-	gadlist[id].gadpairs[4] = width;
-	gadlist[id].gadpairs[5] = height;
-	gadlist[id].gadpairs[6] = 0;
-	gadlist[id].gadpairs[7] = height;
-	gadlist[id].gadpairs[8] = 0;
-	gadlist[id].gadpairs[9] = 0;
+	gadlist[id]->gadpairs[0] = 0;
+	gadlist[id]->gadpairs[1] = 0;
+	gadlist[id]->gadpairs[2] = width;
+	gadlist[id]->gadpairs[3] = 0;
+	gadlist[id]->gadpairs[4] = width;
+	gadlist[id]->gadpairs[5] = height;
+	gadlist[id]->gadpairs[6] = 0;
+	gadlist[id]->gadpairs[7] = height;
+	gadlist[id]->gadpairs[8] = 0;
+	gadlist[id]->gadpairs[9] = 0;
 
 	/* fill border structure */
-	gadlist[id].gadborder.LeftEdge 	= -6;
-	gadlist[id].gadborder.TopEdge 	= -3;
-	gadlist[id].gadborder.FrontPen 	= 1;
-	gadlist[id].gadborder.BackPen 	= 0;
-	gadlist[id].gadborder.DrawMode	= JAM2;
-	gadlist[id].gadborder.Count	= 5;
-	gadlist[id].gadborder.XY	= gadlist[id].gadpairs;
-	gadlist[id].gadborder.NextBorder= NULL;
+	gadlist[id]->gadborder.LeftEdge 	= -6;
+	gadlist[id]->gadborder.TopEdge 	= -3;
+	gadlist[id]->gadborder.FrontPen 	= 1;
+	gadlist[id]->gadborder.BackPen 	= 0;
+	gadlist[id]->gadborder.DrawMode	= JAM2;
+	gadlist[id]->gadborder.Count	= 5;
+	gadlist[id]->gadborder.XY	= gadlist[id]->gadpairs;
+	gadlist[id]->gadborder.NextBorder= NULL;
 
 	/* fill gadget's gadinfo.stringinfo structure */
-	gadlist[id].gadinfo.stringinfo.Buffer = (UBYTE *)
+	gadlist[id]->gadinfo.stringinfo.Buffer = (UBYTE *)
 				AllocMem(MAXCHARS,MEMF_ANY | MEMF_CLEAR);
-	gadlist[id].gadinfo.stringinfo.UndoBuffer = (UBYTE *)
+	gadlist[id]->gadinfo.stringinfo.UndoBuffer = (UBYTE *)
 				AllocMem(MAXCHARS,MEMF_ANY | MEMF_CLEAR);
 
-	stringcopy(gadlist[id].gadinfo.stringinfo.Buffer,(UBYTE *)gadval);
+	stringcopy(gadlist[id]->gadinfo.stringinfo.Buffer,(UBYTE *)gadval);
 
-	gadlist[id].gadinfo.stringinfo.BufferPos = 0;
-	gadlist[id].gadinfo.stringinfo.MaxChars = (SHORT)MAXCHARS;
-	gadlist[id].gadinfo.stringinfo.DispPos = 0;
-	gadlist[id].gadinfo.stringinfo.UndoPos = 0;
-	gadlist[id].gadinfo.stringinfo.NumChars = 0;
-	gadlist[id].gadinfo.stringinfo.DispCount = 0;
-	gadlist[id].gadinfo.stringinfo.CLeft = 0;
-	gadlist[id].gadinfo.stringinfo.CTop = 0;
+	gadlist[id]->gadinfo.stringinfo.BufferPos = 0;
+	gadlist[id]->gadinfo.stringinfo.MaxChars = (SHORT)MAXCHARS;
+	gadlist[id]->gadinfo.stringinfo.DispPos = 0;
+	gadlist[id]->gadinfo.stringinfo.UndoPos = 0;
+	gadlist[id]->gadinfo.stringinfo.NumChars = 0;
+	gadlist[id]->gadinfo.stringinfo.DispCount = 0;
+	gadlist[id]->gadinfo.stringinfo.CLeft = 0;
+	gadlist[id]->gadinfo.stringinfo.CTop = 0;
 
 	if (gadtype == 3)
-		gadlist[id].gadinfo.stringinfo.LongInt = long_from_string(gadval);
+		gadlist[id]->gadinfo.stringinfo.LongInt = long_from_string(gadval);
 	else
-		gadlist[id].gadinfo.stringinfo.LongInt = 0L;
+		gadlist[id]->gadinfo.stringinfo.LongInt = 0L;
 
-	gadlist[id].gadinfo.stringinfo.AltKeyMap = NULL;
+	gadlist[id]->gadinfo.stringinfo.AltKeyMap = NULL;
 	
 	/* fill gadget structure */
-	gadlist[id].gad.NextGadget	= NULL;
-	gadlist[id].gad.LeftEdge	= (SHORT)left;
-	gadlist[id].gad.TopEdge		= (SHORT)top;
-	gadlist[id].gad.Width		= width-FontWidth-1;
-	gadlist[id].gad.Height		= height;
- 	gadlist[id].gad.Flags 		= GADGHCOMP; 
-	gadlist[id].gad.Activation	= RELVERIFY;
-	gadlist[id].gad.GadgetType	= STRGADGET;
-	gadlist[id].gad.GadgetRender	= (APTR)&gadlist[id].gadborder;
-	gadlist[id].gad.SelectRender	= NULL;
-	gadlist[id].gad.GadgetText	= NULL;
-	gadlist[id].gad.MutualExclude	= NULL;
-	gadlist[id].gad.SpecialInfo	= (APTR)&gadlist[id].gadinfo.stringinfo;
-	gadlist[id].gad.GadgetID	= (USHORT)id;
-	gadlist[id].gad.UserData	= NULL;
+	gadlist[id]->gad.NextGadget	= NULL;
+	gadlist[id]->gad.LeftEdge	= (SHORT)left;
+	gadlist[id]->gad.TopEdge		= (SHORT)top;
+	gadlist[id]->gad.Width		= width-FontWidth-1;
+	gadlist[id]->gad.Height		= height;
+ 	gadlist[id]->gad.Flags 		= GADGHCOMP; 
+	gadlist[id]->gad.Activation	= RELVERIFY;
+	gadlist[id]->gad.GadgetType	= STRGADGET;
+	gadlist[id]->gad.GadgetRender	= (APTR)&gadlist[id]->gadborder;
+	gadlist[id]->gad.SelectRender	= NULL;
+	gadlist[id]->gad.GadgetText	= NULL;
+	gadlist[id]->gad.MutualExclude	= NULL;
+	gadlist[id]->gad.SpecialInfo	= (APTR)&gadlist[id]->gadinfo.stringinfo;
+	gadlist[id]->gad.GadgetID	= (USHORT)id;
+	gadlist[id]->gad.UserData	= NULL;
 
 	/* string or longint gadget type? */
-	if (gadtype == 3) gadlist[id].gad.Activation |= LONGINT;
+	if (gadtype == 3) gadlist[id]->gad.Activation |= LONGINT;
 
 	/* set selection style (0=LEFT, 1=CENTER, 2=RIGHT, N=LEFT) */
 	switch(gadstyle)
 	{
-	 case 1  : gadlist[id].gad.Activation |= STRINGCENTER;
+	 case 1  : gadlist[id]->gad.Activation |= STRINGCENTER;
 		   break;
 
-	 case 2  : gadlist[id].gad.Activation |= STRINGRIGHT;
+	 case 2  : gadlist[id]->gad.Activation |= STRINGRIGHT;
 		   break;
 	}
 
 	/* render the gadget! */
-	AddGadget(Wdw,&gadlist[id].gad,(UWORD)id);
-	RefreshGList(&gadlist[id].gad,Wdw,NULL,1);
+	AddGadget(Wdw,&gadlist[id]->gad,(UWORD)id);
+	RefreshGList(&gadlist[id]->gad,Wdw,NULL,1);
 
 	/* disable gadget? -> do so after rendering: don't want to see shadow. */
-	if (status == 0) gadlist[id].gad.Flags |= GADGDISABLED;
+	if (status == 0) gadlist[id]->gad.Flags |= GADGDISABLED;
 
 	/* make gadget beveled */ 
-	gadlist[id].bb_x1 = left-6;
-	gadlist[id].bb_y1 = top-3;
-	gadlist[id].bb_x2 = right-6;
-	gadlist[id].bb_y2 = bottom-3;
+	gadlist[id]->bb_x1 = left-6;
+	gadlist[id]->bb_y1 = top-3;
+	gadlist[id]->bb_x2 = right-6;
+	gadlist[id]->bb_y2 = bottom-3;
 	BevelBox(STRGADBOX,bottom-3,right-6,top-3,left-6);
 }
 
@@ -413,76 +412,76 @@ SHORT width,height;
 
 	/* record knob increment */
 	if (gadval <= 0) gadval=1; 
-	gadlist[id].maxval = 0xFFFF / gadval;
+	gadlist[id]->maxval = 0xFFFF / gadval;
 
 	/* fill gadinfo.propinfo structure */
-	gadlist[id].gadinfo.propinfo.Flags = AUTOKNOB;
+	gadlist[id]->gadinfo.propinfo.Flags = AUTOKNOB;
 
 	switch(gadtype)
 	{
-	 case 4 : gadlist[id].gadinfo.propinfo.HorizPot = 0;
-		  gadlist[id].gadinfo.propinfo.HorizBody = gadlist[id].maxval;
+	 case 4 : gadlist[id]->gadinfo.propinfo.HorizPot = 0;
+		  gadlist[id]->gadinfo.propinfo.HorizBody = gadlist[id]->maxval;
 		  break;
 
-	 case 5 : gadlist[id].gadinfo.propinfo.VertPot = 0;
-		  gadlist[id].gadinfo.propinfo.VertBody = gadlist[id].maxval;
+	 case 5 : gadlist[id]->gadinfo.propinfo.VertPot = 0;
+		  gadlist[id]->gadinfo.propinfo.VertBody = gadlist[id]->maxval;
 		  break;
 	}
 
-	gadlist[id].gadinfo.propinfo.CWidth 	= 0;
-	gadlist[id].gadinfo.propinfo.CHeight 	= 0;
-	gadlist[id].gadinfo.propinfo.HPotRes 	= 0;
-	gadlist[id].gadinfo.propinfo.VPotRes 	= 0;
-	gadlist[id].gadinfo.propinfo.LeftBorder	= 0;
-	gadlist[id].gadinfo.propinfo.TopBorder 	= 0;
+	gadlist[id]->gadinfo.propinfo.CWidth 	= 0;
+	gadlist[id]->gadinfo.propinfo.CHeight 	= 0;
+	gadlist[id]->gadinfo.propinfo.HPotRes 	= 0;
+	gadlist[id]->gadinfo.propinfo.VPotRes 	= 0;
+	gadlist[id]->gadinfo.propinfo.LeftBorder	= 0;
+	gadlist[id]->gadinfo.propinfo.TopBorder 	= 0;
 
 	/* fill gadget structure */
-	gadlist[id].gad.NextGadget	= NULL;
-	gadlist[id].gad.LeftEdge	= (SHORT)left+4;
-	gadlist[id].gad.TopEdge		= (SHORT)top+2;
-	gadlist[id].gad.Width		= width-7;
-	gadlist[id].gad.Height		= height-3;
-	gadlist[id].gad.Flags		= GADGHCOMP;
-	gadlist[id].gad.Activation	= RELVERIFY;
-	gadlist[id].gad.GadgetType	= PROPGADGET;
-	gadlist[id].gad.GadgetRender	= (APTR)gadlist[id].render_buffer;
-	gadlist[id].gad.SelectRender	= NULL;
-	gadlist[id].gad.GadgetText	= NULL;
-	gadlist[id].gad.MutualExclude	= NULL;
-	gadlist[id].gad.SpecialInfo	= (APTR)&gadlist[id].gadinfo.propinfo;
-	gadlist[id].gad.GadgetID	= (USHORT)id;
-	gadlist[id].gad.UserData	= NULL;
+	gadlist[id]->gad.NextGadget	= NULL;
+	gadlist[id]->gad.LeftEdge	= (SHORT)left+4;
+	gadlist[id]->gad.TopEdge		= (SHORT)top+2;
+	gadlist[id]->gad.Width		= width-7;
+	gadlist[id]->gad.Height		= height-3;
+	gadlist[id]->gad.Flags		= GADGHCOMP;
+	gadlist[id]->gad.Activation	= RELVERIFY;
+	gadlist[id]->gad.GadgetType	= PROPGADGET;
+	gadlist[id]->gad.GadgetRender	= (APTR)gadlist[id]->render_buffer;
+	gadlist[id]->gad.SelectRender	= NULL;
+	gadlist[id]->gad.GadgetText	= NULL;
+	gadlist[id]->gad.MutualExclude	= NULL;
+	gadlist[id]->gad.SpecialInfo	= (APTR)&gadlist[id]->gadinfo.propinfo;
+	gadlist[id]->gad.GadgetID	= (USHORT)id;
+	gadlist[id]->gad.UserData	= NULL;
 
 	/* set type (4=horizontal, 5=vertical, N=horizontal) */
 	switch(gadtype)
 	{
-	 case 4  : gadlist[id].gadinfo.propinfo.Flags |= FREEHORIZ; 
+	 case 4  : gadlist[id]->gadinfo.propinfo.Flags |= FREEHORIZ; 
 		   break;
 
-	 case 5  : gadlist[id].gadinfo.propinfo.Flags |= FREEVERT; 
+	 case 5  : gadlist[id]->gadinfo.propinfo.Flags |= FREEVERT; 
 		   break;
 	}
 
 	/* set style */
 	if (gadstyle == 1) 
-           gadlist[id].gadinfo.propinfo.Flags |= PROPBORDERLESS;
+           gadlist[id]->gadinfo.propinfo.Flags |= PROPBORDERLESS;
  
 	/* disable gadget? */
-	if (status == 0) gadlist[id].gad.Flags |= GADGDISABLED;
+	if (status == 0) gadlist[id]->gad.Flags |= GADGDISABLED;
 
 	/* prepare for beveled gadget [if not borderless]? */ 
 	if (gadstyle != 1)
-	   gadlist[id].gadinfo.propinfo.Flags |= PROPBORDERLESS;
+	   gadlist[id]->gadinfo.propinfo.Flags |= PROPBORDERLESS;
 
 	/* render the gadget! */
-	AddGadget(Wdw,&gadlist[id].gad,(UWORD)id);
-	RefreshGList(&gadlist[id].gad,Wdw,NULL,1);
+	AddGadget(Wdw,&gadlist[id]->gad,(UWORD)id);
+	RefreshGList(&gadlist[id]->gad,Wdw,NULL,1);
 
 	/* make gadget beveled if not borderless */ 
-	gadlist[id].bb_x1 = left;
-	gadlist[id].bb_y1 = top;
-	gadlist[id].bb_x2 = right;
-	gadlist[id].bb_y2 = bottom;
+	gadlist[id]->bb_x1 = left;
+	gadlist[id]->bb_y1 = top;
+	gadlist[id]->bb_x2 = right;
+	gadlist[id]->bb_y2 = bottom;
 	if (gadstyle != 1) BevelBox(RAISED,bottom,right,top,left);
 }
 
@@ -493,25 +492,25 @@ UBYTE *fontname;
 ULONG gadstyle,gadtype,bottom,right,top,left,gadval,status,id;
 {
 /* create a gadget */
-ULONG i;
-
-	if (first_creation)
-	{
-		first_creation=FALSE;
-		for (i=1;i<=MAXGADGET;i++) 
-		{
-			gadlist[i].used=FALSE;			
-			/*gadlist[i].selected=FALSE;*/
-		}
-	}
 
 	if (id < 1 || id > MAXGADGET || left > right || top > bottom ||
-	    gadtype < 1 || gadtype > 5 || gadlist[id].used) return;
+	    gadtype < 1 || gadtype > 5) return;
+
+	/* already in use? */
+	if (gadlist[id] && gadlist[id]->used) return;
+
+	/* allocate on demand */
+	if (gadlist[id] == NULL)
+	{
+		gadlist[id] = (GAD *)
+			AllocMem(sizeof(GAD),MEMF_ANY|MEMF_CLEAR);
+		if (gadlist[id] == NULL) return;
+	}
 
 	/* store essential info' */
-	gadlist[id].used=TRUE;
-	gadlist[id].type=gadtype;
-	gadlist[id].style=gadstyle;
+	gadlist[id]->used=TRUE;
+	gadlist[id]->type=gadtype;
+	gadlist[id]->style=gadstyle;
 
 	/* create the gadget */
 	switch(gadtype)
@@ -542,10 +541,10 @@ ULONG id;
 SHORT x1,y1,x2,y2;
 UBYTE FgPen;
 
-	x1 = gadlist[id].bb_x1;
-	y1 = gadlist[id].bb_y1;
-	x2 = gadlist[id].bb_x2;
-	y2 = gadlist[id].bb_y2;
+	x1 = gadlist[id]->bb_x1;
+	y1 = gadlist[id]->bb_y1;
+	x2 = gadlist[id]->bb_x2;
+	y2 = gadlist[id]->bb_y2;
 
 	/* erase gadget imagery */
 	FgPen = RPort->FgPen;
@@ -560,55 +559,56 @@ ULONG status,id;
 ULONG x1,y1,x2,y2;
 /* change status of a gadget */
 
-	if (id < 1 || id > MAXGADGET || !gadlist[id].used) return;
+	if (id < 1 || id > MAXGADGET || !gadlist[id] || !gadlist[id]->used)
+		return;
 
-  	/*
+	/*
 	** If not a string/longint gadget, remove gadget. Don't
 	** want to modify the imagery of these 2 gadget types,
 	** just their status. A disabled string/longint gadget
 	** simply doesn't respond to mouse or keyboard activity.
 	*/
-	if (gadlist[id].type != 2 && 
-	    gadlist[id].type != 3) RemoveGadget(Wdw,&gadlist[id].gad);
+	if (gadlist[id]->type != 2 && 
+	    gadlist[id]->type != 3) RemoveGadget(Wdw,&gadlist[id]->gad);
 
 	/* enable or disable gadget */
 	switch(status)
 	{
 	 /* disable */
-	 case 0 : gadlist[id].gad.Flags |= GADGDISABLED;
+	 case 0 : gadlist[id]->gad.Flags |= GADGDISABLED;
 		  break;
 
 	 /* enable */
-	 case 1 : if (gadlist[id].gad.Flags & GADGDISABLED)
+	 case 1 : if (gadlist[id]->gad.Flags & GADGDISABLED)
 		  {
-		      	gadlist[id].gad.Flags &= ~GADGDISABLED;
+		      	gadlist[id]->gad.Flags &= ~GADGDISABLED;
 
 			/* remove old gadget imagery, if not string/longint. */
-			if (gadlist[id].type != 2 && 
-	    		    gadlist[id].type != 3) EraseGadget(id);
+			if (gadlist[id]->type != 2 && 
+	    		    gadlist[id]->type != 3) EraseGadget(id);
 		  }
 		  break;
 	}
 
 	/* replace modified gadget (if not a string/longint gadget) */
-	if (gadlist[id].type != 2 && gadlist[id].type != 3)
+	if (gadlist[id]->type != 2 && gadlist[id]->type != 3)
 	{
-		AddGadget(Wdw,&gadlist[id].gad,(UWORD)id);
-		RefreshGList(&gadlist[id].gad,Wdw,NULL,1);
+		AddGadget(Wdw,&gadlist[id]->gad,(UWORD)id);
+		RefreshGList(&gadlist[id]->gad,Wdw,NULL,1);
 	}
 
 	/* redraw bevel-box? (if not a string/longint gadget) */
-	if (status == 1 && gadlist[id].type != 2 && gadlist[id].type != 3)
+	if (status == 1 && gadlist[id]->type != 2 && gadlist[id]->type != 3)
 	{
-		x1 = gadlist[id].bb_x1;
-		y1 = gadlist[id].bb_y1;
-		x2 = gadlist[id].bb_x2;
-		y2 = gadlist[id].bb_y2;
+		x1 = gadlist[id]->bb_x1;
+		y1 = gadlist[id]->bb_y1;
+		x2 = gadlist[id]->bb_x2;
+		y2 = gadlist[id]->bb_y2;
 
-		switch(gadlist[id].type)
+		switch(gadlist[id]->type)
 		{
 	 		/* boolean gadget */
-			case 1 : if (gadlist[id].style != 3) 
+			case 1 : if (gadlist[id]->style != 3) 
 					BevelBox(RAISED,y2,x2,y1,x1);
 		 	 	 break;
 
@@ -631,14 +631,15 @@ ULONG 	max_notches,vertbody,horizbody,vertpot,horizpot;
 
 	/* sanity checks */
 
-	if (id < 1 || id > MAXGADGET || !gadlist[id].used) return;
+	if (id < 1 || id > MAXGADGET || !gadlist[id] || !gadlist[id]->used)
+		return;
 
-	if (gadlist[id].type != 4 && gadlist[id].type != 5) return;
+	if (gadlist[id]->type != 4 && gadlist[id]->type != 5) return;
 
 	/* determine (new) maximum # of notches */
 	if (notches <= 0)
 		/* 0xFFFF DIV increment */
-		max_notches = 0xFFFF / gadlist[id].maxval;
+		max_notches = 0xFFFF / gadlist[id]->maxval;
 	else
 		max_notches = (ULONG)notches;
 
@@ -646,27 +647,27 @@ ULONG 	max_notches,vertbody,horizbody,vertpot,horizpot;
 	if (posn > max_notches)	return;
 
 	/* store (new) info' about max. # of levels in slider */
-	gadlist[id].maxval = 0xFFFF / max_notches;
+	gadlist[id]->maxval = 0xFFFF / max_notches;
 
 	/* calculate position and knob size */
-	switch(gadlist[id].type)
+	switch(gadlist[id]->type)
 	{
-		case 4 : horizpot  = posn * gadlist[id].maxval;
-			 horizbody = gadlist[id].maxval;
-			 vertpot   = gadlist[id].gadinfo.propinfo.VertPot;
-			 vertbody  = gadlist[id].gadinfo.propinfo.VertBody;
+		case 4 : horizpot  = posn * gadlist[id]->maxval;
+			 horizbody = gadlist[id]->maxval;
+			 vertpot   = gadlist[id]->gadinfo.propinfo.VertPot;
+			 vertbody  = gadlist[id]->gadinfo.propinfo.VertBody;
 			 break;
 
-		case 5 : vertpot   = posn * gadlist[id].maxval;
-			 vertbody  = gadlist[id].maxval;
-			 horizpot  = gadlist[id].gadinfo.propinfo.HorizPot;
-			 horizbody = gadlist[id].gadinfo.propinfo.HorizBody;
+		case 5 : vertpot   = posn * gadlist[id]->maxval;
+			 vertbody  = gadlist[id]->maxval;
+			 horizpot  = gadlist[id]->gadinfo.propinfo.HorizPot;
+			 horizbody = gadlist[id]->gadinfo.propinfo.HorizBody;
 			 break;
 	}
 
 	/* modify it! */
-	NewModifyProp(&gadlist[id].gad,Wdw,NULL,
-		      gadlist[id].gadinfo.propinfo.Flags,
+	NewModifyProp(&gadlist[id]->gad,Wdw,NULL,
+		      gadlist[id]->gadinfo.propinfo.Flags,
 		      horizpot,vertpot,horizbody,vertbody,1);
 }
 
@@ -675,25 +676,27 @@ ULONG id;
 {
 /* close a gadget */
 
-	if (id < 1 || id > MAXGADGET || !gadlist[id].used) return;
-
-	gadlist[id].used=FALSE;
-	/*gadlist[id].selected=FALSE;*/
+	if (id < 1 || id > MAXGADGET || !gadlist[id] || !gadlist[id]->used)
+		return;
 
 	/* free string gadget buffers */
-	if (gadlist[id].type == 2 || gadlist[id].type == 3) 
+	if (gadlist[id]->type == 2 || gadlist[id]->type == 3)
 	{
-	  if (gadlist[id].gadinfo.stringinfo.Buffer)
-	     FreeMem(gadlist[id].gadinfo.stringinfo.Buffer,
-		     gadlist[id].maxval);
+	  if (gadlist[id]->gadinfo.stringinfo.Buffer)
+	     FreeMem(gadlist[id]->gadinfo.stringinfo.Buffer,
+		     gadlist[id]->maxval);
 
-	  if (gadlist[id].gadinfo.stringinfo.UndoBuffer)
-	     FreeMem(gadlist[id].gadinfo.stringinfo.UndoBuffer,
-		     gadlist[id].maxval);
+	  if (gadlist[id]->gadinfo.stringinfo.UndoBuffer)
+	     FreeMem(gadlist[id]->gadinfo.stringinfo.UndoBuffer,
+		     gadlist[id]->maxval);
 	}
 
-	RemoveGadget(Wdw,&gadlist[id].gad);
+	RemoveGadget(Wdw,&gadlist[id]->gad);
 	EraseGadget(id);
+
+	/* free gadget struct */
+	FreeMem(gadlist[id],sizeof(GAD));
+	gadlist[id] = NULL;
 }
 
 void SetCurrentGadget(id)
@@ -706,10 +709,8 @@ ULONG id;
 ** occurs. This only makes sense in conjunction with
 ** string, longint and slider gadgets (not buttons).
 */	
-	if (id < 1 || id > MAXGADGET || !gadlist[id].used) return;
-	
-	/* if (gadnum >= 1 && gadnum <= MAXGADGET) 
-		     gadlist[gadnum].selected=FALSE;    necessary??? */
+	if (id < 1 || id > MAXGADGET || !gadlist[id] || !gadlist[id]->used)
+		return;
 
 	gadnum = id;
 }
@@ -724,7 +725,7 @@ USHORT	GadNum;
 ULONG	MsgClass;
 
 	if (id > MAXGADGET ||
-	   (id > 0 && !gadlist[id].used)) return;
+	   (id > 0 && (!gadlist[id] || !gadlist[id]->used))) return;
 
 	/* soak up pending messages first? ** MAY RESULT IN MESSAGE LOSS? **
 	while ((message = (struct IntuiMessage *)
@@ -766,7 +767,6 @@ ULONG	MsgClass;
 	}
 	while (!(MsgClass & GADGETUP) || GadNum != id);
 
-	/*gadlist[(ULONG)GadNum].selected = TRUE;*/
 	gadnum = (ULONG)GadNum;
 }
 
@@ -793,7 +793,6 @@ ULONG	  MsgClass;
 	/* has a gadget been selected? */
 	if ((MsgClass & GADGETUP) && (GadNum >= 1 && GadNum <= MAXGADGET))
 	{
-	    	/*gadlist[(ULONG)GadNum].selected=TRUE;*/
 		gadnum = (ULONG)GadNum;
 		return(1L);
 	}
@@ -810,7 +809,6 @@ ULONG n;
 ** a gadget event or following a
 ** Gadget Output command.
 */
-ULONG  i;
 UBYTE  *s;
 USHORT p;
 
@@ -823,45 +821,31 @@ USHORT p;
 				return -1L;
 			  else
 				return 0L;
-
-			   /*for (i=1;i<=MAXGADGET;i++)
-			 	if (gadlist[i].used && 
-				    gadlist[i].selected)
-				{
-					gadnum = i;
-					gadlist[i].selected=FALSE;
-					return(-1L);
-				}
-
-				return(0L); */	/* none selected */
-
 				break;
 
 
 		/* return ID of last gadget selected */
 
-		case 1 : /*if (gadnum >= 1 && gadnum <= MAXGADGET) 
-			    gadlist[gadnum].selected=FALSE;*/
-
-			 return(gadnum);
+		case 1 : return(gadnum);
 			 break;
 
 
 		/* return string or longint value from string gadget */
 
-		case 2 : if (gadlist[gadnum].type != 2 &&
-			     gadlist[gadnum].type != 3)
+		case 2 : if (!gadlist[gadnum]) return(0L);
+			 if (gadlist[gadnum]->type != 2 &&
+			     gadlist[gadnum]->type != 3)
 			 return(0L);
 			 else
-			 switch(gadlist[gadnum].type)
+			 switch(gadlist[gadnum]->type)
 			 {
 			  case 2 : 
-		          s = gadlist[gadnum].gadinfo.stringinfo.Buffer;
+		          s = gadlist[gadnum]->gadinfo.stringinfo.Buffer;
 			  return((ULONG)s);
 			  break;
 
 			  case 3 : 
-			  return(gadlist[gadnum].gadinfo.stringinfo.LongInt);
+			  return(gadlist[gadnum]->gadinfo.stringinfo.LongInt);
 			  break;				 
 			 }
 			 break;
@@ -869,32 +853,34 @@ USHORT p;
 
 		/* return horizontal or vertical slider position */
 
-		case 3 : if (gadlist[gadnum].type != 4 &&
-			     gadlist[gadnum].type != 5)
+		case 3 : if (!gadlist[gadnum]) return(0L);
+			 if (gadlist[gadnum]->type != 4 &&
+			     gadlist[gadnum]->type != 5)
 			 return(0L);
 			 else
 			 {
-			  switch(gadlist[gadnum].type)
+			  switch(gadlist[gadnum]->type)
 			  {
 			     case 4 : 
-			     p=gadlist[gadnum].gadinfo.propinfo.HorizPot;
+			     p=gadlist[gadnum]->gadinfo.propinfo.HorizPot;
 			     break;
 
 			     case 5 : 
-			     p=gadlist[gadnum].gadinfo.propinfo.VertPot;
+			     p=gadlist[gadnum]->gadinfo.propinfo.VertPot;
 			     break;
 			  }
 
 			  /* actual-knob-posn DIV knob-size */
-		          return((ULONG)(p / gadlist[gadnum].maxval));
+		          return((ULONG)(p / gadlist[gadnum]->maxval));
 			 }
 			 break;
 
 
 		/* return address of currently selected gadget */
 
-		case 4 : if (gadnum >= 1 && gadnum <= MAXGADGET)
-				return (ULONG)&gadlist[gadnum].gad;
+		case 4 : if (gadnum >= 1 && gadnum <= MAXGADGET
+			     && gadlist[gadnum])
+				return (ULONG)&gadlist[gadnum]->gad;
 			 else
 				return 0L;
 			 break;

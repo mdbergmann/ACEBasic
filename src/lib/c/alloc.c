@@ -45,33 +45,27 @@
 struct Remember *RememberList = NULL;
 struct Remember *AceAllocList = NULL;
 
+/* Memory flag lookup table indexed 0-9 (case 8 = default). */
+static ULONG flagTable[10] = {
+	MEMF_CHIP,				/* 0 */
+	MEMF_FAST,				/* 1 */
+	MEMF_PUBLIC,				/* 2 */
+	MEMF_CHIP | MEMF_CLEAR,			/* 3 */
+	MEMF_FAST | MEMF_CLEAR,			/* 4 */
+	MEMF_PUBLIC | MEMF_CLEAR,		/* 5 */
+	MEMF_ANY,				/* 6 */
+	MEMF_ANY | MEMF_CLEAR,			/* 7 */
+	MEMF_ANY | MEMF_CLEAR,			/* 8 = default */
+	MEMF_ANY | MEMF_CLEAR			/* 9 = see basfun.c */
+};
+
 /* Functions */
 ULONG TheFlags(MemType,bytes)
 LONG MemType,bytes;
 {
-ULONG flags;
-
- 	switch(MemType)
- 	{
-  		case 0L : flags = MEMF_CHIP; break;
-  		case 1L : flags = MEMF_FAST; break;
-  		case 2L : flags = MEMF_PUBLIC; break;
-
-  		case 3L : flags = MEMF_CHIP | MEMF_CLEAR; break;
-  		case 4L : flags = MEMF_FAST | MEMF_CLEAR; break;
-  		case 5L : flags = MEMF_PUBLIC | MEMF_CLEAR; break;
-
-		case 6L : flags = MEMF_ANY; break;
-		case 7L : flags = MEMF_ANY | MEMF_CLEAR; break;
-
-		/* see basfun.c */
-		case 9L : flags = MEMF_ANY | MEMF_CLEAR; break;	
-
-		/* if all else fails... */
-  		default : flags = MEMF_ANY | MEMF_CLEAR; break;
- 	}
-
-	return flags;
+	if (MemType >= 0 && MemType <= 9)
+		return flagTable[MemType];
+	return MEMF_ANY | MEMF_CLEAR;
 }
 
 ULONG alloc(MemType,bytes)
@@ -94,7 +88,7 @@ LONG MemType,bytes;
 
 void free_alloc()
 {
-/* 
+/*
 ** Free all memory allocated by AllocRemember().
 */
 	if (RememberList != NULL) FreeRemember(&RememberList,TRUE);
