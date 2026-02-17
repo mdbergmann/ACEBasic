@@ -2893,103 +2893,106 @@ The above discussion should have answered the second question. As for
 the third, the answer is: because I wanted to!! :^)
  
 Okay, enough philosophy. Here's the ACE stuff:
- 
-BACK n		- move turtle back by n.
-FORWARD n	- move turtle forward by n.
-HEADING 	- return turtle's current heading in degrees (0..359).
-HOME		- move turtle back to its home position.
-PENDOWN		- put turtle's pen down. 
-PENUP		- lift turtle's pen up.
-SETHEADING degs - change turtle's heading to degs.
-SETXY x,y	- change turtle's current x,y location.
-TURN degs	- rotate turtle by degs.
-TURNLEFT degs	- turn turtle left by degs.
-TURNRIGHT degs  - turn turtle right by degs.
-XCOR		- return turtle's current x-coordinate.
-YCOR		- return turtle's current y-coordinate.
- 
+
+As of ACE 2.9, Turtle Graphics is provided as a submodule rather than as
+built-in commands. To use it, include the following at the top of your program:
+
+	EXTERNAL turtle
+	#include <submods/turtle.h>
+
+The turtle module must be compiled separately with:
+
+	bas -m turtle
+
+and linked by adding REM #using to your program or by passing turtle.o
+to bas.
+
+Before using any TG commands, you must open a window and call TgInit to
+set the turtle's home position:
+
+	WINDOW 1,"Turtle",(0,0)-(640,200),6
+	TgInit(320, 100)
+
+Here is a complete example:
+
+	EXTERNAL turtle
+	#include <submods/turtle.h>
+
+	WINDOW 1,"Turtle",(0,0)-(640,200),6
+	TgInit(320, 100)
+
+	FOR i=1 TO 4
+	  TgForward(80)
+	  TgTurnRight(90)
+	NEXT i
+
+	WHILE INKEY$="" : WEND
+	WINDOW CLOSE 1
+
+The available commands are:
+
+TgInit(x, y)		- set home position and reset turtle state. Must be
+			  called before any other TG command. Auto-detects
+			  pixel aspect ratio from the current screen.
+TgForward(dist)		- move turtle forward by dist pixels.
+TgBack(dist)		- move turtle backward by dist pixels.
+TgHome			- move turtle to home position (set by TgInit).
+			  Does NOT reset heading.
+TgPenDown		- put turtle's pen down (drawing enabled).
+TgPenUp			- lift turtle's pen up (drawing disabled).
+TgSetHeading(n)		- set heading to n degrees (0..359).
+TgSetXY(x, y)		- move turtle to absolute screen position x,y.
+TgTurn(n)		- rotate turtle by n degrees from current heading.
+TgTurnLeft(n)		- turn turtle left by n degrees.
+TgTurnRight(n)		- turn turtle right by n degrees.
+TgHeading		- return turtle's current heading in degrees (0..359).
+TgXcor			- return turtle's current x-coordinate.
+TgYcor			- return turtle's current y-coordinate.
+TgSetRatio(ratio)	- override the auto-detected pixel aspect ratio.
+
 where:
-	- n is pixels
-	- degs is a signed short integer representing degrees with
-	  the turtle starting at a 270 degree orientation -- pointing up.
-	- home is the turtle's x,y start location (0,0).
- 
-Note that the X:Y ratio can be modified thus:
- 
- 
-                                  - page 39 -
- 
-	EXTERNAL SINGLE tg_xy_ratio
-	tg_xy_ratio = 1.125	
- 
-but this should not be necessary (from v2.19) since ACE determines the
-correct aspect ratio for each user-defined screen when it is opened. A 
-hi-res, non-interlaced Workbench screen is assumed at startup however. 
-The correct values for tg_xy_ratio are shown below:
- 
-	Screen mode			Aspect ratio	
-	-----------			------------
-	Lo-res, non-interlaced		0.9375
-	Hi-res, non-interlaced		1.875
-	Lo-res, interlaced		0.46875
-	Hi-res, interlaced		0.9375
-	Hold and Modify (HAM)		0.9375
-	Extra-Halfbrite			0.9375
- 
+	- dist is SINGLE (pixels).
+	- n, x, y are SHORTINT.
+	- the turtle starts at a 270 degree orientation -- pointing up.
+
+TgInit auto-detects the pixel aspect ratio from the current screen.
+If you need to override it, call TgSetRatio with one of the predefined
+constants from turtle.h:
+
+	Constant			Screen mode		Ratio
+	--------			-----------		-----
+	TG_RATIO_LORES			Lo-res, non-interlaced	0.9375
+	TG_RATIO_HIRES			Hi-res, non-interlaced	1.875
+	TG_RATIO_LORES_LACE		Lo-res, interlaced	0.46875
+	TG_RATIO_HIRES_LACE		Hi-res, interlaced	0.9375
+	TG_RATIO_SUPERHIRES		Super hi-res		3.75
+
 Most LOGO environments use a coordinate system where 0,0 is at the center of
-the screen and positions to the left and down of this origin are negative 
-while those up and to the right are positive. ACE's TG system however, uses 
-the Amiga's normal graphics coordinate system with 0,0 at the top left of 
-the screen/window so as to maintain consistency with ACE's normal graphics 
+the screen and positions to the left and down of this origin are negative
+while those up and to the right are positive. ACE's TG system however, uses
+the Amiga's normal graphics coordinate system with 0,0 at the top left of
+the screen/window so as to maintain consistency with ACE's normal graphics
 commands and functions (eg: POINT, PSET, LINE, PAINT, CIRCLE, AREAFILL).
-  
-If a negative value is specified for the turnleft or turnright commands,
-the turtle will be rotated in the opposite direction to that indicated by
-the the command name. Note that there is also a TURN command.
- 
-When using ACE's TG system, it's best to think of an imaginary turtle (in LOGO
-it's usually a small triangle on the screen) which rotates and moves according
-to your whim. The turtle can either have its pen lowered or raised - and will
-therefore draw or not - which is useful when you need to move in a relative 
-fashion from one location to another without drawing anything.  	
- 
-SetXY is like the graphics library Move() command and may need to be preceded 
-by PENUP unless you want to draw a line as the turtle finds its new position.
- 
+
+If a negative value is specified for TgTurnLeft or TgTurnRight, the turtle
+will be rotated in the opposite direction to that indicated by the command
+name. There is also a TgTurn command for arbitrary rotation.
+
+When using TG, it's best to think of an imaginary turtle which rotates and
+moves according to your whim. The turtle can either have its pen lowered or
+raised - and will therefore draw or not - which is useful when you need to
+move in a relative fashion from one location to another without drawing
+anything.
+
+TgSetXY is like the graphics library Move() command and may need to be
+preceded by TgPenUp unless you want to draw a line as the turtle finds
+its new position.
+
 To change the colour of the drawing pen, use the COLOR command.
- 
-That's probably enough about ACE's Turtle Graphics. Oh by the way, if you want
-to know more about the origins and uses of Logo, read Papert's "Mindstorms"
-and his recent book entitled "The Children's Machine: Rethinking School in the 
-Age of the Computer". They make for interesting reading.
- 
-The archetypal book on TG however, is "Turtle Geometry" by Abelson and diSessa.
- 
-On a related note, I wrote a paper called "Turtle Graphics and J" which
-appeared in the British APL Association's journal, Vector, Vol.12 No.3,
-January 1996. J is a cool language of the functional variety and a modern
-dialect of APL. These two are often unkindly referred to as read-only 
-languages, although not entirely without justification. Here's an example
-of J code:
- 
-	+/ % >: i.100
- 
-which says: "sum the reciprocals of the integers 1..100". Neat eh? The 
-equivalent ACE code would be:
- 
-	Single i,sum
-	For i=1 To 100
-	  sum = sum + 1/i
- 
-                                  - page 40 -
- 
-	Next i
- 
-Not nearly as pretty. :)
- 
-While I think of it, Sherry Turkle wrote a book called "The Second Self: 
-Computers and the human spirit", which I recommend if you're at all 
-interested in the psychological/social effects of computing.
+
+For more about the origins and uses of Logo, read Papert's "Mindstorms"
+and "The Children's Machine: Rethinking School in the Age of the Computer".
+The archetypal book on TG is "Turtle Geometry" by Abelson and diSessa.
  
  
 Loading & displaying IFF pictures
