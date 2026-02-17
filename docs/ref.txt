@@ -1061,7 +1061,27 @@ FRE		- syntax: FRE(n)
 			n =  1  ->  total FAST memory free.
 			n =  2  ->  largest contiguous CHIP memory available.
 			n =  3  ->  largest contiguous FAST memory available.
- 
+
+--------------------------------------------------------------------------------
+FREE		- syntax: FREE address-expression
+		- Frees a single block of memory previously allocated by ALLOC.
+		- The address-expression must evaluate to a LONGINT or ADDRESS
+		  value that was returned by ALLOC.
+		- Passing 0 is a safe no-op (silently ignored).
+		- Passing a value not returned by ALLOC results in undefined
+		  behavior (same as C's free).
+		- Double-freeing an already freed pointer is also undefined.
+		- CLEAR ALLOC still works to free all remaining ALLOC'd blocks.
+		- Any ALLOC'd blocks not explicitly freed are automatically
+		  cleaned up at program exit.
+		- Example:
+			ADDRESS ptr
+			ptr = ALLOC(1024, 7)
+			IF ptr <> 0 THEN
+			  POKEL ptr, 42
+			  FREE ptr
+			END IF
+
 --------------------------------------------------------------------------------
 GADGET *	- syntax: GADGET id,status[,gadval,rectangle,type[,style]
 							 [,font,size,textstyle]]

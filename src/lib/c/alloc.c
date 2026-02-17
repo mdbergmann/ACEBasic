@@ -1,10 +1,14 @@
 /*
-** Unix-style hassle free memory allocation
-** via Intuition's Alloc/FreeRemember() functions
-** which keep track of memory allocations for ease
-** of deallocation.
+** Memory allocation for ACE BASIC programs and db.lib.
+**
+** ACE programs use ACEalloc/ACEfree with a custom doubly-linked
+** list and AllocMem/FreeMem, supporting per-block deallocation.
+**
+** Internal db.lib functions use alloc() with Intuition's
+** AllocRemember/FreeRemember (bulk deallocation only).
+**
 ** Copyright (C) 1998 David Benn
-** 
+**
 ** This program is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU General Public License
 ** as published by the Free Software Foundation; either version 2
@@ -19,16 +23,6 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 **
-** Call alloc() or ACEalloc() for each memory allocation 
-** request.
-**
-** Call free_alloc() once at the end of a program
-** to free ALL allocated chunks.
-**
-** Call clear_alloc() whenever ACEalloc() allocations 
-** must be cleared before the end of a program run. 
-** Calls to ACEalloc() may be freely made subsequently.
-**
 ** Author: David J Benn
 **   Date: 30th June 1993, 1st July 1993,
 **	   4th April 1994,
@@ -41,17 +35,27 @@
 #include <intuition/intuition.h>
 #include "lib_protos.h"
 
-/* Allocation lists for db.lib functions and ACE programs. */
+/* Block header prepended to each ACEalloc allocation. */
+struct AllocHeader {
+	struct AllocHeader *prev;
+	struct AllocHeader *next;
+	ULONG size;
+	ULONG flags;
+};
+
+#define HEADER_SIZE (sizeof(struct AllocHeader))
+
+/* Allocation lists. */
 struct Remember *RememberList = NULL;
-struct Remember *AceAllocList = NULL;
+static struct AllocHeader *AceAllocHead = NULL;
 
 /* Memory flag lookup table indexed 0-9 (case 8 = default). */
 static ULONG flagTable[10] = {
 	MEMF_CHIP,				/* 0 */
 	MEMF_FAST,				/* 1 */
 	MEMF_PUBLIC,				/* 2 */
-	MEMF_CHIP | MEMF_CLEAR,			/* 3 */
-	MEMF_FAST | MEMF_CLEAR,			/* 4 */
+	MEMF_CHIP | MEMF_CLEAR,		/* 3 */
+	MEMF_FAST | MEMF_CLEAR,		/* 4 */
 	MEMF_PUBLIC | MEMF_CLEAR,		/* 5 */
 	MEMF_ANY,				/* 6 */
 	MEMF_ANY | MEMF_CLEAR,			/* 7 */
@@ -71,40 +75,94 @@ LONG MemType,bytes;
 ULONG alloc(MemType,bytes)
 LONG MemType,bytes;
 {
-/* 
-** Allocate memory as requested (for db.lib functions). 
-*/	
- 	return((ULONG)AllocRemember(&RememberList,bytes,TheFlags(MemType,bytes)));     
+/*
+** Allocate memory as requested (for db.lib functions).
+*/
+ 	return((ULONG)AllocRemember(&RememberList,bytes,TheFlags(MemType,bytes)));
 }
 
 ULONG ACEalloc(MemType,bytes)
 LONG MemType,bytes;
 {
-/* 
-** Allocate memory as requested (for ACE programs). 
-*/	
- 	return((ULONG)AllocRemember(&AceAllocList,bytes,TheFlags(MemType,bytes)));     
+/*
+** Allocate memory as requested (for ACE programs).
+** Uses AllocMem with a prepended header for per-block deallocation.
+*/
+	ULONG fl;
+	struct AllocHeader *hdr;
+
+	fl = TheFlags(MemType, bytes);
+	hdr = (struct AllocHeader *)AllocMem(HEADER_SIZE + bytes, fl);
+	if (hdr == NULL) return 0;
+
+	hdr->size = bytes;
+	hdr->flags = fl;
+	hdr->prev = NULL;
+	hdr->next = AceAllocHead;
+	if (AceAllocHead != NULL)
+		AceAllocHead->prev = hdr;
+	AceAllocHead = hdr;
+
+	return (ULONG)((UBYTE *)hdr + HEADER_SIZE);
+}
+
+void ACEfree(ptr)
+ULONG ptr;
+{
+/*
+** Free a single block previously allocated by ACEalloc().
+** Passing 0 is a safe no-op.
+*/
+	struct AllocHeader *hdr;
+
+	if (ptr == 0) return;
+
+	hdr = (struct AllocHeader *)((UBYTE *)ptr - HEADER_SIZE);
+
+	if (hdr->prev != NULL)
+		hdr->prev->next = hdr->next;
+	else
+		AceAllocHead = hdr->next;
+
+	if (hdr->next != NULL)
+		hdr->next->prev = hdr->prev;
+
+	FreeMem(hdr, HEADER_SIZE + hdr->size);
 }
 
 void free_alloc()
 {
 /*
-** Free all memory allocated by AllocRemember().
+** Free all memory: db.lib RememberList + ACE allocation list.
 */
+	struct AllocHeader *hdr, *nxt;
+
 	if (RememberList != NULL) FreeRemember(&RememberList,TRUE);
-	if (AceAllocList != NULL) FreeRemember(&AceAllocList,TRUE);
+
+	hdr = AceAllocHead;
+	while (hdr != NULL)
+	{
+		nxt = hdr->next;
+		FreeMem(hdr, HEADER_SIZE + hdr->size);
+		hdr = nxt;
+	}
+	AceAllocHead = NULL;
 }
 
 void clear_alloc()
 {
-/* 
+/*
 ** Free all memory allocated by ACEalloc() thus far
-** and prepare for subsequent calls to ACEalloc(). 
+** and prepare for subsequent calls to ACEalloc().
 */
+	struct AllocHeader *hdr, *nxt;
 
-	if (AceAllocList != NULL)
+	hdr = AceAllocHead;
+	while (hdr != NULL)
 	{
-		FreeRemember(&AceAllocList,TRUE);
-		AceAllocList = NULL;
+		nxt = hdr->next;
+		FreeMem(hdr, HEADER_SIZE + hdr->size);
+		hdr = nxt;
 	}
+	AceAllocHead = NULL;
 }
