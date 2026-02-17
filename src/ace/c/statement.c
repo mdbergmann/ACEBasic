@@ -1006,6 +1006,21 @@ char  idholder[50];
  /* for.. */
  if (sym == forsym) for_statement();
  else
+ /* free */
+ if (sym == freesym)
+ {
+   int statetype;
+   insymbol();
+   statetype = expr();
+   if (statetype == stringtype) { _error(4); }
+   else
+   {
+     if (make_integer(statetype) == shorttype) make_long();
+     gen_rt_call("_ACEfree");
+     gen_stack_cleanup(4);
+   }
+ }
+ else
  /* gadget */
  if (sym == gadgetsym) gadget();
  else

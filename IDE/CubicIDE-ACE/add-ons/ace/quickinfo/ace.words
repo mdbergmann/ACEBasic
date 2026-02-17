@@ -61,6 +61,7 @@ FMT$( result$ = FMT$(format$[, arg1, arg2, ...]) : FMT$() returns a formatted st
 FONT FONT <name>,<size> : FONT changes the font for the current output window. Works only for WINDOW-created windows.
 FOR FOR <var>=x TO y [STEP z] : FOR starts a FOR..NEXT loop. The loop variable is incremented by z (default 1) until it reaches y.
 FRE( freemem = FRE(n) : FRE() returns free system memory. n: -1=total, 0=CHIP, 1=FAST, 2=largest CHIP block, 3=largest FAST block.
+FREE FREE address : Frees a single ALLOC'd memory block. Passing 0 is a safe no-op.
 GADGET GADGET id,status[,gadval,rectangle,type[,style]] : GADGET creates or modifies a gadget. Type: 1=BUTTON, 2=STRING, 3=LONGINT, 4=POTX, 5=POTY.
 GADGET( info = GADGET(n) : GADGET() returns gadget info. n: 0=event occurred, 1=gadget number, 2=string/longint value, 3=slider position, 4=gadget address.
 GET GET [#]<fileNum>,<structVar>[,<recordNum>] : GET retrieves a record from a random file and stores it in a structure variable.

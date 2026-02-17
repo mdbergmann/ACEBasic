@@ -72,7 +72,7 @@ char *rword[] =
     "DATE$","DECLARE","DEF","DEFDBL","DEFINT","DEFLNG",
     "DEFSNG","DEFSTR","DELETE","DIM","ELSE","ELSEIF","END",
     "EOF","EQV","ERASE","ERL","ERR","ERROR","EXIT","EXP",
-    "FIELD","FILES","FIX","FN","FOR","FRE","FUNCTION",
+    "FIELD","FILES","FIX","FN","FOR","FRE","FREE","FUNCTION",
     "GET","GOSUB","GOTO","HEX$","IF","IMP","INKEY$",
     "INPUT","INPUT$","INSTR","INT","KILL","LBOUND","LCASE$","LEFT$",
     "LEN","LET","LIBRARY","LINE","LIST","LLIST","LOAD","LOC",
