@@ -28,6 +28,7 @@
 #include <exec/types.h>
 #include <exec/memory.h>
 #include <intuition/intuition.h>
+#include "lib_protos.h"
 
 #define	CLEARED_ANY_MEM 7L
 

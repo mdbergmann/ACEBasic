@@ -31,6 +31,7 @@
 #include <intuition/intuition.h>
 #include <graphics/gfxmacros.h>
 #include "intuievent.h"
+#include "lib_protos.h"
 
 #define MINMENU	1
 #define MAXMENU	10
@@ -79,11 +80,11 @@ extern	ULONG	stringlength();
 extern	void	set_wdw_close_num();
 
 /* 
-** graphics.library function 
+** graphics.library function
 ** to determine menu text length
 ** based upon font type and size.
+** (prototype now in lib_protos.h)
 */
-extern	WORD	TextLength();  
 
 /* functions */
 BOOL NewMenuBar(mbarnum)
@@ -239,7 +240,7 @@ SHORT item_width;
 
 	/* reasonable request? */
 	if (menu_id < MINMENU || menu_id > MAXMENU ||
-	    item_id < MINITEM || item_id > MAXITEM ||
+	    item_id > MAXITEM ||
 	    IntuiMode == 0)
 	return;
 
@@ -393,7 +394,7 @@ ULONG mbarnum;
 
 	/* reasonable request? */
 	if (menu_id < MINMENU || menu_id > MAXMENU ||
-	    item_id < MINITEM || item_id > MAXITEM ||
+	    item_id > MAXITEM ||
 	    IntuiMode == 0)
 	return;
 

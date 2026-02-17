@@ -24,6 +24,7 @@
 
 #include <exec/types.h>
 #include <libraries/mathffp.h>
+#include "lib_protos.h"
 
 extern long SPFix();
 extern long SPMul();

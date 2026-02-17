@@ -53,15 +53,12 @@ MAXSTRINGSIZE	EQU	1024
 
    	; external references
 	xref	_val
-   	xref  	_putchar
-	xref	_strsingle
 	xref	_Ustringinput
 
   	xref  	_LVOSPFix
 	xref	_LVOSPFlt
 	xref	_LVOSPFloor
 	xref	_LVOSPCeil
-	xref	_LVOSPAdd
 	xref	_LVOSPSub
 	xref	_LVOSPMul
    	xref  	_LVOSPDiv

@@ -105,8 +105,6 @@ ACCESS_READ		equ	-2
 	xref	_tab
 
 	xref	_fileinpstring
-	xref	_filecharcount
-	xref	_tempfinp
 	xref	_fstrbuf
 	xref	_filenum
 	xref	_eofhandle
@@ -129,7 +127,6 @@ ACCESS_READ		equ	-2
 	xref	_short_from_string
 	xref	_long_from_string
    	xref  	_LVOWrite
-	xref	_LVORead
 	xref	_LVOOpen
 	xref	_LVOClose
 	xref	_LVOSeek

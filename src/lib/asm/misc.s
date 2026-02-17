@@ -96,35 +96,24 @@ GZZMouseY	equ	110
 	xdef	_error_code
 	
    	; external references
-	xref	_inputstring
 	xref	_short_from_string
 	xref	_long_from_string	
-	xref	_strlen
-	xref	_strip	
    	xref  	_RangeRand
 	xref	_RangeSeed
 	xref	_DOSBase
 	xref	_LVODelay
 	xref	_LVOWrite
 	xref	_MathBase
-	xref	_LVOSPFix
 	xref	_LVOSPFlt
 	xref	_LVOSPDiv
-	xref	_LVOSPMul
-	xref	_LVOSPSub
-	xref	_LVOSPAdd
-	xref	_LVOSPCmp
 	xref 	_AbsExecBase
 	xref	_LVOAvailMem
-	xref	_LVOGetMsg
-	xref	_LVOReplyMsg
 	xref	_LVOWaitPort
 	xref	_LVOOpenLibrary
 	xref	_LVOCloseLibrary
 	xref	_stdout
 	xref	_IntuiMode
 	xref	_Wdw
-	xref	_TaskAddress
 	xref	_Ustringinput
 
 	SECTION misc_code,CODE

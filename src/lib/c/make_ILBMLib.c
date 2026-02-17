@@ -22,6 +22,7 @@
 
 #include <exec/types.h>
 #include <libraries/dos.h>
+#include "lib_protos.h"
 
 #define	LIB_DIR 	"ram:ILBMtmp"
 #define	ILBM_library 	"ram:ILBMtmp/ilbm.library"

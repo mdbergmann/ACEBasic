@@ -22,6 +22,7 @@
 
 #include <exec/types.h>
 #include <intuition/intuition.h>
+#include "lib_protos.h"
 
 #define RAISED 		1L
 #define RECESSED 	2L

@@ -28,8 +28,12 @@
    Date: 4th-6th January 1993
 */
 
+#include "lib_protos.h"
+
 #define EOF	(-1L)
+#ifndef NULL
 #define NULL	(0L)
+#endif
 
 extern long Read();
 extern long Seek();

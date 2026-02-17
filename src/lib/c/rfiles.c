@@ -35,6 +35,7 @@
 
 #include <exec/types.h>
 #include <libraries/dos.h>
+#include "lib_protos.h"
 
 #define ERR 			-1L
 #define MAXFILE			255L
@@ -197,7 +198,7 @@ BPTR fh;
 	if (fileNum < 1 || fileNum > 255)
 	{
 		error_code = BAD_FILE_NUMBER;
-		return;
+		return(0L);
 	}
 	else
 	{
@@ -205,7 +206,7 @@ BPTR fh;
 		if (fh == NULL)
 		{
 			error_code = BAD_FILE_NUMBER;
-			return;
+			return(0L);
 		}
 
 		return Seek(fh,0L,OFFSET_CURRENT);

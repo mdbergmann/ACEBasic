@@ -40,6 +40,7 @@
 #include <exec/types.h>
 #include <exec/ports.h>
 #include <exec/memory.h>
+#include "lib_protos.h"
 
 #define MINCHANNEL   	  	1
 #define MAXCHANNEL 		255
@@ -80,12 +81,8 @@ extern	ULONG	error_code;
 extern	void 	*alloc();
 extern	char 	*stringcopy();
 extern	ULONG 	stringlength();
-extern	struct 	MsgPort *CreatePort();
 extern	struct 	MsgPort *FindPort();
-extern	void	DeletePort();
 extern	void	PutMsg();
-extern	ACEMSG	*GetMsg();
-extern	void	WaitPort();
 
 /* functions */
 BOOL bad(channel)
@@ -320,7 +317,7 @@ ACEMSG	*pkt;
 	}
 	else
 	{
-	  pkt = GetMsg(aceport[channel].port);
+	  pkt = (ACEMSG *)GetMsg(aceport[channel].port);
 	  if (pkt != NULL) 
 	  {
 		stringcopy(msg_string,pkt->msg);
@@ -392,6 +389,6 @@ ACEMSG *pkt;
 	else
 	{
 		/* clear the port */
-		while (pkt = GetMsg(aceport[channel].port)) ReplyMsg(pkt);
+		while (pkt = (ACEMSG *)GetMsg(aceport[channel].port)) ReplyMsg(pkt);
 	}
 }

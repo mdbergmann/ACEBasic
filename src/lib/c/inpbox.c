@@ -26,6 +26,7 @@
 
 #include <exec/types.h>
 #include <intuition/intuition.h>
+#include "lib_protos.h"
 
 #define FontHeight (Scrn->RastPort.Font->tf_YSize)
 

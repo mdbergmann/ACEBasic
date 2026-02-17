@@ -30,6 +30,7 @@
 #include  <libraries/dos.h>
 #include  <intuition/intuition.h>
 #include  "ilbm_lib.h"
+#include  "lib_protos.h"
 
 /* errors */
 #define OPEN_ERR	500
@@ -243,10 +244,10 @@ LONG n,channel;
 */
 
   	if (bad(channel))
-		{ error_code = BAD_CHAN; return; }
+		{ error_code = BAD_CHAN; return(0L); }
 
 	if (iffpic[channel].name == NULL)
-		{ error_code = READ_ERR; return; }
+		{ error_code = READ_ERR; return(0L); }
 	
 	switch(n)
 	{

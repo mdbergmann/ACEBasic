@@ -25,6 +25,7 @@
 #include <exec/types.h>
 #include <exec/execbase.h>
 #include <dos/dosextens.h>
+#include "lib_protos.h"
 
 /* externals */
 extern	BPTR 	stdout;

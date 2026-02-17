@@ -25,6 +25,7 @@
 
 #include <intuition/intuition.h>
 #include <exec/types.h>
+#include "lib_protos.h"
 
 #define LF	0L
 #define TAB	1L

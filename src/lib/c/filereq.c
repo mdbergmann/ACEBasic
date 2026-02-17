@@ -29,6 +29,7 @@
 #include <exec/memory.h>
 #include <intuition/intuition.h>
 #include <libraries/asl.h>
+#include "lib_protos.h"
 
 #define MAXSTRINGLEN 1024
 

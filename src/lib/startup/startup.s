@@ -128,31 +128,12 @@ wa_Lock		equ	0
 	xref	_LVOCurrentDir
 
 	xref	_CleanupGadTools
-	xref	_RPort_list
-	xref	_Wdw_list
-	xref	_Wdw_width_list
-	xref	_Wdw_height_list
-	xref	_stdout_list
-	xref	_stdin_list
-	xref	_fgdpen_list
-	xref	_bgpen_list
-	xref	_storewindowinfo
-	xref	_LVOMove
 	xref	_turncursoron
 	xref	_turncursoroff
 
 	xref	_argbuf
 
 	xref	_initialise_waveform_data
-	xref	_waveformaddr0
-	xref	_waveformaddr1
-	xref	_waveformaddr2
-	xref	_waveformaddr3
-	xref	_wavelen0
-	xref	_wavelen1
-	xref	_wavelen2
-	xref	_wavelen3
-	xref	_sinwavedata
 
 ;
 ; opens the DOS library, gets stdio handles & sets up default sound waveform.

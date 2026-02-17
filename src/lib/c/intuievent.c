@@ -27,6 +27,7 @@
 */
 
 #include <intuition/intuition.h>
+#include "lib_protos.h"
 
 /* types */
 typedef	struct IntuiInfoStruct {

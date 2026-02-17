@@ -36,7 +36,6 @@
 
 	; * XREFS *
 
-	xref	_initialise_waveform_data
 	xref	_waveformaddr0
 	xref	_waveformaddr1
 	xref	_waveformaddr2

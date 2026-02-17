@@ -42,6 +42,7 @@ struct NewGadget {
 /* GadTools inline function stubs (vbcc) */
 #define CLIB_GADTOOLS_PROTOS_H 1
 #include <proto/gadtools.h>
+#include "lib_protos.h"
 
 #define MAXGADGET 255
 #define CLOSEGAD  256L

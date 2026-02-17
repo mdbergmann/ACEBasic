@@ -120,22 +120,10 @@ _LVOGetVPModeID equ -792
    	; external references
 	xref	_locate
 	xref	_scroll_screen
-	xref	_slash
-	xref	_radconv
 	xref	_longtemp
 	xref	_formfeed
 	xref	_forcebgndcolr
 	xref	_textcolr
-	xref	_raw
-	xref	_Wdw_width_list
-	xref	_Wdw_height_list
-	xref	_fgdpen_list
-	xref	_bgpen_list
-	xref	_Wdw_list
-	xref	_RPort_list
-	xref	_stdout_list
-	xref	_stdin_list
-	xref	_mode_oldfile
 	xref	_ScreenWdw
 	xref	_ScreenRPort
 	xref	_ScreenViewPort
@@ -145,14 +133,6 @@ _LVOGetVPModeID equ -792
 	xref	_horiz_tabstring
 	xref	_NULL_string
 
-	xref	_x1
-	xref	_x2
-	xref	_y1
-	xref	_y2
-	xref	_titleaddr
-	xref	_tempstr
-	xref	_rawname
-	xref	_tempWdw_id
 	xref	_screen_id
 	xref	_rport_addr
 	xref	_viewport_addr
@@ -163,10 +143,6 @@ _LVOGetVPModeID equ -792
 	xref	_green
 	xref	_blue
 	xref	_strbuf
-	xref	_max_line
-	xref	_font_height
-	xref	_wdth
-	xref	_hgt
 	xref	_horiz_pos
 
 	; AGA screen support
@@ -183,16 +159,12 @@ _LVOGetVPModeID equ -792
 	xref	_LVOCloseLibrary
 	
 	xref	_putchar
-	xref	_sprintf
-	xref	_strcpy	
-	xref	_strcat
 	xref	_strlen
 	xref	_strshort
 	xref	_strlong
 	xref	_strsingle
 	xref	_IntuitionBase
  	xref  	_stdout
-	xref	_stdin
 	xref 	_AbsExecBase
 	xref	_LVOSetSignal
 	xref	_GfxBase
@@ -201,7 +173,6 @@ _LVOGetVPModeID equ -792
 	xref	_LVOSetAPen
 	xref	_LVOSetRGB4
 	xref	_LVOClearScreen
-	xref	_LVOScrollRaster
 	xref	_LVOOpenScreen
 	; _LVOOpenScreenTagList defined locally (not in ami.lib)
 	xref	_LVOCloseScreen
@@ -211,19 +182,13 @@ _LVOGetVPModeID equ -792
 	xref	_LVOScreenToBack
 	xref	_DOSBase
 	xref	_LVOWrite
-	xref	_LVOOpen
-	xref	_LVOClose
 	xref	_MathBase
-	xref	_MathTransBase
 	xref	_LVOSPFix
 	xref	_LVOSPMul
 	xref	_RPort
 	xref	_ViewPort
 	xref	_Scrn
 	xref	_Wdw
-	xref	_Wdw_width
-	xref	_Wdw_height
-	xref	_Wdw_id
 	xref	_WBWdw
 	xref	_WBRPort
 	xref	_WBViewPort
@@ -233,12 +198,8 @@ _LVOGetVPModeID equ -792
 	xref	_IntuiMode
 	xref	_fgdpen
 	xref	_bgpen
-	xref	_cursorON
-	xref	_turncursoron
-	xref	_turncursoroff
 	xref	_pos
 	xref	_csrlin
-	xref	_last_IDCMP_event
 	xref	_only_shell_is_active
 	xref	_check_for_open_window
 	xref	_GetIntuiEvent

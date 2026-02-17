@@ -39,6 +39,7 @@
 #include <exec/types.h>
 #include <exec/memory.h>
 #include <intuition/intuition.h>
+#include "lib_protos.h"
 
 /* Allocation lists for db.lib functions and ACE programs. */
 struct Remember *RememberList = NULL;

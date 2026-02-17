@@ -36,6 +36,7 @@
 #include <exec/memory.h>
 #include <libraries/dos.h>
 #include <libraries/dosextens.h>
+#include "lib_protos.h"
 
 extern struct FileHandle *stdout;
 

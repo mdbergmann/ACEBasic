@@ -30,6 +30,7 @@
 #include <intuition/intuitionbase.h>
 #include <exec/memory.h>
 #include "intuievent.h"
+#include "lib_protos.h"
 
 #define MAXWDW			17L	/* shell wdw + user-wdws 1..16 */
 #define CLEARED_ANY_MEM	 	7L
@@ -224,7 +225,7 @@ USHORT id;
 
 	id = (USHORT)window_id;
 
-	if (id < 0 || id > MAXWDW-1) return;
+	if (id > MAXWDW-1) return;
 	
 	Wdw_id = id;
 

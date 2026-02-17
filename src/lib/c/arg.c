@@ -34,6 +34,7 @@
 #include <exec/memory.h>
 #include <libraries/dos.h>
 #include <libraries/dosextens.h>
+#include "lib_protos.h"
 
 #define QUOTE '"'
 

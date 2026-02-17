@@ -35,6 +35,7 @@
 #include <exec/memory.h>
 #include <intuition/intuition.h>
 #include "intuievent.h"
+#include "lib_protos.h"
 
 #define CLEARED_ANY_MEM    7L
 
@@ -722,7 +723,7 @@ struct	Gadget *GadPtr;
 USHORT	GadNum;
 ULONG	MsgClass;
 
-	if (id < 0 || id > MAXGADGET || 
+	if (id > MAXGADGET ||
 	   (id > 0 && !gadlist[id].used)) return;
 
 	/* soak up pending messages first? ** MAY RESULT IN MESSAGE LOSS? **

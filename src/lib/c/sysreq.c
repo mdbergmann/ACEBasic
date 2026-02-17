@@ -25,6 +25,7 @@
 
 #include <exec/types.h>
 #include <intuition/intuition.h>
+#include "lib_protos.h"
 
 #define  FontWidth  (RPort->Font->tf_XSize)
 #define  FontHeight (RPort->Font->tf_YSize)

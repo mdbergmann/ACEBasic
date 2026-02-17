@@ -84,12 +84,9 @@ cli_CommandName	equ 16
 	xref	_longfmt
 	xref	_shorthexfmt
 	xref	_longhexfmt
-	xref	_zerostr
-	xref	_colonstr
 
 	xref	_tmpstring
-	xref	_deststraddr
-	xref	_count
+
 	xref	_ucasestring
 	xref	_lcasestring
 	xref	_spacestraddress
@@ -109,25 +106,14 @@ cli_CommandName	equ 16
 
    	xref  	_putchar
 	xref	_sprintf
-	xref	_strval
-  	xref  	_LVOSPFlt
-	xref	_LVOSPAdd
-   	xref  	_LVOSPDiv
-   	xref  	_LVOSPTst
-	xref	_LVOSPNeg
    	xref  	_LVOWrite
 	xref	_LVORead
 	xref	_LVOWaitForChar
-	xref	_LVOExamine
-	xref	_LVOUnLock
-  	xref  	_DOSBase	
-   	xref  	_MathBase
+  	xref  	_DOSBase
    	xref  	_stdout
 	xref	_stdin
 	xref	_turncursoron
 	xref	_turncursoroff
-        xref 	_AbsExecBase
-	xref	_LVOFindTask
 	xref	_Wdw
 	xref	_Wdw_id
 	xref	_IntuiMode

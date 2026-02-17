@@ -33,8 +33,6 @@
 	xref	_sprintf
 
 	; BSS from string2_data.s
-	xref	_fmtfmt
-	xref	_fmtargs
 	xref	_fmtspecbuf
 	xref	_fmtsegbuf
 

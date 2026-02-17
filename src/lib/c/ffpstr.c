@@ -26,6 +26,8 @@
      Date: 16th,18th February 1993
 */
 
+#include "lib_protos.h"
+
 static char 	fnumbuf[40];	/* final buffer for transformed fnum */
 
 /* external references */

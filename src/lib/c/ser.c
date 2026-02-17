@@ -31,6 +31,7 @@
 #include <exec/memory.h>
 #include <exec/io.h>
 #include <devices/serial.h>
+#include "lib_protos.h"
 
 #define BRK_TIME 750000L
 
@@ -164,10 +165,10 @@ UBYTE  parity,data,stop,wires,Xon,shared,fast;
 		}
 	}
 
-	channel--;
-
-	if (channel < 0 || channel > 254) 
+	if (channel < 1 || channel > 255)
 	   { error_code = BAD_CHANNEL; return; }
+
+	channel--;
 
 	GetParameters(params,&parity,&data,&stop,&wires,&Xon,&shared,&fast);
 
@@ -302,11 +303,11 @@ ULONG channel;
 {
 	/* close serial device */
 
+	if (channel < 1 || channel > 255)
+	   { error_code = BAD_CHANNEL; return; }
+
 	channel--;
 
-	if (channel < 0 || channel > 254) 
-	   { error_code = BAD_CHANNEL; return; }
- 
 	if (serial[channel].SerRdReq != NULL && 
 	    serial[channel].SerWtReq != NULL &&
 	    serial[channel].SerRPort != NULL &&
@@ -464,10 +465,10 @@ ULONG channel;
 {
 	/* read len bytes of data from serial port into buf */
 
-	channel--;
-
-	if (channel < 0 || channel > 254) 
+	if (channel < 1 || channel > 255)
 	   { error_code = BAD_CHANNEL; return; }
+
+	channel--;
 
 	if (serial[channel].SerRdReq)
 	{
@@ -491,10 +492,10 @@ ULONG channel;
 {
 	/* write len bytes of data to serial port from buf */
 
-	channel--;
-
-	if (channel < 0 || channel > 254) 
+	if (channel < 1 || channel > 255)
 	   { error_code = BAD_CHANNEL; return; }
+
+	channel--;
 
 	if (serial[channel].SerWtReq)
 	{
@@ -517,10 +518,10 @@ ULONG channel;
    a serial port channel. 
 */
 
- channel--;
-
- if (channel < 0 || channel > 254) 
+ if (channel < 1 || channel > 255)
     { error_code = BAD_CHANNEL; return(0L); }
+
+ channel--;
  
  switch(n)
  {
