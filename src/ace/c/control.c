@@ -53,6 +53,8 @@ extern	char   	id[MAXIDSIZE];
 extern	SYM	*curr_item;
 extern	CODE	*curr_code;
 extern	CODE	*exit_for_cx;
+extern	CODE	*exit_while_cx;
+extern	CODE	*exit_repeat_cx;
 extern	BOOL	end_of_source;
 extern	BOOL	have_equal;
 extern	BOOL	have_lparen;
@@ -372,6 +374,13 @@ int  exprtype;
   make_label(labname3,lablabel3);
   gen(lablabel3,"  ","  ");
   change(cx2,"jmp",labname3,"  ");
+
+  /* EXIT WHILE branch code pointer non-NULL? */
+  if (exit_while_cx)
+  {
+   change(exit_while_cx,"jmp",labname3,"  ");
+   exit_while_cx = NULL;
+  }
  }
  else _error(4);
 
@@ -407,6 +416,13 @@ int  exprtype;
    gen("bne.s",labname2,"  ");
    gen("jmp",labname1,"  ");	/* loop until condition is TRUE */
    gen(lablabel2,"  ","  ");
+
+   /* EXIT REPEAT branch code pointer non-NULL? */
+   if (exit_repeat_cx)
+   {
+    change(exit_repeat_cx,"jmp",labname2,"  ");
+    exit_repeat_cx = NULL;
+   }
   }
   else _error(4);
  }

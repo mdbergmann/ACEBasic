@@ -51,7 +51,7 @@ EOF( result = EOF(n) : EOF() returns -1 if end-of-file reached for file number n
 EQV EQV is the boolean equivalence operator.
 ERR errorcode = ERR : ERR returns the error code from the last failed operation (or 0) and immediately clears the error code.
 ERROR ERROR ON|OFF|STOP : ERROR enables, disables or suspends ON ERROR event trapping.
-EXIT EXIT FOR : EXIT FOR allows premature exit from a FOR..NEXT loop with proper stack cleanup.
+EXIT EXIT FOR|WHILE|REPEAT : EXIT FOR allows premature exit from a FOR..NEXT loop with proper stack cleanup. EXIT WHILE exits a WHILE..WEND loop. EXIT REPEAT exits a REPEAT..UNTIL loop.
 EXP( result = EXP(n) : EXP() returns e to the power n (e = 2.7182818284590).
 EXTERNAL EXTERNAL [FUNCTION] [<type>] <identifier> : EXTERNAL declares an external function or variable for cross-module access.
 FILEBOX$( path$ = FILEBOX$(title[,default-dir]) : FILEBOX$() invokes a file requester and returns the user's selection as a fully qualified path.

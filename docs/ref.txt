@@ -880,13 +880,32 @@ EXIT FOR *	- This command allows for the premature, conditional
 		  code fragments in order to see what's going on here.
 
 --------------------------------------------------------------------------------
+EXIT REPEAT *	- This command allows for the premature, conditional
+		  termination of a REPEAT..UNTIL loop.
+		- When encountered, control passes to the statement
+		  following the UNTIL clause, skipping the condition
+		  evaluation entirely.
+		- When nesting loops, the inner loop's EXIT REPEAT will
+		  override any previous EXIT REPEAT in an enclosing
+		  REPEAT..UNTIL loop (same behavior as EXIT FOR).
+
+--------------------------------------------------------------------------------
 EXIT SUB	- This command can only be used inside a subprogram and
 		  when encountered, has the effect of passing control back
 		  to the caller of the subprogram in which it appears.
 		- If the current instantiation of the subprogram is the
 		  result of a recursive call, control will be returned
 		  to the previous instantiation of the same subprogram.
- 
+
+--------------------------------------------------------------------------------
+EXIT WHILE *	- This command allows for the premature, conditional
+		  termination of a WHILE..WEND loop.
+		- When encountered, control passes to the statement
+		  following WEND.
+		- When nesting loops, the inner loop's EXIT WHILE will
+		  override any previous EXIT WHILE in an enclosing
+		  WHILE..WEND loop (same behavior as EXIT FOR).
+
 --------------------------------------------------------------------------------
 EXP		- syntax: EXP(n)
 		- Returns e to the power n, where e is the base of

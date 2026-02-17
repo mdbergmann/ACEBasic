@@ -68,6 +68,8 @@ extern	char   	ut_id[MAXIDSIZE];
 extern	SYM	*curr_item;
 extern	CODE	*curr_code;
 extern	CODE	*exit_for_cx;
+extern	CODE	*exit_while_cx;
+extern	CODE	*exit_repeat_cx;
 
 extern	BOOL 	have_lparen;
 extern	BOOL 	have_equal;
@@ -562,6 +564,20 @@ static void handle_exit_statement()
   	/* EXIT FOR */
 	gen("nop","  ","  ");
 	exit_for_cx = curr_code;
+	insymbol();
+  }
+  else if (sym == whilesym)
+  {
+	/* EXIT WHILE */
+	gen("nop","  ","  ");
+	exit_while_cx = curr_code;
+	insymbol();
+  }
+  else if (sym == repeatsym)
+  {
+	/* EXIT REPEAT */
+	gen("nop","  ","  ");
+	exit_repeat_cx = curr_code;
 	insymbol();
   }
   else

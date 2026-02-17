@@ -84,6 +84,8 @@ char bmapname[MAXIDSIZE+20];
 BOOL restore_a4=FALSE;
 BOOL restore_a5=FALSE;
 CODE *exit_for_cx=NULL;
+CODE *exit_while_cx=NULL;
+CODE *exit_repeat_cx=NULL;
 
 /* --expression type holders-- */
 int  storetype,eqvtype,ortype,andtype,nottype,simptype;
