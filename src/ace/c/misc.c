@@ -75,6 +75,7 @@ extern	BOOL	optimise_opt;
 extern	BOOL	wdw_close_opt;
 extern	BOOL	module_opt;
 extern	BOOL	cpu020_opt;
+extern	BOOL	trace_opt;
 extern	FILE	*err_log;
 extern	int	idtype[31];
 extern	int  	strconstcount;
@@ -746,6 +747,7 @@ BOOL activate;
       case 'm' : module_opt=activate; break;
       case 'O' : optimise_opt=activate; break;
       case 'w' : wdw_close_opt=activate; break;
+      case 't' : trace_opt=activate; break;
       case '2' : cpu020_opt=activate; break;
 
       default  : _error(74); break;
