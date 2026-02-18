@@ -180,11 +180,7 @@ ASSERT *	- syntax: ASSERT <condition> [, <message>]
 --------------------------------------------------------------------------------
 ATN		- syntax: ATN(n)
 		- Returns the arctangent of n.
- 
---------------------------------------------------------------------------------
-BACK *		- Removed. Now in turtle submodule as TgBack(n).
-		  See submods/turtle/ and include/submods/turtle.h.
- 
+
 --------------------------------------------------------------------------------
 BEEP		- Issues a brief pulse from the speaker.
  		- BEEP doesn't flash the screen as it does in AmigaBASIC.
@@ -1037,11 +1033,7 @@ FOR..NEXT	- syntax: FOR <variable>=x TO y [STEP z]
 		  use EXIT FOR. See also the further discussion of this
 		  issue (including RETURNing from within a FOR loop) in the
 		  "Limitations" section of ace.txt.
-		
---------------------------------------------------------------------------------
-FORWARD *	- Removed. Now in turtle submodule as TgForward(n).
-		  See submods/turtle/ and include/submods/turtle.h.
- 
+
 --------------------------------------------------------------------------------
 FRE		- syntax: FRE(n)
 		  where n is -1,0,1,2 or 3.
@@ -1410,20 +1402,12 @@ HANDLE *	- syntax: HANDLE(n)
 		  such as Read (xRead when declared in ACE/AmigaBASIC). 
 		- If HANDLE returns 0 the file does not exist or can't be
 		  opened as requested.
- 
---------------------------------------------------------------------------------
-HEADING *	- Removed. Now in turtle submodule as TgHeading.
-		  See submods/turtle/ and include/submods/turtle.h.
- 
+
 --------------------------------------------------------------------------------
 HEX$		- syntax: HEX$(n)
 		- Returns a string which represents the hexadecimal value
 		  of the decimal argument n.
- 
---------------------------------------------------------------------------------
-HOME *		- Removed. Now in turtle submodule as TgHome.
-		  See submods/turtle/ and include/submods/turtle.h.
- 
+
 --------------------------------------------------------------------------------
 IF		- syntax: IF..THEN..[ELSE..]
 			  IF..GOTO..[ELSE..]
@@ -2092,15 +2076,7 @@ PATTERN		- syntax: PATTERN [line-pattern][,area-pattern] | RESTORE
 PEEKx		- syntax: PEEKx(<address>)
 		- The functions PEEK,PEEKW and PEEKL return an 8-bit, 16-bit 
 		  and 32-bit value from memory, respectively.
- 
---------------------------------------------------------------------------------
-PENDOWN *	- Removed. Now in turtle submodule as TgPenDown.
-		  See submods/turtle/ and include/submods/turtle.h.
- 
---------------------------------------------------------------------------------
-PENUP *		- Removed. Now in turtle submodule as TgPenUp.
-		  See submods/turtle/ and include/submods/turtle.h.
-		
+
 --------------------------------------------------------------------------------
 POINT		- syntax: POINT(x,y)
 		- Returns the color-id of a point in the current output
@@ -2726,15 +2702,7 @@ SERIAL WRITE *	- syntax: SERIAL WRITE [#] channel,string,length
 		  string buffer.
 		- The string buffer can be any string expression.
 		- See also ERR.
-	 			
---------------------------------------------------------------------------------
-SETHEADING * 	- Removed. Now in turtle submodule as TgSetHeading(n).
-		  See submods/turtle/ and include/submods/turtle.h.
- 
---------------------------------------------------------------------------------
-SETXY *		- Removed. Now in turtle submodule as TgSetXY(x, y).
-		  See submods/turtle/ and include/submods/turtle.h.
- 
+
 --------------------------------------------------------------------------------
 SGN		- syntax: SGN(n)
 		- Returns the sign of the number n:
@@ -3167,18 +3135,6 @@ TRIM$ *		- syntax: TRIM$(<string-expression>)
 		- See also LTRIM$, RTRIM$.
 
 --------------------------------------------------------------------------------
-TURN *		- Removed. Now in turtle submodule as TgTurn(n).
-		  See submods/turtle/ and include/submods/turtle.h.
- 
---------------------------------------------------------------------------------
-TURNLEFT *	- Removed. Now in turtle submodule as TgTurnLeft(n).
-		  See submods/turtle/ and include/submods/turtle.h.	
-	
---------------------------------------------------------------------------------
-TURNRIGHT *	- Removed. Now in turtle submodule as TgTurnRight(n).
-		  See submods/turtle/ and include/submods/turtle.h.	
- 
---------------------------------------------------------------------------------
 TROFF *		- syntax: TROFF
 		- Disables SUB trace output at runtime.
 		- Only effective in programs compiled with the -t switch.
@@ -3354,14 +3310,6 @@ WRITE #		- syntax: WRITE #filenumber,expression-list
 		- See also INPUT# and the section on files in ace.txt. 
  		- See also ERR.
 
---------------------------------------------------------------------------------
-XCOR *		- Removed. Now in turtle submodule as TgXcor.
-		  See submods/turtle/ and include/submods/turtle.h.
- 
---------------------------------------------------------------------------------
-YCOR *		- Removed. Now in turtle submodule as TgYcor.
-		  See submods/turtle/ and include/submods/turtle.h.
- 
 --------------------------------------------------------------------------------
 XOR		- Boolean operator: X XOR Y.
  
