@@ -46,12 +46,14 @@ Scope
 - Module SUBs (compiled with -m -t) are traced (with d0 return)
 - Does NOT trace: system library calls, implicit type conversions,
   expression evaluation, or DEF FN
-- TRON/TROFF only have effect when compiled with -t; without -t they
-  are accepted but generate no code (no-ops)
+- TRON/TROFF only have effect when compiled with -t or OPTION t+;
+  without either, they are accepted but generate no code (no-ops)
+- OPTION t+ can be used instead of -t to enable tracing per-file
+  from within source code; OPTION t- disables it again
 
 Components
 ----------
-1. Compiler flag (-t)
+1. Compiler flag (-t) and OPTION t+
 2. TRON/TROFF statements (lexer + statement handler)
 3. Compiler instrumentation (parse.c block())
 4. Runtime trace library (new: src/lib/asm/trace.s)
@@ -59,12 +61,18 @@ Components
 6. acedef.h changes (SYM struct)
 
 ============================================================
-COMPONENT 1: Compiler Flag (-t)
+COMPONENT 1: Compiler Flag (-t) and OPTION t+
 ============================================================
+
+Tracing can be enabled either via the -t command line flag or via
+OPTION t+ in the source file. Both set the same trace_opt variable.
+OPTION t+ should appear before any SUB definitions that need tracing.
+OPTION t- can disable tracing for subsequent SUBs in the same file.
 
 Files changed:
   - src/ace/c/parsevar.c  (add global variable)
   - src/ace/c/parse.c     (extern declaration, check_options, usage)
+  - src/ace/c/misc.c      (OPTION t+/t- in parse_option_list)
 
 Details:
 
@@ -80,6 +88,9 @@ Details:
 
 1d. In usage() (parse.c ~line 552):
     Add: printf("  -t         Enable SUB call/return tracing\n");
+
+1e. In misc.c, add extern BOOL trace_opt and add case 't' to
+    parse_option_list() switch: trace_opt=activate;
 
 ============================================================
 COMPONENT 2: TRON/TROFF Statements
