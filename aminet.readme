@@ -2,7 +2,7 @@ Short:        AmigaBasic Compiler Enhanced (ACE)
 Author:       Manfred Bergmann
 Uploader:     manfred.bergmann@me.com
 Type:         dev/basic
-Version:      2.8.0
+Version:      2.9.0
 Architecture: m68k-amigaos >= 2.0
 Distribution: Aminet
 Requires:     OS2.0+

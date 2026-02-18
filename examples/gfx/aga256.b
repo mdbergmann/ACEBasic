@@ -70,7 +70,7 @@ FOR c = 0 TO 63
 NEXT c
 
 COLOR 255
-LOCATE 23,1
+LOCATE 20,1
 PRINT "Press any key to exit";
 
 WHILE INKEY$="":SLEEP:WEND
