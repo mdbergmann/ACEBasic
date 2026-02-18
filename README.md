@@ -93,6 +93,8 @@ The installer will:
 4. Optionally append assigns to `S:user-startup` for persistence across reboots
 5. If an existing `ACE:` installation is found, offer to copy/upgrade files
 
+A manual install is of course also still possible. Just copy the extracted folder where you want it and setup the assigns as mentioned above.
+
 ## Building
 
 ### Building the ACE Compiler
