@@ -77,11 +77,11 @@ MAXSTRINGSIZE equ 1024
 	xdef	_aga_taglist
 	xdef	_screen_depth_list
 
-	; P96 screen support
-	xdef	_P96Base
-	xdef	_screen_p96_flag
-	xdef	_p96_taglist
-	xdef	_p96_libname
+	; CyberGraphX screen support
+	xdef	_CyberGfxBase
+	xdef	_screen_cgx_flag
+	xdef	_cgx_taglist
+	xdef	_cgx_libname
 
 	SECTION scrwin_data,DATA
 
@@ -162,8 +162,8 @@ _newwindow:
 _horiz_tabstring:	dc.b  $9b,$31,$31,$43,0
 _NULL_string:		dc.b  0
 
-; * P96 screen support *
-_p96_libname:		dc.b  'Picasso96API.library',0
+; * CyberGraphX screen support *
+_cgx_libname:		dc.b  'cybergraphics.library',0
 	even
 
 ;************************
@@ -212,10 +212,10 @@ _aga_modeid:		ds.l 1		; AGA display mode ID
 _aga_taglist:		ds.l 16		; TagList for OpenScreenTagList (8 tags max)
 _screen_depth_list:	ds.w 10		; Depth for each screen (10 screens max)
 
-; * P96 screen support *
-_P96Base:		ds.l 1		; Picasso96API.library base
-_screen_p96_flag:	ds.b 10		; 0=native, 1=P96 per screen slot (0-9)
+; * CyberGraphX screen support *
+_CyberGfxBase:		ds.l 1		; cybergraphics.library base
+_screen_cgx_flag:	ds.b 10		; 0=native, 1=CGX per screen slot (0-9)
 	even
-_p96_taglist:		ds.l 20		; TagList for P96 calls (10 tags max)
+_cgx_taglist:		ds.l 20		; TagList for CGX/Intuition calls (10 tags max)
 
 	END

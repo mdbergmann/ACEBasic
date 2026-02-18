@@ -73,21 +73,21 @@ SCREEN_OPEN_ERR equ 600
 _LVOOpenScreenTagList equ -612
 _LVOSetRGB32 equ -852
 
-; LVOs for P96 support
-_LVOp96BestModeIDTagList equ -60
-_LVOp96OpenScreenTagList equ -90
-_LVOp96CloseScreen equ -96
+; LVOs for CyberGraphX support
+_LVOBestCModeIDTagList equ -60
 
-; P96 tag constants
-P96BIDTAG_NominalWidth equ $80000063
-P96BIDTAG_NominalHeight equ $80000064
-P96BIDTAG_Depth equ $80000065
-P96SA_Width equ $80020063
-P96SA_Height equ $80020064
-P96SA_Depth equ $80020065
-P96SA_AutoScroll equ $80020077
-P96SA_Quiet equ $80020076
-P96SA_DisplayID equ $80020072
+; CyberGraphX BestCModeID tag constants
+CYBRBIDTG_Depth equ $80050000
+CYBRBIDTG_NominalWidth equ $80050001
+CYBRBIDTG_NominalHeight equ $80050002
+
+; Standard Intuition SA_ tag constants for OpenScreenTagList
+SA_Width equ $80000023
+SA_Height equ $80000024
+SA_Depth equ $80000025
+SA_DisplayID equ $80000032
+SA_Quiet equ $80000038
+SA_AutoScroll equ $80000039
 
 INVALID_ID equ $FFFFFFFF
 
@@ -150,11 +150,11 @@ _LVOGetVPModeID equ -792
 	xref	_aga_taglist
 	xref	_screen_depth_list
 
-	; P96 screen support
-	xref	_P96Base
-	xref	_screen_p96_flag
-	xref	_p96_taglist
-	xref	_p96_libname
+	; CyberGraphX screen support
+	xref	_CyberGfxBase
+	xref	_screen_cgx_flag
+	xref	_cgx_taglist
+	xref	_cgx_libname
 	xref	_LVOOpenLibrary
 	xref	_LVOCloseLibrary
 	
@@ -384,9 +384,9 @@ _openscreen:
 	cmpi.w	#9,d0		; screen-id > 9?
 	bgt	_quitopenscreen
 
-	; P96 mode 13 allows larger dimensions and depths
+	; CGX/RTG mode 13 allows larger dimensions and depths
 	cmpi.w	#13,d4
-	beq.s	_p96_validate
+	beq.s	_cgx_validate
 
 	; Native/AGA validation (modes 1-12)
 	cmpi.w	#1,d1		; width < 1?
@@ -410,30 +410,30 @@ _openscreen:
 	bgt	_quitopenscreen
 	bra.s	_native_validate_ok
 
-_p96_validate:
-	; P96 mode: allow width/height 0 (clone WB) or 1-4096
+_cgx_validate:
+	; CGX/RTG mode: allow width/height 0 (clone WB) or 1-4096
 	; depth 0 (clone WB) or 8,15,16,24,32
 	cmpi.w	#0,d1		; width = 0 is ok (clone WB)
-	beq.s	_p96_check_height
+	beq.s	_cgx_check_height
 	cmpi.w	#1,d1		; width < 1?
 	blt	_quitopenscreen
 	cmpi.w	#4096,d1	; width > 4096?
 	bgt	_quitopenscreen
-_p96_check_height:
+_cgx_check_height:
 	cmpi.w	#0,d2		; height = 0 is ok (clone WB)
-	beq.s	_p96_check_depth
+	beq.s	_cgx_check_depth
 	cmpi.w	#1,d2		; height < 1?
 	blt	_quitopenscreen
 	cmpi.w	#4096,d2	; height > 4096?
 	bgt	_quitopenscreen
-_p96_check_depth:
+_cgx_check_depth:
 	cmpi.w	#0,d3		; depth = 0 is ok (clone WB)
-	beq.s	_p96_validate_ok
+	beq.s	_cgx_validate_ok
 	cmpi.w	#1,d3		; depth < 1?
 	blt	_quitopenscreen
 	cmpi.w	#32,d3		; depth > 32?
 	bgt	_quitopenscreen
-_p96_validate_ok:
+_cgx_validate_ok:
 
 _native_validate_ok:
 
@@ -463,9 +463,9 @@ _native_validate_ok:
 	cmpi.l	#0,d0
 	bne	_quitopenscreen	; if not ZERO -> quit!
 
-	; P96 mode 13 - branch to P96 handler
+	; CGX/RTG mode 13 - branch to CGX handler
 	cmpi.w	#13,d4
-	beq	_openthescreen_p96
+	beq	_openthescreen_cgx
 
 	; complete NewScreen and NewWindow structures.
 
@@ -698,25 +698,28 @@ _openthescreen_aga:
 	rts
 
 ;
-; Open a P96/RTG screen (mode 13).
+; Open a CGX/RTG screen (mode 13).
+; Uses cybergraphics.library for mode detection, standard Intuition
+; OpenScreenTagList for screen opening. Works with both native CyberGraphX
+; and Picasso96's CyberGraphX compatibility layer.
 ; d1 = width, d2 = height, d3 = depth (0,0,0 = clone WB)
 ; _screen_id, _screen_addr, _scr_wdw_addr, _rport_addr,
 ; _viewport_addr are already set by the caller.
 ;
-_openthescreen_p96:
+_openthescreen_cgx:
 	; Save parameters on stack (we need them across library calls)
 	move.w	d1,-(sp)		; width
 	move.w	d2,-(sp)		; height
 	move.w	d3,-(sp)		; depth
 
-	; Open Picasso96API.library
+	; Open cybergraphics.library
 	movea.l	_AbsExecBase,a6
-	lea	_p96_libname,a1
-	moveq	#2,d0			; version 2
+	lea	_cgx_libname,a1
+	moveq	#41,d0			; version 41
 	jsr	_LVOOpenLibrary(a6)
-	move.l	d0,_P96Base
+	move.l	d0,_CyberGfxBase
 	tst.l	d0
-	beq	_p96_fail_stack		; P96 not installed
+	beq	_cgx_fail_stack		; CGX not installed
 
 	; Restore parameters
 	move.w	(sp)+,d3		; depth
@@ -725,11 +728,11 @@ _openthescreen_p96:
 
 	; Check for clone-WB case (w=0, h=0, d=0)
 	tst.w	d1
-	bne	_p96_explicit
+	bne	_cgx_explicit
 	tst.w	d2
-	bne	_p96_explicit
+	bne	_cgx_explicit
 	tst.w	d3
-	bne	_p96_explicit
+	bne	_cgx_explicit
 
 	; --- Clone WB: read Workbench screen properties ---
 	; LockPubScreen(NULL) -> default public screen (WB)
@@ -737,7 +740,7 @@ _openthescreen_p96:
 	sub.l	a0,a0			; name = NULL
 	jsr	_LVOLockPubScreen(a6)
 	tst.l	d0
-	beq	_p96_close_fail		; can't lock WB screen
+	beq	_cgx_close_fail		; can't lock WB screen
 	movea.l	d0,a2			; a2 = WB Screen (preserved across calls)
 
 	; Read width/height and store in _newwindow
@@ -761,7 +764,7 @@ _openthescreen_p96:
 	move.l	d0,_aga_modeid		; store as DisplayID
 
 	cmpi.l	#INVALID_ID,d0
-	beq.s	_p96_clone_unlock_fail
+	beq.s	_cgx_clone_unlock_fail
 
 	; UnlockPubScreen(NULL, screen)
 	movea.l	_IntuitionBase,a6
@@ -770,17 +773,17 @@ _openthescreen_p96:
 	jsr	_LVOUnlockPubScreen(a6)
 
 	; Skip BestModeID - already have DisplayID from WB
-	bra	_p96_open_screen
+	bra	_cgx_open_screen
 
-_p96_clone_unlock_fail:
+_cgx_clone_unlock_fail:
 	; Unlock and fail
 	movea.l	_IntuitionBase,a6
 	sub.l	a0,a0
 	movea.l	a2,a1
 	jsr	_LVOUnlockPubScreen(a6)
-	bra	_p96_close_fail
+	bra	_cgx_close_fail
 
-_p96_explicit:
+_cgx_explicit:
 	; Store depth in depth list for palette function
 	move.w	_screen_id,d0
 	subq.w	#1,d0
@@ -793,20 +796,20 @@ _p96_explicit:
 	move.w	d1,4(a0)		; width
 	move.w	d2,6(a0)		; height
 
-	; Build BestModeID tag list
-	lea	_p96_taglist,a1
+	; Build BestCModeIDTagList tag list
+	lea	_cgx_taglist,a1
 
-	move.l	#P96BIDTAG_NominalWidth,(a1)+
+	move.l	#CYBRBIDTG_NominalWidth,(a1)+
 	moveq	#0,d0
 	move.w	d1,d0
 	move.l	d0,(a1)+
 
-	move.l	#P96BIDTAG_NominalHeight,(a1)+
+	move.l	#CYBRBIDTG_NominalHeight,(a1)+
 	moveq	#0,d0
 	move.w	d2,d0
 	move.l	d0,(a1)+
 
-	move.l	#P96BIDTAG_Depth,(a1)+
+	move.l	#CYBRBIDTG_Depth,(a1)+
 	moveq	#0,d0
 	move.w	d3,d0
 	move.l	d0,(a1)+
@@ -815,18 +818,18 @@ _p96_explicit:
 	clr.l	(a1)+
 	clr.l	(a1)
 
-	; Call p96BestModeIDTagList
-	movea.l	_P96Base,a6
-	lea	_p96_taglist,a0
-	jsr	_LVOp96BestModeIDTagList(a6)
+	; Call BestCModeIDTagList via cybergraphics.library
+	movea.l	_CyberGfxBase,a6
+	lea	_cgx_taglist,a0
+	jsr	_LVOBestCModeIDTagList(a6)
 	; d0 = DisplayID or INVALID_ID
 
 	cmpi.l	#INVALID_ID,d0
-	beq	_p96_close_fail
+	beq	_cgx_close_fail
 
 	move.l	d0,_aga_modeid		; reuse aga_modeid for storage
 
-_p96_open_screen:
+_cgx_open_screen:
 	; Reload width/height/depth from _newwindow and depth list
 	lea	_newwindow,a0
 	moveq	#0,d1
@@ -840,42 +843,43 @@ _p96_open_screen:
 	moveq	#0,d3
 	move.w	(a1,d0.w),d3		; depth
 
-	; Build p96OpenScreenTagList tags
-	lea	_p96_taglist,a1
+	; Build OpenScreenTagList tags (standard Intuition SA_ tags)
+	lea	_cgx_taglist,a1
 
-	move.l	#P96SA_Width,(a1)+
+	move.l	#SA_Width,(a1)+
 	move.l	d1,(a1)+
 
-	move.l	#P96SA_Height,(a1)+
+	move.l	#SA_Height,(a1)+
 	move.l	d2,(a1)+
 
-	move.l	#P96SA_Depth,(a1)+
+	move.l	#SA_Depth,(a1)+
 	move.l	d3,(a1)+
 
-	move.l	#P96SA_DisplayID,(a1)+
+	move.l	#SA_DisplayID,(a1)+
 	move.l	_aga_modeid,(a1)+
 
-	move.l	#P96SA_AutoScroll,(a1)+
+	move.l	#SA_AutoScroll,(a1)+
 	move.l	#1,(a1)+
 
-	move.l	#P96SA_Quiet,(a1)+
+	move.l	#SA_Quiet,(a1)+
 	move.l	#1,(a1)+
 
 	; TAG_DONE
 	clr.l	(a1)+
 	clr.l	(a1)
 
-	; Call p96OpenScreenTagList
-	movea.l	_P96Base,a6
-	lea	_p96_taglist,a0
-	jsr	_LVOp96OpenScreenTagList(a6)
+	; Call OpenScreenTagList(NULL, taglist) via intuition.library
+	movea.l	_IntuitionBase,a6
+	sub.l	a0,a0			; NewScreen = NULL
+	lea	_cgx_taglist,a1		; tag list
+	jsr	_LVOOpenScreenTagList(a6)
 	move.l	d0,_Scrn
 	tst.l	d0
-	beq	_p96_close_fail
+	beq	_cgx_close_fail
 
-	; Set P96 flag for this screen
+	; Set CGX flag for this screen
 	move.w	_screen_id,d0
-	lea	_screen_p96_flag,a0
+	lea	_screen_cgx_flag,a0
 	move.b	#1,(a0,d0.w)
 
 	; Read actual screen width/height for the window
@@ -891,14 +895,14 @@ _p96_open_screen:
 	move.w	d1,4(a0)		; width
 	move.w	d2,6(a0)		; height
 
-	; Open borderless window on P96 screen
+	; Open borderless window on CGX screen
 	movea.l	_IntuitionBase,a6
 	lea	_newwindow,a0
 	move.l	_Scrn,30(a0)		; link to screen
 	jsr	_LVOOpenWindow(a6)
 	move.l	d0,_Wdw
 	tst.l	d0
-	beq	_p96_close_screen_fail
+	beq	_cgx_close_screen_fail
 
 	; Update lists and set screen mode
 	move.b	#1,_IntuiMode
@@ -936,29 +940,29 @@ _p96_open_screen:
 
 	rts
 
-_p96_close_screen_fail:
-	; Close the P96 screen we just opened
-	movea.l	_P96Base,a6
+_cgx_close_screen_fail:
+	; Close the screen we just opened (standard Intuition)
+	movea.l	_IntuitionBase,a6
 	movea.l	_Scrn,a0
-	jsr	_LVOp96CloseScreen(a6)
-	; Clear P96 flag
+	jsr	_LVOCloseScreen(a6)
+	; Clear CGX flag
 	move.w	_screen_id,d0
-	lea	_screen_p96_flag,a0
+	lea	_screen_cgx_flag,a0
 	clr.b	(a0,d0.w)
 
-_p96_close_fail:
-	; Close the P96 library (stack is clean at this point)
+_cgx_close_fail:
+	; Close cybergraphics.library (stack is clean at this point)
 	movea.l	_AbsExecBase,a6
-	movea.l	_P96Base,a1
+	movea.l	_CyberGfxBase,a1
 	jsr	_LVOCloseLibrary(a6)
-	clr.l	_P96Base
-	bra.s	_p96_fail
+	clr.l	_CyberGfxBase
+	bra.s	_cgx_fail
 
-_p96_fail_stack:
+_cgx_fail_stack:
 	; Clean stack - 3 words pushed before OpenLibrary call
 	addq.l	#6,sp
 
-_p96_fail:
+_cgx_fail:
 	move.l	#SCREEN_OPEN_ERR,_error_code
 	rts
 
@@ -1002,13 +1006,9 @@ _closescreen:
 	movea.l	(a1),a0
 	jsr	_LVOCloseWindow(a6)
 
-	; close the screen - check if P96 or native
-	move.w	_screen_id,d0
-	lea	_screen_p96_flag,a0
-	tst.b	(a0,d0.w)
-	bne.s	_close_p96_screen
-
-	; native screen: use CloseScreen
+	; close the screen - use standard CloseScreen for both native and CGX
+	; (CGX screens are opened with Intuition OpenScreenTagList, so
+	;  standard CloseScreen works for all screen types)
 	movea.l	_IntuitionBase,a6
 	move.w	_screen_id,d0
 	mulu	#4,d0
@@ -1017,37 +1017,29 @@ _closescreen:
 	movea.l	d5,a1
 	movea.l	(a1),a0
 	jsr	_LVOCloseScreen(a6)
-	bra.s	_after_close_screen
 
-_close_p96_screen:
-	; P96 screen: use p96CloseScreen
-	movea.l	_P96Base,a6
+	; Check if this was a CGX screen and manage library lifecycle
 	move.w	_screen_id,d0
-	mulu	#4,d0
-	move.l	#_Screen_list,d5
-	add.l	d0,d5
-	movea.l	d5,a1
-	movea.l	(a1),a0
-	jsr	_LVOp96CloseScreen(a6)
+	lea	_screen_cgx_flag,a0
+	tst.b	(a0,d0.w)
+	beq.s	_after_close_screen	; native screen, nothing more to do
 
-	; Clear P96 flag
-	move.w	_screen_id,d0
-	lea	_screen_p96_flag,a0
+	; Clear CGX flag
 	clr.b	(a0,d0.w)
 
-	; Check if any other P96 screens are still open
+	; Check if any other CGX screens are still open
 	moveq	#9,d1
-_check_p96_open:
+_check_cgx_open:
 	tst.b	(a0,d1.w)
-	bne.s	_after_close_screen	; still a P96 screen open
+	bne.s	_after_close_screen	; still a CGX screen open
 	subq.w	#1,d1
-	bne.s	_check_p96_open
+	bne.s	_check_cgx_open
 
-	; No more P96 screens - close library
+	; No more CGX screens - close cybergraphics.library
 	movea.l	_AbsExecBase,a6
-	movea.l	_P96Base,a1
+	movea.l	_CyberGfxBase,a1
 	jsr	_LVOCloseLibrary(a6)
-	clr.l	_P96Base
+	clr.l	_CyberGfxBase
 
 _after_close_screen:
 	; zero all list elements -> screen,rastport,viewport

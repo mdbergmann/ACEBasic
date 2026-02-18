@@ -20,6 +20,8 @@ REM Try drawing
 LINE (10,50)-(200,150),2,bf
 CIRCLE (400,300),100,4
 
+SLEEP FOR 3
+
 REM Close screen
 SCREEN CLOSE 1
 PRINT "All tests passed"

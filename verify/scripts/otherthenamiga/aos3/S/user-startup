@@ -54,3 +54,26 @@ If Exists AmiSSL:Libs
 EndIf
 Path AmiSSL: ADD
 ;END AmiSSL
+
+; --- Rebuild runtime library and test CGX screen support ---
+echo "=== Rebuilding runtime library ===" >ace:build-output.txt
+cd ace:src/make
+make -f Makefile-lib clean all >>ace:build-output.txt
+echo "=== Build done ===" >>ace:build-output.txt
+
+; Compile and run 8-bit screen test
+echo "=== Compiling 8bit test ===" >>ace:build-output.txt
+cd ace:verify/tests/cases/screens
+bas screen_p96_8bit_run >>ace:build-output.txt
+echo "=== Running 8bit test ===" >>ace:build-output.txt
+screen_p96_8bit_run >ace:test-output.txt
+echo "=== 8bit test done ===" >>ace:build-output.txt
+
+; Compile and run clone-WB test
+echo "=== Compiling clonewb test ===" >>ace:build-output.txt
+bas screen_p96_clonewb_run >>ace:build-output.txt
+echo "=== Running clonewb test ===" >>ace:build-output.txt
+screen_p96_clonewb_run >>ace:test-output.txt
+echo "=== clonewb test done ===" >>ace:build-output.txt
+
+echo "=== ALL DONE ===" >>ace:build-output.txt
