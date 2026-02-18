@@ -244,10 +244,6 @@ Use descriptive names without spaces: `float_add.b`, not `float add.b`
 - `docs/ref.guide` - Language reference guide
 - `docs/ACE_Tutorial.guide` - Tutorial for beginners
 - `docs/history` - Version history and changes
-
-### Developer Documentation
-
-- `CLAUDE.md` - Development workflow guide (for Claude Code)
 - `docs/SuperOptimizer.guide` - Optimization techniques
 
 ### IDE Integration
@@ -255,6 +251,8 @@ Use descriptive names without spaces: `float_add.b`, not `float add.b`
 - **CubicIDE ACE Plugin** - Syntax highlighting and IDE integration for CubicIDE
   - [Aminet](https://aminet.net/package/dev/basic/CubicIDE-ACE)
   - [GitHub](https://github.com/mdbergmann/amigastuff/tree/main/CubicIDE-ACE)
+
+The included AIDE is there for legacy reasons. It may or may not work, it's up to you.
 
 ### Architecture Overview
 
