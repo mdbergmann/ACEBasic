@@ -391,6 +391,7 @@ Tracing can be controlled at runtime with the TRON and TROFF statements:
 TRON enables trace output, TROFF suppresses it. When a program compiled with
 -t starts, tracing is enabled by default. Programs compiled without -t ignore
 TRON and TROFF. The trace log is opened at program start and closed at exit.
+This switch can also be activated from source code with OPTION t+.
 
 The "w" switch tells ACE to include checks for window close-gadget clicks.
 ACE checks all open windows and upon detecting a close-gadget click, the
@@ -2891,15 +2892,12 @@ Okay, enough philosophy. Here's the ACE stuff:
 As of ACE 2.9, Turtle Graphics is provided as a submodule rather than as
 built-in commands. To use it, include the following at the top of your program:
 
-	EXTERNAL turtle
+	REM #using turtle.o
 	#include <submods/turtle.h>
 
 The turtle module must be compiled separately with:
 
 	bas -m turtle
-
-and linked by adding REM #using to your program or by passing turtle.o
-to bas.
 
 Before using any TG commands, you must open a window and call TgInit to
 set the turtle's home position:
@@ -2909,7 +2907,7 @@ set the turtle's home position:
 
 Here is a complete example:
 
-	EXTERNAL turtle
+	REM #using turtle.o
 	#include <submods/turtle.h>
 
 	WINDOW 1,"Turtle",(0,0)-(640,200),6

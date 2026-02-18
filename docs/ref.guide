@@ -6,25 +6,24 @@
   @{" Introduction      " link "Introduction"}  @{" ABS               " link "ABS"}  @{" ADDRESS           " link "ADDRESS"}  @{" ALLOC             " link "ALLOC"}
   @{" AND               " link "AND"}  @{" AREA              " link "AREA"}  @{" AREAFILL          " link "AREAFILL"}  @{" ARG$              " link "ARG$"}
   @{" ARGCOUNT          " link "ARGCOUNT"}  @{" ASC               " link "ASC"}  @{" ASSEM             " link "ASSEM"}  @{" ASSERT            " link "ASSERT"}
-  @{" ATN               " link "ATN"}  @{" BACK              " link "BACK"}  @{" BEEP              " link "BEEP"}  @{" BEVELBOX          " link "BEVELBOX"}
-  @{" BIN$              " link "BIN$"}  @{" BIND              " link "BIND"}  @{" BLOCK             " link "BLOCK"}  @{" BREAK             " link "BREAK"}
-  @{" CALL              " link "CALL"}  @{" CALLBACK          " link "CALLBACK"}  @{" CASE              " link "CASE"}  @{" CHDIR             " link "CHDIR"}
-  @{" CHIPSET           " link "CHIPSET"}  @{" CHR$              " link "CHR$"}  @{" CINT              " link "CINT"}  @{" CIRCLE            " link "CIRCLE"}
-  @{" CLEAR ALLOC       " link "CLEAR ALLOC"}  @{" CLNG              " link "CLNG"}  @{" CLOSE             " link "CLOSE"}  @{" CLS               " link "CLS"}
-  @{" COLOR             " link "COLOR"}  @{" COMMON            " link "COMMON"}  @{" CONST             " link "CONST"}  @{" COS               " link "COS"}
-  @{" CSNG              " link "CSNG"}  @{" CSRLIN            " link "CSRLIN"}  @{" CSTR              " link "CSTR"}  @{" DATA              " link "DATA"}
-  @{" DATE$             " link "DATE$"}  @{" DAY               " link "DAY"}  @{" DECLARE           " link "DECLARE"}  @{" DEF FN            " link "DEF FN"}
-  @{" DEFxxx            " link "DEFxxx"}  @{" DIM               " link "DIM"}  @{" END               " link "END"}  @{" ENDSWITH          " link "ENDSWITH"}
-  @{" EOF               " link "EOF"}  @{" EQV               " link "EQV"}  @{" ERR               " link "ERR"}  @{" ERROR             " link "ERROR"}
-  @{" EXIT FOR          " link "EXIT FOR"}  @{" EXIT REPEAT       " link "EXIT REPEAT"}  @{" EXIT SUB          " link "EXIT SUB"}  @{" EXIT WHILE        " link "EXIT WHILE"}
-  @{" EXP               " link "EXP"}  @{" EXTERNAL          " link "EXTERNAL"}  @{" FILEBOX$          " link "FILEBOX$"}  @{" FILES             " link "FILES"}
-  @{" FIX               " link "FIX"}  @{" FMT$              " link "FMT$"}  @{" FONT              " link "FONT"}  @{" FOR..NEXT         " link "FOR..NEXT"}
-  @{" FORWARD           " link "FORWARD"}  @{" FRE               " link "FRE"}  @{" FREE              " link "FREE"}  @{" GADGET            " link "GADGET"}
-  @{" GADGET (GadTools) " link "GADGET (GadTools)"}  @{" GADGET CLOSE      " link "GADGET CLOSE"}  @{" GADGET FONT       " link "GADGET FONT"}  @{" GADGET GETATTR    " link "GADGET GETATTR"}
-  @{" GADGET MOD        " link "GADGET MOD"}  @{" GADGET ON         " link "GADGET ON"}  @{" GADGET OUTPUT     " link "GADGET OUTPUT"}  @{" GADGET SETATTR    " link "GADGET SETATTR"}
-  @{" GADGET WAIT       " link "GADGET WAIT"}  @{" GET               " link "GET"}  @{" GLOBAL            " link "GLOBAL"}  @{" GOSUB..RETURN     " link "GOSUB..RETURN"}
-  @{" GOTO              " link "GOTO"}  @{" HANDLE            " link "HANDLE"}  @{" HEADING           " link "HEADING"}  @{" HEX$              " link "HEX$"}
-  @{" HOME              " link "HOME"}  @{" IF                " link "IF"}  @{" IMP               " link "IMP"}  @{" INKEY$            " link "INKEY$"}
+  @{" ATN               " link "ATN"}  @{" BEEP              " link "BEEP"}  @{" BEVELBOX          " link "BEVELBOX"}  @{" BIN$              " link "BIN$"}
+  @{" BIND              " link "BIND"}  @{" BLOCK             " link "BLOCK"}  @{" BREAK             " link "BREAK"}  @{" CALL              " link "CALL"}
+  @{" CALLBACK          " link "CALLBACK"}  @{" CASE              " link "CASE"}  @{" CHDIR             " link "CHDIR"}  @{" CHIPSET           " link "CHIPSET"}
+  @{" CHR$              " link "CHR$"}  @{" CINT              " link "CINT"}  @{" CIRCLE            " link "CIRCLE"}  @{" CLEAR ALLOC       " link "CLEAR ALLOC"}
+  @{" CLNG              " link "CLNG"}  @{" CLOSE             " link "CLOSE"}  @{" CLS               " link "CLS"}  @{" COLOR             " link "COLOR"}
+  @{" COMMON            " link "COMMON"}  @{" CONST             " link "CONST"}  @{" COS               " link "COS"}  @{" CSNG              " link "CSNG"}
+  @{" CSRLIN            " link "CSRLIN"}  @{" CSTR              " link "CSTR"}  @{" DATA              " link "DATA"}  @{" DATE$             " link "DATE$"}
+  @{" DAY               " link "DAY"}  @{" DECLARE           " link "DECLARE"}  @{" DEF FN            " link "DEF FN"}  @{" DEFxxx            " link "DEFxxx"}
+  @{" DIM               " link "DIM"}  @{" END               " link "END"}  @{" ENDSWITH          " link "ENDSWITH"}  @{" EOF               " link "EOF"}
+  @{" EQV               " link "EQV"}  @{" ERR               " link "ERR"}  @{" ERROR             " link "ERROR"}  @{" EXIT FOR          " link "EXIT FOR"}
+  @{" EXIT REPEAT       " link "EXIT REPEAT"}  @{" EXIT SUB          " link "EXIT SUB"}  @{" EXIT WHILE        " link "EXIT WHILE"}  @{" EXP               " link "EXP"}
+  @{" EXTERNAL          " link "EXTERNAL"}  @{" FILEBOX$          " link "FILEBOX$"}  @{" FILES             " link "FILES"}  @{" FIX               " link "FIX"}
+  @{" FMT$              " link "FMT$"}  @{" FONT              " link "FONT"}  @{" FOR..NEXT         " link "FOR..NEXT"}  @{" FRE               " link "FRE"}
+  @{" FREE              " link "FREE"}  @{" GADGET            " link "GADGET"}  @{" GADGET (GadTools) " link "GADGET (GadTools)"}  @{" GADGET CLOSE      " link "GADGET CLOSE"}
+  @{" GADGET FONT       " link "GADGET FONT"}  @{" GADGET GETATTR    " link "GADGET GETATTR"}  @{" GADGET MOD        " link "GADGET MOD"}  @{" GADGET ON         " link "GADGET ON"}
+  @{" GADGET OUTPUT     " link "GADGET OUTPUT"}  @{" GADGET SETATTR    " link "GADGET SETATTR"}  @{" GADGET WAIT       " link "GADGET WAIT"}  @{" GET               " link "GET"}
+  @{" GLOBAL            " link "GLOBAL"}  @{" GOSUB..RETURN     " link "GOSUB..RETURN"}  @{" GOTO              " link "GOTO"}  @{" HANDLE            " link "HANDLE"}
+  @{" HEX$              " link "HEX$"}  @{" IF                " link "IF"}  @{" IMP               " link "IMP"}  @{" INKEY$            " link "INKEY$"}
   @{" INPUT             " link "INPUT"}  @{" INPUT #           " link "INPUT #"}  @{" INPUT$            " link "INPUT$"}  @{" INPUTBOX          " link "INPUTBOX"}
   @{" INPUTBOX$         " link "INPUTBOX$"}  @{" INSTR             " link "INSTR"}  @{" INT               " link "INT"}  @{" INVOKE            " link "INVOKE"}
   @{" KILL              " link "KILL"}  @{" LCASE$            " link "LCASE$"}  @{" LEFT$             " link "LEFT$"}  @{" LEN               " link "LEN"}
@@ -37,16 +36,15 @@
   @{" MOUSE ON          " link "MOUSE ON"}  @{" MSGBOX            " link "MSGBOX"}  @{" NAME              " link "NAME"}  @{" NOT               " link "NOT"}
   @{" OCT$              " link "OCT$"}  @{" OPEN              " link "OPEN"}  @{" OPTION            " link "OPTION"}  @{" OR                " link "OR"}
   @{" PAINT             " link "PAINT"}  @{" PALETTE           " link "PALETTE"}  @{" PATTERN           " link "PATTERN"}  @{" PEEKx             " link "PEEKx"}
-  @{" PENDOWN           " link "PENDOWN"}  @{" PENUP             " link "PENUP"}  @{" POINT             " link "POINT"}  @{" POKEx             " link "POKEx"}
-  @{" POS               " link "POS"}  @{" POTX              " link "POTX"}  @{" POTY              " link "POTY"}  @{" PRINT             " link "PRINT"}
-  @{" PRINT #           " link "PRINT #"}  @{" PRINTS            " link "PRINTS"}  @{" PSET              " link "PSET"}  @{" PTAB              " link "PTAB"}
-  @{" PUT               " link "PUT"}  @{" RANDOMIZE         " link "RANDOMIZE"}  @{" READ              " link "READ"}  @{" REM               " link "REM"}
-  @{" REPEAT$           " link "REPEAT$"}  @{" REPEAT..UNTIL     " link "REPEAT..UNTIL"}  @{" REPLACE$          " link "REPLACE$"}  @{" RESTORE           " link "RESTORE"}
-  @{" REVERSE$          " link "REVERSE$"}  @{" RIGHT$            " link "RIGHT$"}  @{" RINSTR            " link "RINSTR"}  @{" RND               " link "RND"}
-  @{" RPAD$             " link "RPAD$"}  @{" RTRIM$            " link "RTRIM$"}  @{" SADD              " link "SADD"}  @{" SAY               " link "SAY"}
-  @{" SCREEN            " link "SCREEN"}  @{" SCREEN BACK       " link "SCREEN BACK"}  @{" SCREEN CLOSE      " link "SCREEN CLOSE"}  @{" SCREEN FORWARD    " link "SCREEN FORWARD"}
-  @{" SCROLL            " link "SCROLL"}  @{" SERIAL            " link "SERIAL"}  @{" SERIAL CLOSE      " link "SERIAL CLOSE"}  @{" SERIAL OPEN       " link "SERIAL OPEN"}
-  @{" SERIAL READ       " link "SERIAL READ"}  @{" SERIAL WRITE      " link "SERIAL WRITE"}  @{" SETHEADING        " link "SETHEADING"}  @{" SETXY             " link "SETXY"}
+  @{" POINT             " link "POINT"}  @{" POKEx             " link "POKEx"}  @{" POS               " link "POS"}  @{" POTX              " link "POTX"}
+  @{" POTY              " link "POTY"}  @{" PRINT             " link "PRINT"}  @{" PRINT #           " link "PRINT #"}  @{" PRINTS            " link "PRINTS"}
+  @{" PSET              " link "PSET"}  @{" PTAB              " link "PTAB"}  @{" PUT               " link "PUT"}  @{" RANDOMIZE         " link "RANDOMIZE"}
+  @{" READ              " link "READ"}  @{" REM               " link "REM"}  @{" REPEAT$           " link "REPEAT$"}  @{" REPEAT..UNTIL     " link "REPEAT..UNTIL"}
+  @{" REPLACE$          " link "REPLACE$"}  @{" RESTORE           " link "RESTORE"}  @{" REVERSE$          " link "REVERSE$"}  @{" RIGHT$            " link "RIGHT$"}
+  @{" RINSTR            " link "RINSTR"}  @{" RND               " link "RND"}  @{" RPAD$             " link "RPAD$"}  @{" RTRIM$            " link "RTRIM$"}
+  @{" SADD              " link "SADD"}  @{" SAY               " link "SAY"}  @{" SCREEN            " link "SCREEN"}  @{" SCREEN BACK       " link "SCREEN BACK"}
+  @{" SCREEN CLOSE      " link "SCREEN CLOSE"}  @{" SCREEN FORWARD    " link "SCREEN FORWARD"}  @{" SCROLL            " link "SCROLL"}  @{" SERIAL            " link "SERIAL"}
+  @{" SERIAL CLOSE      " link "SERIAL CLOSE"}  @{" SERIAL OPEN       " link "SERIAL OPEN"}  @{" SERIAL READ       " link "SERIAL READ"}  @{" SERIAL WRITE      " link "SERIAL WRITE"}
   @{" SGN               " link "SGN"}  @{" SHARED            " link "SHARED"}  @{" SHL               " link "SHL"}  @{" SHORTINT          " link "SHORTINT"}
   @{" SHR               " link "SHR"}  @{" SIN               " link "SIN"}  @{" SINGLE            " link "SINGLE"}  @{" SIZEOF            " link "SIZEOF"}
   @{" SLEEP             " link "SLEEP"}  @{" SLEEP FOR         " link "SLEEP FOR"}  @{" SOUND             " link "SOUND"}  @{" SPACE$            " link "SPACE$"}
@@ -55,11 +53,10 @@
   @{" STRING$           " link "STRING$"}  @{" STRUCT            " link "STRUCT"}  @{" STYLE             " link "STYLE"}  @{" SUB..END SUB      " link "SUB..END SUB"}
   @{" SWAP              " link "SWAP"}  @{" SYSTEM            " link "SYSTEM"}  @{" TAB               " link "TAB"}  @{" TAN               " link "TAN"}
   @{" TIME$             " link "TIME$"}  @{" TIMER             " link "TIMER"}  @{" TIMER ON          " link "TIMER ON"}  @{" TRANSLATE$        " link "TRANSLATE$"}
-  @{" TRIM$             " link "TRIM$"}  @{" TROFF             " link "TROFF"}  @{" TRON              " link "TRON"}  @{" TURN              " link "TURN"}
-  @{" TURNLEFT          " link "TURNLEFT"}  @{" TURNRIGHT         " link "TURNRIGHT"}  @{" UCASE$            " link "UCASE$"}  @{" VAL               " link "VAL"}
-  @{" VARPTR            " link "VARPTR"}  @{" WAVE              " link "WAVE"}  @{" WHILE..WEND       " link "WHILE..WEND"}  @{" WINDOW            " link "WINDOW"}
-  @{" WINDOW CLOSE      " link "WINDOW CLOSE"}  @{" WINDOW ON         " link "WINDOW ON"}  @{" WINDOW OUTPUT     " link "WINDOW OUTPUT"}  @{" WRITE #           " link "WRITE #"}
-  @{" XCOR              " link "XCOR"}  @{" XOR               " link "XOR"}  @{" YCOR              " link "YCOR"}
+  @{" TRIM$             " link "TRIM$"}  @{" TROFF             " link "TROFF"}  @{" TRON              " link "TRON"}  @{" UCASE$            " link "UCASE$"}
+  @{" VAL               " link "VAL"}  @{" VARPTR            " link "VARPTR"}  @{" WAVE              " link "WAVE"}  @{" WHILE..WEND       " link "WHILE..WEND"}
+  @{" WINDOW            " link "WINDOW"}  @{" WINDOW CLOSE      " link "WINDOW CLOSE"}  @{" WINDOW ON         " link "WINDOW ON"}  @{" WINDOW OUTPUT     " link "WINDOW OUTPUT"}
+  @{" WRITE #           " link "WRITE #"}  @{" XOR               " link "XOR"}
 @ENDNODE
 @NODE "Introduction" "Introduction"
 +------------+
@@ -256,11 +253,6 @@ ASSERT *	- syntax: ASSERT <condition> [, <message>]
 @NODE "ATN" "ATN"
 ATN		- syntax: ATN(n)
 		- Returns the arctangent of n.
- 
-@ENDNODE
-@NODE "BACK" "BACK"
-BACK *		- Removed. Now in turtle submodule as TgBack(n).
-		  See submods/turtle/ and include/submods/turtle.h.
  
 @ENDNODE
 @NODE "BEEP" "BEEP"
@@ -1164,11 +1156,6 @@ FOR..NEXT	- syntax: FOR <variable>=x TO y [STEP z]
 		  "Limitations" section of @{"ace.guide" alink ace:docs/ace.guide/main}.
  
 @ENDNODE
-@NODE "FORWARD" "FORWARD"
-FORWARD *	- Removed. Now in turtle submodule as TgForward(n).
-		  See submods/turtle/ and include/submods/turtle.h.
- 
-@ENDNODE
 @NODE "FRE" "FRE"
 FRE		- syntax: FRE(n)
 		  where n is -1,0,1,2 or 3.
@@ -1555,20 +1542,10 @@ HANDLE *	- syntax: HANDLE(n)
 		  opened as requested.
  
 @ENDNODE
-@NODE "HEADING" "HEADING"
-HEADING *	- Removed. Now in turtle submodule as TgHeading.
-		  See submods/turtle/ and include/submods/turtle.h.
- 
-@ENDNODE
 @NODE "HEX$" "HEX$"
 HEX$		- syntax: HEX$(n)
 		- Returns a string which represents the hexadecimal value
 		  of the decimal argument n.
- 
-@ENDNODE
-@NODE "HOME" "HOME"
-HOME *		- Removed. Now in turtle submodule as TgHome.
-		  See submods/turtle/ and include/submods/turtle.h.
  
 @ENDNODE
 @NODE "IF" "IF"
@@ -2209,7 +2186,7 @@ OPTION *	- syntax: OPTION <switch>+|-[,<switch>+|-..]
 		- Each switch must be followed by a "+" or "-" with
 		  the former activating the directive and the latter
 		  neutralising it.
-		- Switches currently implemented are: 2,b,c,E,i,l,m,O,w
+		- Switches currently implemented are: 2,b,c,E,i,l,m,O,t,w
  		- See @{"ace.guide" alink ace:docs/ace.guide/main}, "Compiler options" for details of each
 		  switch. Notice that for switches i and O, activation
 		  or deactivation takes effect at the end of compilation.
@@ -2217,6 +2194,11 @@ OPTION *	- syntax: OPTION <switch>+|-[,<switch>+|-..]
 		  for long integer multiply, divide, and modulo. Programs
 		  compiled with this switch require a 68020 or higher CPU.
 		  Example: OPTION 2+
+		- The "t" switch enables SUB call/return tracing, equivalent
+		  to the -t command line flag. Place OPTION t+ before any
+		  SUB definitions that should be traced. TRON/TROFF
+		  statements only generate code when tracing is enabled.
+		  Example: OPTION t+
  
 @ENDNODE
 @NODE "OR" "OR"
@@ -2268,16 +2250,6 @@ PATTERN		- syntax: PATTERN [line-pattern][,area-pattern] | RESTORE
 PEEKx		- syntax: PEEKx(<address>)
 		- The functions PEEK,PEEKW and PEEKL return an 8-bit, 16-bit 
 		  and 32-bit value from memory, respectively.
- 
-@ENDNODE
-@NODE "PENDOWN" "PENDOWN"
-PENDOWN *	- Removed. Now in turtle submodule as TgPenDown.
-		  See submods/turtle/ and include/submods/turtle.h.
- 
-@ENDNODE
-@NODE "PENUP" "PENUP"
-PENUP *		- Removed. Now in turtle submodule as TgPenUp.
-		  See submods/turtle/ and include/submods/turtle.h.
  
 @ENDNODE
 @NODE "POINT" "POINT"
@@ -2942,16 +2914,6 @@ SERIAL WRITE *	- syntax: SERIAL WRITE [#] channel,string,length
 		- See also @{"ERR" link "ERR"}.
  
 @ENDNODE
-@NODE "SETHEADING" "SETHEADING"
-SETHEADING * 	- Removed. Now in turtle submodule as TgSetHeading(n).
-		  See submods/turtle/ and include/submods/turtle.h.
- 
-@ENDNODE
-@NODE "SETXY" "SETXY"
-SETXY *		- Removed. Now in turtle submodule as TgSetXY(x, y).
-		  See submods/turtle/ and include/submods/turtle.h.
- 
-@ENDNODE
 @NODE "SGN" "SGN"
 SGN		- syntax: SGN(n)
 		- Returns the sign of the number n:
@@ -3438,21 +3400,6 @@ TRON *		- syntax: TRON
 		- See also @{"TROFF" link "TROFF"}.
  
 @ENDNODE
-@NODE "TURN" "TURN"
-TURN *		- Removed. Now in turtle submodule as TgTurn(n).
-		  See submods/turtle/ and include/submods/turtle.h.
- 
-@ENDNODE
-@NODE "TURNLEFT" "TURNLEFT"
-TURNLEFT *	- Removed. Now in turtle submodule as TgTurnLeft(n).
-		  See submods/turtle/ and include/submods/turtle.h.
- 
-@ENDNODE
-@NODE "TURNRIGHT" "TURNRIGHT"
-TURNRIGHT *	- Removed. Now in turtle submodule as TgTurnRight(n).
-		  See submods/turtle/ and include/submods/turtle.h.
- 
-@ENDNODE
 @NODE "UCASE$" "UCASE$"
 UCASE$		- syntax: UCASE$(<string-expression>)
 		- Returns <string-expression> with all alphabetic characters 
@@ -3619,11 +3566,6 @@ WRITE #		- syntax: WRITE #filenumber,expression-list
  		- See also @{"ERR" link "ERR"}.
  
 @ENDNODE
-@NODE "XCOR" "XCOR"
-XCOR *		- Removed. Now in turtle submodule as TgXcor.
-		  See submods/turtle/ and include/submods/turtle.h.
- 
-@ENDNODE
 @NODE "XOR" "XOR"
 XOR		- Boolean operator: X XOR Y.
  
@@ -3633,11 +3575,6 @@ XOR		- Boolean operator: X XOR Y.
 			T F	T
 			F T	T
 			F F	F
- 
-@ENDNODE
-@NODE "YCOR" "YCOR"
-YCOR *		- Removed. Now in turtle submodule as TgYcor.
-		  See submods/turtle/ and include/submods/turtle.h.
  
 @ENDNODE
 @NODE INDEXNODE "Index"
@@ -3658,7 +3595,6 @@ YCOR *		- Removed. Now in turtle submodule as TgYcor.
 
         B
 
-        @{" BACK              " link "BACK"}
         @{" BEEP              " link "BEEP"}
         @{" BEVELBOX          " link "BEVELBOX"}
         @{" BIN$              " link "BIN$"}
@@ -3721,7 +3657,6 @@ YCOR *		- Removed. Now in turtle submodule as TgYcor.
         @{" FMT$              " link "FMT$"}
         @{" FONT              " link "FONT"}
         @{" FOR..NEXT         " link "FOR..NEXT"}
-        @{" FORWARD           " link "FORWARD"}
         @{" FRE               " link "FRE"}
         @{" FREE              " link "FREE"}
 
@@ -3745,9 +3680,7 @@ YCOR *		- Removed. Now in turtle submodule as TgYcor.
         H
 
         @{" HANDLE            " link "HANDLE"}
-        @{" HEADING           " link "HEADING"}
         @{" HEX$              " link "HEX$"}
-        @{" HOME              " link "HOME"}
 
         I
 
@@ -3820,8 +3753,6 @@ YCOR *		- Removed. Now in turtle submodule as TgYcor.
         @{" PALETTE           " link "PALETTE"}
         @{" PATTERN           " link "PATTERN"}
         @{" PEEKx             " link "PEEKx"}
-        @{" PENDOWN           " link "PENDOWN"}
-        @{" PENUP             " link "PENUP"}
         @{" POINT             " link "POINT"}
         @{" POKEx             " link "POKEx"}
         @{" POS               " link "POS"}
@@ -3864,8 +3795,6 @@ YCOR *		- Removed. Now in turtle submodule as TgYcor.
         @{" SERIAL OPEN       " link "SERIAL OPEN"}
         @{" SERIAL READ       " link "SERIAL READ"}
         @{" SERIAL WRITE      " link "SERIAL WRITE"}
-        @{" SETHEADING        " link "SETHEADING"}
-        @{" SETXY             " link "SETXY"}
         @{" SGN               " link "SGN"}
         @{" SHARED            " link "SHARED"}
         @{" SHL               " link "SHL"}
@@ -3904,9 +3833,6 @@ YCOR *		- Removed. Now in turtle submodule as TgYcor.
         @{" TRIM$             " link "TRIM$"}
         @{" TROFF             " link "TROFF"}
         @{" TRON              " link "TRON"}
-        @{" TURN              " link "TURN"}
-        @{" TURNLEFT          " link "TURNLEFT"}
-        @{" TURNRIGHT         " link "TURNRIGHT"}
 
         U
 
@@ -3929,10 +3855,5 @@ YCOR *		- Removed. Now in turtle submodule as TgYcor.
 
         X
 
-        @{" XCOR              " link "XCOR"}
         @{" XOR               " link "XOR"}
-
-        Y
-
-        @{" YCOR              " link "YCOR"}
 @ENDNODE
