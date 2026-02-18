@@ -9,8 +9,6 @@ REM #using ace:submods/amissl/amissl.o
 
 { ============== exec.library Declarations ============== }
 
-DECLARE FUNCTION ADDRESS AllocVec(LONGINT byteSize, LONGINT requirements) LIBRARY exec
-DECLARE FUNCTION FreeVec(ADDRESS memoryBlock) LIBRARY exec
 DECLARE FUNCTION LONGINT AvailMem(LONGINT requirements) LIBRARY exec
 DECLARE FUNCTION CopyMem(ADDRESS source, ADDRESS dest, LONGINT sz) LIBRARY exec
 
@@ -56,7 +54,6 @@ CONST HDR_NAME_SZ   = 64
 CONST HDR_VAL_SZ    = 256
 
 ' Memory allocation
-CONST MEMF_PUBLIC   = 1&
 CONST MEMF_LARGEST  = 131072&
 
 { ============== Struct Definitions ============== }
@@ -121,7 +118,7 @@ SUB _HttpInit
   ' Initialize TCP subsystem
   TcpInit
 
-  ' Open exec.library for AllocVec/FreeVec/AvailMem
+  ' Open exec.library for AvailMem/CopyMem
   LIBRARY "exec.library"
 
   ' CRLF constant
@@ -718,7 +715,7 @@ END SUB
 { ============== Public API - Utility ============== }
 
 SUB HttpFreeBuf(ADDRESS buf) EXTERNAL
-  IF buf <> 0 THEN FreeVec(buf)
+  IF buf <> 0 THEN FREE buf
 END SUB
 
 SUB STRING HttpDumpReqHeaders(ADDRESS req) EXTERNAL
@@ -784,7 +781,7 @@ END SUB
 
 { ============== Internal Helper - Read full body with auto-alloc ============== }
 
-' Read entire response body into an AllocVec'd buffer.
+' Read entire response body into an ALLOC'd buffer.
 ' Content-Length known: checks AvailMem, allocates exact size.
 ' Chunked/close: grows buffer as needed, then allocs exact copy.
 ' Updates rp->contentLen to actual bytes read.
@@ -805,7 +802,7 @@ SUB LONGINT _HttpReadAllBody(ADDRESS tcpConn, ADDRESS resp)
       EXIT SUB
     END IF
 
-    bufAddr = AllocVec(rp->contentLen + 1, MEMF_PUBLIC)
+    bufAddr = ALLOC(rp->contentLen + 1, 2)
     IF bufAddr = 0 THEN
       _HttpReadAllBody = 0
       EXIT SUB
@@ -820,7 +817,7 @@ SUB LONGINT _HttpReadAllBody(ADDRESS tcpConn, ADDRESS resp)
       IF bytesGot > 0 THEN
         totalLen = totalLen + bytesGot
       ELSEIF bytesGot < 0 THEN
-        FreeVec(bufAddr)
+        FREE bufAddr
         _HttpReadAllBody = 0
         EXIT SUB
       ELSE
@@ -835,7 +832,7 @@ SUB LONGINT _HttpReadAllBody(ADDRESS tcpConn, ADDRESS resp)
   ELSE
     ' --- Chunked/close: growing buffer, then exact copy ---
     bufCap = 8192
-    bufAddr = AllocVec(bufCap, MEMF_PUBLIC)
+    bufAddr = ALLOC(bufCap, 2)
     IF bufAddr = 0 THEN
       _HttpReadAllBody = 0
       EXIT SUB
@@ -849,18 +846,18 @@ SUB LONGINT _HttpReadAllBody(ADDRESS tcpConn, ADDRESS resp)
         newCap = bufCap * 2
         avail = AvailMem(MEMF_LARGEST)
         IF avail < newCap THEN
-          FreeVec(bufAddr)
+          FREE bufAddr
           _HttpReadAllBody = 0
           EXIT SUB
         END IF
-        newBuf = AllocVec(newCap, MEMF_PUBLIC)
+        newBuf = ALLOC(newCap, 2)
         IF newBuf = 0 THEN
-          FreeVec(bufAddr)
+          FREE bufAddr
           _HttpReadAllBody = 0
           EXIT SUB
         END IF
         CopyMem(bufAddr, newBuf, totalLen)
-        FreeVec(bufAddr)
+        FREE bufAddr
         bufAddr = newBuf
         bufCap = newCap
       END IF
@@ -870,7 +867,7 @@ SUB LONGINT _HttpReadAllBody(ADDRESS tcpConn, ADDRESS resp)
       IF bytesGot > 0 THEN
         totalLen = totalLen + bytesGot
       ELSEIF bytesGot < 0 THEN
-        FreeVec(bufAddr)
+        FREE bufAddr
         _HttpReadAllBody = 0
         EXIT SUB
       ELSE
@@ -879,15 +876,15 @@ SUB LONGINT _HttpReadAllBody(ADDRESS tcpConn, ADDRESS resp)
     WEND
 
     ' Allocate exact-size buffer and copy
-    newBuf = AllocVec(totalLen + 1, MEMF_PUBLIC)
+    newBuf = ALLOC(totalLen + 1, 2)
     IF newBuf = 0 THEN
-      FreeVec(bufAddr)
+      FREE bufAddr
       _HttpReadAllBody = 0
       EXIT SUB
     END IF
     IF totalLen > 0 THEN CopyMem(bufAddr, newBuf, totalLen)
     POKE newBuf + totalLen, 0
-    FreeVec(bufAddr)
+    FREE bufAddr
 
     rp->contentLen = totalLen
     _HttpReadAllBody = newBuf

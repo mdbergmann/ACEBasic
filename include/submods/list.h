@@ -4,6 +4,7 @@
 **
 ** Singly-linked lists with type tags supporting SHORTINT, LONGINT,
 ** SINGLE, STRING, and nested lists. Strings are copied on insertion.
+** Uses ALLOC/FREE for memory management.
 **
 ** Usage:
 **   #include <submods/list.h>

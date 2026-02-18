@@ -8,7 +8,7 @@
 ** - Copy semantics for all values including strings
 **
 ** Memory Management:
-** - Uses AllocVec/FreeVec for explicit control
+** - Uses ALLOC/FREE for memory management
 ** - LFree must be called to release memory
 ** - Strings are copied on insertion and freed on LFree
 *}
@@ -25,10 +25,6 @@ CONST LTypeSng = 3
 CONST LTypeStr = 4
 CONST LTypeList = 5
 
-{* Memory flags for AllocVec *}
-CONST LMEMF_PUBLIC = 1&
-CONST LMEMF_CLEAR = 65536&
-
 {* ============== Cell Structure ============== *}
 
 STRUCT LCell
@@ -43,8 +39,6 @@ ADDRESS _LBuildHead, _LBuildTail
 
 {* ============== Library Declarations ============== *}
 
-DECLARE FUNCTION ADDRESS AllocVec(LONGINT byteSize, LONGINT requirements) LIBRARY exec
-DECLARE FUNCTION FreeVec(ADDRESS memoryBlock) LIBRARY exec
 DECLARE FUNCTION CopyMem(ADDRESS source, ADDRESS dest, LONGINT sz) LIBRARY exec
 
 {* ============== Initialization ============== *}
@@ -61,7 +55,7 @@ END SUB
 
 SUB ADDRESS _LAllocCell
   ADDRESS res
-  res = AllocVec(SIZEOF(LCell), LMEMF_PUBLIC OR LMEMF_CLEAR)
+  res = ALLOC(SIZEOF(LCell), 5)
   _LAllocCell = res
 END SUB
 
@@ -72,7 +66,7 @@ SUB ADDRESS _LCopyString(src$)
   LONGINT slen
 
   slen = LEN(src$) + 1  ' +1 for null terminator
-  buf = AllocVec(slen, LMEMF_PUBLIC)
+  buf = ALLOC(slen, 2)
   IF buf <> LNil THEN
     CopyMem(SADD(src$), buf, slen)
   END IF
@@ -138,7 +132,7 @@ SUB ADDRESS LCons$(src$, ADDRESS tl) EXTERNAL
     cel->car = strCopy
     cel->cdr = tl
   ELSE
-    FreeVec(strCopy)
+    FREE strCopy
   END IF
   LCons$ = cel
 END SUB
@@ -785,7 +779,7 @@ SUB LFree(ADDRESS lst) EXTERNAL
     ' Free string data if this is a string cell
     IF cr->tag = LTypeStr THEN
       IF cr->car <> LNil THEN
-        FreeVec(cr->car)
+        FREE cr->car
       END IF
     ' Recursively free nested lists
     ELSEIF cr->tag = LTypeList THEN
@@ -795,7 +789,7 @@ SUB LFree(ADDRESS lst) EXTERNAL
     END IF
 
     ' Free the cell itself
-    FreeVec(crAddr)
+    FREE crAddr
 
     crAddr = nxtAddr
   WEND
@@ -1052,7 +1046,7 @@ SUB LNmap(ADDRESS lst, ADDRESS fun) EXTERNAL
     IF cr->tag = LTypeStr THEN
       ' Free old string, copy new one
       IF cr->car <> LNil THEN
-        FreeVec(cr->car)
+        FREE cr->car
       END IF
       newStrAddr = _LCopyString(CSTR(newCarVal))
       cr->car = newStrAddr
@@ -1100,9 +1094,9 @@ SUB ADDRESS LNfilter(ADDRESS lst, ADDRESS fun) EXTERNAL
     ELSE
       ' Free string data if needed
       IF cr->tag = LTypeStr AND cr->car <> LNil THEN
-        FreeVec(cr->car)
+        FREE cr->car
       END IF
-      FreeVec(crAddr)
+      FREE crAddr
     END IF
     crAddr = nxtAddr
   WEND
