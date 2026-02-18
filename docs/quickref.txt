@@ -107,7 +107,7 @@ NOT NOT is the boolean NOT operator.
 OCT$( octal$ = OCT$(n) : OCT$() returns the octal string representation of n.
 ON ON <integer-expr> GOTO|GOSUB <label>[,..] : ON branches to one of several labels based on the integer expression value.
 OPEN OPEN mode,[#]<fileNum>,<filespec> : OPEN opens a file. Mode: "I"=input, "O"=output, "A"=append, "R"=random access.
-OPTION OPTION <switch>+|-[,..] : OPTION sets compiler directives. Switches: 2,b,c,E,i,l,m,O,w. + activates, - deactivates.
+OPTION OPTION <switch>+|-[,..] : OPTION sets compiler directives. Switches: 2,b,c,E,i,l,m,O,t,w. + activates, - deactivates.
 OR OR is the boolean OR operator.
 PAINT PAINT (x,y)[,color-id[,border-id]] : PAINT flood-fills an enclosed region with the specified color.
 PALETTE PALETTE color-id,R,G,B : PALETTE changes colors in the current screen. R,G,B are in the range 0..1.
