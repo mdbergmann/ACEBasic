@@ -54,6 +54,26 @@
 #include <exec/memory.h>
 #include <libraries/dos.h>
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+/* Amiga OS function prototypes */
+struct Remember;
+struct Library;
+void *AllocRemember();
+void FreeRemember();
+struct Library *OpenLibrary();
+void CloseLibrary();
+ULONG SetSignal();
+LONG Open();
+LONG Read();
+void Close();
+
+/* Non-standard C function prototypes */
+char *itoa();
+char *ltoa();
+char *strupr();
+unsigned long fsize();
 
 /* float-to-bits union for emit boundaries */
 typedef union { float f; LONG l; } FLOAT_BITS;
@@ -437,7 +457,7 @@ typedef union conststruct {
 			   SHORT shortnum;
 			   LONG  longnum;
 			   float singlenum;
-			  } CONST;
+			  } ACECONST;
 
 typedef struct structmem {
 			  char  name[MAXIDSIZE];
@@ -463,7 +483,7 @@ typedef struct symstruct {
 			  UBYTE  decl;		     /* forward reference? */
 			  UBYTE  *reg;	     	     /* lib function regs */
 			  char   *libname;	     /* library name */
-			  CONST  numconst;	     /* a numeric constant */
+			  ACECONST  numconst;	     /* a numeric constant */
 			  STRUCM *structmem;         /* structdef list ptr */
 			  int    address;            /* frame/library offset */
 			  ULONG  size;		     /* # of bytes in object */
@@ -565,6 +585,7 @@ BOOL	alloc_code_members();
 void	free_code_members();
 
 /* sym.c */
+void	kill_all_lists();
 void	new_symtab();
 void	kill_symtab();
 void	find_tab_tail();
@@ -719,6 +740,9 @@ void	text_style();
 void	text_font();
 void	gfx_get();
 void	gfx_put();
+void	area();
+void	areafill();
+void	pattern();
 
 void	input();
 void	point_to_array();
@@ -755,6 +779,8 @@ void	write_to_file();
 void	gen_writecode();
 void	print_to_file();
 void	input_from_file();
+void	random_file_get();
+void	random_file_put();
 void	kill();
 void	osrename();
 void	chdir();
@@ -796,6 +822,7 @@ void 	load_mc_params();
 
 void	sound();
 
+void	turn_event_off();
 void	get_event_trap_label();
 void	change_event_trapping_status();
 void	check_for_event();
@@ -813,6 +840,7 @@ void	define_structure();
 void	declare_structure();
 void	define_constant();
 void	declare_variable();
+void	define_common_or_global_variable();
 void	define_external_object();
 void	define_external_variable();
 void	define_external_function();

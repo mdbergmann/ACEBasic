@@ -639,7 +639,7 @@ int  gtype;
 
 					    /* Push array base addr */
 					    sprintf(numbuf, "#%ld",
-						    asym->address);
+						    (long)asym->address);
 					    gen("move.l",
 						gt_addreg[lev], "d0");
 					    gen("sub.l", numbuf, "d0");

@@ -51,13 +51,13 @@
 #include "lexvar.c"
 
 /* globals */
-ULONG	IntuitionBase = NULL;
+ULONG	IntuitionBase = 0;
 BOOL 	inside_string = FALSE;	/* see last line of nextch() */
 
 /* functions */
 void open_shared_libs(void)
 {
- if ((IntuitionBase = OpenLibrary("intuition.library",0)) == NULL)
+ if ((IntuitionBase = (ULONG)OpenLibrary("intuition.library",0)) == 0)
  {
   printf("Unable to open intuition.library!\n");
   exit(10);
@@ -66,7 +66,7 @@ void open_shared_libs(void)
 
 void close_shared_libs(void)
 {
- if (IntuitionBase != NULL) CloseLibrary(IntuitionBase);
+ if (IntuitionBase != 0) CloseLibrary((void *)IntuitionBase);
 }
  
 void setup(void)
@@ -477,7 +477,7 @@ BOOL continue_line;
    if (asm_comments) gen("; *** ",line,"  ");
 
    /* show each source code line before compilation? */
-   if (list_source) printf("%ld: %s\n",lineno,line);
+   if (list_source) printf("%ld: %s\n",(long)lineno,line);
   }
  }
 

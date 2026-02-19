@@ -789,7 +789,7 @@ BOOL offset_on_stack;
 			   gen("lea",tempstrname,"a1"); /* outstr */
 			   gen("movea.l","a0","a2");
 			   gen_rt_call("_strlen"); /* inlen in d0 */
-			   sprintf(srcbuf,"#%ld",MAXSTRLEN); /* #MAXSTRLEN */
+			   sprintf(srcbuf,"#%ld",(long)MAXSTRLEN); /* #MAXSTRLEN */
 			   gen("move.l",srcbuf,"d1"); /* outlen = MAXSTRLEN */
 			   gen("movea.l","_TransBase","a6");
 			   gen("jsr","_LVOTranslate(a6)","  ");
@@ -1532,7 +1532,7 @@ char varptr_obj_name[MAXIDSIZE];
 			     {
 			      insymbol(); 
 			      if (expr() != stringtype) /* response #2 */
-			         { _error(4); nftype=undefined; return; }
+			         { _error(4); nftype=undefined; return(undefined); }
 			     }
 			     else
 			     	 gen("move.l","#0","-(sp)"); /* #2 = NULL*/
@@ -1935,7 +1935,7 @@ ULONG  total_off;
 			    strcpy(addrbuf,addreg[lev]);
 
 			    /* get the frame offset */
-			    sprintf(numbuf,"#%ld",varptr_item->address);
+			    sprintf(numbuf,"#%ld",(long)varptr_item->address);
 
 			    /* calculate the absolute address */
 			    gen("move.l",addrbuf,"d0");
@@ -1961,7 +1961,7 @@ ULONG  total_off;
 			    strcpy(addrbuf,addreg[lev]);
 
 			    /* get the frame offset */
-			    sprintf(numbuf,"#%ld",varptr_item->address);
+			    sprintf(numbuf,"#%ld",(long)varptr_item->address);
 
 			    /* calculate the absolute address */
 			    gen("move.l",addrbuf,"d0");
@@ -2023,7 +2023,7 @@ ULONG  total_off;
 				  if (member != NULL)
 				  {
 				   /* push address of struct member */
-				   sprintf(numbuf,"#%ld",total_off);
+				   sprintf(numbuf,"#%ld",(long)total_off);
 				   gen("adda.l",numbuf,"a0");
 				   gen("move.l","a0","-(sp)");
 				   /* store type for SWAP command */
@@ -2099,7 +2099,7 @@ int  nftype;
    else
    if (curr_item->type == stringtype)
    {
-    sprintf(numbuf,"#%ld",curr_item->size);
+    sprintf(numbuf,"#%ld",(long)curr_item->size);
     gen("move.l",numbuf,"-(sp)"); 
     nftype=longtype;
    }
@@ -2108,7 +2108,7 @@ int  nftype;
   /* array variable or structure definition? */
   if (exist(id,array) || exist(id,structdef))
   {
-   sprintf(numbuf,"#%ld",curr_item->size);
+   sprintf(numbuf,"#%ld",(long)curr_item->size);
    gen("move.l",numbuf,"-(sp)"); 
    nftype=longtype;
   }
@@ -2116,7 +2116,7 @@ int  nftype;
   /* structure variable? */
   if (exist(id,structure))
   {  
-   sprintf(numbuf,"#%ld",curr_item->other->size);
+   sprintf(numbuf,"#%ld",(long)curr_item->other->size);
    gen("move.l",numbuf,"-(sp)"); 
    nftype=longtype;
   }
@@ -2154,7 +2154,7 @@ int  nftype;
   else
   if (sym == stringsym)
   {
-   sprintf(numbuf,"#%ld",MAXSTRLEN);
+   sprintf(numbuf,"#%ld",(long)MAXSTRLEN);
    gen("move.l",numbuf,"-(sp)"); 
    nftype=longtype;
   }

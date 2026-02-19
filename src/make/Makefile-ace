@@ -3,9 +3,9 @@
 ################################################################################
 #
 # Description:
-#   GNU Makefile for building the ACE (Amiga BASIC Compiler) executable.
-#   Provides incremental builds, standard targets, and backward compatibility
-#   with the existing ACE: assign structure.
+#   GNU Makefile for building the ACE (Amiga BASIC Compiler) executable
+#   using vbcc. Provides incremental builds, standard targets, and backward
+#   compatibility with the existing ACE: assign structure.
 #
 # Location:
 #   ACE:src/make/Makefile-ace
@@ -23,7 +23,7 @@
 #
 # Requirements:
 #   - GNU Make 3.80 or later (AmigaOS)
-#   - gcc 2.95.3
+#   - vbcc
 #   - ACE: assign must be configured
 #	- UnixDirsII package
 #
@@ -40,10 +40,10 @@
 SHELL = sh
 
 # Toolchain
-CC = gcc
-CFLAGS = -m68020 -c -s -O -pedantic -Wcast-qual -noixemul
-LDFLAGS = -m68020 -s -noixemul
-INCLUDES = -I.
+# Using vbcc (matches Makefile-lib toolchain)
+CC = /vbcc/bin/vc
+CFLAGS = -c -O2 -cpu=68020
+LDFLAGS = -cpu=68020 -lmieee -lamiga
 
 # Paths - Using relative paths from src/make/ directory
 # Pattern rules require relative paths for Make to find source files correctly

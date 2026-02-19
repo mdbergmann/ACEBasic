@@ -587,7 +587,7 @@ SHORT peephole()
 BOOL past_head;
 int  opt_type;
 
-  if (code == NULL) return;
+  if (code == NULL) return(0);
 
     for (opt_type=1;opt_type<=7;opt_type++)
     {

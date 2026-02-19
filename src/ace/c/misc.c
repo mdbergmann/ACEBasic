@@ -232,7 +232,7 @@ char mulbuf[40],srcbuf[40];
  /* pop indices from stack one at a time */ 
  for (i=curr->dims;i>=0;i--)
  {
-  sprintf(mulbuf,"#%ld",ndx_mult);
+  sprintf(mulbuf,"#%ld",(long)ndx_mult);
 
   gen("move.w","(sp)+","d1");
   gen_ext_to_long(FALSE, "d1");
@@ -289,7 +289,7 @@ ULONG elem_size;
  else if (mbr_type == shorttype) elem_size = 2;
  else elem_size = 4;
 
- sprintf(numbuf,"#%ld",base_offset);
+ sprintf(numbuf,"#%ld",(long)base_offset);
  gen("adda.l",numbuf,"a0");
  gen("move.l","a0","-(sp)");
 
@@ -302,7 +302,7 @@ ULONG elem_size;
  else
     gen("move.l","(sp)+","d0");
 
- sprintf(numbuf,"#%ld",elem_size);
+ sprintf(numbuf,"#%ld",(long)elem_size);
  gen("mulu",numbuf,"d0");
 
  gen("movea.l","(sp)+","a0");
@@ -399,7 +399,7 @@ ULONG  total_offset;
       ULONG elem_size = member->structdef->size;
 
       /* offset to array base */
-      sprintf(numbuf,"#%ld",total_offset);
+      sprintf(numbuf,"#%ld",(long)total_offset);
       gen("adda.l",numbuf,"a0");
 
       /* save a0 (will be clobbered by expr) */
@@ -417,7 +417,7 @@ ULONG  total_offset;
          gen("move.l","(sp)+","d0");
 
       /* multiply by element size */
-      sprintf(numbuf,"#%ld",elem_size);
+      sprintf(numbuf,"#%ld",(long)elem_size);
       gen("mulu",numbuf,"d0");
 
       /* restore a0 and add indexed offset */
@@ -459,7 +459,7 @@ ULONG  total_offset;
      if (mbr_type == structure)
      {
       /* no further -> : push address of embedded struct */
-      sprintf(numbuf,"#%ld",total_offset);
+      sprintf(numbuf,"#%ld",(long)total_offset);
       gen("adda.l",numbuf,"a0");
       gen("move.l","a0","-(sp)");
       mbr_type=longtype;
@@ -489,7 +489,7 @@ ULONG  total_offset;
        else
        {
         /* no index: push base address */
-        sprintf(numbuf,"#%ld",total_offset);
+        sprintf(numbuf,"#%ld",(long)total_offset);
         gen("adda.l",numbuf,"a0");
         gen("move.l","a0","-(sp)");
         mbr_type=longtype;
@@ -516,7 +516,7 @@ ULONG  total_offset;
       else
       if (mbr_type == stringtype)
       {
-       sprintf(numbuf,"#%ld",total_offset);
+       sprintf(numbuf,"#%ld",(long)total_offset);
        gen("adda.l",numbuf,"a0");
        gen("move.l","a0","-(sp)");
       }
@@ -544,7 +544,7 @@ ULONG  total_offset;
      else
      {
       /* no index: push base address */
-      sprintf(numbuf,"#%ld",member->offset);
+      sprintf(numbuf,"#%ld",(long)member->offset);
       gen("adda.l",numbuf,"a0");
       gen("move.l","a0","-(sp)");
       mbr_type=longtype;
@@ -574,7 +574,7 @@ ULONG  total_offset;
     else
     if (mbr_type == stringtype)
     {
-     sprintf(numbuf,"#%ld",member->offset);
+     sprintf(numbuf,"#%ld",(long)member->offset);
      gen("adda.l",numbuf,"a0");
      gen("move.l","a0","-(sp)");  /* push string address */
     }

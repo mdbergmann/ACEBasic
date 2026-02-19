@@ -764,7 +764,7 @@ void dump_reserved_words()
 {
 int i;
 
- printf("\nAmigaBASIC RESERVED WORDS: %ld\n\n",(xorsym-abssym)+1);
+ printf("\nAmigaBASIC RESERVED WORDS: %ld\n\n",(long)(xorsym-abssym)+1);
 
  for (i=abssym;i<=xorsym;i++) 
  {
@@ -772,7 +772,7 @@ int i;
 	ctrl_c_break_test();	
  }
  
- printf("\nACE-SPECIFIC RESERVED WORDS: %ld\n\n",(untilsym-addresssym)+1);
+ printf("\nACE-SPECIFIC RESERVED WORDS: %ld\n\n",(long)(untilsym-addresssym)+1);
 
  for (i=addresssym;i<=untilsym;i++)
  {

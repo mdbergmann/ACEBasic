@@ -798,7 +798,8 @@ char bss_size[20];
 					 gen_move_typed(singletype, "#0", extvarid);
 					 insymbol(); break;
 
-			case stringtype: insymbol();
+			case stringtype: str_item = curr_item;
+					 insymbol();
 				 	 if (sym == sizesym)
 					 { 
 			 			insymbol();
@@ -837,7 +838,7 @@ char bss_size[20];
 					/*
 					** Create BSS object.
 					*/
-					sprintf(bss_size,"ds.l %d",string_size);
+					sprintf(bss_size,"ds.l %ld",(long)string_size);
 					enter_BSS(extvarlabel,bss_size);
 
 				 	if (normal_string_variable)

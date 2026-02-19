@@ -588,7 +588,7 @@ void files()
  gen_stack_cleanup(4);
 }
 
-char *push_struct_var_info(structVar)
+void push_struct_var_info(structVar)
 SYM *structVar;
 {
 char addrbuf[40], sizebuf[10];
@@ -615,7 +615,7 @@ char addrbuf[40], sizebuf[10];
 	/*
 	** Push size of structure in bytes.
 	*/
-	sprintf(sizebuf,"#%d",structVar->other->size);
+	sprintf(sizebuf,"#%ld",(long)structVar->other->size);
 	gen("move.l",sizebuf,"-(sp)");
 }
 
