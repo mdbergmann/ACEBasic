@@ -60,7 +60,7 @@ Note: Compiler/runtime rebuild is only necessary when its source files were chan
 - **Emulator app**: `verify/scripts/otherthenamiga/FS-UAE.app`
 - **Config file**: `verify/scripts/otherthenamiga/ace-verify.fs-uae`
 - **Amiga system**: `verify/scripts/otherthenamiga/aos3`
-- **Startup script**: `aos3/S/user-startup` - edit this to run commands on boot
+- **Startup script**: `verify/scripts/otherthenamiga/call-on-ustartup` - edit this to run commands on boot (called from `aos3/S/user-startup`)
 
 ### Running the Emulator
 
@@ -71,18 +71,18 @@ open verify/scripts/otherthenamiga/FS-UAE.app --args verify/scripts/otherthenami
 
 ### Testing Workflow
 
-1. Edit `aos3/S/user-startup` to run your test commands
+1. Edit `verify/scripts/otherthenamiga/call-on-ustartup` to run your test commands
 2. Write output/logs to `ace:` (maps to project root on host)
 3. Start/restart emulator
 4. Periodically check for result files (every 30 secs)
 5. Runs take 5-10 min when recompiling, <1 min otherwise
 
-**IMPORTANT: The emulator MUST be restarted after every change to `user-startup`.** The startup script is only read once at boot time.
+**IMPORTANT: The emulator MUST be restarted after every change to `call-on-ustartup`.** The startup script is only read once at boot time.
 
-### Example user-startup for testing
+### Example call-on-ustartup for testing
 
 ```
-; In aos3/S/user-startup
+; In verify/scripts/otherthenamiga/call-on-ustartup
 cd ace:submods/mui
 bas test_minimal >ace:test-output.txt
 test_minimal >>ace:test-output.txt
@@ -164,7 +164,7 @@ make -f Makefile-lib           # Build db.lib and startup.lib
 make -f Makefile-lib clean     # Clean first if needed
 ```
 
-**IMPORTANT: compiling the ace compiler takes time, remove recom,piling from user-startup when not needed.**
+**IMPORTANT: compiling the ace compiler takes time, remove recompiling from call-on-ustartup when not needed.**
 
 ### Modifying the Compiler
 
@@ -230,10 +230,10 @@ vlink -o myprogram myprogram.o ACElib:db.lib ACElib:startup.lib  # Link
 
 ### When emulator testing fails
 
-1. Check `user-startup` syntax (AmigaDOS, not bash)
+1. Check `call-on-ustartup` syntax (AmigaDOS, not bash)
 2. Verify assigns are set correctly
 3. Check output file on host system (written to `ace:`)
-4. Restart emulator if you changed user-startup
+4. Restart emulator if you changed call-on-ustartup
 
 ### When builds fail
 
