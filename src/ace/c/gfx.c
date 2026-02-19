@@ -364,8 +364,8 @@ BOOL fill=FALSE;
      gen("move.l","_floaty","d1");
 
      if (!start_angle) gen("moveq","#0","d3");  /* default is zero */
-     if (!end_angle)  gen("move.l","#$b3800049","d4");  /* default is 359 */
-     if (!aspect) gen("move.l","#$e147af3f","d5");  /* default is .44 */
+     if (!end_angle)  gen("move.l","#$43B38000","d4");  /* default is 359 (IEEE) */
+     if (!aspect) gen("move.l","#$3EE147AE","d5");  /* default is .44 (IEEE) */
 
      if (fill && !start_angle && !end_angle)
      {
@@ -732,7 +732,7 @@ BOOL relative;
 
 }
 
-areafill()
+void areafill(void)
 {
  /* AREAFILL [mode] */
 
@@ -754,7 +754,7 @@ areafill()
  enter_XREF("_GfxBase");
 }
 
-pattern()
+void pattern(void)
 {
 char addrbuf[40];
 char numbuf[20];
