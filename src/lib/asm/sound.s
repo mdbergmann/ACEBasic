@@ -61,7 +61,7 @@
 ; *** SOUND ROUTINES ***
 
 ;
-; SOUND - play a sound. d0=period; d1=duration (ffp); d2=volume; d3=voice.
+; SOUND - play a sound. d0=period; d1=duration (float); d2=volume; d3=voice.
 ;	- the hardware is programmed directly.
 ;
 _sound:
@@ -85,7 +85,7 @@ _sound:
 	jsr	_LVOSPCmp(a6)		; duration < 0?
 	blt	_quitsound
 	move.l	_duration,d0
-	move.l	#$f9c0004a,d1		
+	move.l	#$4479C000,d1		
 	jsr	_LVOSPCmp(a6)		; duration > 999?
 	bgt	_quitsound
 	
@@ -164,7 +164,7 @@ _aud3:
 _sound_delay:
 	move.l	_MathBase,a6
 	move.l	_duration,d1		; duration
-	move.l	#$afced942,d0		; 2.747
+	move.l	#$402FC7AE,d0		; 2.747
 	jsr	_LVOSPMul(a6)		; ticks = duration*2.747
 	jsr	_LVOSPFix(a6)		; ticks = (int)ticks
 	move.l	_DOSBase,a6
@@ -229,7 +229,7 @@ _quitwave:
 _beep:
 	movem.l	d1-d7/a0-a6,-(sp)
 	move.w	#505,d0		
-	move.l	#$8ccccd42,d1	; duration of 0.12 seconds.
+	move.l	#$3DF5C28F,d1	; duration of 0.12 seconds.
 	move.w	#64,d2		; full volume
 	move.w	#0,d3		; voice 0
 	jsr	_sound

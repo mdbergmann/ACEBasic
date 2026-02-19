@@ -30,4 +30,29 @@ endif
 
 stack 65000
 
+;BEGIN UnixDirs
+run >nil: C:UnixDirsII
+;END UnixDirs
+assign AmiTcp: sys:
+
+;BEGIN Devel
+assign Devel: SYS:Tools/Devel
+execute Devel:create_assigns
+;END Devel
+
+; ACE compiler setup
+assign ACElib: ACE:lib
+assign ACEbmaps: ACE:bmaps
+assign ACEinclude: ACE:include
+path ACE:bin add
+protect ACE:bin/bas +s
+
+;BEGIN AmiSSL
+Assign AmiSSL: "SYS:AmiSSL"
+If Exists AmiSSL:Libs
+  Assign LIBS: AmiSSL:Libs ADD
+EndIf
+Path AmiSSL: ADD
+;END AmiSSL
+
 execute ace:verify/scripts/otherthenamiga/call-on-ustartup

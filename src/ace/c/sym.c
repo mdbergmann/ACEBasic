@@ -585,7 +585,7 @@ char *name;
  if (exist_XREF(name)) return;   /* already exists */
 
  if (strcmp(name,"_DOSBase") == 0) dosused=TRUE;
- if (strcmp(name,"_MathBase") == 0) mathffpused=TRUE;
+ if (strcmp(name,"_MathBase") == 0) mathfloatused=TRUE;
  if (strcmp(name,"_MathTransBase") == 0) mathtransused=TRUE;
  if (strcmp(name,"_GfxBase") == 0) gfxused=TRUE;
  if (strcmp(name,"_IntuitionBase") == 0) intuitionused=TRUE;

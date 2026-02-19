@@ -425,27 +425,27 @@ _timer:
 
 	movea.l	_MathBase,a6
 
-	move.l	4(a1),d0		
-	jsr	_LVOSPFlt(a6)		
+	move.l	4(a1),d0
+	jsr	_LVOSPFlt(a6)
 	move.l	d0,_mins		; minutes since midnight
 
 	move.l	8(a1),d0
 	jsr	_LVOSPFlt(a6)
 	move.l	d0,_ticks		; ticks in current minute
 
-	move.l	_mins,d0		
-	move.l	#$f0000046,d1		; ffp 60
-	jsr	_LVOSPMul(a6)		; seconds since midnight (_mins*60)
+	move.l	_mins,d0
+	move.l	#$42700000,d1		; IEEE 60.0
+	jsr	_LVOSPMul(a6)	; seconds since midnight (_mins*60)
 	move.l	d0,_minsecs
 
-	move.l	_ticks,d0		
-	move.l	#$c8000046,d1		; ffp 50 (50 ticks per sec)
-	jsr	_LVOSPDiv(a6)		; seconds in current minute (_ticks/50)
+	move.l	_ticks,d0
+	move.l	#$42480000,d1		; IEEE 50.0 (50 ticks per sec)
+	jsr	_LVOSPDiv(a6)	; seconds in current minute (_ticks/50)
 	move.l	d0,_ticksecs
-	
+
 	move.l	_minsecs,d0
 	move.l	_ticksecs,d1
-	jsr	_LVOSPAdd(a6)		; total seconds elapsed since
+	jsr	_LVOSPAdd(a6)	; total seconds elapsed since
 					; midnight including current minute
 	rts
 			
@@ -474,7 +474,7 @@ _ontimer:
 
 	; is an event due?
 	movea.l	_MathBase,a6
-	move.l	_target_time,d1	
+	move.l	_target_time,d1
 	jsr	_LVOSPCmp(a6)	; curr_time (d0) >= target_time (d1)?
 	bge.s	_target_time_reached
 

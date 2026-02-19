@@ -6,7 +6,6 @@
 
 LONGINT _dpBasBase       ' mathieeedoubbas.library
 LONGINT _dpTransBase     ' mathieeedoubtrans.library
-LONGINT _dpMtBase        ' mathtrans.library (for FFP<->IEEE SP)
 LONGINT _dpInited        ' 0=not init, -1=init
 
 ' ASSEM register transfer variables
@@ -57,7 +56,7 @@ END SUB
 { ============== Lifecycle ============== }
 
 SUB LONGINT DpOpen EXTERNAL
-  SHARED _dpBasBase, _dpTransBase, _dpMtBase, _dpInited
+  SHARED _dpBasBase, _dpTransBase, _dpInited
 
   IF _dpInited = -1 THEN
     DpOpen = -1
@@ -80,30 +79,14 @@ SUB LONGINT DpOpen EXTERNAL
     EXIT SUB
   END IF
 
-  ' Open mathtrans.library (for SINGLE conversion)
-  _dpMtBase = _ExecOpenLib(SADD("mathtrans.library" + CHR$(0)), 34&)
-  IF _dpMtBase = 0 THEN
-    _ExecCloseLib(_dpTransBase)
-    _dpTransBase = 0
-    _ExecCloseLib(_dpBasBase)
-    _dpBasBase = 0
-    DpOpen = 0
-    EXIT SUB
-  END IF
-
   _dpInited = -1
   DpOpen = -1
 END SUB
 
 SUB DpClose EXTERNAL
-  SHARED _dpBasBase, _dpTransBase, _dpMtBase, _dpInited
+  SHARED _dpBasBase, _dpTransBase, _dpInited
 
   IF _dpInited = 0 THEN EXIT SUB
-
-  IF _dpMtBase <> 0 THEN
-    _ExecCloseLib(_dpMtBase)
-    _dpMtBase = 0
-  END IF
 
   IF _dpTransBase <> 0 THEN
     _ExecCloseLib(_dpTransBase)
@@ -360,17 +343,14 @@ END SUB
 { ============== SINGLE Conversion ============== }
 
 SUB DpFromSingle(ADDRESS dr, SINGLE s) EXTERNAL
-  SHARED _asmA0, _asmD0, _asmA6, _dpMtBase, _dpTransBase
-  ' FFP -> IEEE SP (mathtrans SPTieee -102) -> IEEE DP (doubtrans IEEEDPFieee -108)
+  SHARED _asmA0, _asmD0, _dpTransBase
+  ' IEEE SP -> IEEE DP (doubtrans IEEEDPFieee -108)
   _asmA0 = dr
   _asmD0 = PEEKL(@s)
-  _asmA6 = _dpMtBase
 
   ASSEM
     movem.l d0-d1/a0/a6,-(sp)
     move.l  _modv__ASMD0,d0
-    move.l  _modv__ASMA6,a6
-    jsr     -102(a6)
     move.l  _modv__DPTRANSBASE,a6
     jsr     -108(a6)
     move.l  _modv__ASMA0,a0
@@ -381,9 +361,9 @@ SUB DpFromSingle(ADDRESS dr, SINGLE s) EXTERNAL
 END SUB
 
 SUB SINGLE DpToSingle(ADDRESS d) EXTERNAL
-  SHARED _asmA1, _asmD0, _asmA6, _dpMtBase, _dpTransBase
+  SHARED _asmA1, _asmD0, _asmA6, _dpTransBase
   SINGLE retVal
-  ' IEEE DP -> IEEE SP (doubtrans IEEEDPTieee -102) -> FFP (mathtrans SPFieee -108)
+  ' IEEE DP -> IEEE SP (doubtrans IEEEDPTieee -102)
   _asmA1 = d
   _asmA6 = _dpTransBase
 
@@ -394,8 +374,6 @@ SUB SINGLE DpToSingle(ADDRESS d) EXTERNAL
     move.l  (a1),d1
     move.l  _modv__ASMA6,a6
     jsr     -102(a6)
-    move.l  _modv__DPMTBASE,a6
-    jsr     -108(a6)
     move.l  d0,_modv__ASMD0
     movem.l (sp)+,d0-d1/a1/a6
   END ASSEM

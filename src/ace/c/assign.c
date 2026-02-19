@@ -57,7 +57,7 @@ extern	char   	id[MAXIDSIZE];
 extern	char   	ut_id[MAXIDSIZE];
 extern	SHORT  	shortval;
 extern	LONG   	longval; 
-extern	LONG    singleval;
+extern	float   singleval;
 extern	char   	stringval[MAXSTRLEN];
 extern	SYM	*curr_item;
 extern	SHORT	dimsize[MAXDIMS];
@@ -110,8 +110,7 @@ unsigned long fsize(char *file) {
     return len;
 }
 
-int assign_coerce(storetype,exptype)
-int storetype,exptype;
+int assign_coerce(int storetype, int exptype)
 {
  /* coerce expression type to store type */
 
@@ -147,7 +146,7 @@ int storetype,exptype;
  return(storetype);  /* could be bytetype (for struct member) */
 }
 
-void make_string_store()
+void make_string_store(void)
 {
 char numbuf[40];
 
@@ -158,9 +157,7 @@ char numbuf[40];
  strcat(strstorelabel,":\0");
 }
 
-void create_string_variable(string_item,string_size)
-SYM *string_item;
-int string_size;
+void create_string_variable(SYM *string_item, int string_size)
 {
 /* creates a unique BSS object for a string variable 
    and stores its address in the string variable
@@ -199,9 +196,7 @@ char numbuf[10],addrbuf[20];
  gen("move.l","(sp)+",addrbuf); 
 }
 
-void assign_to_string_variable(string_item,string_size)
-SYM *string_item;
-int string_size;
+void assign_to_string_variable(SYM *string_item, int string_size)
 {
 /* assigns a string on the stack 
    to the specified string variable 
@@ -245,8 +240,7 @@ char addrbuf[20],buf[80];
  gen_rt_call("_strcpy");      /* copy source to destination */
 }
 
-void assign_to_string_array(addrbuf)
-char *addrbuf;
+void assign_to_string_array(char *addrbuf)
 {
 /* - assigns a string on the stack 
      to the specified string array element.
@@ -260,8 +254,7 @@ char *addrbuf;
  gen_rt_call("_strcpy");     /* copy source to destination */
 }
 
-void assign_to_struct(item)
-SYM *item;
+void assign_to_struct(SYM *item)
 {
 /* assign either an address to
    a structure variable or a
@@ -626,7 +619,7 @@ int    num_derefs,i;
  }
 }
 
-void assign()
+void assign(void)
 {
 char addrbuf[80],numbuf[80],sub_name[80];
 char ext_name[MAXIDSIZE],buf[MAXIDSIZE];
@@ -772,9 +765,7 @@ int  exprtype;
  } else _error(5); /* '=' expected */
 }  
 
-void make_array_name(name,lab)
-char *name;
-char *lab;
+void make_array_name(char *name, char *lab)
 {
 char num[20];
  
@@ -785,7 +776,7 @@ char num[20];
  strcat(lab,":\0");
 } 
  
-void dim()
+void dim(void)
 /* declare an array */
 {
 BOOL  dimmed=TRUE;
@@ -1033,7 +1024,7 @@ do
 /* INPUT functions */
 /* --------------- */
 
-void input()
+void input(void)
 {
 int  inptype;
 char addrbuf[80];
@@ -1081,7 +1072,7 @@ SYM  *storage;
 
    /* When storing an input value into an array element, must save
       value (d0) first, since array index calculation may be corrupted
-      if index has to be coerced from ffp to short.
+      if index has to be coerced from float to short.
    */
 
    switch(storage->type)
@@ -1155,9 +1146,7 @@ SYM  *storage;
  while ((sym==comma) || (sym==semicolon) || (sym==ident));
 }
 
-void point_to_array(storage,addrbuf)
-SYM  *storage;
-char *addrbuf;
+void point_to_array(SYM *storage, char *addrbuf)
 {
 
     /* get absolute index of array element */
@@ -1173,8 +1162,7 @@ char *addrbuf;
 /* DATA functions */
 /* -------------- */
 
-void make_data_const(string)
-char *string;
+void make_data_const(char *string)
 {
 char *strbuf,buf[MAXSTRLEN];
 
@@ -1188,22 +1176,23 @@ char *strbuf,buf[MAXSTRLEN];
  /*FreeMem(strbuf,strlen(string)+10);*/
 }
 
-void get_data()
+void get_data(void)
 {
 /* parse a line of BASIC DATA */
 char  fnumbuf[40];
-LONG fnum,sign;
+float signf;
+FLOAT_BITS u;
 
  do
  {
-  sign=SPFlt(1);  /* FFP representation of 1.0 */
+  signf = 1.0f;
 
   insymbol();
 
   /* arithmetic sign? */
   if ((sym == minus) || (sym == plus))
   {
-   if (sym == minus) sign=SPFlt(-1);  /* FFP representation of -1.0 */
+   if (sym == minus) signf = -1.0f;
    insymbol();
    if ((sym == ident) || (sym == stringconst)) _error(27);
   }
@@ -1214,32 +1203,33 @@ LONG fnum,sign;
    else
     if (sym == singleconst)
     {
-     sprintf(fnumbuf,"%lx",SPMul(singleval,sign));
+     u.f = singleval * signf;
+     sprintf(fnumbuf,"%lx",u.l);
      make_data_const(fnumbuf);
     }
     else
      if (sym == longconst)
      {
-      fnum=SPMul(SPFlt(longval),sign);
-      sprintf(fnumbuf,"%lx",fnum);
+      u.f = (float)longval * signf;
+      sprintf(fnumbuf,"%lx",u.l);
       make_data_const(fnumbuf);
-     }        
+     }
      else
      if (sym == shortconst)
      {
-      fnum=SPMul(SPFlt((long)shortval),sign);
-      sprintf(fnumbuf,"%lx",fnum);
+      u.f = (float)shortval * signf;
+      sprintf(fnumbuf,"%lx",u.l);
       make_data_const(fnumbuf);
-     }       
+     }
      else _error(26);  /* constant expected */
 
-   insymbol(); 
+   insymbol();
   }
-  while (sym == comma);  
+  while (sym == comma);
 }
 
-void read_data()
-{ 
+void read_data(void)
+{
 char addrbuf[80];
 SYM  *storage;
  

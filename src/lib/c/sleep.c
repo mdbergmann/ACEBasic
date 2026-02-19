@@ -3,7 +3,7 @@
 **
 ** SLEEP FOR <seconds>
 ** Copyright (C) 1998 David Benn
-** 
+**
 ** This program is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU General Public License
 ** as published by the Free Software Foundation; either version 2
@@ -20,25 +20,17 @@
 **
 ** Author: David J Benn
 **   Date: 14th,15th May 1994
+** Modified: 2026 — native float types (IEEE 754)
 */
 
 #include <exec/types.h>
-#include <libraries/mathffp.h>
 #include "lib_protos.h"
 
-extern long SPFix();
-extern long SPMul();
-extern long SPFlt();
-
-static long ffp50 = 0;
-
-void	sleep_for_secs(seconds)
-long	seconds;    /* FFP format as raw 32-bit */
+void sleep_for_secs(float seconds)
 {
 LONG	ticks;
 
-	if (!ffp50) ffp50 = SPFlt(50);
-	ticks = SPFix(SPMul(seconds, ffp50));
+	ticks = (LONG)(seconds * 50.0f);
 
 	if (ticks <= 0)
 		return;

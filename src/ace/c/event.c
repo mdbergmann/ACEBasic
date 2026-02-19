@@ -49,7 +49,7 @@ extern	SYM	*curr_item;
 extern	char   	id[MAXIDSIZE]; 
 extern	SHORT  	shortval;
 extern	LONG   	longval; 
-extern	LONG   singleval;
+extern	float  singleval;
 
 extern	BOOL 	break_event;
 extern	BOOL 	menu_event;
@@ -89,11 +89,11 @@ extern	char 	error_event_label[80];
 extern	char 	wdw_event_label[80];
 extern	char 	gad_event_label[80];
 
-extern	LONG    timer_event_seconds;
+extern	float   timer_event_seconds;
 extern	char  	ontimer_seconds[40];
 
 /* functions */
-void get_event_trap_label()
+void get_event_trap_label(void)
 {
 /* ON <event>|[TIMER(n)] GOSUB <label> | GOTO <label> | CALL <SUBname> */
 int   event;
@@ -121,13 +121,17 @@ char  theLabel[80];
         (sym != singleconst)) _error(27); /* numeric constant expected */
     else
     {
-     switch(sym)
      {
-      case shortconst  : timer_event_seconds=SPFlt((ULONG)shortval); break;
-      case longconst   : timer_event_seconds=SPFlt((ULONG)longval);  break;
-      case singleconst : timer_event_seconds=singleval; break;
+      FLOAT_BITS u;
+      switch(sym)
+      {
+       case shortconst  : timer_event_seconds=(float)shortval; break;
+       case longconst   : timer_event_seconds=(float)longval;  break;
+       case singleconst : timer_event_seconds=singleval; break;
+      }
+      u.f = timer_event_seconds;
+      sprintf(ontimer_seconds,"#$%lx",u.l);
      }
-     sprintf(ontimer_seconds,"#$%lx",timer_event_seconds);
      insymbol();
      if (sym != rparen) _error(9);       
     }
@@ -214,8 +218,7 @@ char  theLabel[80];
  }
 }
 
-void change_event_trapping_status(event)
-int event;
+void change_event_trapping_status(int event)
 {
 /* <event> ON|OFF|STOP */
 int action;
@@ -353,8 +356,7 @@ int action;
  } 
 }
 
-void turn_event_off(eventHandler)
-char *eventHandler;
+void turn_event_off(char *eventHandler)
 {
 /* 
 ** Turn event trapping off if this 
@@ -383,7 +385,7 @@ char *eventHandler;
         { gad_event=FALSE; gad_event_label_exists=FALSE; }
 }
 
-void check_for_event()
+void check_for_event(void)
 {
 /* produce code for event trapping */
  if (break_opt)   	ctrl_c_test();
@@ -397,7 +399,7 @@ void check_for_event()
  if (error_event) 	error_event_test();
 }
 
-void ctrl_c_test()
+void ctrl_c_test(void)
 {
 char lab[80],lablabel[80];
 
@@ -414,7 +416,7 @@ char lab[80],lablabel[80];
    gen(lablabel,"  ","  ");
 }
 
-void break_event_test()
+void break_event_test(void)
 {
 char lab[80],lablabel[80];
 
@@ -439,7 +441,7 @@ char lab[80],lablabel[80];
    gen(lablabel,"  ","  ");
 }
 
-void menu_event_test()
+void menu_event_test(void)
 {
 char lab[80],lablabel[80];
 
@@ -462,7 +464,7 @@ char lab[80],lablabel[80];
  gen(lablabel,"  ","  ");
 }
 
-void mouse_event_test()
+void mouse_event_test(void)
 {
 char lab[80],lablabel[80];
 
@@ -486,7 +488,7 @@ char lab[80],lablabel[80];
  gen(lablabel,"  ","  ");
 }
 
-void timer_event_test()
+void timer_event_test(void)
 {
 char lab[80],lablabel[80];
 
@@ -508,10 +510,10 @@ char lab[80],lablabel[80];
  else
    gen_branch("jmp",timer_event_label);
  gen(lablabel,"  ","  ");
- enter_XREF("_MathBase");  /* timer routines need mathffp.library */
+ enter_XREF("_MathBase");  /* timer routines need mathieeesingbas.library */
 }
 
-void error_event_test()
+void error_event_test(void)
 {
 char lab[80],lablabel[80];
 
@@ -535,7 +537,7 @@ char lab[80],lablabel[80];
  gen(lablabel,"  ","  ");
 }
 
-void wdw_close_test()
+void wdw_close_test(void)
 {
 char lab[80],lablabel[80];
 
@@ -557,7 +559,7 @@ char lab[80],lablabel[80];
    gen(lablabel,"  ","  ");
 }
 
-void wdw_event_test()
+void wdw_event_test(void)
 {
 char lab[80],lablabel[80];
 
@@ -588,7 +590,7 @@ char lab[80],lablabel[80];
    gen(lablabel,"  ","  ");
 }
 
-void gad_event_test()
+void gad_event_test(void)
 {
 char lab[80],lablabel[80];
 

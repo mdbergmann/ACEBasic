@@ -202,8 +202,8 @@ SYM  *item;
      		       break;
 
       case singletype : gen("move.l","(a0)","d0");
-			       gen("move.l","#$80000041","d1");
-			       gen_ffp_call(is_increment ? "_LVOSPAdd" : "_LVOSPSub");
+			       gen("move.l","#$3F800000","d1");  /* IEEE 1.0 */
+			       gen_float_call(is_increment ? "_LVOSPAdd" : "_LVOSPSub");
 			       gen("move.l","d0","(a0)");
 			       break;
      }
@@ -894,7 +894,7 @@ char  idholder[50];
  if (sym == beepsym) 
  { 
   gen_rt_call("_beep");
-  enter_XREF("_MathBase");  /* _sound needs mathffp.library */
+  enter_XREF("_MathBase");  /* _sound needs mathieeesingbas.library */
   insymbol();
  }  
  else

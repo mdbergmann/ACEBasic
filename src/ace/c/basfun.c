@@ -1372,7 +1372,7 @@ char varptr_obj_name[MAXIDSIZE];
 	 case fixsym  : if (nftype == singletype)
 			{
 			 gen("move.l","(sp)+","d0");
-			 gen_ffp_call("_LVOSPFix");
+			 gen_rt_call("_truncfix");
 			 gen("move.l","d0","-(sp)");
 			 nftype=longtype;
 			}
@@ -1433,7 +1433,7 @@ char varptr_obj_name[MAXIDSIZE];
 	 case intsym  : if (nftype == singletype)
 			{
 			 gen("move.l","(sp)+","d0");
-			 gen_ffp_call("_LVOSPFloor");
+			 gen_float_call("_LVOSPFloor");
 			 gen("jsr","_LVOSPFix(a6)","  ");
 			 enter_XREF("_LVOSPFix");
 			 gen("move.l","d0","-(sp)");
@@ -1716,7 +1716,7 @@ char varptr_obj_name[MAXIDSIZE];
 			else
 			if (nftype == singletype)
 			{
-			 gen("move.l","(sp)+","d1");
+			 gen("move.l","(sp)+","d0");
 			 gen_rt_call("_sgnf");
 			 gen("move.l","d0","-(sp)");
 			 enter_XREF("_MathBase");

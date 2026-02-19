@@ -51,26 +51,12 @@
 #include "lexvar.c"
 
 /* globals */
-ULONG 	MathBase = NULL;
-ULONG 	MathTransBase = NULL;
 ULONG	IntuitionBase = NULL;
 BOOL 	inside_string = FALSE;	/* see last line of nextch() */
 
 /* functions */
-void open_shared_libs()
+void open_shared_libs(void)
 {
- if ((MathBase = OpenLibrary("mathffp.library",0)) == NULL) 
- {
-  printf("Unable to open mathffp.library!\n");
-  exit(10);
- }
-
- if ((MathTransBase = OpenLibrary("mathtrans.library",0)) == NULL)
- {
-  printf("Unable to open mathtrans.library!\n");
-  exit(10);
- }
-
  if ((IntuitionBase = OpenLibrary("intuition.library",0)) == NULL)
  {
   printf("Unable to open intuition.library!\n");
@@ -78,14 +64,12 @@ void open_shared_libs()
  }
 }
 
-void close_shared_libs()
+void close_shared_libs(void)
 {
  if (IntuitionBase != NULL) CloseLibrary(IntuitionBase);
- if (MathTransBase != NULL) CloseLibrary(MathTransBase);
- if (MathBase != NULL) CloseLibrary(MathBase);
 }
  
-void setup()
+void setup(void)
 {
 int i;
 
@@ -106,9 +90,9 @@ int i;
  strcpy(acelib[1].base,"_IntuitionBase");
  strcpy(acelib[2].name,"GRAPHICS");
  strcpy(acelib[2].base,"_GfxBase");
- strcpy(acelib[3].name,"MATHFFP");
+ strcpy(acelib[3].name,"MATHIEEESINGBAS");
  strcpy(acelib[3].base,"_MathBase");
- strcpy(acelib[4].name,"MATHTRANS");
+ strcpy(acelib[4].name,"MATHIEEESINGTRANS");
  strcpy(acelib[4].base,"_MathTransBase");
  strcpy(acelib[5].name,"TRANSLATOR");
  strcpy(acelib[5].base,"_TransBase");
@@ -133,7 +117,7 @@ int i;
  }
 }
 
-void cleanup()
+void cleanup(void)
 {
  /* close files */
  if (!std_in && src != NULL) fclose(src);
@@ -149,8 +133,7 @@ void cleanup()
  exit(exitvalue);
 }
 
-void _warn(n)
-int n;
+void _warn(int n)
 {
 char *msg;
 
@@ -168,8 +151,7 @@ char *msg;
  if (error_log) fprintf(err_log," in line %d.\n",lineno);
 }
 
-void _error(n)
-int n;
+void _error(int n)
 {
 int  i,spot,badline,length;
 char *msg;
@@ -334,8 +316,7 @@ char *msg;
  if (n != 0) errors++;
 }
 
-void _abort(n)
-int n;
+void _abort(int n)
 {
  _error(n);
  printf("*** compilation aborted with %d error(s).\n",errors);
@@ -344,8 +325,7 @@ int n;
  cleanup();
 }
 
-void open_files(source)
-char *source;
+void open_files(char *source)
 {
 int  cc;
 char *xtn;
@@ -415,7 +395,7 @@ char *xtn;
  }
 }
 
-void nextch()
+void nextch(void)
 /* character handler */
 {
 char lineno_buf[15], *tmp;
@@ -507,21 +487,21 @@ BOOL continue_line;
  if (ch == '~' && !inside_string) ut_ch = ch = ' ';  /* '~' == whitespace */
 }
 
-BOOL letter()
+BOOL letter(void)
 {
  if ((ch >= 'A') && (ch <= 'Z')) return(TRUE);
  if ((ch >= 'a') && (ch <= 'z')) { ch -= 32; return(TRUE); }
  return(FALSE);
 }
 
-BOOL digit()
+BOOL digit(void)
 {
  if ((ch >= '0') && (ch <= '9')) return(TRUE);
  else
      return(FALSE);
 }
 
-BYTE hex_digit()
+BYTE hex_digit(void)
 {
  if ((ch >= '0') && (ch <= '9')) return(ch-'0');
  letter(); /* make sure it's uppercase */
@@ -529,13 +509,13 @@ BYTE hex_digit()
  return(-1);
 }
 
-BYTE octal_digit()
+BYTE octal_digit(void)
 {
  if ((ch >= '0') && (ch <= '7')) return(ch-'0');
  return(-1);
 }
 
-void convert_special_ident()
+void convert_special_ident(void)
 {
 /* 
 ** If the current identifier is one of a special 
@@ -567,7 +547,7 @@ char chr0,chr1;
   }   
 }
 
-BOOL qualifier()
+BOOL qualifier(void)
 {
  /* - Attach a qualifier character (%&$!#).
     - The default object (variable) can be overridden by
@@ -585,7 +565,7 @@ BOOL qualifier()
  }
 }
 
-BOOL ssymbol()
+BOOL ssymbol(void)
 {
 int  i=0;
 BOOL found=FALSE;
@@ -595,8 +575,7 @@ BOOL found=FALSE;
  return(found);
 }
 
-int rsvd_wd(id)
-char *id;
+int rsvd_wd(char *id)
 {
 BOOL found=FALSE;
 int first,last,this;
@@ -635,8 +614,7 @@ int first,last,this;
    if (found) return(this); else return(undefined);
 }
 
-int rsvd_sym(id)
-char *id;
+int rsvd_sym(char *id)
 {
 BOOL found=FALSE;
 int cc=0;
@@ -650,7 +628,7 @@ int cc=0;
    if (found) return(500+cc-1); else return(undefined); 
 }
 
-void reclassify_number()
+void reclassify_number(void)
 {
  /* reclassify a number as a short, long or floating point value
     if a qualifying character (%&!#) follows the numeric literal.
@@ -662,31 +640,25 @@ void reclassify_number()
    switch(typ)
    {
     case longtype   : shortval=(SHORT)longval; break;
-    case singletype : if (SPCmp(SPDiv(SPFlt(2),SPFlt(1)),SPSub(SPFloor(singleval),singleval)) == 1) 
-     			 shortval=(SHORT)SPFix(SPFloor(singleval));
-		      else
-     			 shortval=(SHORT)SPFix(SPCeil(singleval));
-		      break; /*if fnum-fix(fnum)<0.5 round_down else round_up*/
+    case singletype : shortval=(SHORT)(singleval + 0.5f);
+		      break;
    }
    sym=shortconst;
    typ=shorttype;
   }
   else
-  if (ch == '&')  
+  if (ch == '&')
   {
    /* coerce to a LONG constant */
-   nextch(); 
+   nextch();
    switch(typ)
    {
     case shorttype  : longval=(LONG)shortval; break;
-    case singletype : if (SPCmp(SPDiv(SPFlt(2),SPFlt(1)),SPSub(SPFloor(singleval),singleval)) == 1) 
-     			 longval=(LONG)SPFix(SPFloor(singleval));
-		      else
-     			 longval=(LONG)SPFix(SPCeil(singleval));
-		      break; /*if fnum-fix(fnum)<0.5 round_down else round_up*/
+    case singletype : longval=(LONG)(singleval + 0.5f);
+		      break;
    }
    sym=longconst;
-   typ=longtype; 
+   typ=longtype;
   }
   else
   if (ch == '!' || ch == '#')
@@ -695,16 +667,15 @@ void reclassify_number()
    nextch();
    switch(typ)
    {
-    case shorttype : singleval=SPFlt((LONG)shortval); break;
-    case longtype  : singleval=SPFlt(longval); break;    
+    case shorttype : singleval=(float)shortval; break;
+    case longtype  : singleval=(float)longval; break;
    }
    sym=singleconst;
    typ=singletype;
-  }  
+  }
 }
 
-void classify_integer(n)
-LONG n;
+void classify_integer(LONG n)
 {
  /* classify as a long or short integer value */
  if (n >= 0 && n <= MAXSHORT)
@@ -723,7 +694,7 @@ LONG n;
  }
 }
 
-static void scan_identifier()
+static void scan_identifier(void)
 {
 int cc=0;
 
@@ -804,7 +775,7 @@ int cc=0;
     }
 }
 
-static void scan_number()
+static void scan_number(void)
 {
 int  i;
 LONG n[2],n0,n1;
@@ -850,13 +821,13 @@ int  sign;
    /* integer or real? */
    if (period && (periods == 1))
    {
-    /* make FFP */
+    /* make IEEE single */
     sym = singleconst; typ=singletype;
     places=1;
     for (i=1;i<=placecount;i++) places *= 10;
     n0=n[0];
     n1=n[1];
-    singleval= SPAdd(SPFlt(n0),SPDiv(SPFlt(places), SPFlt(n1)));
+    singleval = (float)n0 + (float)n1 / (float)places;
    }
   else
       classify_integer(n[0]);
@@ -876,29 +847,36 @@ int  sign;
    /* get digits */
    while (digit()) { ex = 10*ex + (ch-48); nextch(); }
    ex *= sign;
-   /* convert to FFP */
+   /* convert to IEEE single */
    if ((ex >= -20) && (ex <= 18))
    {
 
     /* mantissa */
     if (sym != singleconst)
     {
-     singleval = SPFlt(n[0]);
+     singleval = (float)n[0];
      sym=singleconst; typ=singletype;
     }
 
     /* if exponent is zero: 10^ex = 1 -> num*1 = num
        so just return singleval as it is. */
-    if (ex != 0) singleval = SPMul(SPPow(SPFlt(ex),SPFlt(10)),singleval);
+    if (ex != 0)
+    {
+     float tenpow = 1.0f;
+     long absex = (ex < 0) ? -ex : ex;
+     for (i = 0; i < absex; i++) tenpow *= 10.0f;
+     if (ex < 0) singleval /= tenpow;
+     else singleval *= tenpow;
+    }
 
     reclassify_number();
    }
-   else { singleval = SPFlt(0); _warn(1); }
+   else { singleval = 0.0f; _warn(1); }
   }
   obj=constant;
 }
 
-static void scan_symbol()
+static void scan_symbol(void)
 {
 char ssym[3];
 LONG val;
@@ -975,7 +953,7 @@ char lastch;
       }
 }
 
-void insymbol()
+void insymbol(void)
 /* lexical analyser */
 {
 int cc;

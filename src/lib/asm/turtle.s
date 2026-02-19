@@ -75,7 +75,7 @@
 
 ;
 ; moveturtle - primitive used by forward and back.
-;	     - expects distance in d0 (ffp) 
+;	     - expects distance in d0 (float)
 ;	       and direction boolean in d1 (0=back, 1=forward).
 ;
 ;	     - d2 = angle (temporary store)
@@ -206,7 +206,7 @@ _storeheading:
 	rts
 
 ;
-; back - move turtle back by value in d0 (ffp).
+; back - move turtle back by value in d0 (float).
 ;
 _back:
 	move.w	#0,d1
@@ -214,7 +214,7 @@ _back:
 	rts
 
 ;
-; forward - move turtle forward by value in d0 (ffp).
+; forward - move turtle forward by value in d0 (float).
 ;
 _forward:
 	move.w	#1,d1

@@ -157,7 +157,7 @@ char   ut_id[MAXIDSIZE];	 /* untouched identifier for DATA statement */
 char   stringval[MAXSTRLEN];     /* string literal */
 SHORT  shortval;                 /* short literal */
 LONG   longval;                  /* long literal */
-LONG  singleval;                /* single precision literal */
+float singleval;                /* single precision literal */
 double doubleval;                /* double precision literal */ 
 SHORT  dimsize[255];		 /* array indices holder */
 

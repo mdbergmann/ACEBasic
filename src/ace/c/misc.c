@@ -87,10 +87,10 @@ extern	char 	tempshortname[80],tempshortlabel[80];
 extern	char 	templongname[80],templonglabel[80];
 
 /* redefine ZC's CTRL-C testing function to do nothing */ 
-long	Chk_Abort() { return 0; }
+long	Chk_Abort(void) { return 0; }
 
 /* functions */
-void make_temp_long()
+void make_temp_long(void)
 {
  /* make a long integer BSS object for temporary storage
     of actual value parameters */
@@ -107,7 +107,7 @@ char numbuf[40],storesize[40];
  enter_BSS(templonglabel,storesize);
 }
 
-void make_temp_short()
+void make_temp_short(void)
 {
  /* make a short integer BSS object for temporary storage
     of actual value parameters */
@@ -124,7 +124,7 @@ char numbuf[40],storesize[40];
  enter_BSS(tempshortlabel,storesize);
 }
 
-void make_temp_string()
+void make_temp_string(void)
 {
 /* need a unique BSS string store for ALL string functions to prevent 
    overwriting of string data */
@@ -143,8 +143,7 @@ char numbuf[40],sizebuf[40],storesize[40];
  enter_BSS(tempstrlabel,storesize);
 }
 
-void make_string_const(string)
-char *string;
+void make_string_const(char *string)
 {
 char *strbuf,buf[80],strlabel[80],strname[80];
 
@@ -168,9 +167,7 @@ char *strbuf,buf[80],strlabel[80],strname[80];
  gen("pea",strname,"  ");
 }
 
-void make_label_from_linenum(intconst,buf)
-int  intconst;
-char *buf;
+void make_label_from_linenum(int intconst, char *buf)
 {
 /* turns a line number into a label */
 
@@ -181,8 +178,7 @@ char *buf;
  }
 }
 
-LONG max_array_ndx(curr)
-SYM *curr;
+LONG max_array_ndx(SYM *curr)
 {
 /* Returns # of linear elements in an array.
    eg: DIM X(10,10) yields 121 elements: 0..10, 0..10 -> 11 * 11 
@@ -194,8 +190,7 @@ LONG max=1;
  return(max);
 }
 
-void push_indices(curr)
-SYM *curr;
+void push_indices(SYM *curr)
 {
 /* put array indices onto stack */
 int ndxcount=0;
@@ -226,8 +221,7 @@ int ndxcount=0;
  }
 }
   
-void get_abs_ndx(curr)
-SYM *curr;
+void get_abs_ndx(SYM *curr)
 {
 /* calculate absolute pointer into array from multiple dimensions */
 int  i,ndx_mult=1;
@@ -256,13 +250,11 @@ char mulbuf[40],srcbuf[40];
 
 }
 
-void push_num_constant(typ,item)
-int typ;
-SYM *item;
+void push_num_constant(int typ, SYM *item)
 {
 /* push a numeric
-   constant onto 
-   the stack. 
+   constant onto
+   the stack.
 */
 char buf[40],numbuf[40];
 
@@ -271,7 +263,8 @@ char buf[40],numbuf[40];
  {
   case shorttype  : itoa(item->numconst.shortnum,buf,10); break;
   case longtype   : ltoa(item->numconst.longnum,buf,10); break;
-  case singletype : sprintf(buf,"%lx",item->numconst.singlenum);
+  case singletype : { FLOAT_BITS u; u.f = item->numconst.singlenum;
+                      sprintf(buf,"%lx",u.l); }
                     strcat(numbuf,"$");
   		    break;
  }
@@ -286,9 +279,7 @@ char buf[40],numbuf[40];
 ** Parses (index), consumes through rparen.
 ** On exit: a0 = address of indexed element, sym past rparen.
 */
-void gen_typed_array_addr(base_offset, mbr_type)
-ULONG base_offset;
-int mbr_type;
+void gen_typed_array_addr(ULONG base_offset, int mbr_type)
 {
 char numbuf[40];
 int idx_type;
@@ -320,8 +311,7 @@ ULONG elem_size;
  insymbol();
 }
 
-int push_struct(item)
-SYM *item;
+int push_struct(SYM *item)
 {
 /* push either the address of 
    a structure variable or the
@@ -613,8 +603,7 @@ ULONG  total_offset;
  }
 }
 
-void change_id_type(newtype)
-int newtype;
+void change_id_type(int newtype)
 {
 int i,first,last;
 
@@ -647,8 +636,7 @@ int i,first,last;
  while (sym == comma);
 }
 
-void gen_branch(branch,labname)
-char *branch,*labname;
+void gen_branch(char *branch, char *labname)
 {
 char lablabel[MAXIDSIZE+1],destbuf[3];
 
@@ -664,7 +652,7 @@ char lablabel[MAXIDSIZE+1],destbuf[3];
  gen(branch,labname,destbuf);
 }
 
-void assem()
+void assem(void)
 {
 /* 
 ** ASSEM..END ASSEM -- inline assembly code inclusion.
@@ -690,7 +678,7 @@ void assem()
  report_errors = TRUE;
 }
 
-void parse_option_list()
+void parse_option_list(void)
 {
 char letter;
 BOOL activate;
@@ -762,7 +750,7 @@ BOOL activate;
   while (sym == comma);
 }
 
-void MsgBox()
+void MsgBox(void)
 {
 /*
 ** MsgBox _statement_.
@@ -799,9 +787,7 @@ void MsgBox()
 	 }
 }
 
-void make_ext_name(ext_name,ut)
-char *ext_name;
-char *ut;
+void make_ext_name(char *ext_name, char *ut)
 {
 char buf[MAXIDSIZE];
 
@@ -816,8 +802,7 @@ char buf[MAXIDSIZE];
      strcpy(ext_name,buf);
 }
 
-int sym_to_type(s)
-int s;
+int sym_to_type(int s)
 {
  switch(s)
  {
@@ -830,9 +815,7 @@ int s;
  return notype;
 }
 
-void make_modvar_bss_name(dest,name)
-char *dest;
-char *name;
+void make_modvar_bss_name(char *dest, char *name)
 {
 int len;
 

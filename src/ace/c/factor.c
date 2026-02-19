@@ -51,7 +51,7 @@ extern	char   	id[MAXIDSIZE];
 extern	char   	ut_id[MAXIDSIZE];
 extern	SHORT  	shortval;
 extern	LONG   	longval;
-extern	LONG   singleval;
+extern	float  singleval;
 extern	char   	stringval[MAXSTRLEN];
 extern	SYM	*curr_item;
 extern	int  	lev;
@@ -59,7 +59,7 @@ extern	char 	numbuf[80];
 extern 	BOOL 	cli_args;
 
 /* functions */
-BOOL factorfunc()
+BOOL factorfunc(void)
 {
 /*
 ** Return TRUE if fsym is in the list of
@@ -86,7 +86,7 @@ BOOL factorfunc()
   }
 }
 
-static int handle_ident_factor()
+static int handle_ident_factor(void)
 {
 char srcbuf[80],sub_name[80];
 char func_name[MAXIDSIZE];
@@ -272,7 +272,7 @@ BOOL need_symbol;
 	       return(undefined);
 }
 
-static int handle_parameterless()
+static int handle_parameterless(void)
 {
 int ftype;
 
@@ -352,7 +352,7 @@ int ftype;
 		}
 		gen_rt_call("_rnd");
 		gen("move.l","d0","-(sp)");
-		enter_XREF("_MathBase"); /* make sure mathffp lib is open */
+		enter_XREF("_MathBase"); /* make sure mathieeesingbas lib is open */
 		ftype=singletype;
 		return(ftype);
 
@@ -365,7 +365,7 @@ int ftype;
   case timersym : gen_rt_call("_timer");
 		  gen("move.l","d0","-(sp)");
 		  enter_XREF("_DOSBase"); /* DateStamp() needs dos.library */
-		  enter_XREF("_MathBase"); /* _timer needs basic ffp funcs */
+		  enter_XREF("_MathBase"); /* _timer needs basic float funcs */
 		  ftype=singletype;
 		  insymbol();
 		  return(ftype);
@@ -382,7 +382,7 @@ int ftype;
  return(undefined);
 }
 
-int factor()
+int factor(void)
 {
 char buf[80];
 int  ftype=undefined;
@@ -408,7 +408,8 @@ SYM  *invoke_item;
                      insymbol();
                      return(ftype);
 
-  case singleconst : sprintf(numbuf,"#$%lx",singleval);
+  case singleconst : { FLOAT_BITS u; u.f = singleval;
+		       sprintf(numbuf,"#$%lx",u.l); }
        		     gen("move.l",numbuf,"-(sp)");
                      ftype=typ;
        		     insymbol();

@@ -1,7 +1,7 @@
 ;
 ; fmath.s -- an ACE linked library module: single-precision float functions.
 ; Copyright (C) 1998 David Benn
-; 
+;
 ; This program is free software; you can redistribute it and/or
 ; modify it under the terms of the GNU General Public License
 ; as published by the Free Software Foundation; either version 2
@@ -18,7 +18,7 @@
 ;
 ; Author: David J Benn
 ;   Date: 3rd-30th November, 1st-13th December 1991,
-;	  20th, 23rd,25th-27th January 1992, 
+;	  20th, 23rd,25th-27th January 1992,
 ;         2nd,4th,6th,12th-19th,21st-24th,29th February 1992,
 ;	  1st,14th March 1992,
 ;	  4th,7th,21st,22nd,26th April 1992,
@@ -35,7 +35,7 @@
 ;
 ; a4,a5 are used by link/unlk.
 ; a6 is library base holder.
-; a7 is stack pointer. 
+; a7 is stack pointer.
 ; d7 is used for array index calculations.
 ;
 
@@ -47,7 +47,8 @@ MAXSTRINGSIZE	EQU	1024
    	xdef  	_absf
   	xdef  	_sgnf
 	xdef	_inputsingle
-	xdef	_modffp
+	xdef	_modfloat
+	xdef	_truncfix
 	xdef	_fix
 	xdef	_decimal_places
 
@@ -55,16 +56,15 @@ MAXSTRINGSIZE	EQU	1024
 	xref	_val
 	xref	_Ustringinput
 
-  	xref  	_LVOIEEESPFix
-	xref	_LVOIEEESPFlt
-	xref	_LVOIEEESPFloor
-	xref	_LVOIEEESPCeil
-	xref	_LVOIEEESPSub
-	xref	_LVOIEEESPMul
-   	xref  	_LVOIEEESPDiv
-   	xref  	_LVOIEEESPAbs
-   	xref  	_LVOIEEESPTst
-	xref	_LVOIEEESPCmp
+  	xref  	_LVOSPFix
+	xref	_LVOSPFloor
+	xref	_LVOSPCeil
+	xref	_LVOSPAdd
+	xref	_LVOSPSub
+	xref	_LVOSPMul
+   	xref  	_LVOSPDiv
+   	xref  	_LVOSPAbs
+   	xref  	_LVOSPTst
    	xref  	_MathBase
 
 	SECTION fmath_code,CODE
@@ -72,69 +72,64 @@ MAXSTRINGSIZE	EQU	1024
 ;*** SINGLE-PRECISION FLOAT FUNCTIONS ***
 
 ;
-; Rounds the single-precision value in d0. Returns a long integer in d0.
+; Rounds the single-precision value in d0 to the nearest integer
+; (round half away from zero). Returns a long integer in d0.
 ;
 
 _round:
-	move.l	d0,_fnum	; save number 
+	move.l	d0,_fnum	; save original float
 
-	move.l	d0,d1
-	jsr	_sgnf
-	move.l	d0,_sign	; get the sign of fnum
+	jsr	_sgnf		; d0 = sign (-1, 0, 1)
+	move.l	d0,_sign
 
 	move.l	_fnum,d0
-	jsr	_absf		
-	move.l	d0,_fnum	; fnum = ABS(fnum)	
+	jsr	_absf		; d0 = abs(fnum)
 
 	move.l	_MathBase,a6
-
-	move.l	_fnum,d0
-	jsr	_LVOIEEESPFix(a6)
-	jsr	_LVOIEEESPFlt(a6)	; take integer portion of fnum
-
-	move.l	d0,d1		; d1 = INT(fnum)
-	move.l	_fnum,d0
-	jsr	_LVOIEEESPSub(a6)	; d0 = fnum [d0] - INT(fnum) [d1]
-
 	move.l	#$3F000000,d1	; 0.5 IEEE
-	jsr	_LVOIEEESPCmp(a6)	; (fnum - INT(fnum)) [d0] >= 0.5 [d1] ?
+	jsr	_LVOSPAdd(a6)	; d0 = abs(fnum) + 0.5
+	jsr	_LVOSPFloor(a6)	; d0 = floor(abs(fnum) + 0.5)
+	jsr	_LVOSPFix(a6)	; d0 = (long) result
 
-	bge.s	_round_up
-
-	; round down
-	move.l	_fnum,d0
-	jsr	_LVOIEEESPFloor(a6)
-	jsr	_LVOIEEESPFix(a6)
-	bra.s	_check_sign
-
-_round_up:
-	move.l	_fnum,d0
-	jsr	_LVOIEEESPCeil(a6)
-	jsr	_LVOIEEESPFix(a6)
-		
-_check_sign:
 	cmpi.l	#-1,_sign
 	bne.s	_exitround
+	neg.l	d0		; negate if original was negative
 
-	neg.l	d0		; negate value if sign = -1
-
-_exitround:		
+_exitround:
    	rts
+
+;
+; Truncate float toward zero and return as long integer.
+; Input: d0 = IEEE SP float
+; Output: d0 = long integer (truncated toward zero)
+; FIX(3.7)=3, FIX(-3.7)=-3
+;
+_truncfix:
+	move.l	_MathBase,a6
+	tst.l	d0		; IEEE 754: bit 31 = sign
+	bmi.s	_truncfix_neg
+	jsr	_LVOSPFloor(a6)	; positive: floor
+	jsr	_LVOSPFix(a6)
+	rts
+_truncfix_neg:
+	jsr	_LVOSPCeil(a6)	; negative: ceil
+	jsr	_LVOSPFix(a6)
+	rts
 
 ;
 ; float abs function. assumes float value in d0.
-;  
+;
 _absf:
-   	move.l  _MathBase,a6  
-   	jsr	_LVOIEEESPAbs(a6)
+   	move.l  _MathBase,a6
+   	jsr	_LVOSPAbs(a6)
    	rts
 
 ;
-; float sgn function. d1=fnum. d0=result (-1,0,1).
+; float sgn function. d0=fnum. d0=result (-1,0,1).
 ;
 _sgnf:
 	move.l	_MathBase,a6
-	jsr	_LVOIEEESPTst(a6)
+	jsr	_LVOSPTst(a6)
 	rts
 
 ;
@@ -150,29 +145,36 @@ _inputsingle:
 
 ;
 ; float modulo. d0=dividend, d1=divisor. returns d0 mod d1 in d0.
+; Uses truncation toward zero for the quotient.
 ;
-_modffp:
- 	move.l d0,_ffpdividend
- 	move.l d1,_ffpdivisor
+_modfloat:
+ 	move.l d0,_floatdividend
+ 	move.l d1,_floatdivisor
 
  	movea.l _MathBase,a6
 
- 	jsr _LVOIEEESPDiv(a6) 	; quotient=dividend/divisor
- 	jsr _LVOIEEESPFix(a6) 	; quotient=(long)quotient
- 	jsr _LVOIEEESPFlt(a6) 	; quotient=(single)quotient
- 	move.l _ffpdivisor,d1
- 	jsr _LVOIEEESPMul(a6) 	; d0=quotient*divisor
+ 	jsr _LVOSPDiv(a6) 	; d0 = dividend/divisor
+	; truncate toward zero (floor for positive, ceil for negative)
+	tst.l d0		; IEEE 754: bit 31 = sign
+	bmi.s _modfloat_neg
+	jsr _LVOSPFloor(a6)
+	bra.s _modfloat_cont
+_modfloat_neg:
+	jsr _LVOSPCeil(a6)
+_modfloat_cont:
+ 	move.l _floatdivisor,d1
+ 	jsr _LVOSPMul(a6) 	; d0=trunc(quotient)*divisor
  	move.l d0,d1
- 	move.l _ffpdividend,d0
- 	jsr _LVOIEEESPSub(a6) 	; d0=dividend-(quotient*divisor)
+ 	move.l _floatdividend,d0
+ 	jsr _LVOSPSub(a6) 	; d0=dividend-trunc(quotient)*divisor
 
- 	rts 
+ 	rts
 
 ;
 ; FIX n	- Change the number of decimal places for float formatting. d0=n.
 ;
 _fix:
-	move.l	d0,_decimal_places	
+	move.l	d0,_decimal_places
 	rts
 
 ;************************
@@ -180,11 +182,11 @@ _fix:
 	SECTION fmath_data,DATA
 
 _decimal_places:	dc.l 8
-	
+
 	SECTION fmath_mem,BSS
 
-_ffpdividend:		ds.l 1
-_ffpdivisor:		ds.l 1
+_floatdividend:		ds.l 1
+_floatdivisor:		ds.l 1
 _fnum:			ds.l 1
 _sign:			ds.l 1
 _tmpstring:    		ds.b MAXSTRINGSIZE

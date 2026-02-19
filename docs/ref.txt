@@ -2747,8 +2747,9 @@ SHORTINT *	- syntax: SHORTINT <identifier>[,..]
  
 --------------------------------------------------------------------------------
 SINGLE *	- syntax: SINGLE <identifier>[,..]
-		- Declares and initialises one or more single-precision 
-		  variables.
+		- Declares and initialises one or more single-precision
+		  variables. Uses IEEE 754 single-precision format (4 bytes).
+		  Requires AmigaOS 2.0+ (Kickstart 37+).
  
 --------------------------------------------------------------------------------
 SIZEOF *	- syntax: 

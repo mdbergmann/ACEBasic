@@ -55,7 +55,7 @@ extern	char   	id[MAXIDSIZE];
 extern	char   	ut_id[MAXIDSIZE];
 extern	SHORT  	shortval;
 extern	LONG   	longval; 
-extern	LONG   singleval;
+extern	float  singleval;
 extern	char   	stringval[MAXSTRLEN];
 extern	SYM	*curr_item;
 extern	SYM	*structdef_item;
@@ -109,10 +109,10 @@ char tempstrname[80],tempstrlabel[80];
 char tempshortname[80],tempshortlabel[80];
 char templongname[80],templonglabel[80];
 
-char numbuf[80];                /* temporary ffp/int # buffer */
+char numbuf[80];                /* temporary float/int # buffer */
 int  exitvalue=0;               /* compiler exit value */
 
-BOOL mathffpused=FALSE;		/* are these libs/devs used? */
+BOOL mathfloatused=FALSE;		/* are these libs/devs used? */
 BOOL mathtransused=FALSE;       
 BOOL dosused=FALSE;              
 BOOL gfxused=FALSE;

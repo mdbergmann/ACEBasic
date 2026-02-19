@@ -54,6 +54,7 @@ wa_Lock		equ	0
 	; * XDEFs *
 	xdef	_DOSBase
 	xdef    _MathBase
+	xdef	_MathIeeeSingBasBase	; alias for vbcc IEEE float codegen
         xdef    _MathTransBase
         xdef    _MathIeeeSingTransBase
         xdef    _MathIeeeDoubTransBase
@@ -95,8 +96,8 @@ wa_Lock		equ	0
 	xdef	_stdin
 	xdef	_openio
 	xdef	_closeio
-	xdef    _openmathffp
-	xdef	_closemathffp
+	xdef    _openmathieee
+	xdef	_closemathieee
 	xdef	_openmathtrans
 	xdef	_closemathtrans
 	xdef	_opengfx
@@ -196,65 +197,57 @@ _quitcloseio:
 	rts
 
 ;
-; opens Motorola Fast-Floating-Point (FFP) math library.
+; opens IEEE single-precision math library (mathieeesingbas.library).
 ;
-_openmathffp:
+_openmathieee:
 	move.b	#0,_starterr
 
-	movea.l #_mathffplib,a1
+	movea.l #_mathieeelib,a1
 	move.l  #0,d0
 	movea.l _AbsExecBase,a6
 	jsr     _LVOOpenLibrary(a6)
 	move.l  d0,_MathBase
 	cmpi.l	#0,d0
-	bne.s	_mathffp_ok
+	bne.s	_mathieee_ok
 	move.b	#1,_starterr
 
-_mathffp_ok:
+_mathieee_ok:
         rts
 
 ;
-; closes FFP library.
+; closes IEEE single-precision math library.
 ;
-_closemathffp:
+_closemathieee:
 	tst.l	_MathBase
-	beq.s	_quitclosemathffp
+	beq.s	_quitclosemathieee
 
 	move.l  _MathBase,a1
 	movea.l _AbsExecBase,a6
 	jsr     _LVOCloseLibrary(a6)
 
-_quitclosemathffp:
+_quitclosemathieee:
 	rts
        
 ;
-; opens FFP and IEEE transendental function libraries.
+; opens IEEE SP and DP transendental function libraries.
 ;
 _openmathtrans:
 	move.b	#0,_starterr
-	
+
+	; open mathieeesingtrans.library into _MathTransBase
 	movea.l #_mathtranslib,a1
 	move.l  #0,d0
 	movea.l _AbsExecBase,a6
 	jsr     _LVOOpenLibrary(a6)
 	move.l  d0,_MathTransBase
 	cmpi.l	#0,d0
-	bne.s	_openieeesingtranslib
+	bne.s	_mathtrans_ok
 	move.b	#1,_starterr
-	rts			; if we can't open FFP library -> abort!
+	rts			; if we can't open library -> abort!
 
-_openieeesingtranslib:
-	;
-	; IEEE SP Transcendental library is currently only
-	; used by the _power function. If it can't be opened,
-	; FFP exponentiation function is used instead, so don't
-	; set _starterr if we can't open mathieeesingtrans.library.
-	; See ACE/src/lib/c/pow.c for more details.
-	;
-	movea.l #_mathieeesingtranslib,a1
-	move.l  #0,d0
-	movea.l _AbsExecBase,a6
-	jsr     _LVOOpenLibrary(a6)
+_mathtrans_ok:
+	; copy to _MathIeeeSingTransBase for backward compat
+	; (pow.c and dp-float reference it)
 	move.l  d0,_MathIeeeSingTransBase
 
 	; fall through to open IEEE DP library
@@ -274,7 +267,7 @@ _openieeedoubtranslib:
         rts
 
 ;
-; close FFP transendental function library.
+; close IEEE transendental function library.
 ;
 _closemathtrans:
 	tst.l	_MathTransBase
@@ -576,8 +569,8 @@ _turncursoroff:
 _version:	dc.b	'$VER: startup 1.12 (05.11.95)',0
 
 _doslib:		dc.b	'dos.library',0
-_mathffplib:    	dc.b	'mathffp.library',0
-_mathtranslib:  	dc.b	'mathtrans.library',0
+_mathieeelib:    	dc.b	'mathieeesingbas.library',0
+_mathtranslib:  	dc.b	'mathieeesingtrans.library',0
 _mathieeesingtranslib: 	dc.b	'mathieeesingtrans.library',0
 _mathieeedoubtranslib:	dc.b	'mathieeedoubtrans.library',0
 _gfxlib:		dc.b	'graphics.library',0
@@ -601,7 +594,8 @@ _DOSBase:	ds.l 1
 _stdout:	ds.l 1
 _stdin:		ds.l 1
 
-_MathBase:      	ds.l 1
+_MathBase:
+_MathIeeeSingBasBase:	ds.l 1
 _MathTransBase: 	ds.l 1
 _MathIeeeSingTransBase: ds.l 1
 _MathIeeeDoubTransBase: ds.l 1

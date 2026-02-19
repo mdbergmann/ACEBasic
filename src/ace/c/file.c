@@ -420,7 +420,7 @@ SYM  *storage;
 
     /* when storing an input value into an array element, must save
        value (d0) first, since array index calculation may be corrupted
-       if index has to be coerced from ffp to short.
+       if index has to be coerced from float to short.
     */
 
     /* pass file number */

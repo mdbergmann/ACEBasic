@@ -178,9 +178,9 @@ int count;
  }
 }
 
-/* Generate an FFP library call: move.l _MathBase,a6 / jsr func(a6)
+/* Generate a float library call: move.l _MathBase,a6 / jsr func(a6)
    + enter_XREF for the function and _MathBase. */
-void gen_ffp_call(funcname)
+void gen_float_call(funcname)
 char *funcname;
 {
  char buf[80];
@@ -263,7 +263,7 @@ char *reg;
    addr_lev is the value of addr[lev] for the stack frame size. */
 extern	BOOL	cli_args;
 extern	BOOL	translateused;
-extern	BOOL	mathffpused;
+extern	BOOL	mathfloatused;
 extern	BOOL	mathtransused;
 extern	BOOL	intuitionused;
 extern	BOOL	gfxused;
@@ -303,8 +303,8 @@ char buf[40],bytes[40];
    if (translateused)
     gen_lib_open_check("_opentranslator", "_translate_ok");
 
-   if (mathffpused)
-    gen_lib_open_check("_openmathffp", "_mathffp_ok");
+   if (mathfloatused)
+    gen_lib_open_check("_openmathieee", "_mathieee_ok");
 
    if (mathtransused)
     gen_lib_open_check("_openmathtrans", "_mathtrans_ok");
@@ -360,7 +360,7 @@ void gen_exit_code()
    ** Programs which abort should cleanup libraries, free allocated memory
    ** and possibly reply to a Wb startup message.
    */
-   if (intuitionused || gfxused || mathffpused || mathtransused ||
+   if (intuitionused || gfxused || mathfloatused || mathtransused ||
        translateused || gadtoolsused)
       fprintf(dest,"_ABORT_PROG:\n");
 
@@ -380,7 +380,7 @@ void gen_exit_code()
    if (narratorused) fprintf(dest,"\tjsr\t_cleanup_async_speech\n");
    if (intuitionused && !gfxused) fprintf(dest,"\tjsr\t_closeintuition\n");
    if (mathtransused) fprintf(dest,"\tjsr\t_closemathtrans\n");
-   if (mathffpused) fprintf(dest,"\tjsr\t_closemathffp\n");
+   if (mathfloatused) fprintf(dest,"\tjsr\t_closemathieee\n");
    if (translateused) fprintf(dest,"\tjsr\t_closetranslator\n");
    if (gadtoolsused) fprintf(dest,"\tjsr\t_closegadtools\n");
 

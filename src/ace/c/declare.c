@@ -54,7 +54,7 @@ extern	char   	id[MAXIDSIZE];
 extern	char   	ut_id[MAXIDSIZE];
 extern	SHORT  	shortval;
 extern	LONG   	longval; 
-extern	LONG    singleval;
+extern	float   singleval;
 extern	SYM	*curr_item;
 extern	SYM	*structdef_item;
 extern	STRUCM	*curr_structmem;
@@ -62,7 +62,7 @@ extern	BOOL	end_of_source;
 
 
 /* functions */
-void define_structure()
+void define_structure(void)
 {
 /* define a structure data type */
 
@@ -231,7 +231,7 @@ else
 lev=oldlevel;  /* restore level */
 }
 
-void declare_structure()
+void declare_structure(void)
 {
 /* declare one or more instances
    of a structure (at level ZERO).
@@ -352,7 +352,7 @@ char   strsize[20],bss_spec[40];
  } 
 }
 
-void define_constant()
+void define_constant(void)
 {
 /* define a NUMERIC constant 
    syntax: CONST <ident>=[-|+]<numconst>[,..] 
@@ -362,7 +362,7 @@ BOOL  numconstant;
 int   consttyp;
 SHORT shortc;
 LONG  longc;
-LONG  singlec;
+float singlec;
 BOOL  negate;
 int   oldlevel;
 
@@ -451,7 +451,7 @@ int   oldlevel;
 		         break;
 
       case singletype  : enter(const_id,singletype,constant,0);
-			 if (negate) singlec = SPMul(singlec,SPFlt(-1));
+			 if (negate) singlec = -singlec;
 		         curr_item->numconst.singlenum=singlec;
 		         break;
      }
@@ -466,8 +466,7 @@ int   oldlevel;
  lev=oldlevel;
 }
 
-void declare_variable(vartype)
-int vartype;
+void declare_variable(int vartype)
 {
 /* declare a variable 
    and initialise it. 
@@ -560,7 +559,7 @@ SYM  *str_item;
  while (sym == comma); 
 }
 
-void define_external_object()
+void define_external_object(void)
 {
  /* declare an external 
     function or variable 
@@ -573,7 +572,7 @@ void define_external_object()
     define_external_variable();
 }
   
-void define_external_variable()
+void define_external_variable(void)
 {
 /* declare an external variable */
 char buf[MAXIDSIZE],extvarid[MAXIDSIZE+1];
@@ -628,7 +627,7 @@ int  vartype=undefined;
  lev=oldlevel;
 }
 
-void define_external_function()
+void define_external_function(void)
 {
 /* declare an external function */
 char buf[MAXIDSIZE],extfuncid[MAXIDSIZE+1];
@@ -684,9 +683,7 @@ int  functype=undefined;
  lev=oldlevel;
 }
 
-void call_external_function(extfuncid,need_symbol)
-char *extfuncid;
-BOOL *need_symbol;
+void call_external_function(char *extfuncid, BOOL *need_symbol)
 {
 /* CALL an external function -- level ZERO */
 SYM   *extfunc_item;
@@ -728,8 +725,7 @@ char  buf[40],numbuf[40];
   }
 }
 
-void define_common_or_global_variable(varsym)
-int varsym;
+void define_common_or_global_variable(int varsym)
 {
 /*
 ** Declare a common or global variable.

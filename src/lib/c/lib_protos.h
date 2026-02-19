@@ -108,8 +108,6 @@ extern int putchar();
 extern int fgetc();
 
 /* internal runtime functions */
-extern long fpa();
-extern void arnd();
 extern char *strsingle();
 extern void printsLF();
 extern void printsTAB();

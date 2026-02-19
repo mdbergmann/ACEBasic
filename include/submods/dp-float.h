@@ -3,7 +3,7 @@
  *
  * Provides IEEE 64-bit double-precision floating point via
  * mathieeedoubbas.library and mathieeedoubtrans.library.
- * Gives 15+ significant digits of precision (vs ~7 for SINGLE/FFP).
+ * Gives 15+ significant digits of precision (vs ~7 for SINGLE).
  *
  * Doubles are 8-byte values stored at ADDRESS pointers.
  * Use DpNew to allocate a double, then pass its address to all
@@ -59,10 +59,10 @@ DECLARE SUB DpFromLong(ADDRESS dr, LONGINT n) EXTERNAL
 REM DpToLong(d) - Convert double at d to LONGINT (truncates toward zero).
 DECLARE SUB LONGINT DpToLong(ADDRESS d) EXTERNAL
 
-REM DpFromSingle(dr, s) - Convert ACE SINGLE (FFP) to double, store at dr.
+REM DpFromSingle(dr, s) - Convert ACE SINGLE (IEEE SP) to double, store at dr.
 DECLARE SUB DpFromSingle(ADDRESS dr, SINGLE s) EXTERNAL
 
-REM DpToSingle(d) - Convert double at d to ACE SINGLE (FFP).
+REM DpToSingle(d) - Convert double at d to ACE SINGLE (IEEE SP).
 REM Precision is reduced to ~7 significant digits.
 DECLARE SUB SINGLE DpToSingle(ADDRESS d) EXTERNAL
 

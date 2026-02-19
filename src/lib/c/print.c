@@ -218,10 +218,10 @@ static char buf[40];
 }
 
 void Usingleprint(num)
-long num;    /* FFP value as raw 32-bit */
+long num;
 {
 /* print single-precision float to DOS or Intuition window */
 
-	/* display number as string */	
+	/* display number as string */
 	Ustringprint(strsingle(num));
 }

@@ -206,7 +206,7 @@ CODE *cx[5];
    gen_stack_cleanup(8);	/* - Remove parameters from stack. */
    gen("move.l","d0","-(sp)");  /* - Push the result. */
 
-   enter_XREF("_MathTransBase"); /* opens FFP+IEEE SP transcendental libraries */
+   enter_XREF("_MathTransBase"); /* opens IEEE SP transcendental libraries */
 
    localtype=singletype;  /* MUST always return a single-precision value
 			     because exponent might be -ve! */ 
@@ -239,7 +239,7 @@ BOOL negate=FALSE;
    case longtype   : gen("neg.l","(sp)","  "); break;
 
    case singletype : gen("move.l","(sp)+","d0");
-       gen_ffp_call("_LVOSPNeg");
+       gen_float_call("_LVOSPNeg");
        gen("move.l","d0","-(sp)");
        break;
    case stringtype : _error(4); break;
@@ -289,7 +289,7 @@ CODE *cx[5];
   {
    coercedtype=negtype;
 
-   /* make sure operands are singletype if FFP division */
+   /* make sure operands are singletype if float division */
    if ((op == fdiv) && (coercedtype != singletype))
    {
     /* neither operands are singletype 
@@ -325,7 +325,7 @@ CODE *cx[5];
 					localtype=longtype;
 					break;
 
-		     case singletype :  gen_ffp_call("_LVOSPMul");
+		     case singletype :  gen_float_call("_LVOSPMul");
 					localtype=singletype;
       		     			break;
 		    }
@@ -333,7 +333,7 @@ CODE *cx[5];
 
     case fdiv     : gen("move.l","(sp)+","d1");  /* 2nd operand */
 		    gen("move.l","(sp)+","d0");  /* 1st operand */
-		    gen_ffp_call("_LVOSPDiv");
+		    gen_float_call("_LVOSPDiv");
 		    localtype=singletype;
       		    break;
    }
@@ -406,7 +406,7 @@ CODE *cx[5];
 
 int modterm()
 {
-/* modulo arithmetic -> returns remainder of long integer or FFP division */
+/* modulo arithmetic -> returns remainder of long integer or float division */
 int  i;
 int  firsttype,localtype;
 int  targettype=longtype;
@@ -427,7 +427,7 @@ CODE *cx[5];
 
   if (idivtype == undefined) return(idivtype);
 
-  /* perform integer or FFP modulo operation */
+  /* perform integer or float modulo operation */
   if ((firsttype != notype) && (idivtype != notype) &&
       (firsttype != stringtype) && (idivtype != stringtype))
   {
@@ -477,7 +477,7 @@ CODE *cx[5];
     /* single MOD */
     gen("move.l","(sp)+","d1");   /* divisor */
     gen("move.l","(sp)+","d0");   /* dividend */
-    gen_rt_call("_modffp");
+    gen_rt_call("_modfloat");
     gen("move.l","d0","-(sp)");
     enter_XREF("_MathBase");
     localtype=singletype;
@@ -532,7 +532,7 @@ CODE *cx[5];
     case longtype   :	gen("add.l","d1","d0");
     		    	break;
 
-    case singletype : 	gen_ffp_call("_LVOSPAdd");
+    case singletype : 	gen_float_call("_LVOSPAdd");
         		break;
 
     case stringtype : 	/* copy source to temp string */
@@ -569,7 +569,7 @@ CODE *cx[5];
     case longtype   : 	gen("sub.l","d1","d0");
          		break;
 
-    case singletype :	gen_ffp_call("_LVOSPSub");
+    case singletype :	gen_float_call("_LVOSPSub");
         		break;
 
     case stringtype : 	_error(4); break;
@@ -668,7 +668,7 @@ CODE *cx[5];
     case singletype : 	gen_pop(singletype, "d1");  /* 2nd */
         		gen_pop(singletype, "d0");  /* 1st */
         		gen("moveq","#-1","d5");     /* assume true */
-        		gen_ffp_call("_LVOSPCmp");
+        		gen_float_call("_LVOSPCmp");
         		break;
 
     case stringtype : 	gen("move.l","(sp)+","a1");  /* addr of 2nd string */
@@ -975,7 +975,7 @@ int typ;
 
   if (typ == shorttype) gen_ext_to_long(FALSE, "d0"); /* extend sign */
 
-  gen_ffp_call("_LVOSPFlt");
+  gen_float_call("_LVOSPFlt");
   gen("move.l","d0","-(sp)");
 }
 

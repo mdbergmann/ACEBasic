@@ -1,7 +1,7 @@
 /*
 ** ACE library (db.lib) module: Exponentiation.
 ** Copyright (C) 1998 David Benn
-** 
+**
 ** This program is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU General Public License
 ** as published by the Free Software Foundation; either version 2
@@ -18,42 +18,20 @@
 **
 ** Author: David J Benn
 **   Date: 5th November 1995
+** Modified: 2026 — native float types (IEEE 754)
 */
 
-/* External variables */
-extern unsigned long MathIeeeSingTransBase;
+/* IEEESPPow takes/returns raw 32-bit IEEE values */
+extern long IEEESPPow();
 
-/* External function declarations - return FFP as raw 32-bit */
-extern long SPFieee();
-extern long SPTieee();
-extern long SPPow();
-extern long IEEESPPow();	
-
-/* Exponentiation function - returns FFP as raw 32-bit */
-long power(y,x)
-long y;    /* FFP value */
-long x;    /* FFP value */
+/* Exponentiation: returns x raised to the power of y.
+** Uses IEEESPPow() from mathieeesingtrans.library via type-punning.
+*/
+float power(float y, float x)
 {
-/*
-** Returns x raised to the power of y.
-** Uses the IEEE single-precision function
-** IEEESPPow() because it is more accurate
-** and handles negative base values correctly.
-**
-** The parameters and result are converted to
-** and from IEEE format respectively. 
-**
-** Only in the event that the IEEE SP library
-** can't be opened will the FFP SPPow() function
-** be used. Note that this should only happen on
-** systems with an OS prior to Release 2.0. Note
-** also that bogus results will be obtained via the
-** FFP function if the base is negative. This doesn't
-** seem to be worth fixing since only old systems
-** will be affected.	
-*/
-	if (MathIeeeSingTransBase)
-		return SPFieee(IEEESPPow(SPTieee(y),SPTieee(x)));
-	else
-		return SPPow(y,x);
+	union { float f; long l; } uy, ux, ur;
+	uy.f = y;
+	ux.f = x;
+	ur.l = IEEESPPow(uy.l, ux.l);
+	return ur.f;
 }

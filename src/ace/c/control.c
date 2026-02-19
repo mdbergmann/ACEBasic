@@ -551,12 +551,12 @@ char labname3[80],lablabel3[80];
     {
      gen("moveq","#0","d1");
      gen("move.l",stpbuf,"d0");   /* d0 < d1? (where d1=0) */
-     gen_ffp_call("_LVOSPCmp");
+     gen_float_call("_LVOSPCmp");
      make_label(labname2,lablabel2);
-     gen("blt",labname2,"  ");  /* test result of ffp Cmp above */
+     gen("blt",labname2,"  ");  /* test result of float Cmp above */
      gen("move.l",cntbuf,"d0");   /* counter */
      gen("move.l",limbuf,"d1");   /* limit */
-     gen_ffp_call("_LVOSPCmp");
+     gen_float_call("_LVOSPCmp");
      gen("bgt","  ","  ");	  /* if STEP +ve -> counter>limit? */
      *cx1_out=curr_code;
      make_label(labname3,lablabel3); /* don't want to do -ve step test too! */
@@ -564,7 +564,7 @@ char labname3[80],lablabel3[80];
      gen(lablabel2,"  ","  ");
      gen("move.l",cntbuf,"d0");   /* counter */
      gen("move.l",limbuf,"d1");   /* limit */
-     gen_ffp_call("_LVOSPCmp");
+     gen_float_call("_LVOSPCmp");
      gen("blt","  ","  ");      /* if STEP -ve -> counter<limit? */
      *cx2_out=curr_code;
      gen(lablabel3,"  ","  ");    /* label for bypassing -ve step test */
@@ -585,7 +585,7 @@ char *stpbuf, *cntbuf, *counteraddr;
 			break;
      case singletype :  gen("move.l",stpbuf,"d0");
 			gen("move.l",cntbuf,"d1");
-			gen_ffp_call("_LVOSPAdd");
+			gen_float_call("_LVOSPAdd");
 			gen("move.l","d0",counteraddr);
 			break;
     }
@@ -681,7 +681,7 @@ int  countertype,limittype,steptype;
     {
      case shorttype  : gen("move.w","#1","-(sp)"); break;
      case longtype   : gen("move.l","#1","-(sp)"); break;
-     case singletype : gen("move.l","#$80000041","-(sp)"); break;
+     case singletype : gen("move.l","#$3F800000","-(sp)"); break;  /* IEEE 1.0 */
     }
     steptype=countertype;
    }

@@ -340,22 +340,22 @@ _writelong:
 	rts
 
 ;
-; write a single-precision value to a file. d0=filenumber; d1=FFP value.
+; write a single-precision value to a file. d0=filenumber; d1=float value.
 ;
 _writesingle:
 	move.l	d0,_filenum	; save filenumber
 
-	; convert FFP to a string
-	move.l	d1,-(sp)	; FFP value	
+	; convert float to a string
+	move.l	d1,-(sp)	; float value
 	jsr	_strsingle
 	addq	#4,sp
 	move.l	d0,a0		; fnumbuf string address		
 
 	cmpi.b	#32,(a0)
-	bne.s	_write_ffp_str
-	adda.l	#1,a0		; if ffp string starts with space -> ignore it
+	bne.s	_write_float_str
+	adda.l	#1,a0		; if float string starts with space -> ignore it
 
-_write_ffp_str:
+_write_float_str:
 	move.l	_filenum,d0	; d0=filenumber; a0=string
 	jsr	_writestring	; write to file
 
@@ -396,13 +396,13 @@ _fprintlong:
 	rts
 
 ;
-; PRINT # - write a FFP value to a file. d0=FFP value; d1=filenumber. 
+; PRINT # - write a float value to a file. d0=float value; d1=filenumber.
 ;
 _fprintsingle:
 	; save filenumber.
 	move.l	d1,_filenum
 	
-	; convert FFP to string +/- leading space.
+	; convert float to string +/- leading space.
 	move.l	d0,-(sp)
 	jsr	_strsingle	; a0=string.
 	addq	#4,sp
@@ -732,8 +732,8 @@ _do_finputstring:
 	rts	
 
 ;
-; INPUT# - input a FFP value from a file. d0=filenumber; a0=temporary string.
-;	  - FFP value returned in d0.
+; INPUT# - input a float value from a file. d0=filenumber; a0=temporary string.
+;	  - float value returned in d0.
 ;
 _finputsingle:
 	jsr	_finputstring

@@ -52,38 +52,11 @@
 
 #include <exec/types.h>
 #include <exec/memory.h>
-#include <libraries/mathffp.h>
-#include <libraries/mathlibrary.h>
 #include <libraries/dos.h>
 #include <stdio.h>
 
-#ifdef __GNUC__
-/* force compiling with builtin math for gcc */
-/*
-#define SPFloor( a )      ( floor( a ) )
-#define SPCmp( a,b )      ( ( a > b ) ? 1 : ( a < b ) ? -1 : 0 )
-#define SPFix( a )        ( (int) a )
-#define SPCeil( a )       ( ceil( a ) )
-#define SPFlt( a )        ( (float) a )
-#define SPSub( a,b )      ( (float)(a) - (float)(b) )
-#define SPAdd( a,b )      ( (float)(a) + (float)(b) )
-#define SPMul( a,b )      ( (float)(a) * (float)(b) )
-#define SPDiv( a,b )      ( (float)(a) / (float)(b) )
-#define SPPow( a,b )      ( pow( (float)(a), (float)(b) ) )
-*/
-extern LONG SPFlt(LONG);
-extern LONG SPAdd(LONG,LONG);
-extern LONG SPSub(LONG,LONG);
-extern LONG SPMul(LONG,LONG);
-extern LONG SPDiv(LONG,LONG);
-extern LONG SPCmp(LONG,LONG);
-extern LONG SPPow(LONG,LONG);
-extern LONG SPFix(LONG);
-extern LONG SPFloor(LONG);
-extern LONG SPCeil(LONG);
-extern LONG SPTst(LONG);
-
-#endif
+/* float-to-bits union for emit boundaries */
+typedef union { float f; LONG l; } FLOAT_BITS;
 
 /* AmigaBASIC reserved words */
 enum { 	abssym = 0,
@@ -463,7 +436,7 @@ enum {	variable = 	3000,
 typedef union conststruct {
 			   SHORT shortnum;
 			   LONG  longnum;
-			   LONG  singlenum;
+			   float singlenum;
 			  } CONST;
 
 typedef struct structmem {
@@ -636,7 +609,7 @@ void	gen_startup_code();
 void	gen_exit_code();
 void	gen_asm_header();
 void	gen_asm_end();
-void	gen_ffp_call();
+void	gen_float_call();
 void	gen_bool_test();
 void	gen_stack_cleanup();
 void	gen_ext_to_long();

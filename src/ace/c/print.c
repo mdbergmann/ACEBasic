@@ -150,8 +150,8 @@ do
  /* no comma or semicolon at end of PRINT -> LF */
  gen_printcode(LF_CODE);
 
- /* need mathffp.library for _Usingleprint and 
-    _beep if called by _Ustringprint. 
+ /* need mathieeesingbas.library for _Usingleprint and
+    _beep if called by _Ustringprint.
  */ 
  enter_XREF("_MathBase");
 }  

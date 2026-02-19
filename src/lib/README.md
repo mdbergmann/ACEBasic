@@ -29,20 +29,20 @@ Uses vbcc/vasm toolchain to produce Amiga hunk format libraries.
 |----------|-----------|-------------|
 | Amiga LVO stubs | `_LVOOpenLibrary`, `_LVOWrite`, etc. | Standard Amiga system call stubs |
 | C library | `putchar`, `sprintf` | Standard C runtime functions |
-| FFP routines | `fpa`, `arnd`, `afp` | ACE-specific float-to-ASCII conversion |
+| Float routines | `fpa`, `arnd`, `afp` | ACE-specific float-to-ASCII conversion |
 
 ### Why ami.lib is needed
 
 The ACE runtime (db.lib) and programs compiled with ACE depend on functions from ami.lib:
 - C library functions like `putchar` and `sprintf` for I/O
-- FFP (Fast Floating Point) ASCII conversion routines
+- Float ASCII conversion routines
 - Amiga system call stubs for library function invocations
 
 ### Can vbcc's amiga.lib replace ami.lib?
 
 **No.** vbcc's `amiga.lib` only provides Amiga LVO stubs. It does not include:
 - C library functions (`putchar`, `sprintf`)
-- ACE-specific FFP routines (`fpa`, `arnd`, `afp`)
+- ACE-specific float routines (`fpa`, `arnd`, `afp`)
 
 ### Rebuilding ami.lib (if needed)
 
@@ -51,13 +51,13 @@ Since no source exists, options include:
 1. **Build a replacement** by combining:
    - `vlibos3:amiga.lib` - Amiga system stubs from vbcc
    - `vlibos3:vc.lib` - vbcc's C library
-   - Custom FFP routines (`fpa`, `arnd`, `afp`) - would need to be written
+   - Custom float routines (`fpa`, `arnd`, `afp`) - would need to be written
 
 2. **Find original source** - ami.lib was likely derived from a public domain C library from the early 90s Amiga era (possibly Matt Dillon's DICE or similar)
 
 3. **Disassemble and modify** - Extract routines from the existing binary
 
-The FFP routines are the most difficult part - they convert FFP (Motorola Fast Floating Point) numbers to ASCII strings and vice versa.
+The float routines are the most difficult part - they convert IEEE 754 floating point numbers to ASCII strings and vice versa.
 
 ## Directory Structure
 

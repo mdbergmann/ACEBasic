@@ -1202,19 +1202,19 @@ _palette:
 	movea.l	_MathBase,a6
 
 	move.l	_red,d0
-	move.l	#$f0000044,d1	; 15
+	move.l	#$41700000,d1	; 15
 	jsr	_LVOSPMul(a6)
 	jsr	_LVOSPFix(a6)
 	move.l	d0,_red
 
 	move.l	_green,d0
-	move.l	#$f0000044,d1	; 15
+	move.l	#$41700000,d1	; 15
 	jsr	_LVOSPMul(a6)
 	jsr	_LVOSPFix(a6)
 	move.l	d0,_green
 
 	move.l	_blue,d0
-	move.l	#$f0000044,d1	; 15
+	move.l	#$41700000,d1	; 15
 	jsr	_LVOSPMul(a6)
 	jsr	_LVOSPFix(a6)
 	move.l	d0,_blue
@@ -1240,7 +1240,7 @@ _use_rgb32:
 	movea.l	_MathBase,a6
 
 	move.l	_red,d0
-	move.l	#$ff000048,d1	; 255 in FFP
+	move.l	#$437F0000,d1	; 255
 	jsr	_LVOSPMul(a6)
 	jsr	_LVOSPFix(a6)
 	; shift left 24 bits and replicate for SetRGB32
@@ -1254,7 +1254,7 @@ _use_rgb32:
 	move.l	d0,_red
 
 	move.l	_green,d0
-	move.l	#$ff000048,d1	; 255 in FFP
+	move.l	#$437F0000,d1	; 255
 	jsr	_LVOSPMul(a6)
 	jsr	_LVOSPFix(a6)
 	move.l	d0,d1
@@ -1267,7 +1267,7 @@ _use_rgb32:
 	move.l	d0,_green
 
 	move.l	_blue,d0
-	move.l	#$ff000048,d1	; 255 in FFP
+	move.l	#$437F0000,d1	; 255
 	jsr	_LVOSPMul(a6)
 	jsr	_LVOSPFix(a6)
 	move.l	d0,d1

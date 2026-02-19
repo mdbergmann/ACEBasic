@@ -352,12 +352,12 @@ BOOL fill=FALSE;
      /* convert x & y values to floats */
      gen("move.w","_shortx","d0");
      gen_ext_to_long(FALSE, "d0");
-     gen_ffp_call("_LVOSPFlt");
+     gen_float_call("_LVOSPFlt");
      gen("move.l","d0","_floatx");
 
      gen("move.w","_shorty","d0");
      gen_ext_to_long(FALSE, "d0");
-     gen_ffp_call("_LVOSPFlt");
+     gen_float_call("_LVOSPFlt");
      gen("move.l","d0","_floaty");
 
      gen("move.l","_floatx","d0");

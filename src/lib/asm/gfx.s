@@ -119,7 +119,7 @@ _ellipse:
 	; end angle=359?
 	movea.l	_MathBase,a6
 	move.l	d4,d0
-	move.l	#$b3800049,d1		; 359 (FFP)
+	move.l	#$43B38000,d1		; 359 (IEEE)
 	jsr	_LVOSPCmp(a6)
 	bne	_do_my_ellipse		; end <> 359 -> use my algorithm
 
@@ -326,7 +326,7 @@ _plotellipse:
 
 	; increment angle by .5
  	move.l	_theta,d0
-	move.l	#$80000040,d1
+	move.l	#$3F000000,d1
 	movea.l	_MathBase,a6
 	jsr	_LVOSPAdd(a6)
 	move.l	d0,_theta
@@ -666,7 +666,7 @@ _newareapattern:
 	jsr	_LVOSPLog(a6)
 	move.l	d0,-(sp)	; save result of LogE(size)
 
-	move.l	#$80000042,d0	; 2.0
+	move.l	#$40000000,d0	; 2.0
 	jsr	_LVOSPLog(a6)
 
 	move.l	d0,d1		; LogE(2)

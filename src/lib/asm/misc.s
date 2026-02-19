@@ -505,7 +505,7 @@ _rnd:
 _0_to_1:	
 	move.l	_MathBase,a6
 	jsr	_LVOSPFlt(a6)
-	move.l	#$ffff0050,d1   	; div by 65535.0 for 0 < value < 1
+	move.l	#$477FFF00,d1   	; div by 65535.0 IEEE for 0 < value < 1
 	jsr	_LVOSPDiv(a6)
 	rts
 

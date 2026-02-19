@@ -97,8 +97,8 @@ _trace_param_short:
 	rts
 
 ;----- _trace_param_single -----
-; d0 = FFP float (raw 32 bits)
-; Display as hex since FFP->decimal is complex.
+; d0 = IEEE float (raw 32 bits)
+; Display as hex since float->decimal is complex.
 _trace_param_single:
 	movem.l	d0-d3/a0-a3/a6,-(sp)
 	tst.w	_trace_enabled
@@ -220,7 +220,7 @@ _trace_exit_short:
 	rts
 
 ;----- _trace_exit_single -----
-; a0 = name, d0 = FFP value
+; a0 = name, d0 = float value
 _trace_exit_single:
 	movem.l	d0-d3/a0-a3/a6,-(sp)
 	subq.w	#1,_trace_depth
@@ -229,7 +229,7 @@ _trace_exit_single:
 	move.l	_trace_fh,d1
 	beq.s	.done
 	move.l	a0,a2			; save name
-	; Convert FFP to hex while d0 is valid
+	; Convert float to hex while d0 is valid
 	lea	_trace_buf,a0
 	move.b	#'$',(a0)+
 	bsr	_trace_hex32

@@ -37,7 +37,7 @@
 /* externals */
 extern	BOOL 	dosused;
 extern	BOOL 	gfxused;
-extern	BOOL 	mathffpused;
+extern	BOOL 	mathfloatused;
 extern	BOOL 	mathtransused;
 extern	BOOL 	intuitionused;
 extern	BOOL 	translateused;

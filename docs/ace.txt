@@ -614,7 +614,7 @@ The following fundamental data types are currently supported:
  
 	- signed short integers (2 bytes = 16 bits)
 	- signed long integers  (4 bytes = 32 bits)
-	- single-precision: Motorola fast floating point (4 bytes = 32 bits)
+	- single-precision: IEEE 754 single-precision (4 bytes = 32 bits)
 	- strings (default length of 1024 bytes including ASCII 0 at end of string) 
  
 Exponential and fixed-point formats are recognised by ACE for single-precision 
@@ -2083,7 +2083,7 @@ Notes about standard libraries used by ACE:
  
 	- There are currently six standard libraries which are often opened 
 	  by ACE routines during a program run. These are: dos, intuition,
-	  graphics, mathffp, mathtrans and translator libraries.
+	  graphics, mathieeesingbas, mathieeesingtrans and translator libraries.
  
 	- If one of these six is opened by the LIBRARY command it will 
 	  be opened at the start of the program *and* closed at the end. 
@@ -2401,8 +2401,8 @@ There are a few things to be kept in mind when using ACE modules:
 	by the other ACE modules linked to it. If in doubt add the 
 	following lines of code at the top of your main program:
  
-			LIBRARY mathffp
-			LIBRARY mathtrans
+			LIBRARY mathieeesingbas
+			LIBRARY mathieeesingtrans
 			LIBRARY graphics
 			LIBRARY intuition
 			LIBRARY translator	'..only if TRANSLATE$ used
@@ -2442,8 +2442,8 @@ actions will do.
 	  executed. This RESTORE command *must* be in a subprogram.
  
 	  For example, in the calling module:
- 
-		library mathffp
+
+		library mathieeesingbas
 		declare sub data_test external
 		data_test
  
@@ -2466,7 +2466,7 @@ actions will do.
  
 	  For example, in the calling module:
  
-	  	library mathffp
+	  	library mathieeesingbas
 	  	declare sub timer_test external
 	  	timer_test
  
@@ -3387,12 +3387,9 @@ closure may hold a stale pointer.
 
 Known Bugs
 ----------
-If mathieeesingtrans.library is not present at runtime, the FFP SPPow()
-function will be used for exponentiation. This will produce incorrect
-results for a combination of a negative base and odd exponent. Only pre-2.0
-systems should be affected by this however. SPPow() is otherwise less
-accurate and apparently slower than its IEEE counterpart, which is used if
-the IEEE library is present.
+ACE now requires AmigaOS 2.0+ (Kickstart 37+) since it uses the IEEE 754
+single-precision math libraries (mathieeesingbas.library and
+mathieeesingtrans.library) which are part of AmigaOS 2.0 and later.
  
 The SAY(n) *function* works under release 2.x but not under 1.3. Since the 
 function uses no 2.x-specific code, this is puzzling. The SAY command works 

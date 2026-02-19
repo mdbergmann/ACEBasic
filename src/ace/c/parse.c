@@ -83,7 +83,7 @@ extern	BOOL	cpu020_opt;
 extern	BOOL	trace_opt;
 extern	int	tracename_count;
 extern	BOOL	cli_args;
-extern	BOOL 	mathffpused;
+extern	BOOL 	mathfloatused;
 extern	BOOL 	mathtransused;
 extern	BOOL 	gfxused;
 extern	BOOL 	intuitionused;
@@ -511,10 +511,10 @@ static void emit_startup_xrefs()
     enter_XREF("_closetranslator");
    }
 
-   if (mathffpused)
+   if (mathfloatused)
    {
-    enter_XREF("_openmathffp");
-    enter_XREF("_closemathffp");
+    enter_XREF("_openmathieee");
+    enter_XREF("_closemathieee");
    }
 
    if (mathtransused)
