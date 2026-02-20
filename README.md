@@ -2,7 +2,7 @@
 
 ACE is a complete BASIC compiler for the Amiga computer platform. It compiles BASIC source code into native Amiga executables by generating Motorola 68000/68020 assembly code, bridging BASIC's ease of use with compiled performance.
 
-Originally released under the GNU General Public License (GPL v2) in 1998. Current version: **2.8.0**
+Originally released under the GNU General Public License (GPL v2) in 1998. Current version: **3.0**
 
 ## Quick Example
 
@@ -40,7 +40,7 @@ SCREEN CLOSE 1
 ## Features
 
 ### Core Language
-- **Full type system** - Integers, single/double precision floats, strings, arrays, pointers, and structures
+- **Full type system** - Integers, IEEE single-precision floats, strings, arrays, pointers, and structures
 - **Closures and function pointers** - First-class function references with `@`, `BIND` for partial application, `INVOKE` for indirect calls, and `INVOKABLE` keyword for callback SUBs
 - **CALLBACK SUBs** - SUBs that can be invoked via AmigaOS CallHookPtr() for system callbacks
 - **68020 native code generation** - Native 68020 instructions by default (use `OPTION 2-` for 68000 compatibility)
@@ -72,7 +72,8 @@ SCREEN CLOSE 1
 
 ### Modern Development Setup
 
-This modern version of ACE can be compiled with GCC (included in ADE, available on Aminet) and uses modern toolchains:
+This modern version of ACE is compiled with the **VBCC** C compiler toolchain:
+- **vc** (VBCC compiler) instead of GCC/Sozobon C
 - **vasmm68k_mot** instead of a68k assembler
 - **vlink** instead of blink linker
 
@@ -109,7 +110,7 @@ make -f Makefile-ace backup    # Backup current executable to ace.old
 make -f Makefile-ace help      # Show help
 ```
 
-The Makefile provides incremental builds, standard targets, and verbose/quiet modes. Requires GNU Make 3.80 or later with ADE shell environment.
+The Makefile provides incremental builds, standard targets, and verbose/quiet modes. Requires GNU Make 3.80 or later and the VBCC toolchain.
 
 ### Building the Runtime Libraries (db.lib and startup.lib)
 
@@ -121,9 +122,9 @@ make -f Makefile-lib clean     # Remove build artifacts
 make -f Makefile-lib help      # Show all targets
 ```
 
-Uses vbcc/vasm toolchain to compile C sources from `src/lib/c/`, assemble sources from `src/lib/asm/`, and create the libraries in `lib/`.
+Uses the VBCC/vasm toolchain to compile C sources from `src/lib/c/`, assemble sources from `src/lib/asm/`, and create the libraries in `lib/`.
 
-See `src/lib/README.md` for details about the libraries, including information about `ami.lib`.
+See `src/lib/README.md` for details about the libraries.
 
 ### Compiling BASIC Programs
 
@@ -230,10 +231,12 @@ Use descriptive names without spaces: `float_add.b`, not `float add.b`
 ## Technologies
 
 - **Languages**: C (K&R style) and Motorola 68000/68020 assembly
-- **Target Platform**: Amiga 1.3, 2.x, 3.x (68000); AGA systems (68020+)
-- **Build System**: GNU Make 3.80+ with ADE shell
+- **Target Platform**: AmigaOS 2.x, 3.x (68020+)
+- **Build System**: GNU Make 3.80+ with VBCC toolchain
+- **C Compiler**: VBCC (vc)
 - **Assembler**: vasm (vasmm68k_mot)
 - **Linker**: vlink
+- **Float Format**: IEEE 754 single-precision (via mathieeesingbas.library / mathieeesingtrans.library)
 - **Amiga APIs**: Exec, Dos, Graphics, Intuition, GadTools, MUI, Diskfont, DataTypes, Rexx, Picasso96, AmiSSL, bsdsocket
 
 ## Documentation
@@ -326,7 +329,7 @@ Supports HTTP and HTTPS (via AmiSSL), chunked transfer encoding, custom headers,
 
 ### Double-Precision Math Submodule (`submods/dp-float/`)
 
-IEEE 64-bit double-precision floating point for ACE BASIC programs. Wraps the Amiga's `mathieeedoubbas.library` and `mathieeedoubtrans.library` via inline ASSEM blocks, providing 15+ significant digits of precision (vs. ~7 for ACE's native SINGLE/FFP type).
+IEEE 64-bit double-precision floating point for ACE BASIC programs. Wraps the Amiga's `mathieeedoubbas.library` and `mathieeedoubtrans.library` via inline ASSEM blocks, providing 15+ significant digits of precision (vs. ~7 for ACE's native IEEE single-precision SINGLE type).
 
 Doubles are 8-byte values stored at ADDRESS pointers allocated with `DpNew`. All operations take and return ADDRESS parameters.
 
@@ -406,7 +409,7 @@ Direct hardware access to the Vampire SAGA 16-bit audio chip. Supports 16 audio 
 
 ### Known Limitations
 
-- K&R C rather than ANSI C (developed with Sozobon C v1.01)
+- K&R C rather than ANSI C (originally developed with Sozobon C v1.01, now built with VBCC)
 - Single common header file for entire compiler (`acedef.h`)
 - No source control was used in original development
 - One small object module (`src/lib/obj/LoadIFFToWindow.o`) has no source (shared library stub for ilbm.lib)
@@ -421,15 +424,15 @@ ACE was originally developed by David Benn between November 1991 and September 1
 
 ACE provides functionality comparable to Microsoft QuickBASIC or Turbo BASIC, specifically designed for Amiga development with full integration into the Amiga's native windowing and graphics systems.
 
-### Modern Fork (2024-present)
+### Version 3 Fork (2024-present)
 
-The modern fork adds significant new features while maintaining compatibility:
+The v3 fork adds significant new features and modernizes the toolchain. The move to VBCC, IEEE 754 floats, and 68020 as the default target makes v3 incompatible with older C compilers (GCC/ADE, Sozobon C) and AmigaOS 1.3. Minimum requirement is now AmigaOS 2.0 with a 68020 CPU.
 
 - **v2.5** - AGA screen support, vasm/vlink toolchain, GNU Makefile build system
 - **v2.6** - GadTools gadgets, ASSERT statement, 68020 native code generation
 - **v2.7** - Closures and function pointers, MUI submodule, filled circles/ellipses, callback SUBs
 - **v2.7.1** - ELSEIF keyword, LCASE$ function, list submodule with higher-order functions
 - **v2.8** - YAP preprocessor, INVOKABLE keyword, REM #using directive, installer, major compiler refactoring
-- **Post-v2.8** - P96/RTG screens (mode 13), tail-call optimization, 12 new string functions, buffered file I/O, TCP client submodule, HTTP client submodule, SagaSound submodule, turtle graphics submodule, double-precision math submodule, CONST SINGLE fix
+- **v3.0** - VBCC toolchain migration (replacing GCC/ADE), IEEE 754 single-precision floats (replacing Motorola FFP for better performance and standards compliance), P96/RTG screens (mode 13), tail-call optimization, 12 new string functions, buffered file I/O, TCP client submodule, HTTP client submodule, SagaSound submodule, turtle graphics submodule, double-precision math submodule, major compiler refactoring
 
 See `CHANGELOG.txt` for full details. For the original 1998 release notes, see `docs/HISTORY-1998-Release.txt`.
