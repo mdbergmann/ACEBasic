@@ -37,8 +37,9 @@ static char 	fnumbuf[40];
 extern	long	decimal_places;
 
 /* helper: extract integer digit from float in [0, 10) range */
-static long extract_digit(fval)
-float fval;
+/* ANSI prototype: avoids K&R float→double promotion which requires
+   _MathIeeeDoubTransBase (IEEEDPTieee/IEEEDPFieee) at runtime. */
+static long extract_digit(float fval)
 {
  long d;
 
