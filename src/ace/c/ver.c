@@ -33,10 +33,10 @@
 */
 
 /* version string for AmigaDOS VERSION command */
-static 	char 	*ace_ver = "$VER: ACE 2.9.0 (16.02.26)";
+static 	char 	*ace_ver = "$VER: ACE 3.0.0 (20.02.26)";
 
 /* version number for display */
-static  char	*version_string = "2.9.0";
+static  char	*version_string = "3.0.0";
 
 char	*version()
 {
