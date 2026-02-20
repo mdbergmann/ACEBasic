@@ -2,6 +2,8 @@ REM -- test_tron.b: TRON/TROFF selective tracing test --
 REM Compile with: bas -t test_tron
 REM Only calls between TRON and TROFF appear in T:ace_trace.log
 
+OPTION t+
+
 DECLARE SUB LONGINT Double(LONGINT x)
 
 LONGINT result

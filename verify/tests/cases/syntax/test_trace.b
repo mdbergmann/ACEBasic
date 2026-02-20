@@ -2,6 +2,8 @@ REM -- test_trace.b: SUB tracing test --
 REM Compile with: bas -t test_trace
 REM Trace output goes to T:ace_trace.log
 
+OPTION t+
+
 DECLARE SUB LONGINT Add(LONGINT a, LONGINT b)
 DECLARE SUB Greet(STRING who$)
 DECLARE SUB LONGINT Factorial(LONGINT n)
