@@ -183,8 +183,8 @@ _LVOGetVPModeID equ -792
 	xref	_DOSBase
 	xref	_LVOWrite
 	xref	_MathBase
-	xref	_LVOSPFix
-	xref	_LVOSPMul
+	xref	_LVOIEEESPFix
+	xref	_LVOIEEESPMul
 	xref	_RPort
 	xref	_ViewPort
 	xref	_Scrn
@@ -1203,20 +1203,20 @@ _palette:
 
 	move.l	_red,d0
 	move.l	#$41700000,d1	; 15
-	jsr	_LVOSPMul(a6)
-	jsr	_LVOSPFix(a6)
+	jsr	_LVOIEEESPMul(a6)
+	jsr	_LVOIEEESPFix(a6)
 	move.l	d0,_red
 
 	move.l	_green,d0
 	move.l	#$41700000,d1	; 15
-	jsr	_LVOSPMul(a6)
-	jsr	_LVOSPFix(a6)
+	jsr	_LVOIEEESPMul(a6)
+	jsr	_LVOIEEESPFix(a6)
 	move.l	d0,_green
 
 	move.l	_blue,d0
 	move.l	#$41700000,d1	; 15
-	jsr	_LVOSPMul(a6)
-	jsr	_LVOSPFix(a6)
+	jsr	_LVOIEEESPMul(a6)
+	jsr	_LVOIEEESPFix(a6)
 	move.l	d0,_blue
 
 	; change colormap values with SetRGB4
@@ -1241,8 +1241,8 @@ _use_rgb32:
 
 	move.l	_red,d0
 	move.l	#$437F0000,d1	; 255
-	jsr	_LVOSPMul(a6)
-	jsr	_LVOSPFix(a6)
+	jsr	_LVOIEEESPMul(a6)
+	jsr	_LVOIEEESPFix(a6)
 	; shift left 24 bits and replicate for SetRGB32
 	move.l	d0,d1
 	lsl.l	#8,d0
@@ -1255,8 +1255,8 @@ _use_rgb32:
 
 	move.l	_green,d0
 	move.l	#$437F0000,d1	; 255
-	jsr	_LVOSPMul(a6)
-	jsr	_LVOSPFix(a6)
+	jsr	_LVOIEEESPMul(a6)
+	jsr	_LVOIEEESPFix(a6)
 	move.l	d0,d1
 	lsl.l	#8,d0
 	or.l	d1,d0
@@ -1268,8 +1268,8 @@ _use_rgb32:
 
 	move.l	_blue,d0
 	move.l	#$437F0000,d1	; 255
-	jsr	_LVOSPMul(a6)
-	jsr	_LVOSPFix(a6)
+	jsr	_LVOIEEESPMul(a6)
+	jsr	_LVOIEEESPFix(a6)
 	move.l	d0,d1
 	lsl.l	#8,d0
 	or.l	d1,d0

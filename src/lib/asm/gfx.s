@@ -81,16 +81,16 @@ AreaPtSz	EQU	29
 	xref	_windowfunc
 	xref	_MathBase
 	xref	_MathTransBase
-	xref	_LVOSPFix
-	xref	_LVOSPFlt
-	xref	_LVOSPFloor
-	xref	_LVOSPAdd
-	xref	_LVOSPMul
-	xref	_LVOSPDiv
-	xref	_LVOSPCmp
-	xref	_LVOSPCos
-	xref	_LVOSPSin
-	xref	_LVOSPLog
+	xref	_LVOIEEESPFix
+	xref	_LVOIEEESPFlt
+	xref	_LVOIEEESPFloor
+	xref	_LVOIEEESPAdd
+	xref	_LVOIEEESPMul
+	xref	_LVOIEEESPDiv
+	xref	_LVOIEEESPCmp
+	xref	_LVOIEEESPCos
+	xref	_LVOIEEESPSin
+	xref	_LVOIEEESPLog
 
 	SECTION graphics_code,CODE
 
@@ -120,30 +120,30 @@ _ellipse:
 	movea.l	_MathBase,a6
 	move.l	d4,d0
 	move.l	#$43B38000,d1		; 359 (IEEE)
-	jsr	_LVOSPCmp(a6)
+	jsr	_LVOIEEESPCmp(a6)
 	bne	_do_my_ellipse		; end <> 359 -> use my algorithm
 
 	; * use faster DrawEllipse() *
 	
 	; make x and y integers
 	move.l	_x,d0
-	jsr	_LVOSPFix(a6)
+	jsr	_LVOIEEESPFix(a6)
 	move.l	d0,_x
 	
 	move.l	_y,d0
-	jsr	_LVOSPFix(a6)
+	jsr	_LVOIEEESPFix(a6)
 	move.l	d0,_y
 	
 	; calculate x radius and coerce
 	move.l	_radius,d0
 	move.l	_aspect,d1
-	jsr	_LVOSPDiv(a6)
-	jsr	_LVOSPFix(a6)
+	jsr	_LVOIEEESPDiv(a6)
+	jsr	_LVOIEEESPFix(a6)
 	move.l	d0,_xradius
 
 	; coerce radius 
 	move.l	_radius,d0
-	jsr	_LVOSPFix(a6)
+	jsr	_LVOIEEESPFix(a6)
 	cmpi.l	#0,d0
 	bne.s	_store_radius
 	add.l	#1,_radius		; vertical radius must be > 0
@@ -180,23 +180,23 @@ _fillellipse:
 	; convert x,y to integers
 	movea.l	_MathBase,a6
 	move.l	_x,d0
-	jsr	_LVOSPFix(a6)
+	jsr	_LVOIEEESPFix(a6)
 	move.l	d0,_x
 
 	move.l	_y,d0
-	jsr	_LVOSPFix(a6)
+	jsr	_LVOIEEESPFix(a6)
 	move.l	d0,_y
 
 	; calculate x-radius = radius / aspect
 	move.l	_radius,d0
 	move.l	_aspect,d1
-	jsr	_LVOSPDiv(a6)
-	jsr	_LVOSPFix(a6)
+	jsr	_LVOIEEESPDiv(a6)
+	jsr	_LVOIEEESPFix(a6)
 	move.l	d0,_xradius
 
 	; coerce y-radius (must be > 0)
 	move.l	_radius,d0
-	jsr	_LVOSPFix(a6)
+	jsr	_LVOIEEESPFix(a6)
 	cmpi.l	#0,d0
 	bne.s	_fe_store_yrad
 	moveq	#1,d0
@@ -278,7 +278,7 @@ _do_my_ellipse:
 	move.l	_radius,d0
 	move.l	_aspect,d1
 	movea.l	_MathBase,a6
-	jsr	_LVOSPDiv(a6)
+	jsr	_LVOIEEESPDiv(a6)
 	move.l	d0,_xradius
 
 	; initial loop value 
@@ -289,15 +289,15 @@ _plotellipse:
 	move.l	_theta,d0
 	move.l	_radconv,d1
 	movea.l	_MathBase,a6
-	jsr	_LVOSPDiv(a6)
+	jsr	_LVOIEEESPDiv(a6)
 	movea.l	_MathTransBase,a6
-	jsr	_LVOSPCos(a6)
+	jsr	_LVOIEEESPCos(a6)
 	move.l	_xradius,d1
 	movea.l	_MathBase,a6
-	jsr	_LVOSPMul(a6)
+	jsr	_LVOIEEESPMul(a6)
 	move.l	_x,d1
-	jsr	_LVOSPAdd(a6)
-	jsr	_LVOSPFix(a6)
+	jsr	_LVOIEEESPAdd(a6)
+	jsr	_LVOIEEESPFix(a6)
 ;	and.w	#$ffff,d0
 	move.w	d0,_outx
 
@@ -305,15 +305,15 @@ _plotellipse:
 	move.l	_theta,d0
 	move.l	_radconv,d1
 	movea.l	_MathBase,a6
-	jsr	_LVOSPDiv(a6)
+	jsr	_LVOIEEESPDiv(a6)
 	movea.l	_MathTransBase,a6
-	jsr	_LVOSPSin(a6)
+	jsr	_LVOIEEESPSin(a6)
 	move.l	_radius,d1
 	movea.l	_MathBase,a6
-	jsr	_LVOSPMul(a6)
+	jsr	_LVOIEEESPMul(a6)
 	move.l	_y,d1
-	jsr	_LVOSPAdd(a6)
-	jsr	_LVOSPFix(a6)
+	jsr	_LVOIEEESPAdd(a6)
+	jsr	_LVOIEEESPFix(a6)
 ;	and.w	#$ffff,d0
 	move.w	d0,_outy
 	
@@ -328,13 +328,13 @@ _plotellipse:
  	move.l	_theta,d0
 	move.l	#$3F000000,d1
 	movea.l	_MathBase,a6
-	jsr	_LVOSPAdd(a6)
+	jsr	_LVOIEEESPAdd(a6)
 	move.l	d0,_theta
 
 	; still more to do?  (is theta <= endangle?)
 	move.l	_theta,d0
 	move.l	_endangle,d1
-	jsr	_LVOSPCmp(a6)
+	jsr	_LVOIEEESPCmp(a6)
 	ble	_plotellipse
 
 	rts
@@ -661,21 +661,21 @@ _newareapattern:
 
 	; find Log2(size): LogE(areapat_size) / LogE(2)
 	movea.l	_MathBase,a6
-	jsr	_LVOSPFlt(a6)	; d0 = (float)d0
+	jsr	_LVOIEEESPFlt(a6)	; d0 = (float)d0
 	movea.l	_MathTransBase,a6
-	jsr	_LVOSPLog(a6)
+	jsr	_LVOIEEESPLog(a6)
 	move.l	d0,-(sp)	; save result of LogE(size)
 
 	move.l	#$40000000,d0	; 2.0
-	jsr	_LVOSPLog(a6)
+	jsr	_LVOIEEESPLog(a6)
 
 	move.l	d0,d1		; LogE(2)
 	move.l	(sp)+,d0	; LogE(size)
 	movea.l	_MathBase,a6
-	jsr	_LVOSPDiv(a6)
+	jsr	_LVOIEEESPDiv(a6)
 
-	jsr	_LVOSPFloor(a6)	; round it
-	jsr	_LVOSPFix(a6)	; d0 = (long)d0
+	jsr	_LVOIEEESPFloor(a6)	; round it
+	jsr	_LVOIEEESPFix(a6)	; d0 = (long)d0
 
 	movea.l	_RPort,a1
 	move.b	d0,AreaPtSz(a1)	; height = 2^d0			

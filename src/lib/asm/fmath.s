@@ -56,15 +56,15 @@ MAXSTRINGSIZE	EQU	1024
 	xref	_val
 	xref	_Ustringinput
 
-  	xref  	_LVOSPFix
-	xref	_LVOSPFloor
-	xref	_LVOSPCeil
-	xref	_LVOSPAdd
-	xref	_LVOSPSub
-	xref	_LVOSPMul
-   	xref  	_LVOSPDiv
-   	xref  	_LVOSPAbs
-   	xref  	_LVOSPTst
+  	xref  	_LVOIEEESPFix
+	xref	_LVOIEEESPFloor
+	xref	_LVOIEEESPCeil
+	xref	_LVOIEEESPAdd
+	xref	_LVOIEEESPSub
+	xref	_LVOIEEESPMul
+   	xref  	_LVOIEEESPDiv
+   	xref  	_LVOIEEESPAbs
+   	xref  	_LVOIEEESPTst
    	xref  	_MathBase
 
 	SECTION fmath_code,CODE
@@ -87,9 +87,9 @@ _round:
 
 	move.l	_MathBase,a6
 	move.l	#$3F000000,d1	; 0.5 IEEE
-	jsr	_LVOSPAdd(a6)	; d0 = abs(fnum) + 0.5
-	jsr	_LVOSPFloor(a6)	; d0 = floor(abs(fnum) + 0.5)
-	jsr	_LVOSPFix(a6)	; d0 = (long) result
+	jsr	_LVOIEEESPAdd(a6)	; d0 = abs(fnum) + 0.5
+	jsr	_LVOIEEESPFloor(a6)	; d0 = floor(abs(fnum) + 0.5)
+	jsr	_LVOIEEESPFix(a6)	; d0 = (long) result
 
 	cmpi.l	#-1,_sign
 	bne.s	_exitround
@@ -108,12 +108,12 @@ _truncfix:
 	move.l	_MathBase,a6
 	tst.l	d0		; IEEE 754: bit 31 = sign
 	bmi.s	_truncfix_neg
-	jsr	_LVOSPFloor(a6)	; positive: floor
-	jsr	_LVOSPFix(a6)
+	jsr	_LVOIEEESPFloor(a6)	; positive: floor
+	jsr	_LVOIEEESPFix(a6)
 	rts
 _truncfix_neg:
-	jsr	_LVOSPCeil(a6)	; negative: ceil
-	jsr	_LVOSPFix(a6)
+	jsr	_LVOIEEESPCeil(a6)	; negative: ceil
+	jsr	_LVOIEEESPFix(a6)
 	rts
 
 ;
@@ -121,7 +121,7 @@ _truncfix_neg:
 ;
 _absf:
    	move.l  _MathBase,a6
-   	jsr	_LVOSPAbs(a6)
+   	jsr	_LVOIEEESPAbs(a6)
    	rts
 
 ;
@@ -129,7 +129,7 @@ _absf:
 ;
 _sgnf:
 	move.l	_MathBase,a6
-	jsr	_LVOSPTst(a6)
+	jsr	_LVOIEEESPTst(a6)
 	rts
 
 ;
@@ -153,20 +153,20 @@ _modfloat:
 
  	movea.l _MathBase,a6
 
- 	jsr _LVOSPDiv(a6) 	; d0 = dividend/divisor
+ 	jsr _LVOIEEESPDiv(a6) 	; d0 = dividend/divisor
 	; truncate toward zero (floor for positive, ceil for negative)
 	tst.l d0		; IEEE 754: bit 31 = sign
 	bmi.s _modfloat_neg
-	jsr _LVOSPFloor(a6)
+	jsr _LVOIEEESPFloor(a6)
 	bra.s _modfloat_cont
 _modfloat_neg:
-	jsr _LVOSPCeil(a6)
+	jsr _LVOIEEESPCeil(a6)
 _modfloat_cont:
  	move.l _floatdivisor,d1
- 	jsr _LVOSPMul(a6) 	; d0=trunc(quotient)*divisor
+ 	jsr _LVOIEEESPMul(a6) 	; d0=trunc(quotient)*divisor
  	move.l d0,d1
  	move.l _floatdividend,d0
- 	jsr _LVOSPSub(a6) 	; d0=dividend-trunc(quotient)*divisor
+ 	jsr _LVOIEEESPSub(a6) 	; d0=dividend-trunc(quotient)*divisor
 
  	rts
 

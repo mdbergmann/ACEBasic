@@ -1300,7 +1300,7 @@ char varptr_obj_name[MAXIDSIZE];
 	  break;
 
 	 /* ATN */
-         case atnsym  : nftype = gen_single_func("_LVOSPAtan",nftype);
+         case atnsym  : nftype = gen_single_func("_LVOIEEESPAtan",nftype);
 		        break;
 
 	 /* CINT */
@@ -1334,7 +1334,7 @@ char varptr_obj_name[MAXIDSIZE];
 			break;
 
 	 /* COS */
-         case cossym  : nftype = gen_single_func("_LVOSPCos",nftype);
+         case cossym  : nftype = gen_single_func("_LVOIEEESPCos",nftype);
 		        break;
 
 	 /* CSNG */
@@ -1365,7 +1365,7 @@ char varptr_obj_name[MAXIDSIZE];
 		  	break;
 
 	 /* EXP */
-         case expsym  : nftype = gen_single_func("_LVOSPExp",nftype);
+         case expsym  : nftype = gen_single_func("_LVOIEEESPExp",nftype);
 		        break;
 
 	 /* FIX */
@@ -1433,9 +1433,9 @@ char varptr_obj_name[MAXIDSIZE];
 	 case intsym  : if (nftype == singletype)
 			{
 			 gen("move.l","(sp)+","d0");
-			 gen_float_call("_LVOSPFloor");
-			 gen("jsr","_LVOSPFix(a6)","  ");
-			 enter_XREF("_LVOSPFix");
+			 gen_float_call("_LVOIEEESPFloor");
+			 gen("jsr","_LVOIEEESPFix(a6)","  ");
+			 enter_XREF("_LVOIEEESPFix");
 			 gen("move.l","d0","-(sp)");
 			 nftype=longtype;
 			}
@@ -1478,7 +1478,7 @@ char varptr_obj_name[MAXIDSIZE];
  			break;
 			   
 	 /* LOG */
-         case logsym  : nftype = gen_single_func("_LVOSPLog",nftype);
+         case logsym  : nftype = gen_single_func("_LVOIEEESPLog",nftype);
 		        break;
 
 	 /* LONGINT */
@@ -1786,11 +1786,11 @@ char varptr_obj_name[MAXIDSIZE];
 			break;
 			
 	 /* SQR */
-         case sqrsym  : nftype = gen_single_func("_LVOSPSqrt",nftype);
+         case sqrsym  : nftype = gen_single_func("_LVOIEEESPSqrt",nftype);
 		        break;
 
 	 /* SIN */
-         case sinsym  : nftype = gen_single_func("_LVOSPSin",nftype);
+         case sinsym  : nftype = gen_single_func("_LVOIEEESPSin",nftype);
 		        break;
 
 	 /* SIZEOF */
@@ -1813,7 +1813,7 @@ char varptr_obj_name[MAXIDSIZE];
 			 break;
 
 	 /* TAN */
-         case tansym  : nftype = gen_single_func("_LVOSPTan",nftype);
+         case tansym  : nftype = gen_single_func("_LVOIEEESPTan",nftype);
 		        break;
 
 	 /* VARPTR */

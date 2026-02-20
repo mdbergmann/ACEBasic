@@ -59,11 +59,11 @@ MAXSTRINGSIZE	EQU	1024
 	xref	_strcat
 	xref	_strcpy
 	xref	_MathBase
-	xref	_LVOSPFlt
-	xref	_LVOSPAdd
-	xref	_LVOSPMul
-	xref	_LVOSPDiv
-	xref	_LVOSPCmp
+	xref	_LVOIEEESPFlt
+	xref	_LVOIEEESPAdd
+	xref	_LVOIEEESPMul
+	xref	_LVOIEEESPDiv
+	xref	_LVOIEEESPCmp
 	
 	SECTION time_code,CODE
 
@@ -426,26 +426,26 @@ _timer:
 	movea.l	_MathBase,a6
 
 	move.l	4(a1),d0
-	jsr	_LVOSPFlt(a6)
+	jsr	_LVOIEEESPFlt(a6)
 	move.l	d0,_mins		; minutes since midnight
 
 	move.l	8(a1),d0
-	jsr	_LVOSPFlt(a6)
+	jsr	_LVOIEEESPFlt(a6)
 	move.l	d0,_ticks		; ticks in current minute
 
 	move.l	_mins,d0
 	move.l	#$42700000,d1		; IEEE 60.0
-	jsr	_LVOSPMul(a6)	; seconds since midnight (_mins*60)
+	jsr	_LVOIEEESPMul(a6)	; seconds since midnight (_mins*60)
 	move.l	d0,_minsecs
 
 	move.l	_ticks,d0
 	move.l	#$42480000,d1		; IEEE 50.0 (50 ticks per sec)
-	jsr	_LVOSPDiv(a6)	; seconds in current minute (_ticks/50)
+	jsr	_LVOIEEESPDiv(a6)	; seconds in current minute (_ticks/50)
 	move.l	d0,_ticksecs
 
 	move.l	_minsecs,d0
 	move.l	_ticksecs,d1
-	jsr	_LVOSPAdd(a6)	; total seconds elapsed since
+	jsr	_LVOIEEESPAdd(a6)	; total seconds elapsed since
 					; midnight including current minute
 	rts
 			
@@ -465,7 +465,7 @@ _ontimer:
 	; calculate target time
 	movea.l	_MathBase,a6
 	move.l	_last_time,d1
-	jsr	_LVOSPAdd(a6)
+	jsr	_LVOIEEESPAdd(a6)
 	move.l	d0,_target_time	; target_time = last_time + interval
 
 	; get current time
@@ -475,7 +475,7 @@ _ontimer:
 	; is an event due?
 	movea.l	_MathBase,a6
 	move.l	_target_time,d1
-	jsr	_LVOSPCmp(a6)	; curr_time (d0) >= target_time (d1)?
+	jsr	_LVOIEEESPCmp(a6)	; curr_time (d0) >= target_time (d1)?
 	bge.s	_target_time_reached
 
 	moveq	#0,d0		; timer event NOT due

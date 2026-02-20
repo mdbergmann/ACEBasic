@@ -1,0 +1,148 @@
+Replace ami.lib — Debug Notes (2026-02-20)
+==========================================
+
+## What's done
+
+Branch: replace-ami-lib
+
+Phase A:
+1. ieee_math.s created — bridges VBCC __ieee* softfloat calls to LVO calls
+2. ace_clib.s created — sprintf/printf/fprintf/putchar/fgetc via RawDoFmt + DOS
+3. Makefile-lib updated — new asm files added
+4. bin/bas updated — ami.lib → amiga.lib in link line
+
+Phase B:
+5. Runtime asm — _LVOSPxxx → _LVOIEEESPxxx in 7 files
+6. Compiler sources — _LVOSPxxx → _LVOIEEESPxxx in 5 files
+   NOTE: Compiler not yet rebuilt on emulator
+
+## Test results
+
+- Runtime builds cleanly (no errors, only expected lmath.s div-by-zero warning)
+- ALL tests pass EXCEPT screen_chipset_run which crashes at PRINT of SINGLE value
+- Float arithmetic tests (float_add, float_sub, etc.) all pass — these use
+  compiler-generated LVO calls, NOT the __ieee* stubs
+- The crash is specifically in strsingle() in floatstr.c, called from
+  Usingleprint() in print.c — this is where VBCC-compiled C float code runs
+- float_print test (PRINT 3.14) output: only cursor-off bytes (9b 30 20 70),
+  crash happens before any PRINT output reaches the file
+
+## ROOT CAUSE FOUND: K&R float parameter promotion needs DoubTrans library
+
+### The problem
+
+extract_digit() in floatstr.c uses K&R style:
+
+  static long extract_digit(fval)
+  float fval;
+  { ... }
+
+In K&R C, `float` parameters are promoted to `double` by the caller. VBCC
+generates code to:
+  1. In strsingle(): call IEEEDPFieee (-108 via _MathIeeeDoubTransBase) to
+     convert float→double before pushing onto stack for the call
+  2. In extract_digit(): call IEEEDPTieee (-102 via _MathIeeeDoubTransBase)
+     to convert double→float when receiving the parameter
+
+These IEEEDPTieee/IEEEDPFieee functions are in mathieeedoubtrans.library,
+accessed via _MathIeeeDoubTransBase. But this base is only initialized when
+_openmathtrans is called (for trig/transcendental functions). A simple
+`PRINT 3.14` program only calls _openmathieee (for SingBas), so
+_MathIeeeDoubTransBase remains NULL.
+
+Result: `movea.l _MathIeeeDoubTransBase,a6` loads 0 into a6, then
+`jsr -102(a6)` jumps to address 0xFFFFFF9A (ROM area on Amiga) → crash.
+
+### Verified by hunk file analysis
+
+Parsed floatstr.o EXT_REF32 entries:
+  _MathIeeeDoubTransBase: 2 refs at code offsets 0x0012 and 0x0258
+  _MathIeeeSingBasBase: 21 refs (all the normal float comparisons/arithmetic)
+
+Offset 0x0012 is in extract_digit() — the DP→SP conversion on entry.
+Offset 0x0258 is in strsingle() — the SP→DP conversion before calling
+extract_digit().
+
+### Confirmed from Amiga NDK FD file
+
+From mathieeedoubtrans_lib.fd and mathieeedoubtrans_funcs.h:
+  IEEEDPTieee(parm)(d0/d1) at offset -102 — takes DOUBLE, returns SINGLE
+  IEEEDPFieee(single)(d0) at offset -108  — takes SINGLE, returns DOUBLE
+
+These are the DP↔SP conversion functions that the VBCC inline code uses.
+
+### The fix
+
+Changed extract_digit from K&R to ANSI C style:
+
+  static long extract_digit(float fval)
+  { ... }
+
+With ANSI prototypes, VBCC passes float directly (no double promotion),
+so IEEEDPTieee/IEEEDPFieee are not needed, and _MathIeeeDoubTransBase
+is never referenced. This is the ONLY K&R float parameter in the entire
+runtime (verified by grepping all src/lib/c/*.c files).
+
+### Why this wasn't caught before
+
+This bug also exists on master (same floatstr.c, same VBCC compilation).
+The screen_chipset_run test prints a SINGLE value and would have crashed on
+master too. It appears the IEEE float migration branch was not thoroughly
+tested with PRINT of float values — the float arithmetic tests only verify
+computation results, not formatted output.
+
+## Previous findings (still valid)
+
+### -amiga-softfloat generates INLINE code, not __ieee* calls
+
+VBCC config file (aos68k, line 16) contains `-amiga-softfloat`.
+Adding it again gives: "warning 2: Flag <-amiga-softfloat> specified more than once"
+
+From VBCC manual (PDF section 14.5.2, mieee.lib):
+  "By default all floating point routines are provided via stub functions in
+   mieee.lib. With the option -amiga-softfloat you can tell vbccm68k to
+   generate inline code for calling the MathIeee libraries directly."
+
+This means: with -amiga-softfloat, VBCC does NOT generate __ieee* function
+calls. Instead it generates INLINE LVO call sequences with HARDCODED offsets:
+
+  move.l a6,-(sp)                   ; save a6
+  movea.l _MathIeeeSingBasBase,a6   ; load library base
+  jsr     -42(a6)                   ; hardcoded LVO offset (e.g. IEEESPCmp)
+  movea.l (sp)+,a6                  ; restore a6
+
+CONSEQUENCE: ieee_math.s __ieee* stubs are NEVER CALLED. They sit unused in
+db.lib. The LVO offset symbols (_LVOIEEESPxxx) are also not needed — VBCC
+hardcodes the numeric offsets directly in the jsr instructions.
+
+### ieee_math.s has a bug (a6 not preserved)
+
+VBCC ABI: a6 is callee-saved. Our ieee_math.s stubs clobber a6 without
+saving/restoring it. Must fix if stubs are ever needed (e.g., without
+-amiga-softfloat). Low priority since stubs are currently unused.
+
+### Math library IS opened for PRINT
+
+print.c:156 calls enter_XREF("_MathBase") for every PRINT statement.
+codegen.c emits _openmathieee call when mathfloatused is TRUE.
+startup.s: _MathBase and _MathIeeeSingBasBase are aliases (same ds.l 1).
+So _MathIeeeSingBasBase IS valid when strsingle() runs.
+
+### LVO offsets are identical (and hardcoded)
+
+_LVOSPxxx and _LVOIEEESPxxx have identical offset values (-30, -36, -42, etc.).
+Moreover, VBCC hardcodes these offsets in the inline code — they don't come
+from the link library at all. The rename from _LVOSPxxx to _LVOIEEESPxxx
+in runtime asm files is functionally a no-op.
+
+### amiga.lib is VBCC's version (360KB)
+
+lib/amiga.lib is 360,044 bytes = VBCC amiga.lib (~4,100 symbols).
+The spec recommended NDK 3.1, but VBCC's was used.
+
+## Next step: rebuild and test on emulator
+
+Rebuild runtime (make -f Makefile-lib clean all), then run:
+  1. float_print test (PRINT 3.14)
+  2. screen_chipset_run test
+  3. Full test suite (rx runner.rexx all)

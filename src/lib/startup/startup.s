@@ -463,7 +463,7 @@ _startup:
 	move.l	d0,_cmdlen
 	move.l	a0,_cmdbuf
 
-	; make _SysBase available to ami.lib
+	; make _SysBase available to amiga.lib
 	move.l	_AbsExecBase,_SysBase
 
 	; open dos.library

@@ -1,0 +1,281 @@
+Replace ami.lib with amiga.lib + custom C library
+=================================================
+
+Status: PROPOSAL
+Date: 2026-02-19
+Branch: (not started)
+
+Background
+----------
+
+ami.lib is a pre-built binary (~89KB) from the original ACE distribution
+with no source code. It bundles three unrelated things:
+
+  1. Amiga LVO stubs (~900 symbols)
+  2. C library functions (printf, sprintf, putchar, fgetc, fclose, etc.)
+  3. FFP string routines (fpa, arnd, afp, fpbcd)
+
+This makes the build opaque and hard to maintain. The goal is to replace
+ami.lib with well-understood, source-available components.
+
+Analysis
+--------
+
+### Three-way library comparison
+
+  Library              Size     Symbols  Source
+  -------------------  -------  -------  -------------------------
+  ACE ami.lib           91 KB   ~1,100   No source (original ACE)
+  NDK 3.1 amiga.lib    203 KB   ~2,400   Commodore NDK
+  VBCC amiga.lib       360 KB   ~4,100   VBCC toolchain
+
+All three provide the same core Amiga LVO stubs. The differences:
+
+  - NDK 3.1 covers OS up to 3.1 (exec, dos, intuition, graphics,
+    commodities, asl, gadtools, utility, locale, datatypes, etc.)
+  - VBCC adds AHI, reaction, MUI, and other third-party library stubs
+  - ami.lib is the smallest, covering only OS 1.3-era functions plus
+    some Kickstart 2.0 additions
+
+### LVO stub coverage
+
+Both NDK and VBCC amiga.lib are supersets of ami.lib's LVO stubs:
+
+  ami.lib stubs (excl C lib & FFP):  1,103
+  Covered by NDK amiga.lib:          1,032  (93.6%)
+  Covered by VBCC amiga.lib:         1,005  (91.1%)
+
+The ~70 symbols missing from BOTH are obsolete/legacy:
+  - Clipboard list functions (CList*) - removed from OS after 1.3
+  - ARP library stubs (_ArpBase, _FileRequest) - replaced by ASL
+  - ROM boot internals (_RomBoot, _RomBootBase)
+  - Graphics reserved slots (_LVOGraphicsReserved1/2)
+  - Workbench object internals (AllocWBObject, etc.)
+  - Deprecated keymap functions (AskDefaultKeyMap, SetDefaultKeyMap)
+
+NONE of these missing symbols are referenced by the ACE runtime or
+compiler-generated code. They are dead weight in ami.lib.
+
+VBCC additionally misses a few more than NDK:
+  - _IDivS, _IDivU, _IMulS, _IMulU (integer math helpers)
+  - _AddTOF, _RemTOF (timer-of-flight)
+  - _RangeRan (random number)
+  - Various small utility symbols (_abs, _sdiv, _smuls, _umuls, etc.)
+  None of these are referenced by ACE either.
+
+### IEEE math stubs
+
+Both NDK and VBCC amiga.lib provide full IEEE math stubs (118 symbols):
+
+  IEEESPxxx  - 29 functions + 29 LVOs (single-precision)
+  IEEEDPxxx  - 29 functions + 29 LVOs (double-precision)
+  SPFieee/SPTieee - FFP<->IEEE conversion (2 + 2)
+
+This covers everything the IEEE float migration branch needs.
+
+### FFP math stubs (SPxxx)
+
+Both NDK and VBCC amiga.lib also provide the old FFP stubs:
+
+  SPAbs, SPAdd, SPCmp, SPDiv, SPFix, SPFlt, SPMul, SPNeg, SPSub,
+  SPTst, SPAcos, SPAsin, SPAtan, SPCeil, SPCos, SPCosh, SPDiv,
+  SPExp, SPFloor, SPLog, SPLog10, SPPow, SPSin, SPSincos, SPSinh,
+  SPSqrt, SPTan, SPTanh (29 functions + 29 LVOs)
+
+So even master branch (FFP mode) LVO stubs are covered.
+
+### C library functions
+
+ami.lib provides these C functions used by the ACE runtime:
+
+  From assembly (src/lib/asm/):
+    _sprintf    - string.s, string2.s, file.s, time.s, trace.s
+    _putchar    - string.s, scrwin.s
+    _stdout     - string.s, scrwin.s, misc.s, assert.s, locate.s, windowfunc.s
+    _stdin      - string.s
+
+  From C code (src/lib/c/):
+    sprintf     - floatstr.c, print.c
+    printf      - text.c
+    putchar     - text.c, input.c, print.c
+    fprintf     - files.c
+    fgetc       - fgets.c (via lib_protos.h extern)
+
+VBCC's vc.lib has all these functions but CANNOT be used because:
+
+  - vc.lib defines _stdin/_stdout as C FILE* structs
+  - ACE's startup.s defines _stdin/_stdout as raw AmigaDOS BPTRs
+    (from Input()/Output())
+  - ACE's entire runtime uses _stdout directly with _LVOWrite(a6)
+  - These are semantically incompatible and would crash at runtime
+
+Neither NDK amiga.lib nor VBCC amiga.lib contain C library functions.
+C library is always a separate component (vc.lib for VBCC, etc.).
+
+### FFP string routines
+
+ami.lib provides _fpa, _arnd, _afp, _fpbcd for FFP float-to-ASCII
+conversion. On the ieee-float-migration branch these are NO LONGER
+REFERENCED anywhere. floatstr.c now uses sprintf for IEEE float formatting.
+
+On master (FFP mode) they are still needed.
+
+Recommendation: NDK vs VBCC amiga.lib
+--------------------------------------
+
+Either works. Comparison:
+
+  NDK 3.1 amiga.lib:
+    + Official Commodore library, well-tested
+    + Covers all OS functions through 3.1
+    + Slightly smaller (203KB vs 360KB)
+    + Includes a few more legacy symbols than VBCC
+    - No third-party library stubs (AHI, MUI, etc.)
+    - Frozen at OS 3.1
+
+  VBCC amiga.lib:
+    + More complete (AHI, reaction, MUI, etc.)
+    + Actively maintained with VBCC toolchain
+    + Already used as the build toolchain
+    - Larger binary
+    - Missing a few obscure legacy symbols NDK has
+
+Recommendation: Use NDK 3.1 amiga.lib. It's the canonical Commodore
+library, covers all APIs ACE uses, and is a better provenance match
+for a compiler that targets AmigaOS 1.3+. Third-party stubs (AHI, MUI)
+can be added via separate .lib files if needed later.
+
+Replacement Strategy
+--------------------
+
+Replace ami.lib with two components:
+
+  1. amiga.lib (NDK 3.1) - provides all LVO stubs + IEEE/FFP math stubs
+  2. ace_clib.c (new, ~100 lines) - provides C functions compatible
+     with ACE's startup conventions
+
+### Phase 1: Write ace_clib
+
+Create src/lib/c/ace_clib.c providing:
+
+  void putchar(int c)
+    - Uses _LVOWrite on _stdout (same as ami.lib likely does)
+
+  int printf(const char *fmt, ...)
+    - Uses RawDoFmt() to format, then _LVOWrite on _stdout
+    - Or: sprintf to buffer, then _LVOWrite
+
+  int fprintf(FILE *fh, const char *fmt, ...)
+    - Same but writes to given file handle (ACE uses DOS handles, not FILE*)
+
+  int sprintf(char *buf, const char *fmt, ...)
+    - Uses exec RawDoFmt() to format into buffer
+    - No I/O dependency, pure formatting
+
+  int fgetc(FILE *fh)
+    - Uses _LVORead on the DOS file handle
+
+  extern LONG _stdout, _stdin (from startup.s, not redefined)
+
+Note: ACE's "FILE *" is actually a DOS file handle (BPTR/LONG).
+The C functions just need to treat the handle as a LONG for DOS calls.
+
+RawDoFmt() is in exec.library (always open) and supports %d, %ld, %s, %x
+etc. It does NOT support %f/%e/%g (floating point). For float formatting,
+ACE already handles this in floatstr.c using its own conversion code.
+
+Alternatively, if RawDoFmt is too limited, we can use the existing
+sprintf/printf from ami.lib's original C library source (likely derived
+from a public domain Amiga C library from the early 90s). The key
+requirement is that these functions use AmigaDOS Write() for output,
+NOT C FILE* streams.
+
+### Phase 2: Update build system
+
+In Makefile-lib:
+  - Add ace_clib.o to the db.lib object list
+  - Or create a separate ace_clib.lib
+
+In bin/bas (link command):
+  - Replace ACElib:ami.lib with ACElib:amiga.lib
+  - If ace_clib is in db.lib, no other change needed
+  - If separate: ACElib:startup.lib ACElib:db.lib ACElib:ace_clib.lib ACElib:amiga.lib
+
+Copy NDK amiga.lib to lib/amiga.lib:
+  cp NDK_3.1/Includes_Libs/linker_libs/amiga.lib lib/amiga.lib
+
+### Phase 3: Test
+
+  - Build compiler and runtime
+  - Run full test suite (rx runner.rexx all)
+  - Test PRINT with integers, floats, strings
+  - Test file I/O (OPEN/PRINT #n/INPUT #n)
+  - Test string formatting (STR$, FMT$)
+  - Test all submods (httpclient, dp-float, etc.)
+
+Risks and Considerations
+------------------------
+
+1. RawDoFmt format string compatibility
+   - RawDoFmt uses %ld (not %d) for 32-bit integers on 68k
+   - ACE's runtime calls sprintf with %ld already (print.c:196)
+   - Need to verify all format strings are compatible
+
+2. sprintf for floats
+   - RawDoFmt does NOT support %f/%e/%g
+   - On IEEE branch: floatstr.c uses sprintf with %f and %.7G
+   - Options: (a) link vbcc's mieee.lib or msoft.lib for float sprintf,
+     (b) keep the float formatting in ACE's own floatstr.c without
+     relying on sprintf for floats, (c) use a minimal dtoa implementation
+   - This is the hardest part - needs investigation
+
+3. _stdout/_stdin must remain AmigaDOS handles
+   - This is non-negotiable; the entire runtime depends on it
+   - Any C library code must use DOS Write()/Read(), not C streams
+
+4. Link order matters
+   - amiga.lib must come last (only provides stubs, no code)
+   - startup.lib must come first (defines _stdin/_stdout)
+
+5. Binary size
+   - NDK amiga.lib is 203KB vs ami.lib's 89KB
+   - But linker only pulls in referenced symbols, so final executable
+     size should be similar
+
+6. Master branch (FFP mode) still needs _fpa/_arnd/_afp/_fpbcd
+   - These must be kept or reimplemented for master
+   - IEEE branch does not need them
+   - Could extract just the FFP routines from ami.lib into a separate
+     ffpstr.lib for master, or rewrite them
+
+Symbol Inventory — What's NOT in either amiga.lib
+--------------------------------------------------
+
+These symbols exist in ami.lib but NOT in NDK or VBCC amiga.lib.
+None are referenced by ACE runtime or compiler. All are dead code:
+
+  Legacy clipboard (CList*):
+    AllocCList, ConcatCList, CopyCList, FlushCList, FreeCList,
+    GetCLBuf, GetCLChar, GetCLWord, IncrCLMark, InitCLPool,
+    MarkCList, PeekCLMark, PutCLBuf, PutCLChar, PutCLWord,
+    SizeCList, SplitCList, SubCList, UnGetCLChar, UnGetCLWord,
+    UnPutCLChar, UnPutCLWord, ClistBase
+    (+ their _LVO* counterparts)
+
+  Legacy Workbench:
+    AllocWBObject, FreeWBObject, GetWBObject, PutWBObject
+    (+ their _LVO* counterparts)
+
+  ARP library:
+    ArpBase, FileRequest
+
+  Boot internals:
+    RomBoot, RomBootBase, _LVORomBoot
+
+  Deprecated:
+    AskDefaultKeyMap, SetDefaultKeyMap
+    LVOGraphicsReserved1, LVOGraphicsReserved2
+    LVOexpansionUnused, LVOGetPacket, LVOQueuePacket
+
+  Misc small symbols (only in ami.lib, not in VBCC):
+    _NuNq, _lib, _fpbcd

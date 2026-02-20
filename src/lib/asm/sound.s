@@ -52,9 +52,9 @@
 
 	; math library 
 	xref	_MathBase
-	xref	_LVOSPFix
-	xref	_LVOSPMul
-	xref	_LVOSPCmp
+	xref	_LVOIEEESPFix
+	xref	_LVOIEEESPMul
+	xref	_LVOIEEESPCmp
 	
 	SECTION sound_code,CODE
 
@@ -82,11 +82,11 @@ _sound:
 	move.l	_MathBase,a6	
 	move.l	_duration,d0
 	move.l	#0,d1
-	jsr	_LVOSPCmp(a6)		; duration < 0?
+	jsr	_LVOIEEESPCmp(a6)		; duration < 0?
 	blt	_quitsound
 	move.l	_duration,d0
 	move.l	#$4479C000,d1		
-	jsr	_LVOSPCmp(a6)		; duration > 999?
+	jsr	_LVOIEEESPCmp(a6)		; duration > 999?
 	bgt	_quitsound
 	
 	; volume 
@@ -165,8 +165,8 @@ _sound_delay:
 	move.l	_MathBase,a6
 	move.l	_duration,d1		; duration
 	move.l	#$402FC7AE,d0		; 2.747
-	jsr	_LVOSPMul(a6)		; ticks = duration*2.747
-	jsr	_LVOSPFix(a6)		; ticks = (int)ticks
+	jsr	_LVOIEEESPMul(a6)		; ticks = duration*2.747
+	jsr	_LVOIEEESPFix(a6)		; ticks = (int)ticks
 	move.l	_DOSBase,a6
 	move.l	d0,d1			; ticks
 	jsr	_LVODelay(a6)

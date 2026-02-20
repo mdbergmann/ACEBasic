@@ -239,7 +239,7 @@ BOOL negate=FALSE;
    case longtype   : gen("neg.l","(sp)","  "); break;
 
    case singletype : gen("move.l","(sp)+","d0");
-       gen_float_call("_LVOSPNeg");
+       gen_float_call("_LVOIEEESPNeg");
        gen("move.l","d0","-(sp)");
        break;
    case stringtype : _error(4); break;
@@ -325,7 +325,7 @@ CODE *cx[5];
 					localtype=longtype;
 					break;
 
-		     case singletype :  gen_float_call("_LVOSPMul");
+		     case singletype :  gen_float_call("_LVOIEEESPMul");
 					localtype=singletype;
       		     			break;
 		    }
@@ -333,7 +333,7 @@ CODE *cx[5];
 
     case fdiv     : gen("move.l","(sp)+","d1");  /* 2nd operand */
 		    gen("move.l","(sp)+","d0");  /* 1st operand */
-		    gen_float_call("_LVOSPDiv");
+		    gen_float_call("_LVOIEEESPDiv");
 		    localtype=singletype;
       		    break;
    }
@@ -532,7 +532,7 @@ CODE *cx[5];
     case longtype   :	gen("add.l","d1","d0");
     		    	break;
 
-    case singletype : 	gen_float_call("_LVOSPAdd");
+    case singletype : 	gen_float_call("_LVOIEEESPAdd");
         		break;
 
     case stringtype : 	/* copy source to temp string */
@@ -569,7 +569,7 @@ CODE *cx[5];
     case longtype   : 	gen("sub.l","d1","d0");
          		break;
 
-    case singletype :	gen_float_call("_LVOSPSub");
+    case singletype :	gen_float_call("_LVOIEEESPSub");
         		break;
 
     case stringtype : 	_error(4); break;
@@ -668,7 +668,7 @@ CODE *cx[5];
     case singletype : 	gen_pop(singletype, "d1");  /* 2nd */
         		gen_pop(singletype, "d0");  /* 1st */
         		gen("moveq","#-1","d5");     /* assume true */
-        		gen_float_call("_LVOSPCmp");
+        		gen_float_call("_LVOIEEESPCmp");
         		break;
 
     case stringtype : 	gen("move.l","(sp)+","a1");  /* addr of 2nd string */
@@ -975,7 +975,7 @@ int typ;
 
   if (typ == shorttype) gen_ext_to_long(FALSE, "d0"); /* extend sign */
 
-  gen_float_call("_LVOSPFlt");
+  gen_float_call("_LVOIEEESPFlt");
   gen("move.l","d0","-(sp)");
 }
 
@@ -990,9 +990,9 @@ CODE *cx[];
      change(cx[0],"move.l","(sp)+","d0");
   if (exptyp == shorttype) change(cx[1],"ext.l","d0","  ");
   change(cx[2],"move.l","_MathBase","a6");
-  change(cx[3],"jsr","_LVOSPFlt(a6)","  ");
+  change(cx[3],"jsr","_LVOIEEESPFlt(a6)","  ");
   change(cx[4],"move.l","d0","-(sp)");
-  enter_XREF("_LVOSPFlt");
+  enter_XREF("_LVOIEEESPFlt");
   enter_XREF("_MathBase");
 }
 

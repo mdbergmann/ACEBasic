@@ -104,8 +104,8 @@ GZZMouseY	equ	110
 	xref	_LVODelay
 	xref	_LVOWrite
 	xref	_MathBase
-	xref	_LVOSPFlt
-	xref	_LVOSPDiv
+	xref	_LVOIEEESPFlt
+	xref	_LVOIEEESPDiv
 	xref 	_AbsExecBase
 	xref	_LVOAvailMem
 	xref	_LVOWaitPort
@@ -504,9 +504,9 @@ _rnd:
 	moveq	#1,d0			; if zero returned, make d0=1
 _0_to_1:	
 	move.l	_MathBase,a6
-	jsr	_LVOSPFlt(a6)
+	jsr	_LVOIEEESPFlt(a6)
 	move.l	#$477FFF00,d1   	; div by 65535.0 IEEE for 0 < value < 1
-	jsr	_LVOSPDiv(a6)
+	jsr	_LVOIEEESPDiv(a6)
 	rts
 
 ;

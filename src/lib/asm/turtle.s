@@ -62,12 +62,12 @@
 	xref	_RPort
 	xref	_LVODraw
 	xref	_LVOMove
-	xref	_LVOSPFlt
-	xref	_LVOSPFix
-	xref	_LVOSPMul
-	xref	_LVOSPDiv
-	xref	_LVOSPSin
-	xref	_LVOSPCos
+	xref	_LVOIEEESPFlt
+	xref	_LVOIEEESPFix
+	xref	_LVOIEEESPMul
+	xref	_LVOIEEESPDiv
+	xref	_LVOIEEESPSin
+	xref	_LVOIEEESPCos
 
 	SECTION turtle_code,CODE
 
@@ -97,10 +97,10 @@ _moveturtle:
 	ext.l	d2
 	move.l	_MathBase,a6
 	move.l	d2,d0
-	jsr	_LVOSPFlt(a6)	; angle = (float)angle
+	jsr	_LVOIEEESPFlt(a6)	; angle = (float)angle
 
 	move.l	_radconv,d1
-	jsr	_LVOSPDiv(a6)	; theta = angle/radconv
+	jsr	_LVOIEEESPDiv(a6)	; theta = angle/radconv
 
 	move.l	d0,_tg_theta
 
@@ -111,10 +111,10 @@ _forwardcalc:
 	move.l	_MathBase,a6
 	move.w	_tg_degs,d0
 	ext.l	d0
-	jsr	_LVOSPFlt(a6)	; degs = (float)degs
+	jsr	_LVOIEEESPFlt(a6)	; degs = (float)degs
 
 	move.l	_radconv,d1
-	jsr	_LVOSPDiv(a6)	; theta = degs/radconv
+	jsr	_LVOIEEESPDiv(a6)	; theta = degs/radconv
 	
 	move.l	d0,_tg_theta
 
@@ -124,31 +124,31 @@ _calcxy:
 	; calculate x
 	move.l	_tg_xy_ratio,d0	; X:Y ratio = 2.25 (assumes hi-res & is approx.)
 	move.l	_tg_distance,d1
-	jsr	_LVOSPMul(a6)	
+	jsr	_LVOIEEESPMul(a6)	
 	move.l	d0,_tg_temp
 	
 	move.l	_MathTransBase,a6
 	move.l	_tg_theta,d0
-	jsr	_LVOSPCos(a6)
+	jsr	_LVOIEEESPCos(a6)
 	
 	move.l	_MathBase,a6
 	move.l	_tg_temp,d1
-	jsr	_LVOSPMul(a6)
+	jsr	_LVOIEEESPMul(a6)
 	
-	jsr	_LVOSPFix(a6)	; x = (int)(2.25*dist*cos(theta))
+	jsr	_LVOIEEESPFix(a6)	; x = (int)(2.25*dist*cos(theta))
 
 	move.w	d0,_tg_x
 
 	; calculate y
 	move.l	_MathTransBase,a6
 	move.l	_tg_theta,d0
-	jsr	_LVOSPSin(a6)
+	jsr	_LVOIEEESPSin(a6)
 	
 	move.l	_MathBase,a6
 	move.l	_tg_distance,d1
-	jsr	_LVOSPMul(a6)
+	jsr	_LVOIEEESPMul(a6)
 	
-	jsr	_LVOSPFix(a6)	; y = (int)(dist*sin(theta))
+	jsr	_LVOIEEESPFix(a6)	; y = (int)(dist*sin(theta))
 
 	move.w	d0,_tg_y
 

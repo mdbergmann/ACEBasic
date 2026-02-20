@@ -203,7 +203,7 @@ SYM  *item;
 
       case singletype : gen("move.l","(a0)","d0");
 			       gen("move.l","#$3F800000","d1");  /* IEEE 1.0 */
-			       gen_float_call(is_increment ? "_LVOSPAdd" : "_LVOSPSub");
+			       gen_float_call(is_increment ? "_LVOIEEESPAdd" : "_LVOIEEESPSub");
 			       gen("move.l","d0","(a0)");
 			       break;
      }

@@ -139,7 +139,7 @@ IF $ismod EQ 1
   delete >NIL: T:$srcbase.o
 ELSE
   ; Normal: link to executable
-  cmd_vlink -bamigahunk -x -Bstatic -nostdlib -mrel -s -o T:$srcbase T:$srcbase.o $extraobj ACElib:startup.lib ACElib:db.lib ACElib:ami.lib
+  cmd_vlink -bamigahunk -x -Bstatic -nostdlib -mrel -s -o T:$srcbase T:$srcbase.o $extraobj ACElib:startup.lib ACElib:db.lib ACElib:amiga.lib
 
   ; leave us with the executable (and icon?).
   copy T:$srcbase ""
