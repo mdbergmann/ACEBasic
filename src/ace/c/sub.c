@@ -125,6 +125,13 @@ int   sub_type=undefined;
      param_type = sym_to_type(sym);
      insymbol();
     }
+    else if (sym == ident && exist(id, structdef))
+    {
+     /* struct type identifier -> treat as ADDRESS */
+     sub_ptr->p_structdef[param_count] = curr_item;
+     param_type = longtype;
+     insymbol();
+    }
 
     if (sym != ident) _error(7);  /* ident expected */
     else
@@ -285,6 +292,7 @@ SYM  *sub_ptr;
 SHORT param_count=0;
 int   param_type;
 char  addrbuf[40];
+SYM   *struct_param_def;
 
  /* parse current SUB's formal parameter list */
 
@@ -306,6 +314,7 @@ char  addrbuf[40];
   do
   {
    param_type=undefined;
+   struct_param_def=NULL;
 
    insymbol();
 
@@ -316,20 +325,38 @@ char  addrbuf[40];
     param_type = sym_to_type(sym);
     insymbol();
    }
+   else if (sym == ident && exist(id, structdef))
+   {
+    /* struct type identifier -> treat as ADDRESS */
+    struct_param_def = curr_item;
+    param_type = longtype;
+    insymbol();
+   }
 
    if (sym != ident) _error(7);  /* ident expected */
    else
    {
-    if (!exist(id,variable)) /* treat param's as local variables */
+    if (struct_param_def != NULL)
     {
-       /* if type not already specified, take type indicated by ident */ 
+       /* struct-typed parameter: enter as structure object */
+       if (exist(id, structure))
+          _error(38); /* duplicate parameter */
+       else
+       {
+          enter(id, notype, structure, 0);
+          curr_item->other = struct_param_def;
+       }
+    }
+    else if (!exist(id,variable)) /* treat param's as local variables */
+    {
+       /* if type not already specified, take type indicated by ident */
        if (param_type == undefined) param_type = typ;
 
        /* enter parameter as a variable into symbol table */
        enter(id,param_type,variable,0);
 
        /* string parameter? -> associate with BSS object */
-       if (curr_item->type == stringtype)  
+       if (curr_item->type == stringtype)
        {
           gen_frame_addr(curr_item->address,addrbuf);
 	  gen("move.l",addrbuf,"-(sp)");  /* push value parameter */
@@ -343,6 +370,7 @@ char  addrbuf[40];
    /* store parameter type and address */
    sub_ptr->p_type[param_count]=param_type;
    sub_ptr->p_addr[param_count]=curr_item->address;
+   sub_ptr->p_structdef[param_count]=struct_param_def;
    param_count++;
 
    insymbol();
