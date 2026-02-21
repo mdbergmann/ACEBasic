@@ -1686,14 +1686,102 @@
 
 *****************************************************************
 
-22/01/26    - Project maintained on GitHub (https://www.github.com/mdbergmann/ACEBasic)
-            Many changes have been made:
-            - more modern tooling:
-                - vasm (assembler)
-                - vlink (linker)
-            - Makefile for compiling the ACE compiler and the runtime libraries
-            (you need ADE environment from Aminet plus vbcc compiler and OS includes)
-            - test suite (incomplete)
-        	- file cleanups (WIP)
-			- AGA screen support 
+22/01/26	- Project maintained on GitHub (https://www.github.com/mdbergmann/ACEBasic)
+		  by Manfred Bergmann.
+
+*****************************************************************
+
+22/1/26		- ACE version 2.5 released.
+		- AGA screen support (modes 7-12) with up to 256 colours.
+		- vasm/vlink replaces legacy a68k/blink toolchain.
+		- GNU Makefile build system (Makefile-ace, Makefile-lib).
+		- FFP/vbcc floating-point compatibility fix.
+		- Directory restructured, test suite added (35 cases).
+
+*****************************************************************
+
+26/1/26		- ACE version 2.6 released.
+		- GadTools gadget integration with modern Amiga look.
+		  Supports BUTTON, CHECKBOX, INTEGER, STRING, LISTVIEW,
+		  MX, CYCLE, PALETTE, SCROLLER, SLIDER, TEXT, NUMBER.
+		- GADGET FONT, GADGET SETATTR/GETATTR commands.
+		- ASSERT statement for runtime assertion checking.
+		- 68020 native code generation (-2 flag or OPTION 2+).
+		- txt2guide.rb for auto-generating AmigaGuide docs.
+
+*****************************************************************
+
+1/2/26		- ACE version 2.7 released.
+		- Closures and function pointers: @ operator for SUB
+		  addresses, BIND for closures, INVOKE for calling
+		  through function pointers.
+		- CALLBACK SUB modifier for AmigaOS CallHookPtr().
+		- MUI submodule for modern Amiga GUIs.
+		- Filled circle/ellipse (CIRCLE with trailing F flag).
+		- GADGET SETATTR now accepts variables and expressions.
+		- Graphics double buffering support.
+		- 68020 code generation is now the default.
+		- Fix library closing (#25), external module bugs (#29).
+
+*****************************************************************
+
+3/2/26		- ACE version 2.7.1 released.
+		- ELSEIF keyword for block IF statements.
+		- LCASE$ function.
+		- MUI module improvements.
+		- Fix DATA statement FFP conversion (#40).
+		- Refactored test-suite to use ASSERT.
+
+*****************************************************************
+
+9/2/26		- ACE version 2.8 released.
+		- INVOKABLE keyword: SUB modifier for closures used
+		  as callbacks via BIND/INVOKE.
+		- YAP preprocessor replacing legacy APP. Supports
+		  #define/#undef, #ifdef/#ifndef/#else/#endif,
+		  #include with nested includes, -D/-U/-I options.
+		- List submodule: Lisp-style linked lists with
+		  higher-order functions (LMap, LFilter, LReduce).
+		- REM #using directive for object file dependencies.
+		- AmigaDOS Installer script (Install-ACE).
+		- 68000 runtime libraries alongside 68020 builds.
+		- Major compiler refactoring: extracted codegen.c and
+		  invoke.c, ~1500 lines of duplicated code removed.
+		- Fix assembler label suffixes (#44).
+		- 60 new test cases, YAP test suite (11 tests).
+
+*****************************************************************
+
+16/2/26		- ACE version 2.9 released.
+		- Struct enhancements (#81): typed array members with
+		  SIZE n for any base type, nested struct access via
+		  chained -> operator, typed struct pointers, self-
+		  referential structs, struct arrays as members.
+		- New string functions (#73): TRIM$/LTRIM$/RTRIM$,
+		  STARTSWITH/ENDSWITH, RINSTR, REPLACE$/REVERSE$/
+		  REPEAT$, LPAD$/RPAD$, FMT$ (sprintf-style formatting),
+		  MID$ statement form for in-place modification.
+		- P96/RTG screen support: SCREEN mode 13 for Picasso96
+		  with 8/15/16/24/32-bit depths. COLOR r,g,b for
+		  direct RGB drawing.
+		- Tail-call optimization (#67): self-recursive SUBs
+		  with numeric params optimized to jumps.
+		- Buffered file I/O (#63): ~12x throughput improvement.
+		- HTTP client submodule (#71): full HTTP/HTTPS client
+		  with TCP transport, chunked transfer encoding,
+		  streaming, and AmiSSL support. Stateless API.
+		  Extracted into tcpclient, amissl, httpclient submods.
+		- DP-Float submodule: double-precision math via
+		  mathieeedoubbas/trans libraries. 32 functions.
+		- SNI support for AmiSSL submodule.
+		- New submodules: httpclient, tcpclient, amissl,
+		  dp-float, sagasound (Vampire SAGA 16-bit audio),
+		  turtle (moved from built-in commands).
+		- Turtle graphics moved to submodule (#72).
+		- CubicIDE plugin: regedit registration, updated
+		  autocase, syntax dictionaries and quickinfo.
+		- Codegen abstraction: gen_ffp_call, gen_bool_test,
+		  gen_stack_cleanup helpers. Enhanced peephole optimizer.
+		- Fix #79: single-line IF THEN with SUB/FUNCTION calls.
+		- Fix #76: CONST SINGLE FFP literal generation.
 
