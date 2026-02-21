@@ -117,6 +117,9 @@ int assign_coerce(int storetype, int exptype)
  if (((storetype == stringtype) && (exptype != stringtype)) ||
     ((storetype != stringtype) && (exptype == stringtype))) return(notype);
  else
+ if (((storetype == atomtype) && (exptype != atomtype)) ||
+    ((storetype != atomtype) && (exptype == atomtype))) return(notype);
+ else
  if (((storetype == shorttype) || (storetype == longtype))
     && (exptype == singletype)) 
  {
@@ -796,7 +799,7 @@ do
 
  /* type identifiers */
  if (sym == shortintsym || sym == longintsym || sym == addresssym ||
-     sym == singlesym || sym == stringsym)
+     sym == singlesym || sym == stringsym || sym == atomsym)
  {
   arraytype = sym_to_type(sym);
   insymbol();

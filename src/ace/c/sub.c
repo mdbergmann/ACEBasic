@@ -63,7 +63,7 @@ int   sub_type=undefined;
 
  /* type identifiers */
  if (sym == shortintsym || sym == longintsym || sym == addresssym ||
-     sym == singlesym || sym == stringsym)
+     sym == singlesym || sym == stringsym || sym == atomsym)
  {
   sub_type = sym_to_type(sym);
   insymbol();
@@ -120,7 +120,7 @@ int   sub_type=undefined;
 
     /* type identifiers */
     if (sym == shortintsym || sym == longintsym || sym == addresssym ||
-        sym == singlesym || sym == stringsym)
+        sym == singlesym || sym == stringsym || sym == atomsym)
     {
      param_type = sym_to_type(sym);
      insymbol();
@@ -137,7 +137,7 @@ int   sub_type=undefined;
     insymbol();
    }
    while ((sym == comma) && (param_count < MAXPARAMS));
-  
+
    sub_ptr->no_of_params=param_count;
 
    if (param_count == MAXPARAMS) _error(42);  /* too many */
@@ -205,6 +205,9 @@ int   formaltype[MAXPARAMS];
 
      case stringtype : _error(4);  /* can't coerce this at all! */
 		       break;
+
+     case atomtype : _error(4);  /* atom type mismatch */
+		     break;
     }
    }
 
@@ -308,7 +311,7 @@ char  addrbuf[40];
 
    /* type identifiers */
    if (sym == shortintsym || sym == longintsym || sym == addresssym ||
-       sym == singlesym || sym == stringsym)
+       sym == singlesym || sym == stringsym || sym == atomsym)
    {
     param_type = sym_to_type(sym);
     insymbol();

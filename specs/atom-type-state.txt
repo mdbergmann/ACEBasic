@@ -1,0 +1,103 @@
+ATOM Type Implementation State
+==============================
+Branch: add-atom-type
+Date: 2026-02-21
+
+Status: ALL STEPS COMPLETE - needs build & test on emulator
+
+Steps Completed:
+  1. Core type & lexer definitions (acedef.h, lexvar.c)          DONE
+     - atomsym enum (between assertsym and backsym)
+     - atomconst enum (between stringconst and ident)
+     - atomtype enum (between structptrtype and notype)
+     - atom_hash() prototype in acedef.h
+     - "ATOM" in rword[] (between "ASSERT" and "BACK")
+     - LONG atomval global in lexvar.c
+
+  2. Atom hash function (misc.c)                                  DONE
+     - FNV-1a hash: offset=2166136261, prime=16777619
+     - atomsym case in sym_to_type()
+
+  3. Lexer atom literal recognition (lex.c)                       DONE
+     - extern LONG atomval declaration
+     - :name scanning in scan_symbol() after := check
+     - Reads identifier chars, uppercases, hashes, sets sym/typ/obj
+
+  4. Factor - atom literal in expressions (factor.c)              DONE
+     - extern LONG atomval
+     - atomconst case: push hash as #$hex immediate, ftype=atomtype
+
+  5. Coercion & comparison (expr.c)                               DONE
+     - coerce() rejects atom<->non-atom mixing
+     - relexpr() atomtype case: cmp.l, only = and <> allowed
+     - make_integer() passes through atomtype unchanged
+
+  6. Assignment (assign.c)                                        DONE
+     - assign_coerce() rejects atom<->non-atom mixing
+     - dim() recognizes atomsym for DIM ATOM arr(n)
+
+  7. Variable declaration (declare.c)                             DONE
+     - declare_variable() atomtype: init to 0, optional = :expr init
+     - define_structure() atomsym/atomtype as member type
+     - atomtype in BSS generation for struct members
+     - atomsym in SIZE guard for struct member arrays
+     - atomsym in external variable/function/common declarations
+
+  8. Statement dispatch (statement.c)                             DONE
+     - atomsym -> declare_variable(atomtype) between assertsym and bevelboxsym
+
+  9. SUB parameter handling (sub.c)                               DONE
+     - atomsym in forward_ref() sub type + param type identifiers
+     - atomsym in sub_params() param type identifiers
+     - atomtype case in load_params() coercion (rejects mismatch)
+
+ 10. INVOKE parameter handling (invoke.c)                         DONE
+     - atomtype case in closure parameter coercion
+
+ 11. PRINT support (print.c)                                      DONE
+     - atomtype case: prints hash as long via _Ulongprint
+
+ 12. CASE statement (control.c)                                   DONE
+     - case_statement() accepts atomtype (exprtype check + loop condition)
+
+ 13. IDE & documentation                                          DONE
+     - IDE/CubicIDE-ACE/add-ons/ace/autocase/basic: ATOM added
+     - IDE/CubicIDE-ACE/add-ons/ace/syntax/dictionaries/commands: ATOM added
+     - docs/quickref.txt: ATOM documentation added
+     - IDE/CubicIDE-ACE/add-ons/ace/quickinfo/ace.words: synced from quickref
+
+ 14. Test file                                                    DONE
+     - verify/tests/cases/syntax/atom.b
+     - Tests: declare+init, inequality, reassignment, same-name equality,
+       different-name inequality, uninitialized, SUB parameter, CASE matching
+
+Files Modified:
+  src/ace/c/acedef.h     - enums + prototype
+  src/ace/c/lexvar.c     - rword[] + atomval global
+  src/ace/c/lex.c        - extern + atom literal scanning
+  src/ace/c/misc.c       - atom_hash() + sym_to_type case
+  src/ace/c/factor.c     - extern + atomconst case
+  src/ace/c/expr.c       - coercion + comparison + make_integer
+  src/ace/c/assign.c     - assign_coerce + dim()
+  src/ace/c/declare.c    - declare_variable + define_structure + externals
+  src/ace/c/statement.c  - dispatch
+  src/ace/c/sub.c        - forward_ref + sub_params + load_params
+  src/ace/c/invoke.c     - parameter coercion
+  src/ace/c/print.c      - print case
+  src/ace/c/control.c    - case_statement
+
+Files Created:
+  verify/tests/cases/syntax/atom.b
+
+Files Updated (IDE/docs):
+  IDE/CubicIDE-ACE/add-ons/ace/autocase/basic
+  IDE/CubicIDE-ACE/add-ons/ace/syntax/dictionaries/commands
+  docs/quickref.txt
+  IDE/CubicIDE-ACE/add-ons/ace/quickinfo/ace.words
+
+Next Steps:
+  1. Build compiler on emulator: cd src/make && make -f Makefile-ace clean all
+  2. Compile test: bas atom (from verify/tests/cases/syntax/)
+  3. Run test and verify no assertion failures
+  4. Run full test suite: rx runner.rexx all (no regressions)
+  5. Commit and merge

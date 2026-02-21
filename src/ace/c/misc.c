@@ -811,8 +811,20 @@ int sym_to_type(int s)
   case addresssym  : return longtype;
   case singlesym   : return singletype;
   case stringsym   : return stringtype;
+  case atomsym     : return atomtype;
  }
  return notype;
+}
+
+LONG atom_hash(name)
+char *name;
+{
+    ULONG h = 2166136261UL;
+    while (*name) {
+        h ^= (ULONG)*name++;
+        h *= 16777619UL;
+    }
+    return (LONG)h;
 }
 
 void make_modvar_bss_name(char *dest, char *name)

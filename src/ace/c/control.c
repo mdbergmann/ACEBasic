@@ -453,7 +453,7 @@ SHORT i;
   {
    insymbol();
    
-   if (exprtype == longtype)
+   if (exprtype == longtype || exprtype == atomtype)
    {
     gen("move.l","(sp)+","d0");
     gen_bool_test("d0");
@@ -462,13 +462,13 @@ SHORT i;
     gen("nop","  ","  ");	/* try next case */
     cx = curr_code;
     gen(lablabel1,"  ","  ");   /* execute code for THIS case */
-    
+
     statement();
     if (sym == colon) statement(); /* multi-statement */
 
     gen("jmp","  ","  ");
     case_ptr[casecount++] = curr_code; /* branch to end of CASE */
-    
+
     /* label for next case */
     make_label(labname2,lablabel2);
     gen(lablabel2,"  ","  ");
@@ -480,7 +480,7 @@ SHORT i;
 
   while (sym == endofline) insymbol(); /* skip empty line(s) */
  }
- while ((exprtype == longtype) && (sym != endsym) &&
+ while ((exprtype == longtype || exprtype == atomtype) && (sym != endsym) &&
         (casecount < MAXCASES) && (!end_of_source));
 
  /* END CASE */

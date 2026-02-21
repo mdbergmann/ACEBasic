@@ -50,6 +50,9 @@
 
 #include "lexvar.c"
 
+/* externals */
+extern	LONG	atomval;
+
 /* globals */
 ULONG	IntuitionBase = 0;
 BOOL 	inside_string = FALSE;	/* see last line of nextch() */
@@ -908,6 +911,23 @@ char lastch;
    /* >=,:= */
    if ((sym==gtrthan || sym==colon) && ch=='=')
       { ssym[1]=ch; ssym[2]='\0'; sym=rsvd_sym(ssym); nextch(); }
+   else
+   /* atom literal :name */
+   if (sym==colon && ((ch>='A' && ch<='Z') || (ch>='a' && ch<='z')))
+   {
+    int ac=0;
+    char abuf[MAXIDSIZE];
+    while ((ch>='A' && ch<='Z') || (ch>='a' && ch<='z') ||
+           (ch>='0' && ch<='9') || ch=='_')
+    {
+     if (ac < MAXIDSIZE-1) abuf[ac++] = ch;
+     nextch();
+    }
+    abuf[ac] = '\0';
+    strupr(abuf);
+    atomval = atom_hash(abuf);
+    sym = atomconst; typ = atomtype; obj = constant;
+   }
    else
    /* &H,&O */
    if (lastch=='&' && (ch=='H' || ch=='O'))

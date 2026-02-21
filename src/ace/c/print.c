@@ -135,6 +135,10 @@ do
    case stringtype : gen_rt_call("_Ustringprint");
 		     gen_stack_cleanup(4);
 		     break;
+
+   case atomtype :   gen_rt_call("_Ulongprint");
+		     gen_stack_cleanup(4);
+		     break;
   }
 
   if (exprtype != stringtype) gen_printcode(SPACE_CODE); /* trailing space
@@ -142,17 +146,17 @@ do
   arguments++;
 
   if (sym == comma) gen_printcode(TAB_CODE);
-   
+
  }
  while ((sym == comma) || (sym == semicolon) || (sym == ident) ||
-	strfunc() || numfunc() || factorfunc() || obj == constant);  
+	strfunc() || numfunc() || factorfunc() || obj == constant);
 
  /* no comma or semicolon at end of PRINT -> LF */
  gen_printcode(LF_CODE);
 
  /* need mathieeesingbas.library for _Usingleprint and
     _beep if called by _Ustringprint.
- */ 
+ */
  enter_XREF("_MathBase");
 }  
 

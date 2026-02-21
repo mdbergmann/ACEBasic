@@ -76,6 +76,9 @@ BOOL  wants_return;
       case stringtype:
         if (formal_type != stringtype) _error(4);
         break;
+      case atomtype:
+        if (formal_type != atomtype) _error(4);
+        break;
      }
 
      /* Store in frame temp */
