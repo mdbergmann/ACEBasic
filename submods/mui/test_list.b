@@ -1,3 +1,4 @@
+REM #using ace:submods/mui/MUI.o
 {*
 ** test_list.b - Test MUI List functionality
 **
@@ -18,13 +19,7 @@
 **   |              [Quit]                    |
 **   +----------------------------------------+
 *}
-
 #include <submods/MUI.h>
-
-{ ============== Libraries ============== }
-LIBRARY "intuition.library"
-LIBRARY "muimaster.library"
-LIBRARY "utility.library"
 
 { ============== Variables ============== }
 ADDRESS app, win, rootGrp
@@ -210,50 +205,9 @@ MUINotifyAttrHook(listObj, MUIA_List_Active, selectHook)
 { ============== Open Window ============== }
 
 MUIWindowOpen(win)
-PRINT "Window open"
+PRINT "Window open - visual check for 2 seconds"
 
-{ ============== Event Loop ============== }
-
-running = -1&
-
-WHILE running
-    returnID = MUIWaitEvent(app)
-
-    IF returnID = -1& THEN
-        { Quit or window closed }
-        PRINT "Quit"
-        running = 0&
-    END IF
-
-    IF returnID = 1 THEN
-        { Add button pressed }
-        MUIListInsert(listObj, "Item " + STR$(itemCounter))
-        itemCounter = itemCounter + 1
-        UpdateCount
-        PRINT "Added item, count now:"; MUIListCount(listObj)
-    END IF
-
-    IF returnID = 2 THEN
-        { Remove button pressed - remove selected item }
-        LONGINT sel
-        sel = MUIListActive(listObj)
-        IF sel >= 0 THEN
-            MUIListRemove(listObj, sel)
-            UpdateCount
-            PRINT "Removed item at:"; sel
-        ELSE
-            PRINT "No item selected to remove"
-        END IF
-    END IF
-
-    IF returnID = 3 THEN
-        { Clear button pressed }
-        MUIListClear(listObj)
-        UpdateCount
-        MUISetText(txtSelected, "Sel: none")
-        PRINT "List cleared"
-    END IF
-WEND
+SLEEP FOR 2
 
 { ============== Cleanup ============== }
 
@@ -265,10 +219,6 @@ IF app <> 0& THEN
 END IF
 
 MUICleanup
-
-LIBRARY CLOSE "utility.library"
-LIBRARY CLOSE "muimaster.library"
-LIBRARY CLOSE "intuition.library"
 
 PRINT "Done!"
 END

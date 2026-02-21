@@ -1,3 +1,4 @@
+REM #using ace:submods/mui/MUI.o
 {*
 ** test_dirlist.b - Test MUI Dirlist and Volumelist functionality
 **
@@ -21,18 +22,12 @@
 **   |              [Quit]                     |
 **   +------------------------------------------+
 *}
-
 #include <submods/MUI.h>
 
 { ============== Additional Constants ============== }
 { Dirlist-specific attributes }
 CONST MUIA_Dirlist_Directory   = &H8042ea41
 CONST MUIA_Dirlist_Path        = &H80426ea7
-
-{ ============== Libraries ============== }
-LIBRARY "intuition.library"
-LIBRARY "muimaster.library"
-LIBRARY "utility.library"
 
 { ============== Variables ============== }
 ADDRESS app, win, rootGrp
@@ -274,20 +269,9 @@ PRINT "Notifications set up"
 { ============== Open Window ============== }
 
 MUIWindowOpen(win)
-PRINT "Window open - select a volume to browse"
+PRINT "Window open - visual check for 2 seconds"
 
-{ ============== Event Loop ============== }
-
-running = -1&
-
-WHILE running
-    returnID = MUIWaitEvent(app)
-
-    IF returnID = -1& THEN
-        PRINT "Quit"
-        running = 0&
-    END IF
-WEND
+SLEEP FOR 2
 
 { ============== Cleanup ============== }
 
@@ -299,10 +283,6 @@ IF app <> 0& THEN
 END IF
 
 MUICleanup
-
-LIBRARY CLOSE "utility.library"
-LIBRARY CLOSE "muimaster.library"
-LIBRARY CLOSE "intuition.library"
 
 PRINT "Done!"
 END

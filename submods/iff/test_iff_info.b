@@ -10,19 +10,16 @@ PRINT "IFF Info Test"
 PRINT "============="
 
 rc = IffInit
-IF rc <> IFF_OK THEN
-  PRINT "FAIL: IffInit returned"; rc
-  STOP
-END IF
+ASSERT rc = IFF_OK, "IffInit failed"
 PRINT "PASS: IffInit OK"
 
 REM --- Test: open a known IFF file ---
 rc = IffOpen(1, "SYS:Prefs/Presets/Backdrops/640x480/Stoffa640x480.iff")
 IF rc <> IFF_OK THEN
-  PRINT "FAIL: IffOpen returned"; rc
+  PRINT "IffOpen returned"; rc
   IffShutdown
-  STOP
 END IF
+ASSERT rc = IFF_OK, "IffOpen failed"
 PRINT "PASS: IffOpen OK"
 
 REM --- Test: query dimensions ---
@@ -36,33 +33,30 @@ PRINT "  Height: "; h
 PRINT "  Depth:  "; d
 PRINT "  Mode:   "; m
 
-IF w = 640 THEN PRINT "PASS: Width" ELSE PRINT "FAIL: Width expected 640"
-IF h = 480 THEN PRINT "PASS: Height" ELSE PRINT "FAIL: Height expected 480"
-IF d = 5 THEN PRINT "PASS: Depth" ELSE PRINT "FAIL: Depth expected 5"
-IF m = 4 THEN PRINT "PASS: ScreenMode" ELSE PRINT "FAIL: ScreenMode expected 4"
+ASSERT w = 640, "Width expected 640"
+ASSERT h = 480, "Height expected 480"
+ASSERT d = 5, "Depth expected 5"
+ASSERT m = 4, "ScreenMode expected 4"
 
 REM --- Test: form type ---
 LONGINT ftAddr
 ftAddr = IffFormType(1)
-IF ftAddr <> 0 THEN
-  STRING ft$ SIZE 8
-  SHORTINT idx
-  FOR idx = 0 TO 3
-    ft$ = ft$ + CHR$(PEEK(ftAddr + idx))
-  NEXT idx
-  PRINT "  FormType: "; ft$
-  IF ft$ = "ILBM" THEN PRINT "PASS: FormType" ELSE PRINT "FAIL: FormType expected ILBM"
-ELSE
-  PRINT "FAIL: FormType returned 0"
-END IF
+ASSERT ftAddr <> 0, "FormType returned 0"
+STRING ft$ SIZE 8
+SHORTINT idx
+FOR idx = 0 TO 3
+  ft$ = ft$ + CHR$(PEEK(ftAddr + idx))
+NEXT idx
+PRINT "  FormType: "; ft$
+ASSERT ft$ = "ILBM", "FormType expected ILBM"
 
 REM --- Test: invalid channel ---
-IF IffWidth(0) = 0 THEN PRINT "PASS: Invalid chan 0" ELSE PRINT "FAIL: Invalid chan 0"
-IF IffWidth(16) = 0 THEN PRINT "PASS: Invalid chan 16" ELSE PRINT "FAIL: Invalid chan 16"
+ASSERT IffWidth(0) = 0, "Invalid chan 0 should return 0"
+ASSERT IffWidth(16) = 0, "Invalid chan 16 should return 0"
 
 REM --- Test: close and re-query ---
 IffClose(1)
-IF IffWidth(1) = 0 THEN PRINT "PASS: Width after close" ELSE PRINT "FAIL: Width after close"
+ASSERT IffWidth(1) = 0, "Width after close should be 0"
 
 PRINT "============="
 PRINT "Done."

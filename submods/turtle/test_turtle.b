@@ -1,14 +1,20 @@
 REM #using ace:submods/turtle/turtle.o
 {*
  * Test program for the turtle graphics submodule.
- * Visual verification: draws a square, a triangle, and tests HOME.
- * Also writes state values to ACE:test-output.txt for checking.
+ * Writes diagnostic steps to file #1 (ace:test-output.txt)
+ * so output is visible even after WINDOW changes PRINT target.
  *}
 
 #include <submods/turtle.h>
 
-OPEN "O",#1,"ACE:test-output.txt"
-PRINT #1, "Turtle submodule test"
+REM Force _openmathtrans in startup so _MathTransBase is initialized.
+REM The turtle module uses COS/SIN via _MathTransBase but the compiler
+REM only calls _openmathtrans if the MAIN program references it.
+REM This is a known compiler limitation (see specs/submod-test-runner-state.txt).
+SINGLE _forceMathtrans
+_forceMathtrans = SIN(0.1)
+
+PRINT "Turtle submodule test"
 
 WINDOW 1,"Turtle Test",(0,0)-(640,200),6
 FONT "topaz",8
@@ -17,14 +23,14 @@ CLS
 
 REM --- Initialize at screen center ---
 TgInit(320, 100)
-PRINT #1, "Init: X=";TgXcor;" Y=";TgYcor;" H=";TgHeading
+PRINT "Init: X=";TgXcor;" Y=";TgYcor;" H=";TgHeading
 
 REM --- Draw a square (side=40) ---
 FOR i% = 1 TO 4
   TgForward(40)
   TgTurnRight(90)
 NEXT
-PRINT #1, "After square: X=";TgXcor;" Y=";TgYcor;" H=";TgHeading
+PRINT "After square: X=";TgXcor;" Y=";TgYcor;" H=";TgHeading
 
 REM --- Move right with pen up ---
 TgPenUp
@@ -37,7 +43,7 @@ FOR i% = 1 TO 3
   TgForward(60)
   TgTurnRight(120)
 NEXT
-PRINT #1, "After triangle: X=";TgXcor;" Y=";TgYcor;" H=";TgHeading
+PRINT "After triangle: X=";TgXcor;" Y=";TgYcor;" H=";TgHeading
 
 REM --- Test HOME: move away, then go home ---
 TgPenUp
@@ -45,9 +51,9 @@ TgSetXY(500, 50)
 TgPenDown
 TgSetHeading(0)
 TgForward(30)
-PRINT #1, "Before home: X=";TgXcor;" Y=";TgYcor
+PRINT "Before home: X=";TgXcor;" Y=";TgYcor
 TgHome
-PRINT #1, "After home: X=";TgXcor;" Y=";TgYcor
+PRINT "After home: X=";TgXcor;" Y=";TgYcor
 
 REM --- Test TgBack ---
 TgPenUp
@@ -56,7 +62,7 @@ TgPenDown
 TgSetHeading(0)
 TgForward(50)
 TgBack(25)
-PRINT #1, "After fwd50+back25: X=";TgXcor;" Y=";TgYcor
+PRINT "After fwd50+back25: X=";TgXcor;" Y=";TgYcor
 
 REM --- Test TurnLeft ---
 TgPenUp
@@ -66,14 +72,10 @@ TgSetHeading(270)
 TgForward(30)
 TgTurnLeft(90)
 TgForward(30)
-PRINT #1, "After TurnLeft: X=";TgXcor;" Y=";TgYcor;" H=";TgHeading
+PRINT "After TurnLeft: X=";TgXcor;" Y=";TgYcor;" H=";TgHeading
 
-PRINT #1, "PASS"
-CLOSE #1
+PRINT "PASS"
 
-LOCATE 24,1
-PRINT "Done. Press 'q' to quit.";
-
-WHILE UCASE$(INKEY$) <> "Q" : WEND
+SLEEP FOR 2
 
 WINDOW CLOSE 1

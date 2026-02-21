@@ -3,6 +3,7 @@
 ** Tests Phase 9: Menus implementation
 *}
 
+REM #using ace:submods/mui/MUI.o
 #include <submods/MUI.h>
 
 CONST ID_NEW = 1
@@ -98,40 +99,9 @@ IF ok THEN
 
     MUIWindowOpen(win)
 
-    PRINT "Window opened with menus"
+    PRINT "Window opened with menus - visual check for 2 seconds"
 
-    running = -1
-    WHILE running
-        eventID = MUIWaitEvent(app)
-        IF eventID = MUI_ID_QUIT THEN
-            PRINT "Quit selected"
-            running = 0
-        END IF
-        IF eventID = ID_NEW THEN
-            PRINT "New selected"
-            MUISetText(txtStatus, "New selected")
-        END IF
-        IF eventID = ID_OPEN THEN
-            PRINT "Open selected"
-            MUISetText(txtStatus, "Open selected")
-        END IF
-        IF eventID = ID_SAVE THEN
-            PRINT "Save selected"
-            MUISetText(txtStatus, "Save selected")
-        END IF
-        IF eventID = ID_CUT THEN
-            PRINT "Cut selected"
-            MUISetText(txtStatus, "Cut selected")
-        END IF
-        IF eventID = ID_COPY THEN
-            PRINT "Copy selected"
-            MUISetText(txtStatus, "Copy selected")
-        END IF
-        IF eventID = ID_PASTE THEN
-            PRINT "Paste selected"
-            MUISetText(txtStatus, "Paste selected")
-        END IF
-    WEND
+    SLEEP FOR 2
 
     PRINT "Test complete"
     MUIDispose(app)

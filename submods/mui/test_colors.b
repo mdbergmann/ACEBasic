@@ -17,6 +17,7 @@
 **   +--------------------------------------------------+
 *}
 
+REM #using ace:submods/mui/MUI.o
 #include <submods/MUI.h>
 
 { ============== Libraries ============== }
@@ -132,24 +133,10 @@ PRINT "Notifications set"
 MUIWindowOpen(win)
 PRINT "Window opened"
 
-{ ============== Event Loop ============== }
+{ ============== Visual Check ============== }
 
-running = -1
-WHILE running
-    returnID = MUIWaitEvent(app)
-
-    IF returnID = MUIV_Application_ReturnID_Quit THEN
-        PRINT "Quit requested"
-        running = 0
-    END IF
-
-    IF returnID = ID_CLOSE THEN
-        PRINT "Close button pressed"
-        running = 0
-    END IF
-WEND
-
-PRINT "Event loop exited"
+PRINT "Visual check for 2 seconds"
+SLEEP FOR 2
 
 { ============== Cleanup ============== }
 

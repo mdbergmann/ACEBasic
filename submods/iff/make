@@ -1,0 +1,2 @@
+; Build iff module
+execute ACE:bin/bas -m iff

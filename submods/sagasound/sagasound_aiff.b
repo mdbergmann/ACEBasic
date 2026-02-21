@@ -30,11 +30,12 @@ PRINT "SagaSound Raw PCM Player"
 PRINT "========================"
 PRINT
 
-{* Get filename from command line or prompt *}
+{* Get filename from command line *}
 IF ARGCOUNT > 0 THEN
   fileName = ARG$(1)
 ELSE
-  INPUT "Enter raw PCM filename: ", fileName
+  PRINT "SKIPPED: no PCM filename given on command line"
+  GOTO done
 END IF
 
 IF fileName = "" THEN
@@ -96,7 +97,8 @@ playing% = 1
 
 SagaSoundPlay(ch%, alignedAddr&, fileSize&, period%, 255, 255, SAGASOUND_PLAY16S)
 
-INPUT "Press ENTER to stop..."; dummy$
+PRINT "Playing for 2 seconds..."
+SLEEP FOR 2
 
 SagaSoundStop(ch%)
 

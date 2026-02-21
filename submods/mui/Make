@@ -1,3 +1,2 @@
-.key prg
-; Rebuild MUI submod
-bas -Om MUI
+; Build MUI module
+execute ACE:bin/bas -m MUI

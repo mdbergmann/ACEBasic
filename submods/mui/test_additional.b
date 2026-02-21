@@ -1,6 +1,7 @@
 ' test_additional.b - Test Phase 13 Additional Objects
 ' Tests: Numericbutton, Knob, Levelmeter with MUINotifyAttrHook
 
+REM #using ace:submods/mui/MUI.o
 #include <submods/MUI.h>
 
 CONST ID_QUIT = 1
@@ -127,23 +128,9 @@ MUINotifyButton(btnSync, app, ID_SYNC)
 MUIWindowOpen(win)
 
 PRINT ""
-PRINT "Window opened - adjust controls to see live updates"
-PRINT "Close window to exit"
+PRINT "Window opened - visual check for 2 seconds"
 
-running = -1
-WHILE running
-    eventID = MUIWaitEvent(app)
-    IF eventID = ID_QUIT THEN running = 0
-    IF eventID = MUIV_Application_ReturnID_Quit THEN running = 0
-    IF eventID = ID_SYNC THEN
-        PRINT "Setting all to 50 (level to 0)..."
-        MUINumericbuttonSetValue(numBtn, 50)
-        MUINumericbuttonSetValue(knob, 50)
-        MUINumericbuttonSetValue(levelmeter, 0)
-        s$ = "N= 50 K= 50 L= 0"
-        MUISetText(txtStatus, s$)
-    END IF
-WEND
+SLEEP FOR 2
 
 PRINT "Test complete."
 MUIDispose(app)
