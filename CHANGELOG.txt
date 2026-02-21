@@ -6,6 +6,65 @@ v3.0.0 (2026-02-20)
 
 New Features:
 
+  - IEEE 754 Floats: Migrated from Motorola FFP to IEEE 754
+    single-precision floating-point format throughout compiler and
+    runtime. All float literals, constants, and runtime operations now
+    use IEEE single-precision.
+
+  - VBCC Toolchain: Switched ACE compiler build from GCC to VBCC
+    cross-compiler. Runtime libraries rebuilt with VBCC.
+
+  - ATOM Primitive Type (#93): New lightweight symbolic constant type for
+    pattern matching and tagging. ATOM values are compile-time integer
+    constants that can be used in CASE statements and comparisons.
+
+  - EXIT WHILE / EXIT REPEAT (#82): New statements to break out of
+    WHILE...WEND and REPEAT...UNTIL loops early, analogous to EXIT FOR.
+
+  - FREE Statement (#83): Per-block memory deallocation. FREE releases
+    memory allocated by ALLOC for a specific block, complementing the
+    existing CLEAR ALLOC which frees all allocations.
+
+  - SUB Tracing (#85): New -t compiler flag and TRON/TROFF runtime
+    commands for tracing SUB/FUNCTION entry and exit. OPTION t+/t- for
+    per-file control of tracing.
+
+  - CyberGfx Screen Support (#86): SCREEN mode 14 for CyberGraphX
+    retargetable graphics.
+
+  - IFF Picture Submodule (#84): IFF ILBM picture support extracted from
+    compiler/runtime into a standalone submodule.
+
+New Submodules:
+
+  - iff.b: IFF ILBM picture loading (extracted from built-in commands).
+
+Changes:
+
+  - Replace ami.lib with amiga.lib (#90, #87): Replaced the custom ami.lib
+    with the standard amiga.lib plus custom ace_clib.s and ieee_math.s
+    modules for better compatibility.
+
+  - Runtime Library Optimizations (#62): Lookup tables, O(1) argument
+    access, and dynamic allocation improvements in runtime libraries.
+
+  - Submod Test Runner (#91): Unified submod test runner (runner.rexx)
+    replacing per-submod test scripts.
+
+  - Eliminated ~170 Runtime Library Build Warnings (#61).
+
+Bug Fixes:
+
+  - Fix PRINT Crash for SINGLE Values: Fixed crash caused by K&R float
+    parameter promotion when printing single-precision values.
+
+------------------------------------------------------------------------------
+
+v2.9.0 (2026-02-16)
+-------------------
+
+New Features:
+
   - Struct Enhancements (#81):
     - Typed array members: any base type can now use SIZE n, not just STRING.
       Access elements with s->arr(i).
@@ -41,6 +100,9 @@ New Features:
   - DP-Float Submodule: Double-precision math via mathieeedoubbas/trans
     libraries. 32 functions: arithmetic, trig, hyperbolic, exp/log,
     string conversion. (by David Benn, reviewed and converted to submod).
+
+  - SNI Support for AmiSSL: Server Name Indication support in amissl
+    submodule, fixing HTTPS connections to virtual-hosted servers.
 
 New Submodules:
 
