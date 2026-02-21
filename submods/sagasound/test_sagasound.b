@@ -47,7 +47,8 @@ ch% = SagaSoundFindFree()
 PRINT "First free channel:"; ch%
 
 PRINT
-INPUT "Press ENTER to stop..."; dummy$
+PRINT "Playing for 2 seconds..."
+SLEEP FOR 2
 
 SagaSoundStop(0)
 

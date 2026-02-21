@@ -1,4 +1,5 @@
-=/==8{*
+REM #using ace:submods/mui/MUI.o
+{*
 ** test_features.b - Test all new MUI submod features
 **
 ** Two-column layout to show alignment and stretching behavior.
@@ -21,13 +22,7 @@
 **   |            [  OK  ]  [Cancel]                    |
 **   +--------------------------------------------------+
 *}
-
 #include <submods/MUI.h>
-
-{ ============== Libraries ============== }
-LIBRARY "intuition.library"
-LIBRARY "muimaster.library"
-LIBRARY "utility.library"
 
 { ============== Variables ============== }
 ADDRESS app, win, rootGrp
@@ -219,32 +214,9 @@ MUISetGauge(gaugeObj, 50)
 { ============== Open Window ============== }
 
 MUIWindowOpen(win)
-PRINT "Window open - try resizing!"
+PRINT "Window open - visual check for 2 seconds"
 
-{ ============== Event Loop ============== }
-
-running = -1&
-
-WHILE running
-    returnID = MUIWaitEvent(app)
-
-    IF returnID = -1& THEN
-        PRINT "Window closed"
-        running = 0&
-    END IF
-    IF returnID = 1 THEN
-        { OK pressed - show values }
-        PRINT "OK pressed!"
-        PRINT "  Radio selection:"; MUIGetRadioActive(radioObj)
-        PRINT "  Slider value:"; MUIGetValue(sliderObj)
-        PRINT "  Age:"; MUIGetInteger(strAge)
-    END IF
-    IF returnID = 2 THEN
-        { Cancel pressed }
-        PRINT "Cancel pressed"
-        running = 0&
-    END IF
-WEND
+SLEEP FOR 2
 
 { ============== Cleanup ============== }
 
@@ -256,10 +228,6 @@ IF app <> 0& THEN
 END IF
 
 MUICleanup
-
-LIBRARY CLOSE "utility.library"
-LIBRARY CLOSE "muimaster.library"
-LIBRARY CLOSE "intuition.library"
 
 PRINT "Done!"
 END

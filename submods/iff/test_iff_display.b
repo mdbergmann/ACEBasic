@@ -26,7 +26,7 @@ PRINT "PASS: IffOpen OK"
 PRINT "  "; IffWidth(1); "x"; IffHeight(1); "x"; IffDepth(1)
 
 REM --- Display the picture (let ilbm.library create its own screen) ---
-PRINT "Displaying picture... press any key to close."
+PRINT "Displaying picture for 2 seconds..."
 rc = IffDisplay(1, 0&)
 IF rc <> IFF_OK THEN
   PRINT "FAIL: IffDisplay returned"; rc
@@ -36,8 +36,8 @@ IF rc <> IFF_OK THEN
 END IF
 PRINT "PASS: IffDisplay OK"
 
-REM --- Wait for keypress ---
-WHILE INKEY$ = "" : SLEEP : WEND
+REM --- Wait for visual check ---
+SLEEP FOR 2
 
 REM --- Close channel (closes the screen/window) ---
 IffClose(1)

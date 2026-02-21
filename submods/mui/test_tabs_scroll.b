@@ -1,5 +1,6 @@
 ' test_tabs_scroll.b - Test Phase 12: Tabs, Scrolling, Balance
 
+REM #using ace:submods/mui/MUI.o
 #include <submods/MUI.h>
 
 CONST ID_QUIT = 1
@@ -77,14 +78,9 @@ PRINT "Setting up notifications..."
 MUINotifyClose(win, app, ID_QUIT)
 MUIWindowOpen(win)
 
-PRINT "Window open - close to exit"
+PRINT "Window open - visual check for 2 seconds"
 
-running = -1
-WHILE running
-    eventID = MUIWaitEvent(app)
-    IF eventID = ID_QUIT THEN running = 0
-    IF eventID = MUIV_Application_ReturnID_Quit THEN running = 0
-WEND
+SLEEP FOR 2
 
 PRINT "Cleanup..."
 MUIDispose(app)

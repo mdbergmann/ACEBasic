@@ -203,10 +203,7 @@ END IF
 REM --- Summary ---
 PRINT ""
 PRINT "Results:"; passed; "passed,"; failed; "failed"
-IF failed = 0 THEN
-  PRINT "ALL TESTS PASSED"
-ELSE
-  PRINT "SOME TESTS FAILED"
-END IF
 
 DpClose
+
+ASSERT failed = 0, "Some DP string tests failed"

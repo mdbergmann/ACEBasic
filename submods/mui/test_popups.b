@@ -9,6 +9,7 @@
 ** - MUIPopstringValue - Get popup string value
 *}
 
+REM #using ace:submods/mui/MUI.o
 #include <submods/MUI.h>
 
 CONST ID_SHOWFILE = 1
@@ -106,51 +107,9 @@ MUIWindowOpen(win)
 
 IF MUIWindowIsOpen(win) = 0 THEN PRINT "Error: Could not open window" : MUIDispose(app) : MUICleanup : END
 
-PRINT "Window opened"
-PRINT
-PRINT "Click the popup buttons to select values,"
-PRINT "then click the Show buttons to display them."
-PRINT
+PRINT "Window opened - visual check for 2 seconds"
 
-running = -1
-WHILE running
-    eventID = MUIWaitEvent(app)
-
-    IF eventID = MUIV_Application_ReturnID_Quit THEN PRINT "Quit requested" : running = 0
-
-    IF eventID = ID_SHOWFILE THEN
-        strPtr = MUIPopstringValue(popFile)
-        IF strPtr <> 0& THEN
-            PRINT "File: "; CSTR(strPtr)
-            MUISetText(txtResult, "File: " + CSTR(strPtr))
-        ELSE
-            PRINT "File: (empty)"
-            MUISetText(txtResult, "File: (empty)")
-        END IF
-    END IF
-
-    IF eventID = ID_SHOWFONT THEN
-        strPtr = MUIPopstringValue(popFont)
-        IF strPtr <> 0& THEN
-            PRINT "Font: "; CSTR(strPtr)
-            MUISetText(txtResult, "Font: " + CSTR(strPtr))
-        ELSE
-            PRINT "Font: (empty)"
-            MUISetText(txtResult, "Font: (empty)")
-        END IF
-    END IF
-
-    IF eventID = ID_SHOWLIST THEN
-        strPtr = MUIPopstringValue(popList)
-        IF strPtr <> 0& THEN
-            PRINT "Color: "; CSTR(strPtr)
-            MUISetText(txtResult, "Color: " + CSTR(strPtr))
-        ELSE
-            PRINT "Color: (empty)"
-            MUISetText(txtResult, "Color: (empty)")
-        END IF
-    END IF
-WEND
+SLEEP FOR 2
 
 PRINT "Closing..."
 

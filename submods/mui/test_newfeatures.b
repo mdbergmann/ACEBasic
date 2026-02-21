@@ -2,6 +2,7 @@
 ** test_newfeatures.b - Test newly implemented MUI submod features
 *}
 
+REM #using ace:submods/mui/MUI.o
 #include <submods/MUI.h>
 
 { Event IDs }
@@ -104,35 +105,8 @@ IF isOpen THEN
     MUISetText(txtStatus, "Status: Window opened")
 END IF
 
-{ Event loop }
-titleNum = 0
-running = -1
-WHILE running
-    eventID = MUIWaitEvent(app)
-
-    IF eventID = MUIV_Application_ReturnID_Quit THEN
-        running = 0
-    END IF
-    IF eventID = ID_QUIT THEN
-        running = 0
-    END IF
-    IF eventID = ID_SLEEP THEN
-        MUISetText(txtStatus, "Sleeping 2 sec...")
-        MUIAppSleep(app)
-        { Sleep is active - UI disabled, wait 2 seconds }
-        SLEEP FOR 2
-        MUIAppWake(app)
-        MUISetText(txtStatus, "Woke up!")
-    END IF
-    IF eventID = ID_WAKE THEN
-        MUISetText(txtStatus, "Already awake")
-    END IF
-    IF eventID = ID_TITLE THEN
-        titleNum = titleNum + 1
-        MUIWindowTitle(win, "Title #" + STR$(titleNum))
-        MUISetText(txtStatus, "Title changed")
-    END IF
-WEND
+PRINT "Window open - visual check for 2 seconds"
+SLEEP FOR 2
 
 { Cleanup }
 MUIWindowClose(win)

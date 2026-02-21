@@ -813,11 +813,8 @@ PRINT "========================================"
 PRINT "Passed:"; _testsPassed
 PRINT "Failed:"; _testsFailed
 PRINT
-IF _testsFailed = 0 THEN
-  PRINT "All tests passed!"
-ELSE
-  PRINT "Some tests FAILED!"
-END IF
+
+ASSERT _testsFailed = 0, "Some list tests failed"
 
 STOP
 

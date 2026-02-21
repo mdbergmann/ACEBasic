@@ -1,0 +1,2 @@
+; Build dp-float module
+execute ACE:bin/bas -m dp-float

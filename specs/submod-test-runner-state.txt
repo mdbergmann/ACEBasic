@@ -1,0 +1,123 @@
+Submod Test Runner - State
+==========================
+
+Branch: submod-test-runner
+
+## Test Run Results (2026-02-20)
+
+TOTAL: 28 Passed, 0 Failed, 0 Skipped (28 tests discovered, 1 missing)
+
+### turtle (1 test)
+- [PASS] test_turtle
+  - All tests pass (confirmed 2026-02-21)
+  - Root cause of crash: _MathTransBase never initialized
+    - Turtle module uses COS/SIN which reference _MathTransBase
+    - Compiler only calls _openmathtrans if the MAIN PROGRAM uses trig
+    - When only the module uses trig, _MathTransBase stays NULL → crash
+    - Fix: added `SINGLE _forceMathtrans = SIN(0.1)` to main program
+  - This is a compiler limitation: modules that use trig need the main
+    program to also reference trig to force _openmathtrans in startup
+  - Filed as known compiler issue for future fix
+
+### tcpclient (1 test)
+- [PASS] test_tcpclient
+  - All 4 tests pass (confirmed 2026-02-21)
+  - Previous T4 failure was transient network issue, not a code bug
+
+### sagasound (2 tests, 1 missing)
+- [PASS] test_sagasound
+- [MISSING] test_sagasound_aiff - not discovered by runner
+  - Should show as SKIP (no PCM filename on CLI)
+  - Needs investigation: AmigaDOS list may not find it, or output swallowed by build log
+
+### mui (9 tests)
+- [PASS] test_tabs_scroll
+- [PASS] test_popups
+- [PASS] test_newfeatures
+- [PASS] test_menu
+- [PASS] test_list
+- [PASS] test_features
+- [PASS] test_dirlist
+- [PASS] test_colors
+- [PASS] test_additional
+  - All 9 pass (confirmed 2026-02-21)
+  - Previous failures (test_list, test_features, test_dirlist) had two causes:
+    1. Redundant LIBRARY/LIBRARY CLOSE removed (earlier fix)
+    2. REM #using on line 22-25, past parseUsing.rexx 20-line scan limit — moved to line 1
+
+### iff (2 tests)
+- [PASS] test_iff_info
+- [PASS] test_iff_display
+
+### httpclient (9 tests)
+- [PASS] test_tcp
+- [PASS] test_stream
+- [PASS] test_post
+- [PASS] test_lowlevel_full
+- [PASS] test_lowlevel
+- [PASS] test_local
+- [PASS] test_https
+- [PASS] test_http_get
+- [PASS] test_chunked
+
+### dp-float (3 tests)
+- [PASS] test_dp_float
+- [PASS] test_dp_float_math
+- [PASS] test_dp_float_str
+
+### amissl (1 test)
+- [PASS] test_amissl
+
+### list (1 test)
+- [PASS] test_list
+
+## What Was Done
+
+### Runner: submods/runner.rexx
+- New ARexx test runner (~310 lines), modeled on verify/tests/runner.rexx
+- Usage: `rx runner.rexx [submod|all]` from submods/ directory
+- Three-state detection: PASS, FAIL (ASSERT FAILED or build error), SKIP (SKIPPED: in output)
+- Source-level skip: scans first 10 lines for `REM $skip: reason`
+- Auto-discovers submod directories with test_*.b files
+- Calls `execute make` in each submod dir before running tests (if make file exists)
+- EXIT 0 if no failures, EXIT 10 if any failures
+
+### Make files (9 created)
+- Each submod with tests gets a `make` AmigaDOS script
+- Convention: `execute ACE:bin/bas -m <modulename>`
+- Created for: amissl, dp-float, httpclient, iff, list, mui, sagasound, tcpclient, turtle
+
+### Test file conformance changes
+
+Custom-assertion tests (added final ASSERT):
+- dp-float/test_dp_float.b - ASSERT failed = 0
+- dp-float/test_dp_float_math.b - ASSERT failed = 0
+- dp-float/test_dp_float_str.b - ASSERT failed = 0
+- list/test_list.b - ASSERT _testsFailed = 0
+- iff/test_iff_info.b - converted inline IF/ELSE to ASSERT statements
+
+GUI/window tests (auto-close with SLEEP FOR 2):
+- turtle/test_turtle.b - removed file I/O to ACE:test-output.txt, PRINT #1 → PRINT, INKEY$ → SLEEP FOR 2, added REM $skip:
+- iff/test_iff_display.b - INKEY$ → SLEEP FOR 2
+- All 10 MUI tests - replaced MUI event loops (WHILE...MUIWaitEvent...WEND) with SLEEP FOR 2
+
+Interactive INPUT tests:
+- sagasound/test_sagasound.b - INPUT → SLEEP FOR 2
+- sagasound/test_sagasound_aiff.b - INPUT for filename → SKIPPED: + GOTO done; INPUT for stop → SLEEP FOR 2
+
+MUI test linking:
+- All 10 MUI tests - added REM #using ace:submods/mui/MUI.o
+
+## Known Issues
+
+1. Build output leaks into runner output - >NIL: and >T:file redirects don't suppress output
+   via ARexx ADDRESS COMMAND; cosmetic issue, doesn't affect PASS/FAIL/SKIP detection
+2. test_sagasound_aiff not discovered in latest run - needs investigation
+3. test_turtle FIXED: crash was due to uninitialized _MathTransBase, not WINDOW+redirection.
+   Added SIN(0.1) to force _openmathtrans. Now passes through runner.
+   Underlying compiler bug: modules using trig need main program to also reference trig.
+4. tcpclient T4 was transient network failure, not a code bug (passes on re-test)
+5. 3 MUI tests FIXED (2026-02-21): test_list, test_features, test_dirlist now all PASS
+   - Cause 1: redundant LIBRARY/LIBRARY CLOSE removed
+   - Cause 2: REM #using past 20-line parseUsing.rexx scan limit — moved to line 1
+   - Also fixed garbage bytes at start of test_features.b
