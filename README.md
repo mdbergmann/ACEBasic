@@ -1,4 +1,4 @@
-# ACE - Amiga BASIC Compiler
+# ACE - Amiga BASIC Compiler - Enhanced
 
 ACE is a complete BASIC compiler for the Amiga computer platform. It compiles BASIC source code into native Amiga executables by generating Motorola 68000/68020 assembly code, bridging BASIC's ease of use with compiled performance.
 
