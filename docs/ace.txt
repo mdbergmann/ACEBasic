@@ -615,7 +615,8 @@ The following fundamental data types are currently supported:
 	- signed short integers (2 bytes = 16 bits)
 	- signed long integers  (4 bytes = 32 bits)
 	- single-precision: IEEE 754 single-precision (4 bytes = 32 bits)
-	- strings (default length of 1024 bytes including ASCII 0 at end of string) 
+	- strings (default length of 1024 bytes including ASCII 0 at end of string)
+	- atoms: lightweight symbolic constants (4 bytes = 32 bits)
  
 Exponential and fixed-point formats are recognised by ACE for single-precision 
 numbers.
@@ -702,8 +703,69 @@ strings manipulated by C's standard library functions.
  
 A string literal without a final '"' will be truncated at the end of the 
 line.
- 
- 
+
+
+Atoms
+-----
+Atoms are lightweight symbolic constants identified by a colon-prefixed
+name (e.g. :ready, :error, :done). They provide type-safe symbolic values
+without requiring pre-declared enums, making them useful for state machines,
+option flags, message types, and similar patterns.
+
+At runtime an atom is a LONG (4 bytes) containing a compile-time FNV-1a
+hash of the uppercased name. The hash is deterministic, so the same atom
+name always produces the same value, even across separately compiled
+modules. Atom names are case-insensitive: :foo, :FOO, and :Foo are all
+identical.
+
+Declaration:
+
+	ATOM state                    ' declares atom variable, initialized to 0
+	ATOM state = :ready           ' declares and assigns
+	ATOM a, b, c                  ' multiple declarations
+	DIM ATOM states(10)           ' atom array
+
+Atom literal syntax:
+
+	:identifier                   ' colon followed by BASIC identifier
+	                              ' letters, digits, underscore only
+
+Assignment and comparison:
+
+	state = :done                 ' assignment
+	IF state = :ready THEN ...    ' equality test
+	IF state <> :done THEN ...    ' inequality test
+
+Only = and <> comparisons are allowed for atoms. Ordering comparisons
+(<, >, <=, >=) and arithmetic operations are not permitted. Atoms cannot
+be mixed with other types: assigning a numeric or string value to an atom
+variable (or vice versa) is a type error.
+
+Atoms in SUB parameters:
+
+	SUB Process(ATOM action)
+	  IF action = :run THEN ...
+	END SUB
+	CALL Process(:run)
+
+Atoms in CASE statements (via boolean expressions):
+
+	ATOM action = :run
+	CASE
+	  action = :stop: PRINT "stopping"
+	  action = :run:  PRINT "running"
+	END CASE
+
+Atoms as structure members:
+
+	STRUCT MyStruct
+	  ATOM status
+	END STRUCT
+
+PRINT of an atom variable prints its hash value as a long integer.
+Uninitialized atom variables have value 0.
+
+
 Precedence of operators
 -----------------------
 ACE follows AmigaBASIC in operator precedence, with the addition of structure 
@@ -1745,7 +1807,7 @@ Structures have been included in ACE mainly because of their utility in
 gaining access to operating system functions. 
  
 Structure members may be of the following type: BYTE (in structures only),
-SHORTINT, LONGINT, ADDRESS, SINGLE, STRING. Any of these types can have an
+SHORTINT, LONGINT, ADDRESS, SINGLE, STRING, ATOM. Any of these types can have an
 optional SIZE specifier to declare a fixed-size array of that type within the
 struct: <type> <ident> SIZE <count>. SIZE means element count for all types.
 

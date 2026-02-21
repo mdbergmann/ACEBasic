@@ -9,6 +9,7 @@ ARGCOUNT count = ARGCOUNT : ARGCOUNT returns the number of command line argument
 ASC( ascii_code = ASC(X$) : ASC() returns the ASCII code of the first character in X$.
 ASSEM ASSEM .. END ASSEM : ASSEM allows inline inclusion of assembly source code into the generated A68K file.
 ASSERT ASSERT <condition> [, <message>] : ASSERT tests the condition and halts program execution if false, printing "ASSERT FAILED" with an optional message. Exits cleanly.
+ATOM ATOM <identifier> [= <atom-literal>][,..] : ATOM declares a variable of atom type. Atoms are symbolic constants identified by a :name prefix (e.g., :ready, :error). They are stored as compile-time FNV-1a hash LONGs. Only = and <> comparisons are allowed. Atoms can be used in SUB parameters, CASE statements, and DIM arrays.
 ATN( arctan = ATN(n) : ATN() returns the arctangent of n.
 BEEP BEEP : BEEP issues a brief pulse from the speaker to alert the user.
 BEVELBOX BEVELBOX (x1,y1)-(x2,y2),style : BEVELBOX renders a Wb 2.x/3.0 style 3D bevel-box. Style: 1=RAISED, 2=RECESSED, 3=STRING-GADGET STYLE.
@@ -44,7 +45,7 @@ DEFLNG DEFLNG <letter>[-<letter>][,..] : DEFLNG declares all variables starting 
 DEFSNG DEFSNG <letter>[-<letter>][,..] : DEFSNG declares all variables starting with specified letters as single-precision unless overridden.
 DEFDBL DEFDBL <letter>[-<letter>][,..] : DEFDBL currently defaults to single-precision since double-precision is not yet supported.
 DEFSTR DEFSTR <letter>[-<letter>][,..] : DEFSTR declares all variables starting with specified letters as strings unless overridden.
-DIM DIM [<type>]<name>(<i>[,..])[SIZE <n>][ADDRESS <addr>][,..] : DIM creates arrays. Type can be ADDRESS, LONGINT, SHORTINT, SINGLE, STRING. SIZE sets string element length. ADDRESS specifies memory location.
+DIM DIM [<type>]<name>(<i>[,..])[SIZE <n>][ADDRESS <addr>][,..] : DIM creates arrays. Type can be ADDRESS, LONGINT, SHORTINT, SINGLE, STRING, ATOM. SIZE sets string element length. ADDRESS specifies memory location.
 END END : END terminates program execution, closes libraries and performs cleanup.
 ENDSWITH( result = ENDSWITH(X$, suffix$) : ENDSWITH() returns -1 (TRUE) if X$ ends with suffix$, 0 (FALSE) otherwise. Empty suffix always matches.
 EOF( result = EOF(n) : EOF() returns -1 if end-of-file reached for file number n, 0 otherwise. Returns -1 if file doesn't exist or isn't open.
@@ -169,7 +170,7 @@ STRIG( info = STRIG(n) : STRIG() returns joystick button state. STRIG(3) returns
 STRING STRING <ident> [[ADDRESS <addr>]|[SIZE <size>]][,..] : STRING declares string variables with optional size or address. Default size is MAXSTRINGLEN (1024).
 STRING$( result$ = STRING$(I,J|X$) : STRING$() returns a string of length I consisting of characters with ASCII code J or first character of X$.
 STARTSWITH( result = STARTSWITH(X$, prefix$) : STARTSWITH() returns -1 (TRUE) if X$ begins with prefix$, 0 (FALSE) otherwise. Empty prefix always matches.
-STRUCT STRUCT <ident> .. END STRUCT : STRUCT defines a new structure data type with members of type BYTE, SHORTINT, LONGINT, ADDRESS, SINGLE, STRING or other structures. Any type can have SIZE for arrays (e.g. LONGINT vals SIZE 10). Typed struct pointers (Inner *ptr) enable -> chaining. Self-referential pointers (Node *nxt) allow linked lists. Struct arrays (Inner items SIZE n) with indexed access s->items(i)->field. Typed array indexing: s->vals(i).
+STRUCT STRUCT <ident> .. END STRUCT : STRUCT defines a new structure data type with members of type BYTE, SHORTINT, LONGINT, ADDRESS, SINGLE, STRING, ATOM or other structures. Any type can have SIZE for arrays (e.g. LONGINT vals SIZE 10). Typed struct pointers (Inner *ptr) enable -> chaining. Self-referential pointers (Node *nxt) allow linked lists. Struct arrays (Inner items SIZE n) with indexed access s->items(i)->field. Typed array indexing: s->vals(i).
 STYLE STYLE n : STYLE changes text style. n: 0=plain, 1=underlined, 2=bold, 4=italic, 8=extended width. Values can be added for cumulative effects.
 SUB SUB [<type>] <ident>[(params)] [EXTERNAL] .. END SUB : SUB defines a subprogram. SUBs are non-static, allow recursion, may have return values and optional parameter lists.
 SWAP SWAP <object>,<object> : SWAP exchanges the values of two variables, array elements, structures or structure members.

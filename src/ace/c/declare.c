@@ -99,7 +99,7 @@ else
   {
    if ((sym != bytesym) && (sym != shortintsym) && (sym != addresssym) &&
        (sym != longintsym) && (sym != singlesym) && (sym != stringsym) &&
-       (sym != ident))
+       (sym != atomsym) && (sym != ident))
       { _error(63); insymbol(); }
    else
    {
@@ -113,7 +113,8 @@ else
      case longintsym  : mem_type=longtype; break;
      case addresssym  : mem_type=longtype; break;
      case singlesym   : mem_type=singletype; break;
-     case stringsym   : mem_type=stringtype; break;    
+     case stringsym   : mem_type=stringtype; break;
+     case atomsym     : mem_type=atomtype; break;
      case ident       :	mem_type=structure;
 			if (!exist(id,structdef))
 			{
@@ -156,7 +157,7 @@ else
     /* specify optional array/string size? */
     if (sym == sizesym && (mem_type == stringtype || mem_type == bytetype ||
         mem_type == shorttype || mem_type == longtype ||
-        mem_type == singletype || mem_type == structure))
+        mem_type == singletype || mem_type == atomtype || mem_type == structure))
     {
      insymbol();
      if (sym == shortconst) string_size=(LONG)shortval;
@@ -308,7 +309,8 @@ char   strsize[20],bss_spec[40];
          case bytetype   :
          case shorttype  :
          case longtype   :
-         case singletype : if (curr_member->strsize > 0)
+         case singletype :
+         case atomtype   : if (curr_member->strsize > 0)
 			   {
 			    ltoa(curr_member->strsize,strsize,10);
 			    strcpy(bss_spec,"ds.b ");
@@ -497,6 +499,14 @@ SYM  *str_item;
      case longtype   :  /* fall through */
      case singletype :  gen_move_typed(vartype, "#0", addrbuf); break;
 
+     case atomtype   :  gen_move_typed(longtype, "#0", addrbuf);
+			if (sym == equal) {
+			    insymbol();
+			    if (expr() != atomtype) _error(4);
+			    else gen("move.l", "(sp)+", addrbuf);
+			}
+			break;
+
      case stringtype :  str_item = curr_item;
 			if (sym == addresssym)
 			{
@@ -585,7 +595,7 @@ int  vartype=undefined;
 
  /* type identifiers */
  if (sym == shortintsym || sym == longintsym || sym == addresssym ||
-     sym == singlesym || sym == stringsym)
+     sym == singlesym || sym == stringsym || sym == atomsym)
  {
    vartype = sym_to_type(sym);
    insymbol();
@@ -596,7 +606,7 @@ int  vartype=undefined;
  	_error(7);
  {
  	/*
-	** Add an underscore prefix 
+	** Add an underscore prefix
    	** if one is not present.
 	*/
 	strcpy(buf,ut_id);
@@ -606,7 +616,7 @@ int  vartype=undefined;
    		strcpy(extvarid,"_\0");
    		strcat(extvarid,buf);
   	}
-  	else 
+  	else
       		strcpy(extvarid,buf);
 
   	/* enter variable into symbol table */
@@ -642,7 +652,7 @@ int  functype=undefined;
 
  /* type identifiers */
  if (sym == shortintsym || sym == longintsym || sym == addresssym ||
-     sym == singlesym || sym == stringsym)
+     sym == singlesym || sym == stringsym || sym == atomsym)
  {
    functype = sym_to_type(sym);
    insymbol();
@@ -748,7 +758,7 @@ char bss_size[20];
 
  /* optional type identifiers */
  if (sym == shortintsym || sym == longintsym || sym == addresssym ||
-     sym == singlesym || sym == stringsym)
+     sym == singlesym || sym == stringsym || sym == atomsym)
  {
    vartype = sym_to_type(sym);
 

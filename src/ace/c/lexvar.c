@@ -95,7 +95,7 @@ char *rword[] =
     "WIDTH","WINDOW","WRITE","XOR",
 
     /* ACE-specific reserved words */
-    "ADDRESS","ALLOC","ARG$","ARGCOUNT","ASSEM","ASSERT","BACK","BEVELBOX","BIN$",
+    "ADDRESS","ALLOC","ARG$","ARGCOUNT","ASSEM","ASSERT","ATOM","BACK","BEVELBOX","BIN$",
     "BIND","BLOCK","BUTTON","BUTTON_KIND","BYTE","CALLBACK",
     "CASE","CHECKBOX_KIND","CHIPSET","CONST","CSTR","CYCLE_KIND",
     "DAY","ENDSWITH","EXTERNAL","FILEBOX$",
@@ -158,7 +158,8 @@ char   stringval[MAXSTRLEN];     /* string literal */
 SHORT  shortval;                 /* short literal */
 LONG   longval;                  /* long literal */
 float singleval;                /* single precision literal */
-double doubleval;                /* double precision literal */ 
+double doubleval;                /* double precision literal */
+LONG   atomval;                  /* atom hash literal */
 SHORT  dimsize[255];		 /* array indices holder */
 
 int    idtype[31]; 		 /* 

@@ -1,0 +1,224 @@
+ATOM Type Specification for ACE BASIC
+======================================
+
+1. Overview
+-----------
+ATOM is a new primitive type for ACE BASIC: lightweight symbolic constants
+identified by a colon-prefixed name (e.g. :foo, :error, :ready).
+
+Atoms provide type-safe symbolic values without pre-declaring enums.
+Useful for state machines, option flags, message types, etc.
+
+At runtime an atom is a LONG (4 bytes) containing a compile-time hash
+of the uppercased name.  The hash is deterministic (FNV-1a), so the
+same atom name always produces the same value, even across separately
+compiled modules.
+
+
+2. Syntax
+---------
+
+  Declaration:
+    ATOM state                    ' declares atom, initialized to 0
+    ATOM state = :ready           ' declares and assigns
+    ATOM a, b, c                  ' multiple declarations
+
+  Atom literal:
+    :identifier                   ' colon followed by BASIC identifier
+                                  ' letters, digits, underscore only
+                                  ' case-insensitive (:foo = :FOO = :Foo)
+
+  Assignment:
+    state = :done
+
+  Comparison (= and <> only, NO ordering):
+    IF state = :ready THEN ...
+    IF state <> :done THEN ...
+
+  SUB parameter:
+    SUB Process(ATOM action)
+      IF action = :run THEN ...
+    END SUB
+    CALL Process(:run)
+
+  CASE matching (via full boolean expressions):
+    ATOM action = :run
+    CASE
+      action = :stop: PRINT "stopping"
+      action = :run:  PRINT "running"
+    END CASE
+
+  Arrays:
+    DIM ATOM states(10)
+
+  Structure member:
+    DECLARE STRUCT MyStruct
+      ATOM status
+    END STRUCT
+
+
+3. Semantics
+------------
+
+  - Atoms are LONG-sized (4 bytes) at runtime
+  - Atom names are uppercased before hashing (standard ACE behavior)
+  - Same name always produces the same hash value (cross-module safe)
+  - Atoms cannot be mixed with other types:
+      * No arithmetic (+, -, *, /, \, ^, MOD, SHL, SHR)
+      * No ordering comparison (<, >, <=, >=)
+      * No coercion to/from numeric or string types
+      * Assigning a non-atom to an atom variable is a type error
+  - PRINT of an atom prints its hash value as a long integer
+  - Uninitialized atom variables have value 0
+
+
+4. Hash Function
+----------------
+
+  FNV-1a 32-bit hash on the uppercased atom name:
+
+    offset_basis = 2166136261
+    fnv_prime    = 16777619
+
+    h = offset_basis
+    for each character c in uppercased name:
+        h = h XOR c
+        h = h * fnv_prime
+    return h as LONG
+
+  Collision probability is negligible for typical program sizes.
+
+
+5. Not Included (Future Enhancements)
+--------------------------------------
+
+  - CONST myAtom = :foo         (atom constants)
+  - ATOM$() function            (atom -> string name, needs runtime table)
+  - Ordering comparisons        (<, >, <=, >=)
+  - No type suffix character    (use ATOM keyword for declarations)
+
+
+6. Implementation State
+-----------------------
+
+  Status: NOT STARTED
+  Branch: (to be created)
+
+
+7. Implementation Steps
+-----------------------
+
+  Step 1: Core type & lexer definitions (acedef.h, lexvar.c)
+    - Add atomsym to reserved word enum (between assertsym and backsym)
+    - Add atomconst to symbols enum (between stringconst and ident)
+    - Add atomtype to types enum (between structptrtype and notype)
+    - Add "ATOM" to rword[] in lexvar.c (between "ASSERT" and "BACK")
+    - Add LONG atomval global in lexvar.c
+
+  Step 2: Hash function (misc.c, acedef.h)
+    - Add atom_hash() function in misc.c (K&R style)
+    - Add prototype in acedef.h
+
+  Step 3: Lexer - atom literal recognition (lex.c)
+    - In scan_symbol(), after := check: if sym==colon and ch is a letter,
+      read identifier, uppercase, compute hash, set sym=atomconst
+    - Add extern LONG atomval
+
+  Step 4: Type mapping (misc.c)
+    - Add case atomsym in sym_to_type() -> returns atomtype
+
+  Step 5: Factor - atom literal in expressions (factor.c)
+    - Add case atomconst in factor() switch: push hash as LONG immediate
+
+  Step 6: Coercion & comparison (expr.c)
+    - coerce(): reject atom<->non-atom mixing (like string<->numeric)
+    - relexpr(): add case atomtype (cmp.l, same as longtype)
+    - relexpr(): restrict to = and <> operators for atomtype
+    - make_integer(): pass through atomtype unchanged
+
+  Step 7: Assignment (assign.c)
+    - assign_coerce(): reject atom<->non-atom mixing
+    - dim(): add atomsym to type keyword recognition
+
+  Step 8: Variable declaration (declare.c, statement.c)
+    - declare_variable(): add case atomtype with optional = init
+    - statement(): add atomsym -> declare_variable(atomtype) dispatch
+    - define_structure(): add atomsym as allowed member type (4 bytes)
+
+  Step 9: SUB parameter handling (sub.c, invoke.c)
+    - forward_ref() + param parsing: add atomsym to type recognition
+    - load_params(): add case atomtype (reject non-atom actual params)
+    - invoke.c: add case atomtype in parameter coercion
+
+  Step 10: PRINT support (print.c)
+    - Add case atomtype: print as long integer
+
+  Step 11: CASE statement (control.c)
+    - case_statement(): accept atomtype alongside longtype
+
+  Step 12: IDE & documentation
+    - CubicIDE autocase, syntax dictionaries
+    - docs/quickref.txt, quickinfo/ace.words
+
+
+8. Test Program (verify/tests/cases/syntax/atom.b)
+---------------------------------------------------
+
+  REM *** Atom type test ***
+
+  REM --- Declaration with initialization ---
+  ATOM state = :ready
+  ASSERT state = :ready, "atom declare and init"
+
+  REM --- Inequality ---
+  ASSERT state <> :done, "atom inequality"
+
+  REM --- Reassignment ---
+  state = :done
+  ASSERT state = :done, "atom reassignment"
+
+  REM --- Same atom literal produces same value ---
+  ATOM other = :done
+  ASSERT state = other, "same atom name equals same value"
+
+  REM --- Different atoms are not equal ---
+  other = :waiting
+  ASSERT state <> other, "different atoms not equal"
+
+  REM --- Declaration without initialization ---
+  ATOM unset
+  ASSERT unset <> :ready, "uninitialized atom is zero"
+
+  REM --- Atom in SUB parameter ---
+  CALL TestAtom(:hello)
+
+  REM --- Atom in CASE ---
+  ATOM action = :run
+  CASE
+    action = :stop: ASSERT 0, "should not match stop"
+    action = :run: ASSERT 1, "case matched run"
+  END CASE
+
+  SUB TestAtom(ATOM a)
+    ASSERT a = :hello, "atom SUB parameter"
+  END SUB
+
+
+9. Files Modified
+-----------------
+
+  src/ace/c/acedef.h   - atomsym, atomconst, atomtype enums; atom_hash proto
+  src/ace/c/lexvar.c   - "ATOM" in rword[]; LONG atomval global
+  src/ace/c/lex.c      - atom literal :name recognition in scan_symbol()
+  src/ace/c/misc.c     - atom_hash() function; atomsym case in sym_to_type()
+  src/ace/c/factor.c   - atomconst case in factor()
+  src/ace/c/expr.c     - coercion rejection; atomtype comparison; make_integer
+  src/ace/c/assign.c   - assign_coerce rejection; dim() atomsym recognition
+  src/ace/c/declare.c  - declare_variable atomtype init; struct member support
+  src/ace/c/statement.c - atomsym dispatch to declare_variable
+  src/ace/c/sub.c      - forward_ref + load_params atomsym recognition
+  src/ace/c/invoke.c   - atomtype parameter handling
+  src/ace/c/print.c    - atomtype print as long
+  src/ace/c/control.c  - case_statement atomtype acceptance
+  IDE/CubicIDE files   - autocase, syntax dictionaries
+  docs/quickref.txt    - ATOM type documentation

@@ -902,6 +902,9 @@ char  idholder[50];
  if (sym == assertsym)
   handle_assert();
  else
+ /* atom variable declaration */
+ if (sym == atomsym) declare_variable(atomtype);
+ else
  /* bevelbox */
  if (sym == bevelboxsym) bevel_box();
  else

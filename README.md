@@ -40,7 +40,7 @@ SCREEN CLOSE 1
 ## Features
 
 ### Core Language
-- **Full type system** - Integers, IEEE single-precision floats, strings, arrays, pointers, and structures
+- **Full type system** - Integers, IEEE single-precision floats, strings, atoms, arrays, pointers, and structures
 - **Closures and function pointers** - First-class function references with `@`, `BIND` for partial application, `INVOKE` for indirect calls, and `INVOKABLE` keyword for callback SUBs
 - **CALLBACK SUBs** - SUBs that can be invoked via AmigaOS CallHookPtr() for system callbacks
 - **68020 native code generation** - Native 68020 instructions by default (use `OPTION 2-` for 68000 compatibility)

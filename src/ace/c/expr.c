@@ -64,6 +64,10 @@ CODE *cx[];
  else
  if ((*typ2 == stringtype) && (*typ1 != stringtype)) return(FALSE);
  else
+ if ((*typ1 == atomtype) && (*typ2 != atomtype)) return(FALSE);
+ else
+ if ((*typ2 == atomtype) && (*typ1 != atomtype)) return(FALSE);
+ else
  if (((*typ1 == shorttype) || (*typ1 == longtype)) && (*typ2 == singletype))
  {
   change_Flt(*typ1,cx);
@@ -690,6 +694,13 @@ CODE *cx[5];
 			}
 			gen("move.l","d0","-(sp)"); /* push boolean result */
 			break;
+
+    case atomtype   :	if (op != equal && op != notequal) _error(4);
+			gen_pop(longtype, "d1");
+			gen_pop(longtype, "d0");
+			gen("moveq","#-1","d5");
+			gen("cmp.l","d1","d0");
+			break;
     }
 
     /* leave result on stack according to operator (-1 = true, 0 = false) */
@@ -1001,10 +1012,12 @@ int oldtyp;
 {
  if (oldtyp == stringtype) return(notype); /* can't do it! */
  else
- if (oldtyp == singletype) 
- { 
+ if (oldtyp == atomtype) return(oldtyp); /* pass through */
+ else
+ if (oldtyp == singletype)
+ {
   gen_round(oldtyp);
-  return(longtype); 
+  return(longtype);
  }
  else
  return(oldtyp);  /* already an integer */

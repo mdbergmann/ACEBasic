@@ -287,6 +287,7 @@ enum { 	abssym = 0,
 	argcountsym,
 	assemsym,
 	assertsym,
+	atomsym,
 	backsym,
 	bevelboxsym,
 	binstrsym,
@@ -399,6 +400,7 @@ enum {	shortconst = 	1000,
 	singleconst,
 	doubleconst,
 	stringconst,
+	atomconst,
 	ident };
 
 /* types */
@@ -409,6 +411,7 @@ enum {	bytetype = 	2000,
 	doubletype,
 	stringtype,
 	structptrtype,
+	atomtype,
 	notype };
 
 /* objects */
@@ -813,6 +816,7 @@ void	remove_qualifier();
 void	make_ext_name();
 void	make_modvar_bss_name();
 int	sym_to_type();
+LONG	atom_hash();
 BOOL	search_func();
 BOOL	found_func();
 void	declare();

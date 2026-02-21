@@ -57,6 +57,7 @@ extern	SYM	*curr_item;
 extern	int  	lev;
 extern	char 	numbuf[80];
 extern 	BOOL 	cli_args;
+extern	LONG	atomval;
 
 /* functions */
 BOOL factorfunc(void)
@@ -418,6 +419,12 @@ SYM  *invoke_item;
   case stringconst : make_string_const(stringval);
        		     ftype=typ;
        		     insymbol();
+                     return(ftype);
+
+  case atomconst   : sprintf(numbuf,"#$%lx",(unsigned long)atomval);
+                     gen("move.l",numbuf,"-(sp)");
+                     ftype=atomtype;
+                     insymbol();
                      return(ftype);
 
   case ident : return(handle_ident_factor());
