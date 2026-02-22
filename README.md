@@ -1,4 +1,4 @@
-# ACE - Amiga BASIC Compiler
+# ACE - Amiga BASIC Compiler - Enhanced
 
 ACE is a complete BASIC compiler for the Amiga computer platform. It compiles BASIC source code into native Amiga executables by generating Motorola 68000/68020 assembly code, bridging BASIC's ease of use with compiled performance.
 
@@ -433,6 +433,7 @@ The v3 fork adds significant new features and modernizes the toolchain. The move
 - **v2.7** - Closures and function pointers, MUI submodule, filled circles/ellipses, callback SUBs
 - **v2.7.1** - ELSEIF keyword, LCASE$ function, list submodule with higher-order functions
 - **v2.8** - YAP preprocessor, INVOKABLE keyword, REM #using directive, installer, major compiler refactoring
-- **v3.0** - VBCC toolchain migration (replacing GCC/ADE), IEEE 754 single-precision floats (replacing Motorola FFP for better performance and standards compliance), P96/RTG screens (mode 13), tail-call optimization, 12 new string functions, buffered file I/O, TCP client submodule, HTTP client submodule, SagaSound submodule, turtle graphics submodule, double-precision math submodule, major compiler refactoring
+- **v2.9** - Struct enhancements (typed arrays, nested access, typed pointers, self-referential structs), 12 new string functions, P96/RTG screens (mode 13), tail-call optimization, buffered file I/O, HTTP/HTTPS client submodule, DP-float submodule, SagaSound submodule, turtle graphics submodule, codegen abstraction
+- **v3.0** - VBCC toolchain migration (replacing GCC/ADE), IEEE 754 single-precision floats (replacing Motorola FFP), ATOM primitive type, EXIT WHILE/EXIT REPEAT, FREE statement, SUB tracing (-t flag, TRON/TROFF), CyberGfx screens (mode 14), IFF picture submodule, runtime library optimizations
 
 See `CHANGELOG.txt` for full details. For the original 1998 release notes, see `docs/HISTORY-1998-Release.txt`.
