@@ -24,6 +24,7 @@ CHR$( char$ = CHR$(n) : CHR$() returns a string consisting of a single character
 CHIPSET( chipset = CHIPSET : CHIPSET returns the Amiga's graphics chipset: 0=OCS, 1=ECS, 2=AGA. Use to detect AGA before using screen modes 7-12.
 CINT( integer = CINT(n) : CINT() converts n to a signed short integer by rounding the fractional portion.
 CIRCLE CIRCLE [STEP](x,y),radius[,color[,start,end[,aspect[,F]]]] : CIRCLE draws a circle or ellipse. Angles in degrees. Trailing F fills the circle.
+CLASS CLASS <name> [EXTENDS <parent>] .. END CLASS : CLASS defines a dispatchable type (like STRUCT but with a hidden 4-byte type ID at offset 0). EXTENDS inherits all members from the parent class; own members follow at higher offsets. A class descriptor {hash, parent_ptr} is emitted in DATA. Use DECLARE CLASS to create instances. Members are accessed with ->.
 CLEAR CLEAR ALLOC : CLEAR ALLOC frees all memory allocated by calls to ALLOC. Subsequent use of ALLOC is permitted.
 CLNG( longint = CLNG(n) : CLNG() converts n to a signed long integer by rounding the fractional portion.
 CLOSE CLOSE [#]<fileNum>[,[#]<fileNum>..] : CLOSE closes one or more open files. At least one file number must be specified.
@@ -38,7 +39,7 @@ CSTR( string$ = CSTR(<address>) : CSTR() coerces a long integer address into a s
 DATA DATA [constant][,..] : DATA stores numeric and/or string constants into a global data list to be accessed by READ.
 DATE$ date$ = DATE$ : DATE$ returns the current system date as mm-dd-yyyy.
 DAY day = DAY : DAY returns the day of the week as 0..6 (0=Sunday, 6=Saturday). Reflects the last call to DATE$.
-DECLARE DECLARE FUNCTION|SUB|STRUCT .. : DECLARE declares shared library functions, external functions, forward SUB declarations, or structure variables.
+DECLARE DECLARE FUNCTION|SUB|STRUCT|CLASS|GENERIC METHOD .. : DECLARE declares shared library functions, external functions, forward SUB declarations, structure variables, class instances, or imports generic methods from other modules. DECLARE CLASS <Type> <var> creates an instance with auto-initialized type ID. DECLARE GENERIC [<type>] METHOD <name>(<sig>) imports a generic method's dispatch table.
 DEF DEF [FN]name[(params)] = <expr> : DEF creates a user-defined function. Parameters are passed by value. The FN prefix is optional.
 DEFINT DEFINT <letter>[-<letter>][,..] : DEFINT declares all variables starting with specified letters as short integers unless overridden.
 DEFLNG DEFLNG <letter>[-<letter>][,..] : DEFLNG declares all variables starting with specified letters as long integers unless overridden.
@@ -52,8 +53,9 @@ EOF( result = EOF(n) : EOF() returns -1 if end-of-file reached for file number n
 EQV EQV is the boolean equivalence operator.
 ERR errorcode = ERR : ERR returns the error code from the last failed operation (or 0) and immediately clears the error code.
 ERROR ERROR ON|OFF|STOP : ERROR enables, disables or suspends ON ERROR event trapping.
-EXIT EXIT FOR|WHILE|REPEAT : EXIT FOR allows premature exit from a FOR..NEXT loop with proper stack cleanup. EXIT WHILE exits a WHILE..WEND loop. EXIT REPEAT exits a REPEAT..UNTIL loop.
+EXIT EXIT FOR|WHILE|REPEAT|METHOD : EXIT FOR allows premature exit from a FOR..NEXT loop with proper stack cleanup. EXIT WHILE exits a WHILE..WEND loop. EXIT REPEAT exits a REPEAT..UNTIL loop. EXIT METHOD exits the current METHOD body early.
 EXP( result = EXP(n) : EXP() returns e to the power n (e = 2.7182818284590).
+EXTENDS CLASS <name> EXTENDS <parent> .. END CLASS : EXTENDS specifies single inheritance. The child class inherits all members from the parent class. Parent must be defined before the child. Used with GENERIC METHOD for polymorphic dispatch via parent chain walk.
 EXTERNAL EXTERNAL [FUNCTION] [<type>] <identifier> : EXTERNAL declares an external function or variable for cross-module access.
 FILEBOX$( path$ = FILEBOX$(title[,default-dir]) : FILEBOX$() invokes a file requester and returns the user's selection as a fully qualified path.
 FILES FILES [TO <storefile>][,<target>] : FILES gives a directory listing. Optional storefile captures output. Target can be file, directory or device.
@@ -65,6 +67,7 @@ FRE( freemem = FRE(n) : FRE() returns free system memory. n: -1=total, 0=CHIP, 1
 FREE FREE address : Frees a single ALLOC'd memory block. Passing 0 is a safe no-op.
 GADGET GADGET id,status[,gadval,rectangle,type[,style]] : GADGET creates or modifies a gadget. Type: 1=BUTTON, 2=STRING, 3=LONGINT, 4=POTX, 5=POTY.
 GADGET( info = GADGET(n) : GADGET() returns gadget info. n: 0=event occurred, 1=gadget number, 2=string/longint value, 3=slider position, 4=gadget address.
+GENERIC GENERIC [<type>] METHOD <name>(<sig>) .. ON <Type>[,..] .. END GENERIC : GENERIC declares a generic method with dynamic dispatch. The signature specifies CLASS or ATOM for dispatched positions and concrete types for fixed positions. ON clauses register type combinations. At call time, the runtime dispatches to the matching METHOD based on argument types. Supports multiple dispatch (multiple CLASS/ATOM positions).
 GET GET [#]<fileNum>,<structVar>[,<recordNum>] : GET retrieves a record from a random file and stores it in a structure variable.
 GLOBAL GLOBAL [<type>] <identifier> : GLOBAL declares a static variable with module scope. Type can be ADDRESS, LONGINT, SHORTINT, SINGLE, STRING.
 GOSUB GOSUB <label> : GOSUB transfers control to the specified label. RETURN passes control back to the statement after GOSUB.
@@ -97,6 +100,7 @@ LPAD$( result$ = LPAD$(X$, width, pad$) : LPAD$() returns X$ left-padded with th
 LTRIM$( result$ = LTRIM$(X$) : LTRIM$() returns X$ with all leading whitespace (spaces and tabs) removed.
 MENU MENU menu-id,item-id,state[,title[,command-key]] : MENU creates or modifies menus. State: 0=disabled, 1=enabled, 2=checkmarked.
 MENU( info = MENU(n) : MENU() returns menu info. n: 0=menu number, 1=item number, 2=subitem number.
+METHOD [<type>] METHOD <name>(<TypeName param>[,..]) .. END METHOD : METHOD defines a method specialization for a GENERIC. Class-typed parameters (e.g. Circle c) specify the types this method handles. Atom-typed parameters use literal syntax (e.g. :ok result). Methods are always XDEF'd for cross-module linking. Return values work like SUB return values.
 MID$( mid$ = MID$(X$,I[,J]) : MID$() returns J characters from X$ starting at position I. If J is omitted, returns all characters from I to end.
 MID$ MID$(X$,I[,J]) = Y$ : MID$ statement overwrites characters in X$ starting at position I with Y$. J limits how many characters to replace. Does not change string length.
 MOD MOD is the modulo arithmetic operator. Example: 101 MOD 10 = 1.

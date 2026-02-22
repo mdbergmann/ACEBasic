@@ -128,6 +128,11 @@ BOOL need_symbol;
 		   { obj=extvar; typ=curr_item->type; }
 	       else
 		if (exist(id,structure)) obj=structure;
+	       else
+		if (exist(id,classobj)) obj=classobj;
+	       else
+		if (exist(id,genericmethod))
+		   { obj=genericmethod; typ=curr_item->type; }
                else
 		if (exist(id,constant))
 		   { obj=constant; typ=curr_item->type; }
@@ -141,6 +146,17 @@ BOOL need_symbol;
 		  }
 
 	       fact_item=curr_item;
+
+	       /* generic method call (with return value) */
+	       if (obj == genericmethod)
+	       {
+		insymbol();
+		call_generic_method(fact_item);
+		gen_push(fact_item->type, "d0");
+		ftype=fact_item->type;
+		insymbol();
+		return(ftype);
+	       }
 
                /* frame address of object */
 	       if (obj == subprogram) { oldlevel=lev; lev=ZERO; }
@@ -164,7 +180,7 @@ BOOL need_symbol;
    		return(ftype);
   	       }
                else
-	       if (obj == structure)  /* structure */
+	       if (obj == structure || obj == classobj)
 	       {
 		ftype=push_struct(fact_item);
 		return(ftype);
@@ -443,8 +459,8 @@ SYM  *invoke_item;
 		  {
 		   strcpy(buf,id);
 		   ftype=address_of_object();
-		   /* structure and array code returns next symbol */
-		   if (!exist(buf,structure) && !exist(buf,array))
+		   /* structure, classobj and array code returns next symbol */
+		   if (!exist(buf,structure) && !exist(buf,classobj) && !exist(buf,array))
 		      insymbol();
 		  }
 	          return(ftype);

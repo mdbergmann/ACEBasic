@@ -300,17 +300,20 @@ enum { 	abssym = 0,
 	casesym,
 	checkboxkindsym,
 	chipsetsym,
+	classsym,
 	constsym,
 	cstrsym,
 	cyclekindsym,
 	daysym,
 	endswithsym,
+	extendssym,
 	externalsym,
 	fileboxstrsym,
 	fmtstrsym,
 	fontsym,
 	forwardsym,
 	gadgetsym,
+	genericsym,
 	getattrsym,
 	globalsym,
 	handlesym,
@@ -324,6 +327,7 @@ enum { 	abssym = 0,
 	lpadstrsym,
 	ltrimstrsym,
 	messagesym,
+	methodsym,
 	msgboxsym,
 	mxkindsym,
 	numberkindsym,
@@ -426,6 +430,9 @@ enum {	variable = 	3000,
 	constant,
 	structdef,
 	structure,
+	classdef,
+	classobj,
+	genericmethod,
 	rsvd_word,
 
 	undefined =      9999 };
@@ -439,6 +446,8 @@ enum {	variable = 	3000,
 #define	MINLONG   -2147483648      /* min -ve long value */ 
 #define	MAXPARAMS     40    	   /* max # of subprogram parameters */
 #define	NEGATIVE      -1	   /* a negative result from ACE lib check */
+#define MAX_ON_ENTRIES    32       /* max # of ON entries in GENERIC */
+#define MAX_DISPATCH_POS   8       /* max # of dispatched positions */
 #define	MAXCASES     1000  	   /* max # of cases in a CASE statement */
 #define	NUMACELIBS     7	   /* # of shared libraries used by ACE */
 #define	NUMLIBS	      40	   /* max # of "other" shared libraries */
@@ -617,6 +626,7 @@ void	write_basdata();
 void	find_structmem_tail();
 STRUCM	*structmem_exist();
 void	add_struct_member();
+SHORT	copy_struct_members();
 
 /* codegen.c */
 void	gen_rt_call();
@@ -843,6 +853,8 @@ void	gad_event_test();
 
 void	define_structure();
 void	declare_structure();
+void	define_class();
+void	declare_class();
 void	define_constant();
 void	declare_variable();
 void	define_common_or_global_variable();
@@ -863,9 +875,15 @@ void	statement();
 
 void	forward_ref();
 void	load_params();
+void	call_generic_method();
 void	sub_params();
+void	method_scan_params();
+void	method_enter_params();
 void	parse_shared_vars();
 
+void	method_block();
+void	generic_block();
+void	declare_generic_method();
 void	block();
 void	parse();
 void	compile();

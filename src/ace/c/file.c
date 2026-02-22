@@ -649,7 +649,7 @@ SYM *structVar;
 		** Structure variable address and size.
 		*/
 		insymbol();
-		if (!exist(id,structure)) _error(79);
+		if (!exist(id,structure) && !exist(id,classobj)) _error(79);
 		else
 		{
 			structVar = curr_item;
@@ -712,7 +712,7 @@ SYM *structVar;
 		** Structure variable address and size.
 		*/
 		insymbol();
-		if (!exist(id,structure)) _error(79);
+		if (!exist(id,structure) && !exist(id,classobj)) _error(79);
 		else
 		{
 			structVar = curr_item;

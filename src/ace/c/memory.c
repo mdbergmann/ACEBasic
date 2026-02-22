@@ -161,6 +161,9 @@ BOOL found=FALSE;
  else
  if (exist(objname,structure))
     found = TRUE;
+ else
+ if (exist(objname,classobj))
+    found = TRUE;
 
  if (found)
  {
@@ -191,9 +194,9 @@ int  typ1,typ2,dataobj1,dataobj2;
   get_obj_info(first,&dataobj1,&typ1);
 
   /* get_obj_info() won't tell us about structure member type */
-  if (dataobj1 == structure) typ1 = struct_member_type;
+  if (dataobj1 == structure || dataobj1 == classobj) typ1 = struct_member_type;
 
-  if (dataobj1 != structure && dataobj1 != array) insymbol();
+  if (dataobj1 != structure && dataobj1 != classobj && dataobj1 != array) insymbol();
 
   if (sym != comma) _error(16);
   else
@@ -207,9 +210,9 @@ int  typ1,typ2,dataobj1,dataobj2;
     get_obj_info(second,&dataobj2,&typ2);
 
     /* get_obj_info() won't tell us about structure member type */
-    if (dataobj2 == structure) typ2 = struct_member_type;
+    if (dataobj2 == structure || dataobj2 == classobj) typ2 = struct_member_type;
 
-    if (dataobj2 != structure && dataobj2 != array) insymbol();
+    if (dataobj2 != structure && dataobj2 != classobj && dataobj2 != array) insymbol();
 
     /* if two objects are of same data type -> swap them */
     if (typ1 != typ2) _error(4);

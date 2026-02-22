@@ -97,11 +97,11 @@ char *rword[] =
     /* ACE-specific reserved words */
     "ADDRESS","ALLOC","ARG$","ARGCOUNT","ASSEM","ASSERT","ATOM","BACK","BEVELBOX","BIN$",
     "BIND","BLOCK","BUTTON","BUTTON_KIND","BYTE","CALLBACK",
-    "CASE","CHECKBOX_KIND","CHIPSET","CONST","CSTR","CYCLE_KIND",
-    "DAY","ENDSWITH","EXTERNAL","FILEBOX$",
-    "FMT$","FONT","FORWARD","GADGET","GETATTR","GLOBAL","HANDLE","INPUTBOX",
+    "CASE","CHECKBOX_KIND","CHIPSET","CLASS","CONST","CSTR","CYCLE_KIND",
+    "DAY","ENDSWITH","EXTENDS","EXTERNAL","FILEBOX$",
+    "FMT$","FONT","FORWARD","GADGET","GENERIC","GETATTR","GLOBAL","HANDLE","INPUTBOX",
     "INPUTBOX$","INTEGER_KIND","INVOKABLE","INVOKE","LISTVIEW_KIND","LONGINT",
-    "LPAD$","LTRIM$","MESSAGE","MSGBOX","MX_KIND","NUMBER_KIND","PALETTE_KIND",
+    "LPAD$","LTRIM$","MESSAGE","METHOD","MSGBOX","MX_KIND","NUMBER_KIND","PALETTE_KIND",
     "POTX",
     "POTY","PRINTS","REPEAT","REPEAT$","REPLACE$","REVERSE$","RINSTR","RPAD$","RTRIM$","SCROLLER_KIND","SERIAL","SETATTR","SHL",
     "SHORTINT","SHR","SINGLE","SIZE","SIZEOF","SLIDER_KIND",
@@ -126,6 +126,7 @@ char *symbol[] = { "shortconst","longconst","singleconst","doubleconst",
 /* objects */
 char *object[] = { "variable","array","subprogram","function","extfunc",
                    "extvar","label","constant","structdef","structure",
+		   "classdef","classobj","genericmethod",
 		   "reserved word" };
 
 /* data types */

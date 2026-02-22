@@ -290,6 +290,14 @@ BOOL  need_symbol=TRUE;
 
   insymbol();
 
+  /* generic method call? (must check before assignment/sub paths) */
+  if (sym == lparen && exist(id,genericmethod))
+  {
+   call_generic_method(curr_item);
+   insymbol();
+   return;
+  }
+
   /* a variable/subprogram assignment or an array element assignment? */
   if ((sym == equal) || (sym == memberpointer) || ((sym == lparen)
       && (!exist(sub_name,subprogram)) && (!exist(func_name,function))
@@ -584,8 +592,8 @@ static void handle_exit_statement()
   else
   if (lev == ONE)
   {
-	/* EXIT SUB */
-   	if (sym != subsym)
+	/* EXIT SUB or EXIT METHOD */
+   	if (sym != subsym && sym != methodsym)
       	   _error(35);
    	else
       	   gen("jmp",exit_sub_name,"  ");
@@ -1228,6 +1236,9 @@ char  idholder[50];
  else
  /* struct */
  if (sym == structsym) define_structure();
+ else
+ /* class */
+ if (sym == classsym) define_class();
  else
  /* style */
  if (sym == stylesym) text_style();

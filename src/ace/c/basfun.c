@@ -1817,13 +1817,14 @@ char varptr_obj_name[MAXIDSIZE];
 		        break;
 
 	 /* VARPTR */
-	 case varptrsym : if (sym == ident) 
+	 case varptrsym : if (sym == ident)
 			  {
 			   strcpy(varptr_obj_name,id);
 			   nftype=address_of_object();
-			   /* structure and array code returns next symbol */
+			   /* structure, classobj and array code returns next symbol */
 			   if (!exist(varptr_obj_name,structure) &&
-			       !exist(varptr_obj_name,array)) 
+			       !exist(varptr_obj_name,classobj) &&
+			       !exist(varptr_obj_name,array))
 			      insymbol();
 			  }
 			  else 
@@ -1953,7 +1954,7 @@ ULONG  total_off;
 			    return(longtype);    
 			   }
 			   else
-			   if ((exist(id,array)) || (exist(id,structure)))
+			   if ((exist(id,array)) || (exist(id,structure)) || (exist(id,classobj)))
 			   {
 			    varptr_item=curr_item;
 
@@ -1967,12 +1968,12 @@ ULONG  total_off;
 			    gen("move.l",addrbuf,"d0");
 			    gen("sub.l",numbuf,"d0");
 
-			    /* location in frame contains array/struct address 
-			       (except for shared structure (see below) */  
+			    /* location in frame contains array/struct/class address
+			       (except for shared structure (see below) */
 			    gen("movea.l","d0","a0");
-			    
-			    /* address of a structure member? */
-			    if (exist(id,structure))
+
+			    /* address of a structure/class member? */
+			    if (exist(id,structure) || exist(id,classobj))
 			    {
 			     /* shared struct? -> get struct variable address */
 			     if (varptr_item->shared && lev == ONE) 
@@ -2105,19 +2106,19 @@ int  nftype;
    }
   }
   else
-  /* array variable or structure definition? */
-  if (exist(id,array) || exist(id,structdef))
+  /* array variable, structure definition or class definition? */
+  if (exist(id,array) || exist(id,structdef) || exist(id,classdef))
   {
    sprintf(numbuf,"#%ld",(long)curr_item->size);
    gen("move.l",numbuf,"-(sp)"); 
    nftype=longtype;
   }
   else
-  /* structure variable? */
-  if (exist(id,structure))
-  {  
+  /* structure or class variable? */
+  if (exist(id,structure) || exist(id,classobj))
+  {
    sprintf(numbuf,"#%ld",(long)curr_item->other->size);
-   gen("move.l",numbuf,"-(sp)"); 
+   gen("move.l",numbuf,"-(sp)");
    nftype=longtype;
   }
   else

@@ -409,12 +409,124 @@ SYM  *declared_func;
     	 return(FALSE); 
 }
 
+void declare_generic_method()
+{
+/* DECLARE GENERIC [return-type] METHOD Name(type-sig)
+   Creates a genericmethod SYM and emits XREF to _GMETH_<Name>.
+   No ON clauses — this is for importing generics defined elsewhere. */
+
+char generic_name[MAXIDSIZE];
+char gmeth_xref[200];
+int  return_type;
+int  param_count;
+int  p_types[MAXPARAMS];
+int  p_dispatch[MAXPARAMS];
+int  i;
+
+ /* consume GENERIC keyword */
+ insymbol();
+
+ return_type = notype;
+
+ /* optional return type */
+ if (sym == shortintsym || sym == longintsym || sym == addresssym ||
+     sym == singlesym || sym == stringsym)
+ {
+  return_type = sym_to_type(sym);
+  insymbol();
+ }
+
+ /* expect METHOD */
+ if (sym != methodsym) { _error(92); return; }
+ insymbol();
+
+ /* expect identifier */
+ if (sym != ident) { _error(7); return; }
+ strcpy(generic_name, id);
+
+ insymbol();
+
+ /* parse parameter type list */
+ param_count = 0;
+
+ if (sym == lparen)
+ {
+  do
+  {
+   insymbol();
+
+   if (sym == classsym)
+   {
+    p_types[param_count] = longtype;
+    p_dispatch[param_count] = 0;
+   }
+   else if (sym == atomsym)
+   {
+    p_types[param_count] = atomtype;
+    p_dispatch[param_count] = 1;
+   }
+   else if (sym == longintsym || sym == addresssym)
+   {
+    p_types[param_count] = longtype;
+    p_dispatch[param_count] = -1;
+   }
+   else if (sym == shortintsym)
+   {
+    p_types[param_count] = shorttype;
+    p_dispatch[param_count] = -1;
+   }
+   else if (sym == singlesym)
+   {
+    p_types[param_count] = singletype;
+    p_dispatch[param_count] = -1;
+   }
+   else if (sym == stringsym)
+   {
+    p_types[param_count] = stringtype;
+    p_dispatch[param_count] = -1;
+   }
+   else
+   {
+    _error(60);
+    return;
+   }
+
+   param_count++;
+   insymbol();
+  }
+  while (sym == comma && param_count < MAXPARAMS);
+
+  if (sym != rparen) { _error(9); return; }
+  insymbol();
+ }
+
+ /* create genericmethod SYM at level ZERO */
+ enter(generic_name, return_type, genericmethod, 0);
+ curr_item->no_of_params = param_count;
+ for (i = 0; i < param_count; i++)
+ {
+  curr_item->p_type[i] = p_types[i];
+  if (p_dispatch[i] == 0)
+   curr_item->p_structdef[i] = (SYM *)1;
+  else if (p_dispatch[i] == 1)
+   curr_item->p_structdef[i] = (SYM *)2;
+  else
+   curr_item->p_structdef[i] = NULL;
+ }
+
+ /* emit XREF to _GMETH_<Name> */
+ strcpy(gmeth_xref, "_GMETH_");
+ strcat(gmeth_xref, generic_name);
+ enter_XREF(gmeth_xref);
+}
+
 void declare()
 {
-/* - declare a library function -- NOT optional. 
+/* - declare a library function -- NOT optional.
    - declare an external function -- NOT optional.
-   - declare a forward reference to a SUB. 
-   - declare an instance of a structure. 
+   - declare a forward reference to a SUB.
+   - declare an instance of a structure.
+   - declare a generic method.
 */
 
 char funcname[MAXIDSIZE],ut_funcname[MAXIDSIZE];
@@ -436,6 +548,10 @@ BOOL found;
  if (sym == subsym) { lev=oldlevel; forward_ref(); return; }
 
  if (sym == structsym) { lev=oldlevel; declare_structure(); return; }
+
+ if (sym == classsym) { lev=oldlevel; declare_class(); return; }
+
+ if (sym == genericsym) { lev=oldlevel; declare_generic_method(); return; }
 
  if (sym != functionsym) _error(47);
  else

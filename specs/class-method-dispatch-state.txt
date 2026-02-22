@@ -1,0 +1,148 @@
+CLASS / GENERIC / METHOD — Implementation State
+=================================================
+
+Phase 2: CLASS keyword                                        [COMPLETE]
+  Branch: phase2-class-keyword
+  - CLASS definition with hidden 4-byte FNV-1a type ID at offset 0
+  - DECLARE CLASS for instance creation
+  - Member access via ->
+  - Error codes 86-89
+  - Feature A: struct-typed SUB parameters
+
+Phase 3: METHOD definition                                    [COMPLETE]
+  Branch: phase3-method-def (from phase2-class-keyword)
+  - METHOD keyword parses and compiles identically to SUB
+  - Deterministic label naming: _METH_<GenericName>_<ClassName>
+  - Exit labels: _EXIT_METH_<GenericName>_<ClassName>
+  - Always XDEF'd for cross-module linking
+  - Two-phase param parsing: scan (collect class names) then enter (codegen)
+  - EXIT METHOD works via existing exit_sub_name mechanism
+  - Error codes: 90 (METHOD without END METHOD), 91 (no class-typed param)
+  - Supports: void methods, typed return (SINGLE/LONGINT/etc.), mixed params
+  - Tested: 4 methods (Draw(Shape), Draw(Box), GetX(Shape), SetXY(Shape,SINGLE,SINGLE))
+  - Generated assembly verified: correct labels, XDEF, link/unlk, Permit, member access
+  Files modified:
+    - src/ace/c/lex.c (error codes 90, 91)
+    - src/ace/c/parse.c (method_block(), block() detection)
+    - src/ace/c/sub.c (method_scan_params(), method_enter_params())
+    - src/ace/c/statement.c (EXIT METHOD support)
+    - src/ace/c/acedef.h (prototypes)
+  Test: verify/tests/cases/syntax/method_basic.b
+
+Phase 4: GENERIC declaration + dispatch table                  [COMPLETE]
+  Branch: phase4-generic-decl (from phase3-method-def)
+  - GENERIC METHOD Name(type-sig) with ON clauses
+  - Emits dispatch table: _GMETH_<Name> label, dc.w count, dc.w positions, dc.l hashes, dc.l method addrs
+  - Dispatch positions marked with bit 15 for ATOM, clear for CLASS
+  - DECLARE GENERIC METHOD for importing generics from other modules
+  - genericmethod SYM stores dispatch info in p_structdef[] sentinels: (SYM*)1=CLASS, (SYM*)2=ATOM
+  - Error codes: 92 (GENERIC without METHOD), 93 (expected ON), 94 (END GENERIC), 95 (too many ON), 96 (wrong type count)
+  - XDEF for _GMETH_<Name>, XREF for each _METH_<Name>_<Type> label
+  - Jump-around pattern prevents CPU from falling into table data
+  Files modified:
+    - src/ace/c/acedef.h (MAX_ON_ENTRIES, MAX_DISPATCH_POS defines; prototypes)
+    - src/ace/c/lex.c (error codes 92-96)
+    - src/ace/c/parse.c (generic_block(), block() detection of genericsym)
+    - src/ace/c/libfunc.c (declare_generic_method(), declare() dispatch)
+  Test: verify/tests/cases/syntax/generic_basic.b
+
+Phase 5: Dispatch system (linking GENERIC → METHOD)           [COMPLETE]
+  Branch: phase4-generic-decl (continues on same branch)
+  - dispatch.s: _gm_dispatch runtime (table in a0, hash values on stack, returns method addr in a0)
+  - dispatch.s: _no_method_error (prints "NO APPLICABLE METHOD" + exits)
+  - Makefile-lib: dispatch.s added to ASM_SOURCES
+  - parse.c method_block(): always sets sub_ptr->address = extfunc (methods return via d0)
+  - assign.c: find_method_return_sym() prefix search for _METH_<id>_ in level ZERO
+    (allows "Draw = value" inside METHOD body to find _METH_DRAW_SHAPE)
+  - sub.c: call_generic_method() — parse args, push dispatch hashes, call _gm_dispatch,
+    Forbid, move params to callee frame, jsr (a2)
+  - statement.c: handle_ident_statement() checks exist(id,genericmethod) before SUB/function paths
+  - factor.c: handle_ident_factor() checks exist(id,genericmethod) in obj chain,
+    handles before gen_var_addr
+  - acedef.h: call_generic_method() prototype added
+  Files modified:
+    - src/lib/asm/dispatch.s (NEW)
+    - src/make/Makefile-lib
+    - src/ace/c/parse.c (method_block d0 return)
+    - src/ace/c/assign.c (find_method_return_sym + call site)
+    - src/ace/c/sub.c (call_generic_method)
+    - src/ace/c/statement.c (generic method call in handle_ident_statement)
+    - src/ace/c/factor.c (generic method call in handle_ident_factor)
+    - src/ace/c/acedef.h (prototype)
+  Runtime verified:
+    - generic_basic.b: Draw(s1)→"Shape at 10 , 20", Draw(b1)→"Box 5 x 3" — correct
+    - Full regression suite: 163/163 tests PASS (all categories)
+  Known cosmetic issue: XDEF/XREF warnings for same-file symbols (vasm warns, assembles fine)
+
+Phase 6: Testing and integration                              [COMPLETE]
+  Branch: phase4-generic-decl (continues on same branch)
+  Tests added (236/236 pass):
+    Syntax tests:
+      - generic_multi.b: multiple dispatch (two CLASS params, LONGINT return)
+      - generic_return.b: LONGINT return values from generic methods
+      - generic_mixed_params.b: dispatched CLASS + non-dispatched LONGINT params
+      - generic_single_return.b: SINGLE return from generic method
+      - generic_atom.b: ATOM-only dispatch (METHOD with atom literal specializers)
+      - generic_class_atom.b: mixed CLASS + ATOM dispatch (two dispatch positions)
+    Error tests:
+      - class_no_end.b: CLASS without END CLASS (error 86)
+      - method_no_end.b: METHOD without END METHOD (error 90)
+      - method_no_class.b: METHOD without class param (error 91)
+      - generic_no_method.b: GENERIC without METHOD (error 92)
+      - generic_no_end.b: GENERIC without END GENERIC (error 94)
+  Cross-module dispatch test (manual, not in runner):
+      - verify/tests/cases/crossmod/shapes_mod.b: module with CLASSes, METHODs, GENERIC
+      - verify/tests/cases/crossmod/generic_crossmod.b: main program imports via DECLARE GENERIC METHOD
+      - Output: "Shape at 10 , 20" + "Box 5 x 3" — correct dispatch across module boundary
+      - Note: SINGLE members crash cross-module (known module library linkage bug — MathBase not opened)
+      - Used LONGINT members to avoid the issue; dispatch itself works correctly
+  ATOM dispatch implementation:
+      - method_scan_params(): added atomconst case — stores hex hash in class_names[], ATOM sentinel
+      - method_enter_params(): added (SYM *)2 sentinel check — enters param as longtype variable
+      - Error 91 message updated: "Expected CLASS or atom literal in METHOD parameter"
+      - Labels use hex hash suffix (e.g. _METH_PROCESS_85E4B82F) matching generic_block() format
+      Files modified:
+        - src/ace/c/sub.c (method_scan_params, method_enter_params, atomval extern)
+        - src/ace/c/lex.c (error 91 message)
+  IDE and documentation updates:
+      - IDE/CubicIDE-ACE/add-ons/ace/autocase/basic: CLASS, DECLARE CLASS, DECLARE GENERIC METHOD,
+        END CLASS, END GENERIC, END METHOD, EXIT METHOD, GENERIC, GENERIC METHOD, METHOD
+      - IDE/CubicIDE-ACE/add-ons/ace/syntax/dictionaries/commands: same keywords
+      - docs/quickref.txt: CLASS, DECLARE (updated), EXIT (updated), GENERIC, METHOD entries
+      - IDE/CubicIDE-ACE/add-ons/ace/quickinfo/ace.words: copied from quickref.txt
+
+Phase 7: CLASS EXTENDS (inheritance)                             [COMPLETE]
+  Branch: phase4-generic-decl (continues on same branch)
+  - EXTENDS keyword for single inheritance: CLASS Child EXTENDS Parent
+  - copy_struct_members() in sym.c: copies parent members into child, sets child->size = parent->size
+  - Own members added after inherited members at correct offsets
+  - Empty body allowed: CLASS X EXTENDS Y / END CLASS
+  - Parent must be defined before child (no forward references)
+  - Error code 97: "EXTENDS requires a defined CLASS type"
+  - Class descriptors emitted in DATA section: _CLASSDESC_<NAME>: dc.l $hash, parent_ref
+    - parent_ref = _CLASSDESC_<PARENT> if parent exists, else 0
+  - Instance offset 0 now stores descriptor pointer (not hash directly)
+  - declare_class(): writes #_CLASSDESC_<NAME> at offset 0 instead of #$hash
+  - dispatch.s rewritten with three paths:
+    - Single CLASS (N=1, bit 15=0): dereference descriptor, walk parent chain on miss
+    - Single ATOM (N=1, bit 15=1): direct hash, no parent walk
+    - Multi (N>1): convert CLASS descriptors to hashes in-place, exact match only
+  - Destroys: d0-d3, a0-a2 (was d0-d3, a0-a1)
+  Files modified:
+    - src/ace/c/acedef.h (extendssym in enum, copy_struct_members prototype)
+    - src/ace/c/lexvar.c ("EXTENDS" in rword[])
+    - src/ace/c/lex.c (error 97)
+    - src/ace/c/declare.c (define_class: EXTENDS parsing + descriptor emit; declare_class: descriptor ptr)
+    - src/ace/c/sym.c (copy_struct_members)
+    - src/lib/asm/dispatch.s (rewritten with parent chain walk)
+    - src/make/Makefile-lib (dispatch.s already in ASM_SOURCES)
+  Tests (239/239 pass):
+    - class_basic.b: updated PEEKL(c) → PEEKL(PEEKL(c)) for descriptor pointer
+    - class_extends.b (NEW): member inheritance, SIZEOF checks, parent descriptor pointer
+    - generic_inherit.b (NEW): parent method called for child instance via parent chain walk
+    - generic_override.b (NEW): child with own METHOD called directly (exact match)
+  IDE and documentation updates:
+    - IDE/CubicIDE-ACE/add-ons/ace/autocase/basic: EXTENDS
+    - IDE/CubicIDE-ACE/add-ons/ace/syntax/dictionaries/commands: EXTENDS
+    - docs/quickref.txt: CLASS updated, EXTENDS entry added
+    - IDE/CubicIDE-ACE/add-ons/ace/quickinfo/ace.words: same updates

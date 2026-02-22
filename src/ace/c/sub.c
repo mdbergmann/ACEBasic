@@ -47,6 +47,7 @@ extern	SYM	*curr_item;
 extern	CODE	*curr_code;
 extern	int  	addr[2];
 extern	BOOL	module_opt;
+extern	LONG	atomval;
 
 /* functions */
 void forward_ref()
@@ -125,9 +126,9 @@ int   sub_type=undefined;
      param_type = sym_to_type(sym);
      insymbol();
     }
-    else if (sym == ident && exist(id, structdef))
+    else if (sym == ident && (exist(id, structdef) || exist(id, classdef)))
     {
-     /* struct type identifier -> treat as ADDRESS */
+     /* struct/class type identifier -> treat as ADDRESS */
      sub_ptr->p_structdef[param_count] = curr_item;
      param_type = longtype;
      insymbol();
@@ -325,9 +326,9 @@ SYM   *struct_param_def;
     param_type = sym_to_type(sym);
     insymbol();
    }
-   else if (sym == ident && exist(id, structdef))
+   else if (sym == ident && (exist(id, structdef) || exist(id, classdef)))
    {
-    /* struct type identifier -> treat as ADDRESS */
+    /* struct/class type identifier -> treat as ADDRESS */
     struct_param_def = curr_item;
     param_type = longtype;
     insymbol();
@@ -338,12 +339,19 @@ SYM   *struct_param_def;
    {
     if (struct_param_def != NULL)
     {
-       /* struct-typed parameter: enter as structure object */
-       if (exist(id, structure))
+       /* struct/class-typed parameter: enter as structure or classobj */
+       if (exist(id, structure) || exist(id, classobj))
           _error(38); /* duplicate parameter */
        else
        {
-          enter(id, notype, structure, 0);
+          if (struct_param_def->object == classdef)
+          {
+             enter(id, notype, classobj, 0);
+          }
+          else
+          {
+             enter(id, notype, structure, 0);
+          }
           curr_item->other = struct_param_def;
        }
     }
@@ -403,15 +411,15 @@ BOOL share_it;
   else
   {
    lev=ZERO;
-   if (exist(id,variable) || exist(id,structure)) 
+   if (exist(id,variable) || exist(id,structure) || exist(id,classobj))
    {
     share_it=TRUE;
     zero_ptr=curr_item;
     lev=ONE;
-    enter(id,zero_ptr->type,zero_ptr->object,0);  /* variable or structure */	
+    enter(id,zero_ptr->type,zero_ptr->object,0);  /* variable, structure or classobj */
     one_ptr=curr_item;
     /* add another 2 bytes to address if short */
-    if (one_ptr->type == shorttype) 
+    if (one_ptr->type == shorttype)
     {
      addr[lev] += 2;
      one_ptr->address=addr[lev];
@@ -420,8 +428,8 @@ BOOL share_it;
     one_ptr->shared=TRUE;
     if (one_ptr->type == stringtype)
 	one_ptr->new_string_var=FALSE; /* don't want a new BSS object! */
-    if (one_ptr->object == structure)
-	one_ptr->other = zero_ptr->other; /* pointer to structdef SYM node */
+    if (one_ptr->object == structure || one_ptr->object == classobj)
+	one_ptr->other = zero_ptr->other; /* pointer to structdef/classdef SYM node */
    }
    else
    if (exist(id,array))
@@ -446,7 +454,8 @@ BOOL share_it;
     /* copy size information for SIZEOF? */
     if (one_ptr->type == stringtype ||
         one_ptr->object == array ||
-        one_ptr->object == structure) one_ptr->size = zero_ptr->size;
+        one_ptr->object == structure ||
+        one_ptr->object == classobj) one_ptr->size = zero_ptr->size;
 
     /* copy address of object from level ZERO to level ONE stack frame */
 
@@ -517,4 +526,307 @@ BOOL share_it;
   insymbol();
  }
  while (sym == comma);
+}
+
+void method_scan_params(sub_ptr, param_names, class_names, class_count)
+SYM  *sub_ptr;
+char param_names[MAXPARAMS][MAXIDSIZE];
+char class_names[MAXPARAMS][MAXIDSIZE];
+SHORT *class_count;
+{
+SHORT param_count=0;
+int   param_type;
+SYM   *struct_param_def;
+
+ /* Parse METHOD's formal parameter list (Phase A: scan & collect).
+    Records param types, names, and class names for label construction.
+    Does NOT emit code or enter params into level-1 symbol table. */
+
+ *class_count = 0;
+
+ insymbol();
+ if (sym != lparen)
+ {
+  sub_ptr->no_of_params=0;
+  return;
+ }
+
+ /* formal parameters expected */
+ do
+ {
+  param_type=undefined;
+  struct_param_def=NULL;
+
+  insymbol();
+
+  /* type identifiers */
+  if (sym == shortintsym || sym == longintsym || sym == addresssym ||
+      sym == singlesym || sym == stringsym || sym == atomsym)
+  {
+   param_type = sym_to_type(sym);
+   insymbol();
+  }
+  else if (sym == ident && (exist(id, structdef) || exist(id, classdef)))
+  {
+   /* struct/class type identifier -> treat as ADDRESS */
+   struct_param_def = curr_item;
+   param_type = longtype;
+   /* collect class name for label construction */
+   if (struct_param_def->object == classdef)
+   {
+    strcpy(class_names[*class_count], struct_param_def->name);
+    (*class_count)++;
+   }
+   insymbol();
+  }
+  else if (sym == atomconst)
+  {
+   /* atom literal specializer like :ok in METHOD Handle(:ok result) */
+   param_type = longtype;
+   struct_param_def = (SYM *)2;  /* ATOM sentinel */
+   sprintf(class_names[*class_count], "%lX", (unsigned long)atomval);
+   (*class_count)++;
+   insymbol();
+  }
+
+  if (sym != ident) _error(7);  /* ident expected */
+  else
+     strcpy(param_names[param_count], id);
+
+  /* store parameter type, address placeholder, and structdef */
+  sub_ptr->p_type[param_count]=param_type;
+  sub_ptr->p_addr[param_count]=0;  /* filled in by method_enter_params */
+  sub_ptr->p_structdef[param_count]=struct_param_def;
+  param_count++;
+
+  insymbol();
+ }
+ while ((sym == comma) && (param_count < MAXPARAMS));
+
+ sub_ptr->no_of_params=param_count;
+
+ if (param_count == MAXPARAMS) _error(42);  /* too many */
+
+ if (sym != rparen) _error(9);
+ insymbol();
+}
+
+void method_enter_params(sub_ptr, param_names)
+SYM  *sub_ptr;
+char param_names[MAXPARAMS][MAXIDSIZE];
+{
+SHORT n;
+char  addrbuf[40];
+SYM   *struct_param_def;
+int   param_type;
+
+ /* Phase B: emit code for METHOD parameters.
+    Enters each param into level-1 symbol table and generates setup code.
+    Called AFTER the method label and link instruction have been emitted. */
+
+ if (sub_ptr->no_of_params == 0) return;
+
+ /* if actual parameters passed, Forbid() called -> Permit() */
+ gen("movea.l","_AbsExecBase","a6");
+ gen("jsr","_LVOPermit(a6)","  ");
+ enter_XREF("_AbsExecBase");
+ enter_XREF("_LVOPermit");
+
+ for (n=0; n < sub_ptr->no_of_params; n++)
+ {
+  struct_param_def = sub_ptr->p_structdef[n];
+  param_type = sub_ptr->p_type[n];
+
+  /* For ATOM-specialized params (sentinel (SYM *)2) */
+  if (struct_param_def == (SYM *)2)
+  {
+   if (!exist(param_names[n], variable))
+      enter(param_names[n], longtype, variable, 0);
+   else
+      _error(38); /* duplicate parameter */
+  }
+  /* For struct/class-typed params */
+  else if (struct_param_def != NULL)
+  {
+   if (exist(param_names[n], structure) || exist(param_names[n], classobj))
+      _error(38); /* duplicate parameter */
+   else
+   {
+    if (struct_param_def->object == classdef)
+    {
+     enter(param_names[n], notype, classobj, 0);
+    }
+    else
+    {
+     enter(param_names[n], notype, structure, 0);
+    }
+    curr_item->other = struct_param_def;
+   }
+  }
+  else
+  {
+   /* ordinary typed parameter */
+   if (!exist(param_names[n], variable))
+   {
+    if (param_type == undefined) param_type = notype;
+    enter(param_names[n], param_type, variable, 0);
+
+    /* string parameter? -> associate with BSS object */
+    if (curr_item->type == stringtype)
+    {
+     gen_frame_addr(curr_item->address,addrbuf);
+     gen("move.l",addrbuf,"-(sp)");
+     assign_to_string_variable(curr_item,MAXSTRLEN);
+    }
+   }
+   else
+      _error(38); /* duplicate parameter */
+  }
+
+  /* update the stored address for call-site matching */
+  sub_ptr->p_addr[n] = curr_item->address;
+ }
+}
+
+void call_generic_method(gm_sym)
+SYM *gm_sym;
+{
+SHORT par_addr=-8;
+SHORT i,n;
+int   formal_type;
+char  addrbuf[40];
+char  formaltemp[MAXPARAMS][80],formaladdr[MAXPARAMS][80];
+int   formaltype[MAXPARAMS];
+char  gmeth_label[200];
+int   dispatch_count;
+
+ /* Parse and evaluate all arguments, storing in caller frame temps.
+    Then push dispatch hash values, call _gm_dispatch to resolve
+    the method, and invoke it with the evaluated arguments. */
+
+ if (sym != lparen) { _error(14); return; }
+
+ i=0;
+ do
+ {
+  insymbol();
+  formal_type=expr();
+
+  /* check parameter types and coerce */
+  if (formal_type != gm_sym->p_type[i])
+  {
+   switch(gm_sym->p_type[i])
+   {
+    case shorttype: make_sure_short(formal_type);
+		    break;
+
+    case longtype: if ((formal_type = make_integer(formal_type)) == shorttype)
+		      make_long();
+		   else
+		      if (formal_type == notype) _error(4);
+		   break;
+
+    case singletype : gen_Flt(formal_type);
+		      break;
+
+    case stringtype : _error(4);
+		      break;
+
+    case atomtype : _error(4);
+		    break;
+   }
+  }
+
+  /* store parameter in temp (same pattern as load_params) */
+  if (gm_sym->p_type[i] == shorttype)
+  {
+   par_addr -= 2;
+   formaltype[i]=shorttype;
+
+   itoa(par_addr,addrbuf,10);
+   strcat(addrbuf,"(sp)");
+   strcpy(formaladdr[i],addrbuf);
+
+   addr[lev] += 2;
+   gen_frame_addr(addr[lev],formaltemp[i]);
+   gen_pop(shorttype, formaltemp[i]);
+  }
+  else
+  {
+   par_addr -= 4;
+   formaltype[i]=longtype;
+
+   itoa(par_addr,addrbuf,10);
+   strcat(addrbuf,"(sp)");
+   strcpy(formaladdr[i],addrbuf);
+
+   addr[lev] += 4;
+   gen_frame_addr(addr[lev],formaltemp[i]);
+   gen_pop(longtype, formaltemp[i]);
+  }
+
+  i++;
+ }
+ while ((i < gm_sym->no_of_params) && (sym == comma));
+
+ if ((i < gm_sym->no_of_params) || (sym == comma))
+    _error(39); /* parameter count mismatch */
+
+ if (sym != rparen) _error(9);
+
+ /* count dispatched positions */
+ dispatch_count = 0;
+ for (i=0; i < gm_sym->no_of_params; i++)
+ {
+  if (gm_sym->p_structdef[i] == (SYM *)1 ||
+      gm_sym->p_structdef[i] == (SYM *)2)
+     dispatch_count++;
+ }
+
+ /* push dispatch hash values onto stack (reverse order so first
+    dispatched position ends up closest to sp after all pushes) */
+ for (i = gm_sym->no_of_params - 1; i >= 0; i--)
+ {
+  if (gm_sym->p_structdef[i] == (SYM *)1)
+  {
+   /* CLASS dispatch: read type ID from offset 0 of class instance */
+   gen("movea.l", formaltemp[i], "a0");
+   gen("move.l", "(a0)", "-(sp)");
+  }
+  else if (gm_sym->p_structdef[i] == (SYM *)2)
+  {
+   /* ATOM dispatch: value IS the hash */
+   gen("move.l", formaltemp[i], "-(sp)");
+  }
+ }
+
+ /* call dispatcher: lea _GMETH_<name>, a0 / jsr _gm_dispatch */
+ strcpy(gmeth_label, "_GMETH_");
+ strcat(gmeth_label, gm_sym->name);
+ gen("lea", gmeth_label, "a0");
+ gen("jsr", "_gm_dispatch", "  ");
+ enter_XREF(gmeth_label);
+ enter_XREF("_gm_dispatch");
+
+ /* clean dispatch values from stack */
+ if (dispatch_count > 0)
+    gen_stack_cleanup(dispatch_count * 4);
+
+ /* save resolved method address */
+ gen("movea.l", "a0", "a2");
+
+ /* Forbid before writing to callee frame */
+ gen("movea.l","_AbsExecBase","a6");
+ gen("jsr","_LVOForbid(a6)","  ");
+ enter_XREF("_AbsExecBase");
+ enter_XREF("_LVOForbid");
+
+ /* move params from temps to callee frame */
+ for (n=0; n < gm_sym->no_of_params; n++)
+ {
+  gen_move_typed(formaltype[n], formaltemp[n], formaladdr[n]);
+ }
+
+ /* call the resolved method */
+ gen("jsr", "(a2)", "  ");
 }

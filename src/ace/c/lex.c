@@ -305,6 +305,18 @@ char *msg;
   case 83 : msg="Fill not supported for arcs"; break;
   case 84 : msg="CALLBACK SUB must have exactly 3 ADDRESS parameters"; break;
   case 85 : msg="CALLBACK SUB cannot be called from ACE code"; break;
+  case 86 : msg="CLASS without END CLASS"; break;
+  case 87 : msg="Unknown class type"; break;
+  case 88 : msg="Class type already defined"; break;
+  case 89 : msg="Class instance already declared"; break;
+  case 90 : msg="METHOD without END METHOD"; break;
+  case 91 : msg="Expected CLASS or atom literal in METHOD parameter"; break;
+  case 92 : msg="GENERIC without METHOD"; break;
+  case 93 : msg="Expected ON in GENERIC block"; break;
+  case 94 : msg="END GENERIC expected"; break;
+  case 95 : msg="Too many ON entries in GENERIC"; break;
+  case 96 : msg="Wrong number of types in ON clause"; break;
+  case 97 : msg="EXTENDS requires a defined CLASS type"; break;
  }
 
  /* show the error */
