@@ -47,6 +47,7 @@ extern	SYM	*curr_item;
 extern	CODE	*curr_code;
 extern	int  	addr[2];
 extern	BOOL	module_opt;
+extern	LONG	atomval;
 
 /* functions */
 void forward_ref()
@@ -578,6 +579,15 @@ SYM   *struct_param_def;
    }
    insymbol();
   }
+  else if (sym == atomconst)
+  {
+   /* atom literal specializer like :ok in METHOD Handle(:ok result) */
+   param_type = longtype;
+   struct_param_def = (SYM *)2;  /* ATOM sentinel */
+   sprintf(class_names[*class_count], "%lX", (unsigned long)atomval);
+   (*class_count)++;
+   insymbol();
+  }
 
   if (sym != ident) _error(7);  /* ident expected */
   else
@@ -627,8 +637,16 @@ int   param_type;
   struct_param_def = sub_ptr->p_structdef[n];
   param_type = sub_ptr->p_type[n];
 
+  /* For ATOM-specialized params (sentinel (SYM *)2) */
+  if (struct_param_def == (SYM *)2)
+  {
+   if (!exist(param_names[n], variable))
+      enter(param_names[n], longtype, variable, 0);
+   else
+      _error(38); /* duplicate parameter */
+  }
   /* For struct/class-typed params */
-  if (struct_param_def != NULL)
+  else if (struct_param_def != NULL)
   {
    if (exist(param_names[n], structure) || exist(param_names[n], classobj))
       _error(38); /* duplicate parameter */
@@ -668,4 +686,147 @@ int   param_type;
   /* update the stored address for call-site matching */
   sub_ptr->p_addr[n] = curr_item->address;
  }
+}
+
+void call_generic_method(gm_sym)
+SYM *gm_sym;
+{
+SHORT par_addr=-8;
+SHORT i,n;
+int   formal_type;
+char  addrbuf[40];
+char  formaltemp[MAXPARAMS][80],formaladdr[MAXPARAMS][80];
+int   formaltype[MAXPARAMS];
+char  gmeth_label[200];
+int   dispatch_count;
+
+ /* Parse and evaluate all arguments, storing in caller frame temps.
+    Then push dispatch hash values, call _gm_dispatch to resolve
+    the method, and invoke it with the evaluated arguments. */
+
+ if (sym != lparen) { _error(14); return; }
+
+ i=0;
+ do
+ {
+  insymbol();
+  formal_type=expr();
+
+  /* check parameter types and coerce */
+  if (formal_type != gm_sym->p_type[i])
+  {
+   switch(gm_sym->p_type[i])
+   {
+    case shorttype: make_sure_short(formal_type);
+		    break;
+
+    case longtype: if ((formal_type = make_integer(formal_type)) == shorttype)
+		      make_long();
+		   else
+		      if (formal_type == notype) _error(4);
+		   break;
+
+    case singletype : gen_Flt(formal_type);
+		      break;
+
+    case stringtype : _error(4);
+		      break;
+
+    case atomtype : _error(4);
+		    break;
+   }
+  }
+
+  /* store parameter in temp (same pattern as load_params) */
+  if (gm_sym->p_type[i] == shorttype)
+  {
+   par_addr -= 2;
+   formaltype[i]=shorttype;
+
+   itoa(par_addr,addrbuf,10);
+   strcat(addrbuf,"(sp)");
+   strcpy(formaladdr[i],addrbuf);
+
+   addr[lev] += 2;
+   gen_frame_addr(addr[lev],formaltemp[i]);
+   gen_pop(shorttype, formaltemp[i]);
+  }
+  else
+  {
+   par_addr -= 4;
+   formaltype[i]=longtype;
+
+   itoa(par_addr,addrbuf,10);
+   strcat(addrbuf,"(sp)");
+   strcpy(formaladdr[i],addrbuf);
+
+   addr[lev] += 4;
+   gen_frame_addr(addr[lev],formaltemp[i]);
+   gen_pop(longtype, formaltemp[i]);
+  }
+
+  i++;
+ }
+ while ((i < gm_sym->no_of_params) && (sym == comma));
+
+ if ((i < gm_sym->no_of_params) || (sym == comma))
+    _error(39); /* parameter count mismatch */
+
+ if (sym != rparen) _error(9);
+
+ /* count dispatched positions */
+ dispatch_count = 0;
+ for (i=0; i < gm_sym->no_of_params; i++)
+ {
+  if (gm_sym->p_structdef[i] == (SYM *)1 ||
+      gm_sym->p_structdef[i] == (SYM *)2)
+     dispatch_count++;
+ }
+
+ /* push dispatch hash values onto stack (reverse order so first
+    dispatched position ends up closest to sp after all pushes) */
+ for (i = gm_sym->no_of_params - 1; i >= 0; i--)
+ {
+  if (gm_sym->p_structdef[i] == (SYM *)1)
+  {
+   /* CLASS dispatch: read type ID from offset 0 of class instance */
+   gen("movea.l", formaltemp[i], "a0");
+   gen("move.l", "(a0)", "-(sp)");
+  }
+  else if (gm_sym->p_structdef[i] == (SYM *)2)
+  {
+   /* ATOM dispatch: value IS the hash */
+   gen("move.l", formaltemp[i], "-(sp)");
+  }
+ }
+
+ /* call dispatcher: lea _GMETH_<name>, a0 / jsr _gm_dispatch */
+ strcpy(gmeth_label, "_GMETH_");
+ strcat(gmeth_label, gm_sym->name);
+ gen("lea", gmeth_label, "a0");
+ gen("jsr", "_gm_dispatch", "  ");
+ enter_XREF(gmeth_label);
+ enter_XREF("_gm_dispatch");
+
+ /* clean dispatch values from stack */
+ if (dispatch_count > 0)
+    gen_stack_cleanup(dispatch_count * 4);
+
+ /* save resolved method address */
+ gen("movea.l", "a0", "a2");
+
+ /* Forbid before writing to callee frame */
+ gen("movea.l","_AbsExecBase","a6");
+ gen("jsr","_LVOForbid(a6)","  ");
+ enter_XREF("_AbsExecBase");
+ enter_XREF("_LVOForbid");
+
+ /* move params from temps to callee frame */
+ for (n=0; n < gm_sym->no_of_params; n++)
+ {
+  gen_move_typed(formaltype[n], formaltemp[n], formaladdr[n]);
+ }
+
+ /* call the resolved method */
+ gen("jsr", "(a2)", "  ");
 }

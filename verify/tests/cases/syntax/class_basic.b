@@ -10,7 +10,7 @@ c->radius = 5.0
 REM -- Test member access --
 ASSERT c->radius = 5.0, "radius should be 5.0"
 
-REM -- Test type ID at offset 0 (FNV-1a hash of "DISC") --
-ASSERT PEEKL(c) = -376157364, "type ID should be FNV-1a hash of DISC"
+REM -- Test descriptor pointer at offset 0 (deref to get hash) --
+ASSERT PEEKL(PEEKL(c)) = -376157364, "descriptor hash should be FNV-1a of DISC"
 
 PRINT "class_basic: ALL PASSED"

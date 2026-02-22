@@ -767,8 +767,8 @@ SYM  *structtype;
    tail_structmem->next = new_structmem;
    curr_structmem = new_structmem;
       
-   /* increment size of structure 
-      and hence, find next offset. 
+   /* increment size of structure
+      and hence, find next offset.
    */
    switch(mtype)
    {
@@ -776,7 +776,7 @@ SYM  *structtype;
     case shorttype  : symtabitem->size += 2; break;
     case longtype   : symtabitem->size += 4; break;
     case singletype : symtabitem->size += 4; break;
-    case stringtype : symtabitem->size += MAXSTRLEN; 
+    case stringtype : symtabitem->size += MAXSTRLEN;
 		      curr_structmem->strsize = MAXSTRLEN;
 		      break;
     case structure  : symtabitem->size += structtype->size;
@@ -785,6 +785,45 @@ SYM  *structtype;
     case structptrtype : symtabitem->size += 4;
 		      break;
    }
-  }     
+  }
  }
+}
+
+SHORT copy_struct_members(parent, child)
+SYM *parent;
+SYM *child;
+{
+/* Copy all members from parent class/struct into child.
+   Sets child->size = parent->size so new members start
+   at the correct offset. Returns count of copied members.
+*/
+STRUCM *mem;
+SHORT count = 0;
+
+ mem = parent->structmem->next; /* head has no member data */
+
+ while (mem != NULL)
+ {
+  if ((new_structmem = (STRUCM *)alloc(sizeof(STRUCM),MEMF_ANY)) == NULL)
+   alloc_die("Can't allocate memory for inherited structdef node!");
+  else
+  {
+   strcpy(new_structmem->name, mem->name);
+   new_structmem->type = mem->type;
+   new_structmem->offset = mem->offset;
+   new_structmem->strsize = mem->strsize;
+   new_structmem->structdef = mem->structdef;
+
+   find_structmem_tail(child);
+   new_structmem->next = NULL;
+   tail_structmem->next = new_structmem;
+   curr_structmem = new_structmem;
+
+   count++;
+  }
+  mem = mem->next;
+ }
+
+ child->size = parent->size;
+ return count;
 }

@@ -92,6 +92,7 @@ extern	BOOL	ontimerused;
 extern	BOOL	gadtoolsused;
 extern	BOOL 	basdatapresent;
 extern	BOOL 	readpresent;
+extern	LONG	atomval;
 
 /* external functions */
 char	*version();
@@ -201,9 +202,8 @@ int  i;
  /* Set exit_sub_name so EXIT METHOD works via existing mechanism */
  strcpy(exit_sub_name, exit_label);
 
- /* For modules: return via d0 */
- if (module_opt)
-  sub_ptr->address = extfunc;
+ /* Methods always return via d0 (needed for generic dispatch) */
+ sub_ptr->address = extfunc;
 
  /* Parse method body */
  while ((sym != endsym) && (!end_of_source))
@@ -243,6 +243,259 @@ int  i;
  lev=ZERO;
 }
 
+void generic_block()
+{
+SYM  *gm_sym;
+char generic_name[MAXIDSIZE];
+char gmeth_label[200], gmeth_label_colon[200];
+char xdef_name[200];
+char end_of_generic_name[80], end_of_generic_label[80];
+int  return_type;
+int  param_count, dispatch_count;
+int  p_types[MAXPARAMS];
+int  p_dispatch[MAXPARAMS];  /* 0=CLASS, 1=ATOM, -1=regular */
+int  dispatch_positions[MAX_DISPATCH_POS];
+int  on_count;
+LONG on_hashes[MAX_ON_ENTRIES][MAX_DISPATCH_POS];
+char on_labels[MAX_ON_ENTRIES][200];
+char xref_labels[MAX_ON_ENTRIES][200];
+char buf[80];
+int  i, j;
+
+ /* consume GENERIC (already current sym) */
+ insymbol();
+
+ return_type = notype;
+
+ /* optional return type */
+ if (sym == shortintsym || sym == longintsym || sym == addresssym ||
+     sym == singlesym || sym == stringsym)
+ {
+  return_type = sym_to_type(sym);
+  insymbol();
+ }
+
+ /* expect METHOD */
+ if (sym != methodsym) { _error(92); return; }
+ insymbol();
+
+ /* expect identifier (generic name) */
+ if (sym != ident) { _error(7); return; }
+ strcpy(generic_name, id);
+
+ /* jump-around label to skip dispatch table data */
+ make_label(end_of_generic_name, end_of_generic_label);
+ gen("jmp", end_of_generic_name, "  ");
+
+ insymbol();
+
+ /* expect '(' */
+ if (sym != lparen) { _error(14); return; }
+
+ /* parse type signature */
+ param_count = 0;
+ dispatch_count = 0;
+
+ do
+ {
+  insymbol();
+
+  if (sym == classsym)
+  {
+   p_types[param_count] = longtype;
+   p_dispatch[param_count] = 0;  /* CLASS dispatch */
+   dispatch_positions[dispatch_count] = param_count;
+   dispatch_count++;
+  }
+  else if (sym == atomsym)
+  {
+   p_types[param_count] = atomtype;
+   p_dispatch[param_count] = 1;  /* ATOM dispatch */
+   dispatch_positions[dispatch_count] = param_count;
+   dispatch_count++;
+  }
+  else if (sym == longintsym || sym == addresssym)
+  {
+   p_types[param_count] = longtype;
+   p_dispatch[param_count] = -1;
+  }
+  else if (sym == shortintsym)
+  {
+   p_types[param_count] = shorttype;
+   p_dispatch[param_count] = -1;
+  }
+  else if (sym == singlesym)
+  {
+   p_types[param_count] = singletype;
+   p_dispatch[param_count] = -1;
+  }
+  else if (sym == stringsym)
+  {
+   p_types[param_count] = stringtype;
+   p_dispatch[param_count] = -1;
+  }
+  else
+  {
+   _error(60);  /* Identifier or Type expected */
+   return;
+  }
+
+  param_count++;
+  insymbol();
+ }
+ while (sym == comma && param_count < MAXPARAMS);
+
+ if (sym != rparen) { _error(9); return; }
+ insymbol();
+
+ /* create genericmethod SYM at level ZERO */
+ enter(generic_name, return_type, genericmethod, 0);
+ gm_sym = curr_item;
+ gm_sym->no_of_params = param_count;
+ for (i = 0; i < param_count; i++)
+ {
+  gm_sym->p_type[i] = p_types[i];
+  /* sentinel values in p_structdef to mark dispatch positions */
+  if (p_dispatch[i] == 0)
+   gm_sym->p_structdef[i] = (SYM *)1;  /* CLASS dispatch */
+  else if (p_dispatch[i] == 1)
+   gm_sym->p_structdef[i] = (SYM *)2;  /* ATOM dispatch */
+  else
+   gm_sym->p_structdef[i] = NULL;       /* regular param */
+ }
+
+ /* parse ON clauses */
+ on_count = 0;
+
+ /* skip end-of-line tokens between ) and first ON */
+ while (sym == endofline && !end_of_source) insymbol();
+
+ while (sym == onsym && on_count < MAX_ON_ENTRIES)
+ {
+  /* for each dispatched position, get the type name/atom */
+  for (j = 0; j < dispatch_count; j++)
+  {
+   insymbol();
+
+   if (p_dispatch[dispatch_positions[j]] == 0)
+   {
+    /* CLASS dispatch: expect class name identifier */
+    if (sym != ident) { _error(7); return; }
+    if (!exist(id, classdef)) { _error(87); return; }
+    on_hashes[on_count][j] = curr_item->numconst.longnum;
+
+    /* build method label fragment */
+    if (j == 0)
+    {
+     strcpy(on_labels[on_count], "_METH_");
+     strcat(on_labels[on_count], generic_name);
+    }
+    strcat(on_labels[on_count], "_");
+    strcat(on_labels[on_count], id);  /* id is already uppercase */
+   }
+   else
+   {
+    /* ATOM dispatch: expect atom literal :name */
+    if (sym != atomconst) { _error(60); return; }
+    on_hashes[on_count][j] = atomval;
+
+    if (j == 0)
+    {
+     strcpy(on_labels[on_count], "_METH_");
+     strcat(on_labels[on_count], generic_name);
+    }
+    /* reconstruct atom name from the id - need to re-scan */
+    /* atomval already has the hash, we need the name for the label */
+    /* Unfortunately atom literal doesn't give us the name back easily */
+    /* So we must get it from the source - but the lexer already consumed it */
+    /* The atom name was stored uppercased in the hash, but we need the text */
+    /* We'll use a workaround: scan backwards to find the atom name */
+    /* Actually, let's just use the hash as a hex label suffix */
+    sprintf(buf, "_%lX", (unsigned long)atomval);
+    strcat(on_labels[on_count], buf);
+   }
+
+   insymbol();
+
+   /* expect comma between dispatched types (but not after last) */
+   if (j < dispatch_count - 1)
+   {
+    if (sym != comma) { _error(96); return; }
+   }
+  }
+
+  /* save XREF label (without colon or XDEF prefix) */
+  strcpy(xref_labels[on_count], on_labels[on_count]);
+  on_count++;
+
+  /* skip end-of-line tokens between ON clauses */
+  while (sym == endofline && !end_of_source) insymbol();
+ }
+
+ if (on_count >= MAX_ON_ENTRIES) _error(95);
+
+ /* expect END GENERIC */
+ if (sym != endsym) { _error(94); return; }
+ insymbol();
+ if (sym != genericsym) { _error(94); return; }
+ insymbol();
+
+ /* emit dispatch table */
+
+ /* XDEF for _GMETH_<Name> */
+ strcpy(gmeth_label, "_GMETH_");
+ strcat(gmeth_label, generic_name);
+ strcpy(xdef_name, gmeth_label);
+ xdef_name[0] = '*';  /* signal XDEF */
+ enter_XREF(xdef_name);
+
+ /* label */
+ strcpy(gmeth_label_colon, gmeth_label);
+ strcat(gmeth_label_colon, ":");
+ gen(gmeth_label_colon, "  ", "  ");
+
+ /* dc.w N  (number of dispatched positions) */
+ sprintf(buf, "%d", dispatch_count);
+ gen("dc.w", buf, "  ");
+
+ /* dc.w M  (number of ON entries) */
+ sprintf(buf, "%d", on_count);
+ gen("dc.w", buf, "  ");
+
+ /* dc.w pos0, pos1, ...  (position indices, bit 15 set for ATOM) */
+ for (i = 0; i < dispatch_count; i++)
+ {
+  int pos = dispatch_positions[i];
+  if (p_dispatch[pos] == 1)
+   sprintf(buf, "$%x", 0x8000 | pos);  /* ATOM: bit 15 set */
+  else
+   sprintf(buf, "%d", pos);             /* CLASS */
+  gen("dc.w", buf, "  ");
+ }
+
+ /* ON entries: N hashes + method address */
+ for (i = 0; i < on_count; i++)
+ {
+  /* emit hashes for each dispatched position */
+  for (j = 0; j < dispatch_count; j++)
+  {
+   sprintf(buf, "$%lx", (unsigned long)on_hashes[i][j]);
+   gen("dc.l", buf, "  ");
+  }
+  /* emit method address (relocation — vasm resolves at link time) */
+  gen("dc.l", on_labels[i], "  ");
+ }
+
+ /* XREF for each method label */
+ for (i = 0; i < on_count; i++)
+ {
+  enter_XREF(xref_labels[i]);
+ }
+
+ /* landing label for jump-around */
+ gen(end_of_generic_label, "  ", "  ");
+}
+
 void block()
 {
 CODE *link;
@@ -259,7 +512,12 @@ char saved_trace_label[40];
 
  while (!end_of_source)
  {
-  if (sym == methodsym)
+  if (sym == genericsym)
+  {
+   /* GENERIC METHOD declaration with dispatch table */
+   generic_block();
+  }
+  else if (sym == methodsym)
   {
    /* METHOD definition */
    method_block();

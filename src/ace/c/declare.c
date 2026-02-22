@@ -360,10 +360,13 @@ void define_class(void)
 
 SHORT mem_count=0;
 SYM   *classdef_item,*struct_mbr_def;
+SYM   *parent_item=NULL;
 int   mem_type;
 int   oldlevel;
 LONG  string_size;
 LONG  elem_size;
+char  desc_label[80];
+char  desc_literal[120];
 
 /* define all classes at level ZERO */
 oldlevel=lev;
@@ -385,10 +388,30 @@ else
   /* store FNV-1a hash of class name as type ID */
   classdef_item->numconst.longnum = atom_hash(id);
 
-  /* get class members */
+  /* check for EXTENDS */
   insymbol();
+  if (sym == extendssym)
+  {
+   insymbol();
+   if (sym != ident || !exist(id,classdef))
+   {
+    _error(97);
+   }
+   else
+   {
+    parent_item = curr_item;
+    classdef_item->other = parent_item;
+    mem_count = copy_struct_members(parent_item, classdef_item);
+   }
+   insymbol();
+  }
+
+  /* get class members */
   while (sym == endofline) insymbol();  /* skip blank line(s) */
 
+  /* handle empty body: CLASS X EXTENDS Y / END CLASS */
+  if (sym != endsym && sym != classsym)
+  {
   do
   {
    if ((sym != bytesym) && (sym != shortintsym) && (sym != addresssym) &&
@@ -506,6 +529,7 @@ else
    while (sym == endofline) insymbol();  /* skip blank line(s) */
   }
   while (sym != endsym && sym != classsym && !end_of_source);
+  } /* end if not empty body */
 
   if (sym != endsym)
      _error(86);
@@ -515,8 +539,19 @@ else
    if (sym != classsym) _error(86); else insymbol();
   }
 
+  /* emit class descriptor: _CLASSDESC_<NAME>: dc.l $hash,parent_ref */
+  sprintf(desc_label,"_CLASSDESC_%s:",classdef_item->name);
+  if (parent_item != NULL)
+   sprintf(desc_literal,"dc.l $%lx,_CLASSDESC_%s",
+           (unsigned long)classdef_item->numconst.longnum,
+           parent_item->name);
+  else
+   sprintf(desc_literal,"dc.l $%lx,0",
+           (unsigned long)classdef_item->numconst.longnum);
+  enter_DATA(desc_label,desc_literal);
+
   /* don't want to free memory if no member list! */
-  if (mem_count == 0) classdef_item->object = undefined;
+  if (mem_count == 0 && parent_item == NULL) classdef_item->object = undefined;
  }
 }
 lev=oldlevel;
@@ -532,7 +567,7 @@ BOOL   class_pointer=FALSE;
 char   addrbuf[40],numbuf[40];
 char   classname[80],classlabel[80];
 char   strsize[20],bss_spec[40];
-char   hashbuf[20];
+char   descref[80];
 
  insymbol();
 
@@ -624,10 +659,10 @@ char   hashbuf[20];
 
        enter_BSS("  ","  ");
 
-       /* initialize type ID at offset 0 of BSS block */
-       sprintf(hashbuf,"#$%lx",(unsigned long)structdef_item->numconst.longnum);
+       /* initialize descriptor pointer at offset 0 of BSS block */
+       sprintf(descref,"#_CLASSDESC_%s",structdef_item->name);
        gen("lea",classname,"a0");
-       gen("move.l",hashbuf,"(a0)");
+       gen("move.l",descref,"(a0)");
 
        /* store address of BSS object in stack frame */
        gen("pea",classname,"  ");

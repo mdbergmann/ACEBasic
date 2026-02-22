@@ -130,6 +130,9 @@ BOOL need_symbol;
 		if (exist(id,structure)) obj=structure;
 	       else
 		if (exist(id,classobj)) obj=classobj;
+	       else
+		if (exist(id,genericmethod))
+		   { obj=genericmethod; typ=curr_item->type; }
                else
 		if (exist(id,constant))
 		   { obj=constant; typ=curr_item->type; }
@@ -143,6 +146,17 @@ BOOL need_symbol;
 		  }
 
 	       fact_item=curr_item;
+
+	       /* generic method call (with return value) */
+	       if (obj == genericmethod)
+	       {
+		insymbol();
+		call_generic_method(fact_item);
+		gen_push(fact_item->type, "d0");
+		ftype=fact_item->type;
+		insymbol();
+		return(ftype);
+	       }
 
                /* frame address of object */
 	       if (obj == subprogram) { oldlevel=lev; lev=ZERO; }

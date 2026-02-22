@@ -290,6 +290,14 @@ BOOL  need_symbol=TRUE;
 
   insymbol();
 
+  /* generic method call? (must check before assignment/sub paths) */
+  if (sym == lparen && exist(id,genericmethod))
+  {
+   call_generic_method(curr_item);
+   insymbol();
+   return;
+  }
+
   /* a variable/subprogram assignment or an array element assignment? */
   if ((sym == equal) || (sym == memberpointer) || ((sym == lparen)
       && (!exist(sub_name,subprogram)) && (!exist(func_name,function))

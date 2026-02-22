@@ -76,8 +76,34 @@ extern	BOOL 	have_equal;
 extern	SYM	*last_addr_sub_sym;
 extern	int	last_bind_bound_count;
 extern	BOOL	module_opt;
+extern	SYM	*tab_head[];
 
 /* functions */
+
+/* Search level-ZERO symbol table for a method SYM whose name starts
+   with _METH_<id>_ and has object == subprogram.  This allows
+   "Draw = value" inside a METHOD body to find _METH_DRAW_SHAPE. */
+static SYM *find_method_return_sym(name)
+char *name;
+{
+ char prefix[MAXIDSIZE+8];
+ int plen;
+ SYM *p;
+
+ strcpy(prefix, "_METH_");
+ strcat(prefix, name);
+ strcat(prefix, "_");
+ plen = strlen(prefix);
+
+ p = tab_head[ZERO]->next;
+ while (p != NULL)
+ {
+  if (p->object == subprogram && strncmp(p->name, prefix, plen) == 0)
+     return p;
+  p = p->next;
+ }
+ return NULL;
+}
 
 char* itoa(int value, char *str, int base) {
     sprintf(str, "%d", value);
@@ -644,6 +670,8 @@ int  exprtype;
  if (exist(id,structure) || exist(id,classobj)) { assign_to_struct(curr_item); return; }
  else
  if (exist(sub_name,subprogram)) obj=subprogram;
+ else
+ if ((curr_item = find_method_return_sym(id)) != NULL) { obj=subprogram; }
  else
  if (exist(ext_name,extvar)) obj=extvar;
  else
