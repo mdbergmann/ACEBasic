@@ -641,7 +641,7 @@ int  exprtype;
  else
  if (exist(id,array)) obj=array;
  else
- if (exist(id,structure)) { assign_to_struct(curr_item); return; }
+ if (exist(id,structure) || exist(id,classobj)) { assign_to_struct(curr_item); return; }
  else
  if (exist(sub_name,subprogram)) obj=subprogram;
  else

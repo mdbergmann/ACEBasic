@@ -100,9 +100,10 @@ int oldlevel;
 
  oldlevel=lev;
 
- if ((obj == subprogram) || (obj == function) || 
-     (obj == definedfunc) || (obj == extfunc) || (obj == extvar) || 
-     (obj == constant) || (obj == structdef)) lev=ZERO; 
+ if ((obj == subprogram) || (obj == function) ||
+     (obj == definedfunc) || (obj == extfunc) || (obj == extvar) ||
+     (obj == constant) || (obj == structdef) ||
+     (obj == classdef) || (obj == genericmethod)) lev=ZERO;
 
  curr_item = tab_head[lev]->next;
  while (curr_item != NULL) 
@@ -147,7 +148,8 @@ int i;
  }
 
  if ((obj != label) && (obj != function) && (obj != constant) &&
-     (obj != extvar) && (obj != extfunc) && (obj != structdef))
+     (obj != extvar) && (obj != extfunc) && (obj != structdef) &&
+     (obj != classdef) && (obj != genericmethod))
  {
   /*
   ** For module-level (lev==ZERO) variables in external modules (-m flag),
@@ -213,6 +215,19 @@ int i;
   {
    new_item->structmem->next = NULL;
    new_item->size = 0;
+  }
+ }
+
+ /* setup for class definition (like structdef but size starts at 4 for type ID) */
+ if (obj == classdef)
+ {
+  if ((new_item->structmem =
+                 (STRUCM *)sym_alloc(sizeof(STRUCM),MEMF_ANY)) == NULL)
+   alloc_die("Can't allocate memory for an initial classdef node!");
+  else
+  {
+   new_item->structmem->next = NULL;
+   new_item->size = 4;  /* reserve 4 bytes for hidden type ID at offset 0 */
   }
  }
  

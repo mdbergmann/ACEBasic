@@ -128,6 +128,8 @@ BOOL need_symbol;
 		   { obj=extvar; typ=curr_item->type; }
 	       else
 		if (exist(id,structure)) obj=structure;
+	       else
+		if (exist(id,classobj)) obj=classobj;
                else
 		if (exist(id,constant))
 		   { obj=constant; typ=curr_item->type; }
@@ -164,7 +166,7 @@ BOOL need_symbol;
    		return(ftype);
   	       }
                else
-	       if (obj == structure)  /* structure */
+	       if (obj == structure || obj == classobj)
 	       {
 		ftype=push_struct(fact_item);
 		return(ftype);
@@ -443,8 +445,8 @@ SYM  *invoke_item;
 		  {
 		   strcpy(buf,id);
 		   ftype=address_of_object();
-		   /* structure and array code returns next symbol */
-		   if (!exist(buf,structure) && !exist(buf,array))
+		   /* structure, classobj and array code returns next symbol */
+		   if (!exist(buf,structure) && !exist(buf,classobj) && !exist(buf,array))
 		      insymbol();
 		  }
 	          return(ftype);

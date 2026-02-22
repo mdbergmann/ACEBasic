@@ -584,8 +584,8 @@ static void handle_exit_statement()
   else
   if (lev == ONE)
   {
-	/* EXIT SUB */
-   	if (sym != subsym)
+	/* EXIT SUB or EXIT METHOD */
+   	if (sym != subsym && sym != methodsym)
       	   _error(35);
    	else
       	   gen("jmp",exit_sub_name,"  ");
@@ -1228,6 +1228,9 @@ char  idholder[50];
  else
  /* struct */
  if (sym == structsym) define_structure();
+ else
+ /* class */
+ if (sym == classsym) define_class();
  else
  /* style */
  if (sym == stylesym) text_style();

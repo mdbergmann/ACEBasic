@@ -354,10 +354,298 @@ char   strsize[20],bss_spec[40];
  } 
 }
 
+void define_class(void)
+{
+/* define a class data type (like STRUCT but with hidden 4-byte type ID at offset 0) */
+
+SHORT mem_count=0;
+SYM   *classdef_item,*struct_mbr_def;
+int   mem_type;
+int   oldlevel;
+LONG  string_size;
+LONG  elem_size;
+
+/* define all classes at level ZERO */
+oldlevel=lev;
+lev=ZERO;
+
+insymbol();
+if (sym != ident)
+   _error(7);
+else
+{
+ if (exist(id,classdef))
+    _error(88);
+ else
+ {
+  /* create symbol table entry */
+  enter(id,notype,classdef,0);
+  classdef_item=curr_item;
+
+  /* store FNV-1a hash of class name as type ID */
+  classdef_item->numconst.longnum = atom_hash(id);
+
+  /* get class members */
+  insymbol();
+  while (sym == endofline) insymbol();  /* skip blank line(s) */
+
+  do
+  {
+   if ((sym != bytesym) && (sym != shortintsym) && (sym != addresssym) &&
+       (sym != longintsym) && (sym != singlesym) && (sym != stringsym) &&
+       (sym != atomsym) && (sym != ident))
+      { _error(63); insymbol(); }
+   else
+   {
+    struct_mbr_def = NULL;
+
+    /* type of member? */
+    switch(sym)
+    {
+     case bytesym     : mem_type=bytetype; break;
+     case shortintsym : mem_type=shorttype; break;
+     case longintsym  : mem_type=longtype; break;
+     case addresssym  : mem_type=longtype; break;
+     case singlesym   : mem_type=singletype; break;
+     case stringsym   : mem_type=stringtype; break;
+     case atomsym     : mem_type=atomtype; break;
+     case ident       :	mem_type=structure;
+			if (!exist(id,structdef) && !exist(id,classdef))
+			{
+				_error(65); /* unknown structdef/classdef */
+				mem_type = undefined;
+			}
+			else
+				struct_mbr_def = curr_item;
+			break;
+    }
+
+    if (mem_type == undefined)
+	insymbol();
+    else
+    {
+      insymbol();
+
+      /* typed struct pointer: Inner *ptr */
+      if (mem_type == structure && sym == multiply)
+      {
+       mem_type = structptrtype;
+       insymbol();
+      }
+
+      /* reject embedded self-reference (infinite size) */
+      if (mem_type == structure && struct_mbr_def == classdef_item)
+       _error(65);
+      else if (sym != ident)
+	  { _error(7); insymbol(); }
+      else
+      {
+     	add_struct_member(classdef_item,id,mem_type,struct_mbr_def);
+      	mem_count++;
+      }
+    }
+
+    insymbol();
+
+    /* specify optional array/string size? */
+    if (sym == sizesym && (mem_type == stringtype || mem_type == bytetype ||
+        mem_type == shorttype || mem_type == longtype ||
+        mem_type == singletype || mem_type == atomtype || mem_type == structure))
+    {
+     insymbol();
+     if (sym == shortconst) string_size=(LONG)shortval;
+     else
+     if (sym == longconst) string_size=longval;
+     else
+     if (sym == ident && exist(id,constant))
+     {
+	if (curr_item->type == shorttype)
+	   string_size=(LONG)curr_item->numconst.shortnum;
+	else
+	if (curr_item->type == longtype)
+	   string_size=curr_item->numconst.longnum;
+	else
+	    _error(4);
+     }
+     else
+         _error(27);
+
+     if (string_size <= 0L) _error(41);
+
+     insymbol();
+
+     /* change member and class info */
+     if (mem_type == stringtype)
+     {
+      curr_structmem->strsize = string_size;
+      classdef_item->size -= MAXSTRLEN;
+      classdef_item->size += string_size;
+     }
+     else
+     if (mem_type == structure)
+     {
+      elem_size = struct_mbr_def->size;
+      curr_structmem->strsize = string_size * elem_size;
+      classdef_item->size -= elem_size;
+      classdef_item->size += string_size * elem_size;
+     }
+     else
+     {
+      switch(mem_type)
+      {
+       case bytetype   : elem_size = 1; break;
+       case shorttype  : elem_size = 2; break;
+       default         : elem_size = 4; break;
+      }
+      curr_structmem->strsize = string_size * elem_size;
+      classdef_item->size -= elem_size;
+      classdef_item->size += string_size * elem_size;
+     }
+    }
+   }
+   while (sym == endofline) insymbol();  /* skip blank line(s) */
+  }
+  while (sym != endsym && sym != classsym && !end_of_source);
+
+  if (sym != endsym)
+     _error(86);
+  else
+  {
+   insymbol();
+   if (sym != classsym) _error(86); else insymbol();
+  }
+
+  /* don't want to free memory if no member list! */
+  if (mem_count == 0) classdef_item->object = undefined;
+ }
+}
+lev=oldlevel;
+}
+
+void declare_class(void)
+{
+/* declare one or more instances of a class (at level ZERO).
+   syntax: DECLARE CLASS <class-type> [*] <ident> [,[*] <ident>..]
+*/
+STRUCM *curr_member;
+BOOL   class_pointer=FALSE;
+char   addrbuf[40],numbuf[40];
+char   classname[80],classlabel[80];
+char   strsize[20],bss_spec[40];
+char   hashbuf[20];
+
+ insymbol();
+
+ if (sym != ident)
+    { _error(7); insymbol(); }
+ else
+ {
+  if (!exist(id,classdef))
+     { _error(87); insymbol(); }  /* unknown classdef */
+  else
+  {
+   structdef_item = curr_item; /* pointer to classdef info */
+
+   do
+   {
+    insymbol();
+    if (sym == multiply) { class_pointer=TRUE; insymbol(); }
+
+    if (sym != ident)
+       _error(7);
+    else
+    {
+     if (exist(id,classobj))
+        _error(89);
+     else
+     {
+      /* enter instance of class in symbol table */
+      enter(id,notype,classobj,0);
+      curr_item->other = structdef_item; /* ptr to classdef node in symtab */
+
+      gen_frame_addr(curr_item->address,addrbuf);
+
+      if (class_pointer)
+         gen("move.l","#0",addrbuf); /* pointer to class */
+      else
+      {
+       /* BSS class name */
+       strcpy(classname,"_class");
+       itoa(structcount++,numbuf,10);
+       strcat(classname,numbuf);
+
+       /* BSS class label */
+       strcpy(classlabel,classname);
+       strcat(classlabel,":\0");
+
+       /* create BSS object - long word aligned! */
+       enter_BSS("  ","CNOP 0,4");
+       enter_BSS(classlabel,"  ");
+
+       /* first: reserve 4 bytes for type ID at offset 0 */
+       enter_BSS("  ","ds.l 1");
+
+       /* then: members (same as struct) */
+       curr_member = structdef_item->structmem->next;
+       while (curr_member != NULL)
+       {
+        switch(curr_member->type)
+        {
+         case bytetype   :
+         case shorttype  :
+         case longtype   :
+         case singletype :
+         case atomtype   : if (curr_member->strsize > 0)
+			   {
+			    ltoa(curr_member->strsize,strsize,10);
+			    strcpy(bss_spec,"ds.b ");
+			    strcat(bss_spec,strsize);
+			    enter_BSS("  ",bss_spec);
+			   }
+			   else if (curr_member->type == bytetype)
+			    enter_BSS("  ","ds.b 1");
+			   else if (curr_member->type == shorttype)
+			    enter_BSS("  ","ds.w 1");
+			   else
+			    enter_BSS("  ","ds.l 1");
+			   break;
+
+	 case stringtype :
+	 case structure  : ltoa(curr_member->strsize,strsize,10);
+			   strcpy(bss_spec,"ds.b ");
+			   strcat(bss_spec,strsize);
+			   enter_BSS("  ",bss_spec);
+			   break;
+	 case structptrtype : enter_BSS("  ","ds.l 1");
+			   break;
+        }
+        curr_member = curr_member->next;
+       }
+
+       enter_BSS("  ","  ");
+
+       /* initialize type ID at offset 0 of BSS block */
+       sprintf(hashbuf,"#$%lx",(unsigned long)structdef_item->numconst.longnum);
+       gen("lea",classname,"a0");
+       gen("move.l",hashbuf,"(a0)");
+
+       /* store address of BSS object in stack frame */
+       gen("pea",classname,"  ");
+       gen("move.l","(sp)+",addrbuf);
+      }
+     }
+    }
+    insymbol();
+   }
+   while (sym == comma);
+  }
+ }
+}
+
 void define_constant(void)
 {
-/* define a NUMERIC constant 
-   syntax: CONST <ident>=[-|+]<numconst>[,..] 
+/* define a NUMERIC constant
+   syntax: CONST <ident>=[-|+]<numconst>[,..]
 */
 char  const_id[MAXIDSIZE];
 BOOL  numconstant;

@@ -97,6 +97,152 @@ extern	BOOL 	readpresent;
 char	*version();
 
 /* functions */
+void method_block()
+{
+CODE *link;
+SYM  *sub_ptr;
+char method_generic_name[MAXIDSIZE];
+char method_label[200], method_label_colon[200];
+char exit_label[210], exit_label_colon[210];
+char end_of_method_name[80], end_of_method_label[80];
+char xdef_name[200];
+char bytes[40], buf[40];
+int  sub_type;
+SHORT class_count;
+char class_names[MAXPARAMS][MAXIDSIZE];
+char param_names[MAXPARAMS][MAXIDSIZE];
+int  i;
+
+ /* consume METHOD keyword (already current sym) */
+ insymbol();
+
+ sub_type = undefined;
+
+ /* optional return type */
+ if (sym == shortintsym || sym == longintsym || sym == addresssym ||
+     sym == singlesym || sym == stringsym)
+ {
+  sub_type = sym_to_type(sym);
+  insymbol();
+ }
+
+ if (sym != ident) { _error(7); return; }
+
+ /* save the generic name (e.g. "Draw") */
+ strcpy(method_generic_name, id);
+
+ /* prepare end-of-method jump label */
+ make_label(end_of_method_name, end_of_method_label);
+ gen("jmp", end_of_method_name, "  ");
+
+ /* Phase A: scan parameters at level ZERO, collect class names and param names.
+    We stay at level ZERO so exist() finds class/struct defs and so the
+    method SYM is entered at level ZERO (like regular SUBs). */
+ {
+  SYM temp_sub;
+  temp_sub.no_of_params = 0;
+
+  method_scan_params(&temp_sub, param_names, class_names, &class_count);
+
+  /* METHOD must have at least one CLASS-typed parameter */
+  if (class_count == 0) _error(91);
+
+  /* Construct method label: _METH_Draw_Circle[_Box] */
+  strcpy(method_label, "_METH_");
+  strcat(method_label, method_generic_name);
+  for (i=0; i < class_count; i++)
+  {
+   strcat(method_label, "_");
+   strcat(method_label, class_names[i]);
+  }
+
+  /* Construct exit label: _EXIT_METH_Draw_Circle */
+  strcpy(exit_label, "_EXIT");
+  strcat(exit_label, method_label);
+
+  /* Create SYM entry for this method at level ZERO (like SUBs) */
+  if (sub_type == undefined) sub_type = notype;
+  enter(method_label, sub_type, subprogram, 0);
+  curr_item->decl = subdecl;
+  sub_ptr = curr_item;
+
+  /* Copy param info from temp to real SYM */
+  sub_ptr->no_of_params = temp_sub.no_of_params;
+  for (i=0; i < temp_sub.no_of_params; i++)
+  {
+   sub_ptr->p_type[i] = temp_sub.p_type[i];
+   sub_ptr->p_addr[i] = temp_sub.p_addr[i];
+   sub_ptr->p_structdef[i] = temp_sub.p_structdef[i];
+  }
+ }
+
+ /* Now switch to level ONE for the method body */
+ lev=ONE;
+ addr[lev]=0;
+ new_symtab();
+
+ /* Make method externally visible (always XDEF) */
+ strcpy(xdef_name, method_label);
+ xdef_name[0] = '*';  /* signal XDEF */
+ enter_XREF(xdef_name);
+
+ /* Emit method label */
+ strcpy(method_label_colon, method_label);
+ strcat(method_label_colon, ":\0");
+ gen(method_label_colon, "  ", "  ");
+
+ /* link instruction -- # of bytes patched later */
+ gen("link", "a5", "  ");
+ link = curr_code;
+
+ /* Phase B: enter params into level-1 symbol table, emit Permit & setup code */
+ method_enter_params(sub_ptr, param_names);
+
+ /* Set exit_sub_name so EXIT METHOD works via existing mechanism */
+ strcpy(exit_sub_name, exit_label);
+
+ /* For modules: return via d0 */
+ if (module_opt)
+  sub_ptr->address = extfunc;
+
+ /* Parse method body */
+ while ((sym != endsym) && (!end_of_source))
+ {
+  if (sym == sharedsym) parse_shared_vars();
+  if ((sym != endsym) && (!end_of_source)) statement();
+ }
+
+ if (end_of_source) _error(90);  /* METHOD without END METHOD */
+
+ if (sym == endsym)
+ {
+  insymbol();
+  if (sym != methodsym) _error(90);  /* expected METHOD after END */
+  insymbol();
+ }
+
+ /* Establish size of stack frame */
+ if (addr[lev] == 0)
+  strcpy(bytes, "#\0");
+ else
+  strcpy(bytes, "#-");
+ itoa(addr[lev], buf, 10);
+ strcat(bytes, buf);
+ change(link, "link", "a5", bytes);
+
+ /* Exit code */
+ strcpy(exit_label_colon, exit_label);
+ strcat(exit_label_colon, ":\0");
+ gen(exit_label_colon, "  ", "  ");
+
+ gen("unlk", "a5", "  ");
+ gen("rts", "  ", "  ");
+ gen(end_of_method_label, "  ", "  ");
+
+ kill_symtab();
+ lev=ZERO;
+}
+
 void block()
 {
 CODE *link;
@@ -113,7 +259,12 @@ char saved_trace_label[40];
 
  while (!end_of_source)
  {
-  if (sym != subsym && sym != defsym) 
+  if (sym == methodsym)
+  {
+   /* METHOD definition */
+   method_block();
+  }
+  else if (sym != subsym && sym != defsym)
    /* ordinary statement */
    statement();
   else

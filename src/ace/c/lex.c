@@ -305,6 +305,12 @@ char *msg;
   case 83 : msg="Fill not supported for arcs"; break;
   case 84 : msg="CALLBACK SUB must have exactly 3 ADDRESS parameters"; break;
   case 85 : msg="CALLBACK SUB cannot be called from ACE code"; break;
+  case 86 : msg="CLASS without END CLASS"; break;
+  case 87 : msg="Unknown class type"; break;
+  case 88 : msg="Class type already defined"; break;
+  case 89 : msg="Class instance already declared"; break;
+  case 90 : msg="METHOD without END METHOD"; break;
+  case 91 : msg="Expected class type in METHOD parameter"; break;
  }
 
  /* show the error */

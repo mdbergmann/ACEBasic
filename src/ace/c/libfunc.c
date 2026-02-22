@@ -437,6 +437,8 @@ BOOL found;
 
  if (sym == structsym) { lev=oldlevel; declare_structure(); return; }
 
+ if (sym == classsym) { lev=oldlevel; declare_class(); return; }
+
  if (sym != functionsym) _error(47);
  else
  {

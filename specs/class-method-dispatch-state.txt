@@ -1,0 +1,48 @@
+CLASS / GENERIC / METHOD — Implementation State
+=================================================
+
+Phase 2: CLASS keyword                                        [COMPLETE]
+  Branch: phase2-class-keyword
+  - CLASS definition with hidden 4-byte FNV-1a type ID at offset 0
+  - DECLARE CLASS for instance creation
+  - Member access via ->
+  - Error codes 86-89
+  - Feature A: struct-typed SUB parameters
+
+Phase 3: METHOD definition                                    [COMPLETE]
+  Branch: phase3-method-def (from phase2-class-keyword)
+  - METHOD keyword parses and compiles identically to SUB
+  - Deterministic label naming: _METH_<GenericName>_<ClassName>
+  - Exit labels: _EXIT_METH_<GenericName>_<ClassName>
+  - Always XDEF'd for cross-module linking
+  - Two-phase param parsing: scan (collect class names) then enter (codegen)
+  - EXIT METHOD works via existing exit_sub_name mechanism
+  - Error codes: 90 (METHOD without END METHOD), 91 (no class-typed param)
+  - Supports: void methods, typed return (SINGLE/LONGINT/etc.), mixed params
+  - Tested: 4 methods (Draw(Shape), Draw(Box), GetX(Shape), SetXY(Shape,SINGLE,SINGLE))
+  - Generated assembly verified: correct labels, XDEF, link/unlk, Permit, member access
+  Files modified:
+    - src/ace/c/lex.c (error codes 90, 91)
+    - src/ace/c/parse.c (method_block(), block() detection)
+    - src/ace/c/sub.c (method_scan_params(), method_enter_params())
+    - src/ace/c/statement.c (EXIT METHOD support)
+    - src/ace/c/acedef.h (prototypes)
+  Test: verify/tests/cases/syntax/method_basic.b
+
+Phase 4: GENERIC declaration                                  [NEXT]
+  Plan: specs/class-method-dispatch.txt
+  - GENERIC <Name>(<type-signature>) declares a generic function
+  - Creates a dispatch stub that examines type ID of class-typed arguments
+  - At compile time, collects all METHOD implementations matching the generic name
+  - Generates a dispatch table or if/else chain comparing type IDs
+  - Calling GENERIC invokes the stub, which dispatches to the correct METHOD
+
+Phase 5: Dispatch system (linking GENERIC → METHOD)           [TODO]
+  - Wire GENERIC stubs to METHOD implementations
+  - Runtime dispatch via type ID comparison
+  - Error handling for unknown types at runtime
+
+Phase 6: Testing and integration                              [TODO]
+  - Full end-to-end test: define classes, methods, generic, call via generic
+  - Module support (cross-module method dispatch)
+  - Error test cases

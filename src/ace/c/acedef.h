@@ -300,6 +300,7 @@ enum { 	abssym = 0,
 	casesym,
 	checkboxkindsym,
 	chipsetsym,
+	classsym,
 	constsym,
 	cstrsym,
 	cyclekindsym,
@@ -311,6 +312,7 @@ enum { 	abssym = 0,
 	fontsym,
 	forwardsym,
 	gadgetsym,
+	genericsym,
 	getattrsym,
 	globalsym,
 	handlesym,
@@ -324,6 +326,7 @@ enum { 	abssym = 0,
 	lpadstrsym,
 	ltrimstrsym,
 	messagesym,
+	methodsym,
 	msgboxsym,
 	mxkindsym,
 	numberkindsym,
@@ -426,6 +429,9 @@ enum {	variable = 	3000,
 	constant,
 	structdef,
 	structure,
+	classdef,
+	classobj,
+	genericmethod,
 	rsvd_word,
 
 	undefined =      9999 };
@@ -843,6 +849,8 @@ void	gad_event_test();
 
 void	define_structure();
 void	declare_structure();
+void	define_class();
+void	declare_class();
 void	define_constant();
 void	declare_variable();
 void	define_common_or_global_variable();
@@ -864,8 +872,11 @@ void	statement();
 void	forward_ref();
 void	load_params();
 void	sub_params();
+void	method_scan_params();
+void	method_enter_params();
 void	parse_shared_vars();
 
+void	method_block();
 void	block();
 void	parse();
 void	compile();
