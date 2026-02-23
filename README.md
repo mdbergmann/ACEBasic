@@ -291,7 +291,7 @@ Use descriptive names without spaces: `float_add.b`, not `float add.b`
   - [Aminet](https://aminet.net/package/dev/basic/CubicIDE-ACE)
   - [GitHub](https://github.com/mdbergmann/amigastuff/tree/main/CubicIDE-ACE)
 
-The included AIDE is there for legacy reasons. It may or may not work, it's up to you.
+AIDE has been removed from this distribution. It is still available on [Aminet](https://aminet.net/package/dev/basic/aide).
 
 ### Architecture Overview
 
