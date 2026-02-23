@@ -37,10 +37,46 @@ WINDOW CLOSE 1
 SCREEN CLOSE 1
 ```
 
+ACE supports an object system with classes, methods, and generic dispatch:
+
+```basic
+REM -- Define classes with inheritance
+CLASS Shape
+    LONGINT x
+    LONGINT y
+END CLASS
+
+CLASS Rect EXTENDS Shape
+    LONGINT w
+    LONGINT h
+END CLASS
+
+REM -- Methods specialize per class
+METHOD LONGINT Area(Shape s)
+    Area = 0
+END METHOD
+
+METHOD LONGINT Area(Rect r)
+    Area = r->w * r->h
+END METHOD
+
+REM -- Generic dispatches at runtime based on argument type
+GENERIC LONGINT METHOD Area(CLASS)
+    ON Shape
+    ON Rect
+END GENERIC
+
+REM -- Usage
+DECLARE CLASS Rect r
+r->w = 10 : r->h = 5
+PRINT "Area:"; Area(r)   ' prints 50
+```
+
 ## Features
 
 ### Core Language
 - **Full type system** - Integers, IEEE single-precision floats, strings, atoms, arrays, pointers, and structures
+- **Object system** - CLASS types with single inheritance (EXTENDS), METHOD definitions, and GENERIC methods with runtime dynamic dispatch (single and multiple dispatch)
 - **Closures and function pointers** - First-class function references with `@`, `BIND` for partial application, `INVOKE` for indirect calls, and `INVOKABLE` keyword for callback SUBs
 - **CALLBACK SUBs** - SUBs that can be invoked via AmigaOS CallHookPtr() for system callbacks
 - **68020 native code generation** - Native 68020 instructions by default (use `OPTION 2-` for 68000 compatibility)
@@ -434,6 +470,6 @@ The v3 fork adds significant new features and modernizes the toolchain. The move
 - **v2.7.1** - ELSEIF keyword, LCASE$ function, list submodule with higher-order functions
 - **v2.8** - YAP preprocessor, INVOKABLE keyword, REM #using directive, installer, major compiler refactoring
 - **v2.9** - Struct enhancements (typed arrays, nested access, typed pointers, self-referential structs), 12 new string functions, P96/RTG screens (mode 13), tail-call optimization, buffered file I/O, HTTP/HTTPS client submodule, DP-float submodule, SagaSound submodule, turtle graphics submodule, codegen abstraction
-- **v3.0** - VBCC toolchain migration (replacing GCC/ADE), IEEE 754 single-precision floats (replacing Motorola FFP), ATOM primitive type, EXIT WHILE/EXIT REPEAT, FREE statement, SUB tracing (-t flag, TRON/TROFF), CyberGfx screens (mode 14), IFF picture submodule, runtime library optimizations
+- **v3.0** - VBCC toolchain migration (replacing GCC/ADE), IEEE 754 single-precision floats (replacing Motorola FFP), object system (CLASS/METHOD/GENERIC with dynamic dispatch and inheritance), ATOM primitive type, EXIT WHILE/EXIT REPEAT, FREE statement, SUB tracing (-t flag, TRON/TROFF), CyberGfx screens (mode 14), IFF picture submodule, runtime library optimizations
 
 See `CHANGELOG.txt` for full details. For the original 1998 release notes, see `docs/HISTORY-1998-Release.txt`.
