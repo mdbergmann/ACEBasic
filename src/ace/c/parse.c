@@ -476,7 +476,7 @@ int  i, j;
    }
    else
    {
-    /* ATOM dispatch: expect atom literal :name */
+    /* ATOM dispatch: expect atom literal `name */
     if (sym != atomconst) { _error(60); return; }
     on_hashes[on_count][j] = atomval;
 

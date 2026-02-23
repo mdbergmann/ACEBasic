@@ -20,7 +20,7 @@ Steps Completed:
 
   3. Lexer atom literal recognition (lex.c)                       DONE
      - extern LONG atomval declaration
-     - :name scanning in scan_symbol() after := check
+     - `name scanning in insymbol() via backtick check
      - Reads identifier chars, uppercases, hashes, sets sym/typ/obj
 
   4. Factor - atom literal in expressions (factor.c)              DONE

@@ -55,12 +55,12 @@ METHOD SINGLE Offset(Vec2 v, SINGLE delta)
 END METHOD
 
 REM -- METHOD with CLASS + ATOM + LONGINT params
-METHOD LONGINT Apply(Vec2 v, :set cmd, LONGINT amount)
+METHOD LONGINT Apply(Vec2 v, `set cmd, LONGINT amount)
     v->x = amount
     Apply = amount
 END METHOD
 
-METHOD LONGINT Apply(Vec2 v, :add cmd, LONGINT amount)
+METHOD LONGINT Apply(Vec2 v, `add cmd, LONGINT amount)
     v->x = v->x + amount
     Apply = v->x
 END METHOD
@@ -91,8 +91,8 @@ GENERIC SINGLE METHOD Offset(CLASS, SINGLE)
 END GENERIC
 
 GENERIC LONGINT METHOD Apply(CLASS, ATOM, LONGINT)
-    ON Vec2, :set
-    ON Vec2, :add
+    ON Vec2, `set
+    ON Vec2, `add
 END GENERIC
 
 REM -- Test: call void method, verify member modification
@@ -156,11 +156,11 @@ ASSERT ofs = 12.5, "Offset(10, 2.5) should be 12.5"
 REM -- Test: CLASS + ATOM + LONGINT params
 v1->x = 100
 LONGINT ap
-ap = Apply(v1, :set, 50)
-ASSERT ap = 50, "Apply :set 50 should return 50"
-ASSERT v1->x = 50, "Apply :set should set x to 50"
-ap = Apply(v1, :add, 25)
-ASSERT ap = 75, "Apply :add 25 should return 75"
-ASSERT v1->x = 75, "Apply :add should add to x"
+ap = Apply(v1, `set, 50)
+ASSERT ap = 50, "Apply `set 50 should return 50"
+ASSERT v1->x = 50, "Apply `set should set x to 50"
+ap = Apply(v1, `add, 25)
+ASSERT ap = 75, "Apply `add 25 should return 75"
+ASSERT v1->x = 75, "Apply `add should add to x"
 
 PRINT "method_basic: ALL PASSED"

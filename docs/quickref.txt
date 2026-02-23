@@ -9,7 +9,7 @@ ARGCOUNT count = ARGCOUNT : ARGCOUNT returns the number of command line argument
 ASC( ascii_code = ASC(X$) : ASC() returns the ASCII code of the first character in X$.
 ASSEM ASSEM .. END ASSEM : ASSEM allows inline inclusion of assembly source code into the generated A68K file.
 ASSERT ASSERT <condition> [, <message>] : ASSERT tests the condition and halts program execution if false, printing "ASSERT FAILED" with an optional message. Exits cleanly.
-ATOM ATOM <identifier> [= <atom-literal>][,..] : ATOM declares a variable of atom type. Atoms are symbolic constants identified by a :name prefix (e.g., :ready, :error). They are stored as compile-time FNV-1a hash LONGs. Only = and <> comparisons are allowed. Atoms can be used in SUB parameters, CASE statements, and DIM arrays.
+ATOM ATOM <identifier> [= <atom-literal>][,..] : ATOM declares a variable of atom type. Atoms are symbolic constants identified by a `name prefix (e.g., `ready, `error). They are stored as compile-time FNV-1a hash LONGs. Only = and <> comparisons are allowed. Atoms can be used in SUB parameters, CASE statements, and DIM arrays.
 ATN( arctan = ATN(n) : ATN() returns the arctangent of n.
 BEEP BEEP : BEEP issues a brief pulse from the speaker to alert the user.
 BEVELBOX BEVELBOX (x1,y1)-(x2,y2),style : BEVELBOX renders a Wb 2.x/3.0 style 3D bevel-box. Style: 1=RAISED, 2=RECESSED, 3=STRING-GADGET STYLE.
@@ -100,7 +100,7 @@ LPAD$( result$ = LPAD$(X$, width, pad$) : LPAD$() returns X$ left-padded with th
 LTRIM$( result$ = LTRIM$(X$) : LTRIM$() returns X$ with all leading whitespace (spaces and tabs) removed.
 MENU MENU menu-id,item-id,state[,title[,command-key]] : MENU creates or modifies menus. State: 0=disabled, 1=enabled, 2=checkmarked.
 MENU( info = MENU(n) : MENU() returns menu info. n: 0=menu number, 1=item number, 2=subitem number.
-METHOD [<type>] METHOD <name>(<TypeName param>[,..]) .. END METHOD : METHOD defines a method specialization for a GENERIC. Class-typed parameters (e.g. Circle c) specify the types this method handles. Atom-typed parameters use literal syntax (e.g. :ok result). Methods are always XDEF'd for cross-module linking. Return values work like SUB return values.
+METHOD [<type>] METHOD <name>(<TypeName param>[,..]) .. END METHOD : METHOD defines a method specialization for a GENERIC. Class-typed parameters (e.g. Circle c) specify the types this method handles. Atom-typed parameters use literal syntax (e.g. `ok result). Methods are always XDEF'd for cross-module linking. Return values work like SUB return values.
 MID$( mid$ = MID$(X$,I[,J]) : MID$() returns J characters from X$ starting at position I. If J is omitted, returns all characters from I to end.
 MID$ MID$(X$,I[,J]) = Y$ : MID$ statement overwrites characters in X$ starting at position I with Y$. J limits how many characters to replace. Does not change string length.
 MOD MOD is the modulo arithmetic operator. Example: 101 MOD 10 = 1.

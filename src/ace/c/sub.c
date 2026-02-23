@@ -581,7 +581,7 @@ SYM   *struct_param_def;
   }
   else if (sym == atomconst)
   {
-   /* atom literal specializer like :ok in METHOD Handle(:ok result) */
+   /* atom literal specializer like `ok in METHOD Handle(`ok result) */
    param_type = longtype;
    struct_param_def = (SYM *)2;  /* ATOM sentinel */
    sprintf(class_names[*class_count], "%lX", (unsigned long)atomval);

@@ -1,6 +1,7 @@
 uaem
 .uaem
 *.uaem
+.svn
 aos3
 src/ace/obj/
 *.log
