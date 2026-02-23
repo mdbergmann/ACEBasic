@@ -708,34 +708,34 @@ line.
 
 Atoms
 -----
-Atoms are lightweight symbolic constants identified by a colon-prefixed
-name (e.g. :ready, :error, :done). They provide type-safe symbolic values
+Atoms are lightweight symbolic constants identified by a backtick-prefixed
+name (e.g. `ready, `error, `done). They provide type-safe symbolic values
 without requiring pre-declared enums, making them useful for state machines,
 option flags, message types, and similar patterns.
 
 At runtime an atom is a LONG (4 bytes) containing a compile-time FNV-1a
 hash of the uppercased name. The hash is deterministic, so the same atom
 name always produces the same value, even across separately compiled
-modules. Atom names are case-insensitive: :foo, :FOO, and :Foo are all
+modules. Atom names are case-insensitive: `foo, `FOO, and `Foo are all
 identical.
 
 Declaration:
 
 	ATOM state                    ' declares atom variable, initialized to 0
-	ATOM state = :ready           ' declares and assigns
+	ATOM state = `ready           ' declares and assigns
 	ATOM a, b, c                  ' multiple declarations
 	DIM ATOM states(10)           ' atom array
 
 Atom literal syntax:
 
-	:identifier                   ' colon followed by BASIC identifier
+	`identifier                   ' backtick followed by BASIC identifier
 	                              ' letters, digits, underscore only
 
 Assignment and comparison:
 
-	state = :done                 ' assignment
-	IF state = :ready THEN ...    ' equality test
-	IF state <> :done THEN ...    ' inequality test
+	state = `done                 ' assignment
+	IF state = `ready THEN ...    ' equality test
+	IF state <> `done THEN ...    ' inequality test
 
 Only = and <> comparisons are allowed for atoms. Ordering comparisons
 (<, >, <=, >=) and arithmetic operations are not permitted. Atoms cannot
@@ -745,16 +745,16 @@ variable (or vice versa) is a type error.
 Atoms in SUB parameters:
 
 	SUB Process(ATOM action)
-	  IF action = :run THEN ...
+	  IF action = `run THEN ...
 	END SUB
-	CALL Process(:run)
+	CALL Process(`run)
 
 Atoms in CASE statements (via boolean expressions):
 
-	ATOM action = :run
+	ATOM action = `run
 	CASE
-	  action = :stop: PRINT "stopping"
-	  action = :run:  PRINT "running"
+	  action = `stop: PRINT "stopping"
+	  action = `run:  PRINT "running"
 	END CASE
 
 Atoms as structure members:
@@ -2356,33 +2356,33 @@ ATOM-only dispatch uses ATOM in the GENERIC signature instead of CLASS.
 The ON clauses name atom literals:
 
 	GENERIC LONGINT METHOD Process(ATOM)
-	  ON :ok
-	  ON :fail
+	  ON `ok
+	  ON `fail
 	END GENERIC
 
-	METHOD LONGINT Process(:ok result)
+	METHOD LONGINT Process(`ok result)
 	  Process = 1
 	END METHOD
 
-	METHOD LONGINT Process(:fail result)
+	METHOD LONGINT Process(`fail result)
 	  Process = -1
 	END METHOD
 
 	ATOM status
-	status = :ok
+	status = `ok
 	LONGINT pv
 	pv = Process(status)      '..returns 1
-	pv = Process(:fail)       '..returns -1
+	pv = Process(`fail)       '..returns -1
 
 Mixed CLASS + ATOM dispatch is also supported:
 
 	GENERIC LONGINT METHOD React(CLASS, ATOM)
-	  ON Widget, :click
-	  ON Widget, :hover
-	  ON Knob, :click
+	  ON Widget, `click
+	  ON Widget, `hover
+	  ON Knob, `click
 	END GENERIC
 
-	rv = React(wg, :click)
+	rv = React(wg, `click)
 
 
 Inheritance and dispatch
