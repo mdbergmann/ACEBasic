@@ -113,6 +113,7 @@ SHORT class_count;
 char class_names[MAXPARAMS][MAXIDSIZE];
 char param_names[MAXPARAMS][MAXIDSIZE];
 int  i;
+char saved_trace_label[40];
 
  /* consume METHOD keyword (already current sym) */
  insymbol();
@@ -205,6 +206,68 @@ int  i;
  /* Methods always return via d0 (needed for generic dispatch) */
  sub_ptr->address = extfunc;
 
+ /* -- Trace: METHOD entry -- */
+ saved_trace_label[0] = '\0';
+ if (trace_opt)
+ {
+  char trace_label[80], trace_data[200];
+  char addrbuf[40];
+  int pi;
+
+  /* Create string constant with METHOD name (without _METH_ prefix) */
+  sprintf(trace_label, "_tn%d:", tracename_count);
+  sprintf(trace_data, "dc.b \"%s\",0", method_label+6);
+  enter_DATA(trace_label, trace_data);
+
+  /* Save label reference for exit code */
+  sprintf(saved_trace_label, "_tn%d", tracename_count);
+  tracename_count++;
+
+  /* Call _trace_enter(name_ptr) - name in a0 */
+  gen("lea", saved_trace_label, "a0");
+  gen("jsr", "_trace_enter", "  ");
+  enter_XREF("_trace_enter");
+
+  /* Emit each parameter value */
+  for (pi = 0; pi < sub_ptr->no_of_params; pi++)
+  {
+   if (pi > 0)
+   {
+    gen("jsr", "_trace_param_sep", "  ");
+    enter_XREF("_trace_param_sep");
+   }
+
+   gen_frame_addr(sub_ptr->p_addr[pi], addrbuf);
+
+   switch (sub_ptr->p_type[pi])
+   {
+    case shorttype:
+     gen("move.w", addrbuf, "d0");
+     gen("jsr", "_trace_param_short", "  ");
+     enter_XREF("_trace_param_short");
+     break;
+    case longtype:
+     gen("move.l", addrbuf, "d0");
+     gen("jsr", "_trace_param_long", "  ");
+     enter_XREF("_trace_param_long");
+     break;
+    case singletype:
+     gen("move.l", addrbuf, "d0");
+     gen("jsr", "_trace_param_single", "  ");
+     enter_XREF("_trace_param_single");
+     break;
+    case stringtype:
+     gen("move.l", addrbuf, "a0");
+     gen("jsr", "_trace_param_str", "  ");
+     enter_XREF("_trace_param_str");
+     break;
+   }
+  }
+
+  gen("jsr", "_trace_end_params", "  ");
+  enter_XREF("_trace_end_params");
+ }
+
  /* Parse method body */
  while ((sym != endsym) && (!end_of_source))
  {
@@ -234,6 +297,24 @@ int  i;
  strcpy(exit_label_colon, exit_label);
  strcat(exit_label_colon, ":\0");
  gen(exit_label_colon, "  ", "  ");
+
+ /* -- Trace: METHOD exit -- */
+ if (trace_opt && saved_trace_label[0] != '\0')
+ {
+  gen("lea", saved_trace_label, "a0");
+
+  if (sub_type == notype)
+  {
+   gen("jsr", "_trace_exit_void", "  ");
+   enter_XREF("_trace_exit_void");
+  }
+  else
+  {
+   /* METHOD returns via d0 (address == extfunc) */
+   gen("jsr", "_trace_exit_long", "  ");
+   enter_XREF("_trace_exit_long");
+  }
+ }
 
  gen("unlk", "a5", "  ");
  gen("rts", "  ", "  ");
