@@ -29,8 +29,8 @@ New Features:
     commands for tracing SUB/FUNCTION entry and exit. OPTION t+/t- for
     per-file control of tracing.
 
-  - CyberGfx Screen Support (#86): SCREEN mode 14 for CyberGraphX
-    retargetable graphics.
+  - CyberGfx Screen Support (#86): SCREEN mode 13 now also supports
+    CyberGraphX retargetable graphics (in addition to Picasso96).
 
   - IFF Picture Submodule (#84): IFF ILBM picture support extracted from
     compiler/runtime into a standalone submodule.

@@ -470,6 +470,6 @@ The v3 fork adds significant new features and modernizes the toolchain. The move
 - **v2.7.1** - ELSEIF keyword, LCASE$ function, list submodule with higher-order functions
 - **v2.8** - YAP preprocessor, INVOKABLE keyword, REM #using directive, installer, major compiler refactoring
 - **v2.9** - Struct enhancements (typed arrays, nested access, typed pointers, self-referential structs), 12 new string functions, P96/RTG screens (mode 13), tail-call optimization, buffered file I/O, HTTP/HTTPS client submodule, DP-float submodule, SagaSound submodule, turtle graphics submodule, codegen abstraction
-- **v3.0** - VBCC toolchain migration (replacing GCC/ADE), IEEE 754 single-precision floats (replacing Motorola FFP), object system (CLASS/METHOD/GENERIC with dynamic dispatch and inheritance), ATOM primitive type, EXIT WHILE/EXIT REPEAT, FREE statement, SUB tracing (-t flag, TRON/TROFF), CyberGfx screens (mode 14), IFF picture submodule, runtime library optimizations
+- **v3.0** - VBCC toolchain migration (replacing GCC/ADE), IEEE 754 single-precision floats (replacing Motorola FFP), object system (CLASS/METHOD/GENERIC with dynamic dispatch and inheritance), ATOM primitive type, EXIT WHILE/EXIT REPEAT, FREE statement, SUB tracing (-t flag, TRON/TROFF), CyberGfx screen support (mode 13), IFF picture submodule, runtime library optimizations
 
 See `CHANGELOG.txt` for full details. For the original 1998 release notes, see `docs/HISTORY-1998-Release.txt`.
