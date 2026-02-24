@@ -359,6 +359,7 @@ enum { 	abssym = 0,
 	stylesym,
 	textkindsym,
 	trimstrsym,
+	typecasesym,
 	untilsym,
  
 	RWSENTINEL };
@@ -740,6 +741,7 @@ int	for_assign();
 void	for_statement();
 void	gen_branch();
 void	on_branch();
+void	typecase_statement();
 void	block_statement();
 
 void	make_sure_short();

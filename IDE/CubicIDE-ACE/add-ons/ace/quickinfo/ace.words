@@ -186,6 +186,7 @@ TIME$ time$ = TIME$ : TIME$ returns the current time as hh:mm:ss.
 TIMER seconds = TIMER : TIMER returns seconds elapsed since midnight as a single-precision value.
 TRANSLATE$( phonemes$ = TRANSLATE$(X$) : TRANSLATE$() returns the phoneme-string equivalent of the specified word string.
 TRIM$( result$ = TRIM$(X$) : TRIM$() returns X$ with all leading and trailing whitespace (spaces and tabs) removed.
+TYPECASE TYPECASE var / CASE ClassName / CASE ELSE / END TYPECASE : Type-based pattern matching with narrowing. var must be a CLASS variable. Each CASE matches using ISA semantics (walks inheritance chain). Inside each CASE block, var is narrowed to the matched type so subclass members are accessible via ->. Order matters: most specific type first.
 TROFF TROFF : TROFF disables SUB trace output at runtime. Only effective in programs compiled with the -t switch. See also TRON.
 TRON TRON : TRON enables SUB trace output at runtime. Only effective in programs compiled with the -t switch. Trace output goes to T:ace_trace.log. See also TROFF.
 UCASE$( upper$ = UCASE$(X$) : UCASE$() returns the string with all alphabetic characters in upper case.

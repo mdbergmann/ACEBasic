@@ -317,6 +317,10 @@ char *msg;
   case 95 : msg="Too many ON entries in GENERIC"; break;
   case 96 : msg="Wrong number of types in ON clause"; break;
   case 97 : msg="EXTENDS requires a defined CLASS type"; break;
+  case 98 : msg="TYPECASE requires a CLASS variable"; break;
+  case 99 : msg="CASE requires a CLASS type name"; break;
+  case 100: msg="END TYPECASE expected"; break;
+  case 101: msg="Too many CASE branches in TYPECASE"; break;
  }
 
  /* show the error */

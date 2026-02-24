@@ -80,7 +80,7 @@ C_SOURCES = aceports.c alloc.c arg.c base.c bevel.c c_string.c floatstr.c \
             sysreq.c system.c text.c val.c window.c
 
 # Assembly source files (24 modules)
-ASM_SOURCES = ace_clib.s assert.s common_data.s csrpos.s dispatch.s fmath.s file.s \
+ASM_SOURCES = ace_clib.s assert.s common_data.s csrpos.s dispatch.s fmath.s file.s isa.s \
               file_data.s gfx.s ieee_math.s \
               lmath.s locate.s logic.s misc.s scroll.s scrwin.s \
               scrwin_data.s simple_str.s sound.s sound_data.s string.s \
