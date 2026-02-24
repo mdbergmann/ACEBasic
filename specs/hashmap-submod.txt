@@ -1,0 +1,616 @@
+Hashmap Submodule for ACE BASIC
+================================
+
+A string-keyed hashmap with open addressing and linear probing,
+implemented as an ACE BASIC submodule. Designed for use in JSON
+parsing/generation and general key-value storage.
+
+The hashmap is a CLASS — each instance owns its own dynamically
+allocated storage, enabling multiple independent hashmaps
+(e.g., for nested JSON objects).
+
+
+Overview
+--------
+
+Design choices:
+- CLASS-based: multiple independent instances, each with own storage
+- ALLOC'd backing arrays with DIM ... ADDRESS overlay for array access
+- Open addressing with linear probing (no linked-list allocations)
+- Minimal storage: one LONG array + one STRING array for all value types
+- DJB2 hash function (simple, good distribution)
+- Caller-chosen capacity at creation time (power of 2)
+- 70% max load factor
+- Tombstone deletion to preserve probe chains
+- Insertion-order tracking for predictable iteration
+
+
+CLASS Definition
+----------------
+
+CLASS Hashmap
+  ADDRESS keys          ' -> ALLOC'd string pointer array
+  ADDRESS vals          ' -> ALLOC'd string data array
+  ADDRESS valsL         ' -> ALLOC'd LONG array
+  ADDRESS types         ' -> ALLOC'd type tag array
+  ADDRESS status        ' -> ALLOC'd status array
+  ADDRESS order         ' -> ALLOC'd insertion-order array
+  LONGINT cap           ' Capacity (power of 2)
+  LONGINT count         ' Number of occupied entries
+  LONGINT orderCount    ' Number of entries in order array
+  LONGINT cursor        ' Iterator cursor position
+  LONGINT curIdx        ' Iterator current backing index
+END CLASS
+
+Each ADDRESS field points to an ALLOC'd memory block sized
+for `cap` elements. SUBs overlay typed arrays onto these
+blocks using DIM ... ADDRESS for normal indexed access.
+
+
+Array Overlay Pattern
+---------------------
+
+Each SUB that operates on a Hashmap overlays typed arrays
+onto the CLASS's ALLOC'd blocks:
+
+    SUB HmPut$(Hashmap hm, STRING theKey$, STRING theVal$)
+      DIM k$(hm->cap - 1) ADDRESS hm->keys
+      DIM v$(hm->cap - 1) ADDRESS hm->vals
+      DIM vL&(hm->cap - 1) ADDRESS hm->valsL
+      DIM tp%(hm->cap - 1) ADDRESS hm->types
+      DIM st%(hm->cap - 1) ADDRESS hm->status
+      DIM ord%(hm->cap - 1) ADDRESS hm->order
+
+      ' Now use k$(idx), st%(idx), etc. as normal arrays
+      ' ...
+    END SUB
+
+The DIM ... ADDRESS declarations are local to the SUB and
+create zero-copy views onto the ALLOC'd memory. This avoids
+PEEK/POKE while keeping the storage dynamic.
+
+
+Data Model
+----------
+
+Each entry stores:
+- key$     - STRING key (always a string)
+- value    - stored in one of two arrays depending on type
+- type tag - identifies the value type
+- status   - empty (0), occupied (1), or tombstone (2)
+
+Storage layout — two value arrays cover all types:
+
+| Type     | valsL&         | vals$      |
+|----------|----------------|------------|
+| String   | —              | the string |
+| LONG     | value          | —          |
+| SINGLE   | raw IEEE bits  | —          |
+| Bool     | 0 or 1         | —          |
+| Null     | —              | —          |
+| Ref      | ADDRESS        | —          |
+
+SINGLE floats are stored by reinterpreting their 32-bit
+representation as a LONG (same size, no conversion needed).
+
+References (HmTypeRef) store an ADDRESS pointing to any
+CLASS instance. This handles nested hashmaps, dp-float
+objects, or any other CLASS-based value — the hashmap
+does not need to know the specific type.
+
+Value types (for JSON support):
+
+CONST HmTypeStr  = 0        ' String value
+CONST HmTypeLng  = 1        ' LONG integer value
+CONST HmTypeSng  = 2        ' SINGLE float value
+CONST HmTypeRef  = 3        ' Reference (ADDRESS to any CLASS instance)
+CONST HmTypeBool = 4        ' Boolean (0 = false, 1 = true)
+CONST HmTypeNull = 5        ' JSON null
+
+Note: No separate array/list type constant. Arrays and nested
+hashmaps are both stored as HmTypeRef — the referenced CLASS
+carries its own type identity. The caller (e.g., JSON emitter)
+can use CLASS dispatch or type checks on the referenced object
+to distinguish between them.
+
+
+Capacity Constants
+------------------
+
+CONST HM_SMALL  = 32        ' ~22 keys
+CONST HM_MEDIUM = 128       ' ~89 keys
+CONST HM_LARGE  = 512       ' ~358 keys
+
+Capacity must be a power of 2 (enables fast modulo via bitmask).
+Max load = capacity * 0.7, rounded down.
+
+
+Factory & Cleanup
+-----------------
+
+HmMake(Hashmap hm, LONGINT capacity&)
+                             ' Allocate backing arrays via ALLOC
+                             ' Set capacity, zero all status slots
+                             ' capacity& must be power of 2
+
+HmClear(Hashmap hm)         ' Reset all entries to empty
+                             ' Does not free arrays, just clears state
+
+HmFree(Hashmap hm)          ' Free all ALLOC'd arrays
+
+HmMake is the factory — it takes a DECLARE STRUCT'd Hashmap
+instance and allocates its backing storage at the requested
+capacity. Each instance is independent.
+
+Example:
+
+    DECLARE STRUCT Hashmap map
+    HmMake(map, HM_MEDIUM)
+    ' ... use map ...
+    HmFree(map)
+
+
+Error Codes
+-----------
+
+CONST HM_SUCCESS    = 0
+CONST HM_ERR_FULL   = -1    ' Load factor exceeded
+CONST HM_ERR_NOTFOUND = -2  ' Key not found
+CONST HM_ERR_CAPACITY = -3  ' Invalid capacity (not power of 2)
+
+
+Hash Function
+-------------
+
+DJB2 hash, masked to capacity:
+
+    hash& = 5381
+    FOR i% = 1 TO LEN(key$)
+      hash& = hash& * 33 + ASC(MID$(key$, i%, 1))
+    NEXT
+    index% = hash& AND (capacity& - 1)
+
+
+Core Operations
+---------------
+
+All operations take a Hashmap instance as first parameter.
+
+Insert/Update:
+
+rc% = HmPut$(Hashmap hm, STRING key$, STRING val$)
+rc% = HmPut&(Hashmap hm, STRING key$, LONGINT val&)
+rc% = HmPut!(Hashmap hm, STRING key$, SINGLE val!)
+rc% = HmPutRef(Hashmap hm, STRING key$, ADDRESS ref&)
+rc% = HmPutBool(Hashmap hm, STRING key$, SHORTINT val%)
+rc% = HmPutNull(Hashmap hm, STRING key$)
+
+    Returns HM_SUCCESS or HM_ERR_FULL.
+    If key already exists, updates the value and type.
+    Tombstone slots are reused during insert.
+
+    HmPutRef stores an ADDRESS to any CLASS instance.
+    This covers nested hashmaps, dp-float objects, lists,
+    or any other CLASS-based type. The hashmap is agnostic
+    to the specific class — it just stores the pointer.
+
+Lookup:
+
+val$ = HmGet$(Hashmap hm, STRING key$)
+val& = HmGet&(Hashmap hm, STRING key$)
+val! = HmGet!(Hashmap hm, STRING key$)
+ref& = HmGetRef(Hashmap hm, STRING key$)
+
+    Returns the value if found.
+    Returns "" / 0 / 0.0 if not found.
+    Caller should use HmHas() first if distinction from
+    default value matters.
+
+Existence & Type:
+
+ok%  = HmHas(Hashmap hm, STRING key$)
+typ% = HmType(Hashmap hm, STRING key$)
+
+Delete:
+
+rc% = HmDel(Hashmap hm, STRING key$)
+
+Info:
+
+n%  = HmCount(Hashmap hm)
+cap& = HmCapacity(Hashmap hm)
+
+
+Builder Pattern
+---------------
+
+Fluent way to construct a Hashmap in forward order.
+Uses a module-level temporary instance internally.
+
+HmNew(LONGINT capacity&)        ' Create internal builder hashmap
+HmAdd$(STRING key$, STRING val$)     ' Add string entry
+HmAdd&(STRING key$, LONGINT val&)    ' Add LONG entry
+HmAdd!(STRING key$, SINGLE val!)     ' Add SINGLE entry
+HmAddRef(STRING key$, ADDRESS ref&)  ' Add CLASS reference
+HmAddBool(STRING key$, SHORTINT val%)  ' Add boolean
+HmAddNull(STRING key$)               ' Add null
+map& = HmEnd                         ' Finalize, return Hashmap ADDRESS
+
+Example:
+
+    HmNew(HM_MEDIUM)
+      HmAdd$("name", "Alice")
+      HmAdd&("age", 30)
+      HmAddBool("active", 1)
+      HmAddNull("nickname")
+    map& = HmEnd
+
+Example with nested hashmaps:
+
+    HmNew(HM_SMALL)
+      HmAdd$("street", "123 Main St")
+      HmAdd$("city", "Berlin")
+    addr& = HmEnd
+
+    HmNew(HM_MEDIUM)
+      HmAdd$("name", "Alice")
+      HmAddRef("address", addr&)
+    root& = HmEnd
+
+Internally, HmNew calls HmMake on a module-level Hashmap.
+HmAdd variants delegate to the corresponding HmPut on that
+instance. HmEnd returns the instance ADDRESS and clears the
+builder state. Only one builder can be active at a time
+(nesting requires finishing inner builders first, as shown
+in the nested example above).
+
+
+Iteration
+---------
+
+Iterator walks entries in insertion order.
+The cursor is stored in the Hashmap instance itself.
+
+HmIterReset(Hashmap hm)
+ok% = HmIterNext(Hashmap hm)
+
+k$  = HmIterKey$(Hashmap hm)
+v$  = HmIterVal$(Hashmap hm)
+v&  = HmIterVal&(Hashmap hm)
+v!  = HmIterVal!(Hashmap hm)
+t%  = HmIterType(Hashmap hm)
+
+Insertion-order tracking uses the order array that records
+the backing-array index for each entry in order of insertion.
+Iteration walks order(0) to order(count-1), skipping any
+entries that have since been tombstoned.
+
+Example:
+
+    HmIterReset(map)
+    WHILE HmIterNext(map)
+      PRINT HmIterKey$(map); " = ";
+      CASE HmIterType(map)
+        HmTypeStr
+          PRINT HmIterVal$(map)
+        HmTypeLng
+          PRINT HmIterVal&(map)
+        HmTypeSng
+          PRINT HmIterVal!(map)
+        HmTypeBool
+          IF HmIterVal&(map) THEN PRINT "true" ELSE PRINT "false"
+        HmTypeNull
+          PRINT "null"
+        HmTypeRef
+          PRINT "(ref @"; HmIterVal&(map); ")"
+      END CASE
+    WEND
+
+
+Higher-Order Iteration
+----------------------
+
+HmForEach(Hashmap hm, ADDRESS callback&)
+
+    Walks all entries in insertion order and calls the
+    callback SUB for each occupied entry.
+
+Callback signature:
+
+    SUB myCallback(STRING key$, LONGINT rawVal&, \
+                   STRING strVal$, SHORTINT typ%)
+
+The callback receives all four values for each entry:
+- key$     - the key string
+- rawVal&  - the LONG value (integer, SINGLE bits, bool, ref)
+- strVal$  - the string value (empty for non-string types)
+- typ%     - the type tag (HmTypeStr, HmTypeLng, etc.)
+
+The callback has full control over how to interpret the
+values based on the type tag.
+
+Example — print all entries:
+
+    SUB PrintEntry(STRING key$, LONGINT rawVal&, \
+                   STRING strVal$, SHORTINT typ%)
+      PRINT key$; " = ";
+      CASE typ%
+        HmTypeStr
+          PRINT strVal$
+        HmTypeLng
+          PRINT rawVal&
+        HmTypeBool
+          IF rawVal& THEN PRINT "true" ELSE PRINT "false"
+        HmTypeNull
+          PRINT "null"
+      END CASE
+    END SUB
+
+    HmForEach(map, @PrintEntry)
+
+Example — emit JSON object:
+
+    SUB EmitJsonEntry(STRING key$, LONGINT rawVal&, \
+                      STRING strVal$, SHORTINT typ%)
+      ' ... emit key:value pair
+    END SUB
+
+    HmForEach(map, @EmitJsonEntry)
+
+
+Probing Algorithm
+-----------------
+
+Insert (HmPut):
+
+    idx = hash(key) AND (cap - 1)
+    WHILE st%(idx) = OCCUPIED AND k$(idx) <> key$
+      idx = (idx + 1) AND (cap - 1)
+    WEND
+    ' idx is now: empty slot, tombstone slot, or matching key
+
+    Tombstones are treated as usable slots during insert.
+    During search, tombstones are skipped (probe continues).
+
+Lookup (HmGet/HmHas):
+
+    idx = hash(key) AND (cap - 1)
+    WHILE st%(idx) <> EMPTY
+      IF st%(idx) = OCCUPIED AND k$(idx) = key$ THEN
+        ' found
+      END IF
+      idx = (idx + 1) AND (cap - 1)
+    WEND
+    ' not found (hit empty slot)
+
+Delete (HmDel):
+
+    Find the entry via lookup.
+    Set st%(idx) = TOMBSTONE (2).
+    Do NOT clear the key/value (not necessary).
+    Decrement count.
+
+
+Memory Management
+-----------------
+
+HmMake allocates 6 memory blocks via ALLOC:
+
+    hm->keys   = ALLOC(cap * <string-ptr-size>)
+    hm->vals   = ALLOC(cap * <string-ptr-size>)
+    hm->valsL  = ALLOC(cap * 4)      ' LONGINT = 4 bytes
+    hm->types  = ALLOC(cap * 2)      ' SHORTINT = 2 bytes
+    hm->status = ALLOC(cap * 2)      ' SHORTINT = 2 bytes
+    hm->order  = ALLOC(cap * 2)      ' SHORTINT = 2 bytes
+
+HmFree releases all 6 blocks via FREE:
+
+    SUB HmFree(Hashmap hm)
+      FREE hm->keys
+      FREE hm->vals
+      FREE hm->valsL
+      FREE hm->types
+      FREE hm->status
+      FREE hm->order
+    END SUB
+
+IMPORTANT: Always use HmFree — never use a bare FREE on a
+Hashmap instance, as that would not release the ALLOC'd
+backing arrays, causing memory leaks.
+
+Memory ownership for referenced objects:
+The hashmap does NOT free objects stored via HmPutRef.
+The caller is responsible for managing the lifetime of
+any CLASS instances stored as refs. HmFree and HmClear
+only release the hashmap's own arrays.
+
+
+CLASS Integration
+-----------------
+
+Any CLASS-based object can be stored via HmPutRef/HmGetRef.
+
+Examples:
+
+    ' Store a dp-float (assuming CLASS DPFloat)
+    DECLARE STRUCT DPFloat pi
+    DpNew(pi, 3.14159)
+    HmPutRef(map, "pi", pi)
+
+    ' Store a nested hashmap
+    DECLARE STRUCT Hashmap inner
+    HmMake(inner, HM_SMALL)
+    HmPut$(inner, "street", "123 Main St")
+    HmPutRef(map, "address", inner)
+
+    ' Store a list
+    HmPutRef(map, "items", myList&)
+
+Retrieval uses HmGetRef to get the ADDRESS, then the caller
+casts/dispatches based on what they know the value to be.
+For generic dispatch (e.g., JSON emission), the referenced
+object's CLASS can be inspected via the existing CLASS
+dispatch mechanism (GENERIC/METHOD).
+
+
+JSON Generation Example
+-----------------------
+
+SUB JsonEmitObject(Hashmap hm)
+  PRINT #1, "{";
+  HmIterReset(hm)
+  first% = 1
+  WHILE HmIterNext(hm)
+    IF first% = 0 THEN PRINT #1, ", ";
+    ' Emit key
+    PRINT #1, CHR$(34); HmIterKey$(hm); CHR$(34); ": ";
+    ' Emit value based on type
+    CASE HmIterType(hm)
+      HmTypeStr
+        PRINT #1, CHR$(34); HmIterVal$(hm); CHR$(34);
+      HmTypeLng
+        PRINT #1, LTRIM$(STR$(HmIterVal&(hm)));
+      HmTypeSng
+        PRINT #1, LTRIM$(STR$(HmIterVal!(hm)));
+      HmTypeBool
+        IF HmIterVal&(hm) THEN PRINT #1, "true"; ELSE PRINT #1, "false";
+      HmTypeNull
+        PRINT #1, "null";
+      HmTypeRef
+        ' Dispatch on CLASS type of referenced object
+        JsonEmitValue(HmIterVal&(hm))
+    END CASE
+    first% = 0
+  WEND
+  PRINT #1, "}";
+END SUB
+
+
+JSON Parsing Strategy
+---------------------
+
+For parsing JSON into hashmaps when size is unknown:
+
+Approach: Two-pass parse.
+
+Pass 1 - Count keys at each nesting level:
+    Walk the JSON string character by character.
+    Track brace depth. At each depth, count commas + 1
+    to determine number of keys. Minimal state, no allocation.
+
+Pass 2 - Allocate and populate:
+    For each object, HmMake(hm, count * 2) to get ~50% load.
+    Parse key-value pairs with HmPut.
+    Nested objects recurse, each getting their own Hashmap.
+
+This avoids over-allocation while keeping the hashmap
+implementation simple (no dynamic resizing).
+
+For convenience, a single-pass approach with generous
+fixed capacity (HM_MEDIUM = 128) works for most real-world
+JSON payloads and avoids the counting pass.
+
+Nested JSON — each {} becomes its own Hashmap instance:
+
+    DECLARE STRUCT Hashmap root
+    DECLARE STRUCT Hashmap child
+    HmMake(root, HM_MEDIUM)
+    HmMake(child, HM_SMALL)
+    HmPut$(child, "street", "123 Main St")
+    HmPutRef(root, "address", child)
+
+    JSON arrays stored via List submodule, also as HmTypeRef.
+
+
+Operation Complexity
+--------------------
+
+| Operation     | Average | Worst  | Notes                    |
+|---------------|---------|--------|--------------------------|
+| HmMake        | O(n)    | O(n)   | ALLOC + zero status      |
+| HmPut         | O(1)    | O(n)   | Amortized, linear probe  |
+| HmGet         | O(1)    | O(n)   | Amortized, linear probe  |
+| HmHas         | O(1)    | O(n)   | Same as Get              |
+| HmDel         | O(1)    | O(n)   | Same as Get + tombstone  |
+| HmIterReset   | O(1)    | O(1)   |                          |
+| HmIterNext    | O(1)    | O(n)   | Skips tombstones         |
+| HmCount       | O(1)    | O(1)   | Reads CLASS field        |
+| HmClear       | O(n)    | O(n)   | Clears all arrays        |
+| HmFree        | O(1)    | O(1)   | Frees ALLOC'd blocks     |
+
+With 70% max load and power-of-2 capacity, average probe
+length stays under 2.5 for all operations.
+
+
+File Organization
+-----------------
+
+submods/hashmap/hashmap.b        ' Main implementation
+include/submods/hashmap.h        ' Header for EXTERNAL usage
+
+
+Usage
+-----
+
+EXTERNAL hashmap
+
+DECLARE STRUCT Hashmap map
+HmMake(map, HM_MEDIUM)
+
+HmPut$(map, "name", "Alice")
+HmPut&(map, "age", 30)
+HmPutBool(map, "active", 1)
+HmPutNull(map, "nickname")
+
+IF HmHas(map, "name") THEN
+  PRINT "Name: "; HmGet$(map, "name")
+END IF
+
+PRINT "Count:"; HmCount(map)
+
+' Iterate in insertion order
+HmIterReset(map)
+WHILE HmIterNext(map)
+  PRINT HmIterKey$(map); " (type "; HmIterType(map); ")"
+WEND
+
+HmDel(map, "nickname")
+
+HmFree(map)
+
+
+Implementation Phases
+---------------------
+
+Phase 1: Core
+  - CLASS Hashmap definition
+  - HmMake / HmFree / HmClear
+  - HmPut$ / HmGet$ / HmHas / HmDel (string values only)
+  - HmCount / HmCapacity
+  - Hash function (DJB2)
+  - DIM ... ADDRESS overlay pattern
+  - Test: basic put/get/has/del, collision handling, tombstones
+  - Test: multiple independent Hashmap instances
+
+Phase 2: Typed Values & Builder
+  - HmPut& / HmPut! / HmPutBool / HmPutNull / HmPutRef
+  - HmGet& / HmGet! / HmGetRef
+  - HmType
+  - HmNew / HmAdd$ / HmAdd& / HmAdd! / HmAddRef / HmAddBool / HmAddNull / HmEnd
+  - Test: mixed types, type checking
+  - Test: storing CLASS refs (nested hashmaps)
+  - Test: builder pattern, nested builder construction
+
+Phase 3: Iteration
+  - Insertion-order tracking (order array)
+  - HmIterReset / HmIterNext
+  - HmIterKey$ / HmIterVal$ / HmIterVal& / HmIterVal! / HmIterType
+  - HmForEach (higher-order iteration with callback)
+  - Test: iteration order, iteration after deletes
+  - Test: independent iteration on separate instances
+  - Test: HmForEach with callback that collects/prints entries
+
+Phase 4: JSON Integration (optional, separate submodule)
+  - JsonEmitObject / JsonEmitArray using Hashmap + List
+  - JsonParse (two-pass or fixed-capacity)
+  - JsonCountKeys (counting pass)

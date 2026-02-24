@@ -1,0 +1,326 @@
+# TYPECASE -- Type-Based Pattern Matching with Narrowing
+
+## Context
+
+ACE's object system has CLASS with EXTENDS inheritance and runtime type
+descriptors (FNV-1a hash + parent pointer chain). GENERIC METHOD dispatch
+already uses this at runtime to resolve method calls. However, there's no
+way for user code to branch on an object's runtime type and safely access
+subclass members. TYPECASE fills this gap -- it's the control-flow
+counterpart to GENERIC dispatch.
+
+## Syntax
+
+    TYPECASE <class_variable>
+      CASE <ClassName1>
+        ' obj narrowed to ClassName1 -- can access its members
+        PRINT obj->subclass_member
+      CASE <ClassName2>
+        ' obj narrowed to ClassName2
+      CASE ELSE
+        ' no match (optional)
+    END TYPECASE
+
+Semantics:
+- <class_variable> must be a named classobj variable (not an expression)
+- Each CASE names a classdef -- matching is ISA-like (walks parent chain)
+- Order matters: most specific class first (first match wins)
+- Inside each CASE block, the variable is narrowed to the matched type
+  -- subclass members become accessible via ->
+- CASE ELSE is optional, has no narrowing
+- Each CASE block can contain multiple statements (like block IF)
+
+## Generated Assembly Pattern
+
+    ; TYPECASE obj
+        movea.l <obj_frame_addr>,a0    ; load class instance BSS address
+        move.l  (a0),<temp_frame_addr> ; save descriptor pointer to temp
+
+    ; CASE Circle
+        movea.l <temp_frame_addr>,a0   ; load descriptor pointer
+        move.l  #$<circle_hash>,d0     ; target hash
+        jsr     _isa_check             ; returns -1 (TRUE) or 0 in d0
+        beq     _labN                  ; FALSE -> skip to next CASE
+        ; --- Circle block (narrowed) ---
+        ...statements...
+        jmp     _labEND                ; jump to END TYPECASE
+    _labN:
+
+    ; CASE Box
+        movea.l <temp_frame_addr>,a0
+        move.l  #$<box_hash>,d0
+        jsr     _isa_check
+        beq     _labM
+        ; --- Box block (narrowed) ---
+        ...statements...
+        jmp     _labEND
+    _labM:
+
+    ; CASE ELSE
+        ; --- else block (no narrowing) ---
+        ...statements...
+
+    ; END TYPECASE
+    _labEND:
+
+## Implementation Plan
+
+### Step 1: Add _isa_check runtime function
+
+File: src/lib/asm/isa.s (new)
+
+    ; _isa_check - Check if a class instance is-a given type
+    ;   Input:  a0 = descriptor pointer (from offset 0 of class instance)
+    ;           d0 = target hash (FNV-1a hash of class name)
+    ;   Output: d0 = -1 (TRUE) if match, 0 (FALSE) if no match
+    ;   Destroys: a0, d1
+
+        xdef _isa_check
+        SECTION isa_code,CODE
+
+    _isa_check:
+    .loop:
+        cmp.l   (a0),d0         ; compare target hash with descriptor hash
+        beq.s   .match
+        move.l  4(a0),d1        ; parent descriptor pointer
+        beq.s   .nomatch        ; NULL = no parent, no match
+        movea.l d1,a0           ; follow parent chain
+        bra.s   .loop
+    .match:
+        moveq   #-1,d0          ; TRUE
+        rts
+    .nomatch:
+        moveq   #0,d0           ; FALSE
+        rts
+
+        END
+
+Build: Add isa.s to ASM_SOURCES in src/make/Makefile-lib.
+Verify: Build runtime library: cd src/make && make -f Makefile-lib clean all
+
+### Step 2: Add typecasesym keyword
+
+Files:
+- src/ace/c/acedef.h -- Add typecasesym to enum between trimstrsym and untilsym
+- src/ace/c/lexvar.c -- Add "TYPECASE" to rword[] between "TRIM$" and "UNTIL"
+- src/ace/c/lex.c -- Add error messages:
+  - Error 98: "TYPECASE requires a CLASS variable"
+  - Error 99: "CASE requires a CLASS type name"
+  - Error 100: "END TYPECASE expected"
+  - Error 101: "Too many CASE branches in TYPECASE"
+
+Verify: Build compiler: cd src/make && make -f Makefile-ace clean all
+
+### Step 3: Implement typecase_statement() in control.c
+
+File: src/ace/c/control.c
+
+Add function prototype to acedef.h and dispatch in statement.c:
+
+    /* typecase */
+    if (sym == typecasesym) { check_for_event(); typecase_statement(); }
+
+Implementation (~120 lines):
+
+    typecase_statement():
+      1. insymbol() -- expect identifier
+      2. Look up id as classobj via exist(id, classobj)
+         - If not found: _error(98), return
+      3. Save instance SYM* as tc_item
+      4. Save tc_item->other as saved_classdef (for restore)
+      5. Load descriptor pointer into a temp frame slot:
+         - gen_frame_addr(tc_item->address, addrbuf)
+         - gen("movea.l", addrbuf, "a0")      ; load BSS address
+         - If shared && lev==ONE: gen("movea.l","(a0)","a0")
+         - gen("move.l", "(a0)", tempbuf)      ; read descriptor ptr
+         - (allocate 4 bytes on frame for temp via frame_ptr -= 4)
+      6. insymbol(), skip blank lines
+
+      7. Loop: while sym == casesym && casecount < MAXCASES && !end_of_source
+         a. insymbol() -- check for ELSE (-> CASE ELSE) or ident (-> CASE ClassName)
+
+         b. CASE ELSE path:
+            - insymbol(), skip blank lines
+            - Parse statements until endsym
+            - gen("jmp","  ","  "); end_jumps[casecount++] = curr_code
+            - break out of loop
+
+         c. CASE ClassName path:
+            - Look up id as classdef: exist(id, classdef)
+            - If not found: _error(99), skip
+            - Get hash: case_classdef->numconst.longnum
+            - Emit ISA check:
+                gen("movea.l", tempbuf, "a0")
+                sprintf(hashbuf, "#$%lx", hash)
+                gen("move.l", hashbuf, "d0")
+                enter_XREF("_isa_check")
+                gen("jsr", "_isa_check", "  ")
+                gen_bool_test("d0")
+                make_label(next_name, next_label)
+                gen("beq", next_name, "  ")
+            - TYPE NARROWING: tc_item->other = case_classdef
+            - insymbol(), skip blank lines
+            - Parse statements:
+                do { statement(); }
+                while sym != casesym && sym != endsym && !end_of_source
+            - RESTORE: tc_item->other = saved_classdef
+            - gen("jmp","  ","  "); end_jumps[casecount++] = curr_code
+            - gen(next_label, "  ", "  ")  ; label for next CASE
+
+         d. Skip blank lines, continue loop
+
+      8. END TYPECASE:
+         - Expect endsym: if not, _error(100)
+         - insymbol(), expect typecasesym: if not, _error(100)
+         - make_label(end_name, end_label)
+         - gen(end_label, "  ", "  ")
+         - Patch all end_jumps[]:
+             change(end_jumps[i], "jmp", end_name, "  ")
+         - insymbol()
+
+Key detail -- temp frame slot for descriptor pointer:
+The descriptor pointer must be saved once at the start (not re-read per
+CASE), since TYPECASE evaluates the variable only once. Use the same
+pattern as FOR loop variables: allocate a 4-byte temp on the frame by
+adjusting frame_ptr -= 4 and using the offset.
+
+Verify: Build compiler, write test, run on emulator.
+
+### Step 4: Add tests
+
+File: verify/tests/cases/syntax/typecase.b
+Basic dispatch + ISA inheritance matching:
+
+    ' Test TYPECASE with ISA-like matching
+
+    CLASS Shape
+      DIM x AS LONGINT
+    END CLASS
+
+    CLASS Circle EXTENDS Shape
+      DIM radius AS LONGINT
+    END CLASS
+
+    CLASS Box EXTENDS Shape
+      DIM w AS LONGINT
+      DIM h AS LONGINT
+    END CLASS
+
+    SUB LONGINT Describe(CLASS Shape obj)
+      DIM result AS LONGINT
+      result = 0
+      TYPECASE obj
+        CASE Circle
+          result = 1
+        CASE Box
+          result = 2
+        CASE Shape
+          result = 3
+        CASE ELSE
+          result = -1
+      END TYPECASE
+      Describe = result
+    END SUB
+
+    DECLARE CLASS Circle c
+    DECLARE CLASS Box b
+    DECLARE CLASS Shape s
+
+    ASSERT Describe(c) = 1, "Circle should match CASE Circle"
+    ASSERT Describe(b) = 2, "Box should match CASE Box"
+    ASSERT Describe(s) = 3, "Shape should match CASE Shape (ISA fallback)"
+
+File: verify/tests/cases/syntax/typecase_narrow.b
+Type narrowing (subclass member access):
+
+    ' Test TYPECASE type narrowing
+
+    CLASS Animal
+      DIM legs AS LONGINT
+    END CLASS
+
+    CLASS Dog EXTENDS Animal
+      DIM goodboy AS LONGINT
+    END CLASS
+
+    SUB LONGINT CheckDog(CLASS Animal a)
+      DIM result AS LONGINT
+      result = 0
+      TYPECASE a
+        CASE Dog
+          result = a->goodboy
+        CASE ELSE
+          result = a->legs
+      END TYPECASE
+      CheckDog = result
+    END SUB
+
+    DECLARE CLASS Dog d
+    d->legs = 4
+    d->goodboy = 1
+
+    DECLARE CLASS Animal a
+    a->legs = 99
+
+    ASSERT CheckDog(d) = 1, "Dog narrowed: should read goodboy=1"
+    ASSERT CheckDog(a) = 99, "Animal ELSE: should read legs=99"
+
+File: verify/tests/cases/errors/typecase_error.b
+TYPECASE with non-class variable should fail compilation.
+
+### Step 5: Update IDE and documentation
+
+Files:
+- IDE/CubicIDE-ACE/add-ons/ace/autocase/basic -- Add TYPECASE (between TRIM$ and TROFF)
+- IDE/CubicIDE-ACE/add-ons/ace/syntax/dictionaries/commands -- Add TYPECASE
+- docs/quickref.txt -- Add entry:
+
+    TYPECASE var / CASE ClassName / CASE ELSE / END TYPECASE
+      Type-based pattern matching with narrowing. var must be a CLASS
+      variable. Each CASE matches using ISA semantics (walks inheritance
+      chain). Inside each CASE block, var is narrowed to the matched type
+      so subclass members are accessible via ->. Order matters: most
+      specific type first.
+
+- IDE/CubicIDE-ACE/add-ons/ace/quickinfo/ace.words -- Copy quickref entry
+
+## Files Modified (Summary)
+
+  src/lib/asm/isa.s            NEW -- _isa_check runtime (~15 lines)
+  src/make/Makefile-lib        Add isa.s to ASM_SOURCES
+  src/ace/c/acedef.h           Add typecasesym to enum + prototype
+  src/ace/c/lexvar.c           Add "TYPECASE" to rword[]
+  src/ace/c/lex.c              Add error messages 98-101
+  src/ace/c/control.c          Add typecase_statement() (~120 lines)
+  src/ace/c/statement.c        Add dispatch for typecasesym (1 line)
+  verify/tests/.../typecase.b         NEW -- basic dispatch + ISA test
+  verify/tests/.../typecase_narrow.b  NEW -- narrowing test
+  verify/tests/.../typecase_error.b   NEW -- error test
+  IDE/CubicIDE-ACE autocase, syntax, quickinfo  Add TYPECASE
+  docs/quickref.txt            Add TYPECASE entry
+
+## Verification
+
+1. Build runtime: cd src/make && make -f Makefile-lib
+   -- verify isa.o is assembled and linked into db.lib
+2. Build compiler: cd src/make && make -f Makefile-ace clean all
+   -- verify no compile errors
+3. Test on emulator: compile and run typecase.b and typecase_narrow.b
+   -- ASSERT will print pass/fail and stop on first failure
+4. Run full test suite: cd ACE:verify/tests && rx runner.rexx all
+   -- verify no regressions
+
+## Design Decisions
+
+- Named variables only: TYPECASE requires a named classobj variable, not
+  an arbitrary expression, because narrowing needs a symbol whose other
+  pointer can be temporarily swapped.
+- ISA matching with order: Most specific first. First matching CASE wins.
+  This matches how GENERIC METHOD dispatch works conceptually.
+- Forward-patching pattern: Same as existing CASE and block IF --
+  placeholder jumps patched at END TYPECASE. Proven, well-understood.
+- CASE ELSE optional: Falls through to END TYPECASE if no match and no
+  CASE ELSE.
+- Max branches: Reuses MAXCASES (1000) -- more than enough.
+- ATOM not supported in v1: ATOMs have no members to narrow to, so the
+  value add is minimal. Could be added later.

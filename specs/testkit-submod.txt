@@ -1,0 +1,375 @@
+TestKit Submodule for ACE BASIC
+================================
+
+A shared test-assertion library for ACE BASIC submodule tests.
+Eliminates duplicated Assert SUBs across test files and provides
+a standardised pass/fail counting and summary mechanism.
+
+
+Motivation
+----------
+
+Currently, every test file in submods/ that uses structured
+assertions copy-pastes the same set of Assert SUBs:
+
+  File                              Assert SUBs copied
+  --------------------------------  -------------------
+  hashmap/test_core.b               4 (True, Eq&, Eq%, EqStr)
+  hashmap/test_typed.b              4
+  hashmap/test_iter.b               4
+  hashmap/test_foreach.b            4
+  hashmap/test_builder.b            4
+  list/test_list.b                  7 (+ EqAddr, NeqAddr, EqFloat)
+
+That is ~40 lines duplicated per file, with minor naming
+inconsistencies (_passed/_failed vs _testsPassed/_testsFailed)
+and inconsistent summary output.
+
+A second group (dp-float, fad) uses inline IF/THEN with manual
+counter increments — the same pattern, just not factored into
+SUBs at all. These can migrate incrementally.
+
+
+Design Choices
+--------------
+
+- Compiled as a module (`bas -m testkit`) producing testkit.o
+- Linked via `REM #using ace:submods/testkit/testkit.o`
+- Header `include/submods/testkit.h` declares all SUBs as EXTERNAL
+- `Tk` prefix on all public names to avoid clashes
+- Module-level counters (SHARED), not passed as parameters
+- TkSummary prints results and uses ASSERT for exit signaling
+- No dependencies on any other submodule
+
+
+Public API
+----------
+
+Lifecycle:
+
+    SUB TkInit
+      Resets _tkPassed and _tkFailed to 0.
+
+    SUB TkSummary
+      Prints summary line and asserts no failures:
+        PRINT ""
+        PRINT "Results:"; _tkPassed; " passed,"; _tkFailed; " failed"
+        ASSERT _tkFailed = 0, "Tests failed"
+
+Assertions — Boolean:
+
+    SUB TkAssertTrue(SHORTINT condition, msg$)
+      Increments _tkPassed if condition is non-zero,
+      otherwise prints "FAIL: <msg$>" and increments _tkFailed.
+
+    SUB TkAssertFalse(SHORTINT condition, msg$)
+      Inverse of TkAssertTrue.
+
+Assertions — Equality:
+
+    SUB TkAssertEq%(SHORTINT actual, SHORTINT expected, msg$)
+      Compares two SHORTINTs.
+      On failure prints: "FAIL: <msg$> (expected <expected> got <actual>)"
+
+    SUB TkAssertEq&(LONGINT actual, LONGINT expected, msg$)
+      Compares two LONGINTs.
+
+    SUB TkAssertEqAddr(ADDRESS actual, ADDRESS expected, msg$)
+      Compares two ADDRESSes.
+
+    SUB TkAssertEqStr(actual$, expected$, msg$)
+      Compares two STRINGs.
+      On failure prints: "FAIL: <msg$> (expected '<expected$>' got '<actual$>')"
+
+    SUB TkAssertEqFloat(SINGLE actual, SINGLE expected, msg$)
+      Compares two SINGLEs with tolerance (ABS(diff) < 0.001).
+
+Assertions — Inequality:
+
+    SUB TkAssertNeq&(LONGINT actual, LONGINT notExpected, msg$)
+      Fails if actual = notExpected.
+      On failure prints: "FAIL: <msg$> (should not be <notExpected>)"
+
+    SUB TkAssertNeqAddr(ADDRESS actual, ADDRESS notExpected, msg$)
+      Fails if actual = notExpected.
+
+
+Internal State
+--------------
+
+Module-level variables (accessed via SHARED in each SUB):
+
+    SHORTINT _tkPassed    ' count of passed assertions
+    SHORTINT _tkFailed    ' count of failed assertions
+
+SHORTINT is sufficient — test suites rarely exceed 32767
+assertions. Using SHORTINT keeps generated code compact.
+
+
+File Layout
+-----------
+
+    submods/testkit/
+      testkit.b           Module source
+      testkit.o           Compiled object (not committed)
+
+    include/submods/
+      testkit.h           EXTERNAL declarations
+
+
+Header File: testkit.h
+----------------------
+
+    REM testkit.h - shared test assertion library
+    REM
+    REM Usage:
+    REM   REM #using ace:submods/testkit/testkit.o
+    REM   #include <submods/testkit.h>
+
+    EXTERNAL SUB TkInit
+    EXTERNAL SUB TkSummary
+    EXTERNAL SUB TkAssertTrue(SHORTINT condition, STRING msg$)
+    EXTERNAL SUB TkAssertFalse(SHORTINT condition, STRING msg$)
+    EXTERNAL SUB TkAssertEq%(SHORTINT actual, SHORTINT expected, STRING msg$)
+    EXTERNAL SUB TkAssertEq&(LONGINT actual, LONGINT expected, STRING msg$)
+    EXTERNAL SUB TkAssertEqAddr(ADDRESS actual, ADDRESS expected, STRING msg$)
+    EXTERNAL SUB TkAssertEqStr(STRING actual$, STRING expected$, STRING msg$)
+    EXTERNAL SUB TkAssertEqFloat(SINGLE actual, SINGLE expected, STRING msg$)
+    EXTERNAL SUB TkAssertNeq&(LONGINT actual, LONGINT notExpected, STRING msg$)
+    EXTERNAL SUB TkAssertNeqAddr(ADDRESS actual, ADDRESS notExpected, STRING msg$)
+
+
+Module Source: testkit.b
+------------------------
+
+    REM testkit.b - shared test assertion library for ACE BASIC submodules
+
+    SHORTINT _tkPassed, _tkFailed
+
+    SUB TkInit
+      SHARED _tkPassed, _tkFailed
+      _tkPassed = 0
+      _tkFailed = 0
+    END SUB
+
+    SUB TkSummary
+      SHARED _tkPassed, _tkFailed
+      PRINT ""
+      PRINT "Results:"; _tkPassed; " passed,"; _tkFailed; " failed"
+      ASSERT _tkFailed = 0, "Tests failed"
+    END SUB
+
+    SUB TkAssertTrue(SHORTINT condition, msg$)
+      SHARED _tkPassed, _tkFailed
+      IF condition THEN
+        _tkPassed = _tkPassed + 1
+      ELSE
+        PRINT "FAIL: "; msg$
+        _tkFailed = _tkFailed + 1
+      END IF
+    END SUB
+
+    SUB TkAssertFalse(SHORTINT condition, msg$)
+      SHARED _tkPassed, _tkFailed
+      IF condition = 0 THEN
+        _tkPassed = _tkPassed + 1
+      ELSE
+        PRINT "FAIL: "; msg$
+        _tkFailed = _tkFailed + 1
+      END IF
+    END SUB
+
+    SUB TkAssertEq%(SHORTINT actual, SHORTINT expected, msg$)
+      SHARED _tkPassed, _tkFailed
+      IF actual = expected THEN
+        _tkPassed = _tkPassed + 1
+      ELSE
+        PRINT "FAIL: "; msg$; " (expected"; expected; " got"; actual; ")"
+        _tkFailed = _tkFailed + 1
+      END IF
+    END SUB
+
+    SUB TkAssertEq&(LONGINT actual, LONGINT expected, msg$)
+      SHARED _tkPassed, _tkFailed
+      IF actual = expected THEN
+        _tkPassed = _tkPassed + 1
+      ELSE
+        PRINT "FAIL: "; msg$; " (expected"; expected; " got"; actual; ")"
+        _tkFailed = _tkFailed + 1
+      END IF
+    END SUB
+
+    SUB TkAssertEqAddr(ADDRESS actual, ADDRESS expected, msg$)
+      SHARED _tkPassed, _tkFailed
+      IF actual = expected THEN
+        _tkPassed = _tkPassed + 1
+      ELSE
+        PRINT "FAIL: "; msg$; " (expected"; expected; " got"; actual; ")"
+        _tkFailed = _tkFailed + 1
+      END IF
+    END SUB
+
+    SUB TkAssertEqStr(actual$, expected$, msg$)
+      SHARED _tkPassed, _tkFailed
+      IF actual$ = expected$ THEN
+        _tkPassed = _tkPassed + 1
+      ELSE
+        PRINT "FAIL: "; msg$; " (expected '"; expected$; "' got '"; actual$; "')"
+        _tkFailed = _tkFailed + 1
+      END IF
+    END SUB
+
+    SUB TkAssertEqFloat(SINGLE actual, SINGLE expected, msg$)
+      SHARED _tkPassed, _tkFailed
+      SINGLE diff
+      diff = actual - expected
+      IF diff < 0 THEN diff = -diff
+      IF diff < 0.001 THEN
+        _tkPassed = _tkPassed + 1
+      ELSE
+        PRINT "FAIL: "; msg$; " (expected"; expected; " got"; actual; ")"
+        _tkFailed = _tkFailed + 1
+      END IF
+    END SUB
+
+    SUB TkAssertNeq&(LONGINT actual, LONGINT notExpected, msg$)
+      SHARED _tkPassed, _tkFailed
+      IF actual <> notExpected THEN
+        _tkPassed = _tkPassed + 1
+      ELSE
+        PRINT "FAIL: "; msg$; " (should not be"; notExpected; ")"
+        _tkFailed = _tkFailed + 1
+      END IF
+    END SUB
+
+    SUB TkAssertNeqAddr(ADDRESS actual, ADDRESS notExpected, msg$)
+      SHARED _tkPassed, _tkFailed
+      IF actual <> notExpected THEN
+        _tkPassed = _tkPassed + 1
+      ELSE
+        PRINT "FAIL: "; msg$; " (should not be"; notExpected; ")"
+        _tkFailed = _tkFailed + 1
+      END IF
+    END SUB
+
+
+Usage Example
+-------------
+
+Before (hashmap/test_core.b — 54 lines of boilerplate):
+
+    SHORTINT _passed, _failed
+
+    SUB AssertTrue(SHORTINT condition, msg$)
+      SHARED _passed, _failed
+      IF condition THEN
+        _passed = _passed + 1
+      ELSE
+        PRINT "FAIL: "; msg$
+        _failed = _failed + 1
+      END IF
+    END SUB
+
+    SUB AssertEqStr(actual$, expected$, msg$)
+      ...
+    END SUB
+
+    SUB AssertEq&(...)
+      ...
+    END SUB
+
+    SUB AssertEq%(...)
+      ...
+    END SUB
+
+    _passed = 0
+    _failed = 0
+
+    ' ... tests ...
+
+    PRINT "Results:"; _passed; " passed,"; _failed; " failed"
+    IF _failed > 0 THEN
+      PRINT "ASSERT FAILED: Some tests failed"
+    END IF
+
+After (3 lines of boilerplate):
+
+    REM #using ace:submods/testkit/testkit.o
+    REM #using ace:submods/hashmap/hashmap.o
+    #include <submods/testkit.h>
+    #include <submods/hashmap.h>
+
+    PRINT "=== Hashmap Phase 1: Core Tests ==="
+    PRINT
+
+    TkInit
+
+    ' ... tests using TkAssertEq&, TkAssertTrue, etc. ...
+
+    TkSummary
+
+
+Migration Plan
+--------------
+
+Phase 1: Create the testkit submodule
+  - Write submods/testkit/testkit.b
+  - Write include/submods/testkit.h
+  - Compile on emulator with `bas -m testkit`
+  - Verify: write a minimal test that calls TkInit, a few
+    asserts, and TkSummary
+
+Phase 2: Migrate hashmap tests (5 files)
+  - For each of test_core, test_typed, test_iter, test_foreach,
+    test_builder:
+    - Add `REM #using ace:submods/testkit/testkit.o`
+    - Add `#include <submods/testkit.h>`
+    - Remove local Assert SUB definitions
+    - Remove local _passed/_failed declarations
+    - Replace AssertTrue -> TkAssertTrue, AssertEq& -> TkAssertEq&,
+      AssertEq% -> TkAssertEq%, AssertEqStr -> TkAssertEqStr
+    - Replace counter init with TkInit
+    - Replace summary section with TkSummary
+  - Compile and run each test on emulator
+
+Phase 3: Migrate list test (1 file)
+  - Same as Phase 2 for list/test_list.b
+  - Also replace AssertEqAddr -> TkAssertEqAddr,
+    AssertNeqAddr -> TkAssertNeqAddr,
+    AssertEqFloat -> TkAssertEqFloat
+  - Note: variable names change from _testsPassed to _tkPassed
+    (internal, no visible effect)
+
+Phase 4 (optional): Migrate dp-float and fad tests
+  - Replace inline IF/THEN PASS/FAIL blocks with TkAssert calls
+  - More invasive — each test gets shorter but every assertion
+    line changes
+  - Can be done incrementally, one file at a time
+
+
+Files Modified
+--------------
+
+New files:
+  submods/testkit/testkit.b
+  include/submods/testkit.h
+
+Modified in Phase 2 (hashmap):
+  submods/hashmap/test_core.b
+  submods/hashmap/test_typed.b
+  submods/hashmap/test_iter.b
+  submods/hashmap/test_foreach.b
+  submods/hashmap/test_builder.b
+
+Modified in Phase 3 (list):
+  submods/list/test_list.b
+
+Modified in Phase 4 (optional):
+  submods/dp-float/test_dp_float.b
+  submods/dp-float/test_dp_float_math.b
+  submods/dp-float/test_dp_float_str.b
+  submods/fad/test_path.b
+  submods/fad/test_dir.b
+  submods/fad/test_exists.b
+  submods/fad/test_info.b
+  submods/fad/test_ops.b
