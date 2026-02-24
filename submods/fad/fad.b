@@ -39,22 +39,22 @@ END STRUCT
 
 {* ============== DOS Library Function Declarations ============== *}
 
-DECLARE FUNCTION LONGINT Lock(STRING name, LONGINT accessMode) LIBRARY dos
-DECLARE FUNCTION UnLock(LONGINT lock) LIBRARY dos
-DECLARE FUNCTION LONGINT Examine(LONGINT lock, ADDRESS fib) LIBRARY dos
-DECLARE FUNCTION LONGINT ExNext(LONGINT lock, ADDRESS fib) LIBRARY dos
-DECLARE FUNCTION LONGINT CreateDir(STRING name) LIBRARY dos
-DECLARE FUNCTION LONGINT DeleteFile(STRING name) LIBRARY dos
-DECLARE FUNCTION LONGINT Rename(STRING oldName, STRING newName) LIBRARY dos
-DECLARE FUNCTION ADDRESS FilePart(STRING path) LIBRARY dos
-DECLARE FUNCTION ADDRESS PathPart(STRING path) LIBRARY dos
-DECLARE FUNCTION LONGINT AddPart(ADDRESS dirname, STRING filename, LONGINT size) LIBRARY dos
-DECLARE FUNCTION LONGINT NameFromLock(LONGINT lock, ADDRESS buffer, LONGINT length) LIBRARY dos
+DECLARE FUNCTION LONGINT Lock(STRING nm, LONGINT accessMode) LIBRARY dos
+DECLARE FUNCTION UnLock(LONGINT lk) LIBRARY dos
+DECLARE FUNCTION LONGINT Examine(LONGINT lk, ADDRESS fib) LIBRARY dos
+DECLARE FUNCTION LONGINT ExNext(LONGINT lk, ADDRESS fib) LIBRARY dos
+DECLARE FUNCTION LONGINT CreateDir(STRING nm) LIBRARY dos
+DECLARE FUNCTION LONGINT DeleteFile(STRING nm) LIBRARY dos
+DECLARE FUNCTION LONGINT Rename(STRING oldNm, STRING newNm) LIBRARY dos
+DECLARE FUNCTION ADDRESS FilePart(STRING pth) LIBRARY dos
+DECLARE FUNCTION ADDRESS PathPart(STRING pth) LIBRARY dos
+DECLARE FUNCTION LONGINT AddPart(ADDRESS dirname, STRING filename, LONGINT sz) LIBRARY dos
+DECLARE FUNCTION LONGINT NameFromLock(LONGINT lk, ADDRESS buf, LONGINT bufLen) LIBRARY dos
 DECLARE FUNCTION LONGINT IoErr LIBRARY dos
-DECLARE FUNCTION LONGINT _Open(STRING name, LONGINT accessMode) LIBRARY dos
-DECLARE FUNCTION _Close(LONGINT fileHandle) LIBRARY dos
-DECLARE FUNCTION LONGINT _Read(LONGINT fh, ADDRESS buf, LONGINT len) LIBRARY dos
-DECLARE FUNCTION LONGINT _Write(LONGINT fh, ADDRESS buf, LONGINT len) LIBRARY dos
+DECLARE FUNCTION LONGINT _Open(STRING nm, LONGINT accessMode) LIBRARY dos
+DECLARE FUNCTION _Close(LONGINT fh) LIBRARY dos
+DECLARE FUNCTION LONGINT _Read(LONGINT fh, ADDRESS buf, LONGINT bufLen) LIBRARY dos
+DECLARE FUNCTION LONGINT _Write(LONGINT fh, ADDRESS buf, LONGINT bufLen) LIBRARY dos
 
 {* ============== Module-Level State ============== *}
 
@@ -337,8 +337,7 @@ SUB STRING FadReplaceExt$(path$, ext$) EXTERNAL
 END SUB
 
 SUB STRING FadJoin$(base$, part$) EXTERNAL
-  ADDRESS buf
-  LONGINT res
+  STRING lastCh$
 
   IF LEN(base$) = 0 THEN
     FadJoin$ = part$
@@ -350,25 +349,14 @@ SUB STRING FadJoin$(base$, part$) EXTERNAL
     EXIT SUB
   END IF
 
-  buf = ALLOC(_FAD_PATHBUF_SZ)
-  IF buf = 0 THEN
-    FadJoin$ = ""
-    EXIT SUB
-  END IF
-
-  ' Copy base$ into buffer
-  _FadCopyToBuf(buf, base$, _FAD_PATHBUF_SZ)
-
-  ' Use AmigaDOS AddPart for correct path joining
-  res = AddPart(buf, part$, _FAD_PATHBUF_SZ)
-
-  IF res THEN
-    FadJoin$ = CSTR(buf)
+  ' Amiga path joining: if base ends with : or /, just concatenate
+  ' Otherwise insert a /
+  lastCh$ = RIGHT$(base$, 1)
+  IF lastCh$ = ":" OR lastCh$ = "/" THEN
+    FadJoin$ = base$ + part$
   ELSE
-    FadJoin$ = ""
+    FadJoin$ = base$ + "/" + part$
   END IF
-
-  FREE buf
 END SUB
 
 SUB STRING FadParent$(path$) EXTERNAL
@@ -660,78 +648,31 @@ END SUB
 
 SUB LONGINT FadDeleteTree&(path$) EXTERNAL
   SHARED _fad_err
-  LONGINT lk, rc
-  DECLARE STRUCT _FadFIB info
-  STRING entName$, entPath$
+  LONGINT lk
 
   _fad_err = 0
 
-  ' Lock and examine the path
+  ' Check if path exists
   lk = Lock(path$, _FAD_ACCESS_READ)
   IF lk = 0 THEN
     _fad_err = IoErr
     FadDeleteTree& = _fad_err
     EXIT SUB
   END IF
-
-  Examine(lk, info)
-
-  IF info->fib_DirEntryType < 0 THEN
-    ' It's a file, just delete it
-    UnLock(lk)
-    IF DeleteFile(path$) = 0 THEN
-      _fad_err = IoErr
-      FadDeleteTree& = _fad_err
-    ELSE
-      FadDeleteTree& = 0
-    END IF
-    EXIT SUB
-  END IF
-
-  ' It's a directory: iterate and delete contents
-  WHILE ExNext(lk, info) <> 0
-    entName$ = info->fib_FileName
-    ' Build full path for this entry
-    entPath$ = path$
-    IF RIGHT$(path$, 1) <> ":" AND RIGHT$(path$, 1) <> "/" THEN
-      entPath$ = entPath$ + "/"
-    END IF
-    entPath$ = entPath$ + entName$
-
-    IF info->fib_DirEntryType > 0 THEN
-      ' Subdirectory: unlock parent, recurse, re-lock parent
-      UnLock(lk)
-      rc = FadDeleteTree&(entPath$)
-      IF rc <> 0 THEN
-        FadDeleteTree& = rc
-        EXIT SUB
-      END IF
-      ' Re-lock and re-examine parent to continue iteration
-      lk = Lock(path$, _FAD_ACCESS_READ)
-      IF lk = 0 THEN
-        _fad_err = IoErr
-        FadDeleteTree& = _fad_err
-        EXIT SUB
-      END IF
-      Examine(lk, info)
-    ELSE
-      ' File: delete it
-      IF DeleteFile(entPath$) = 0 THEN
-        _fad_err = IoErr
-        UnLock(lk)
-        FadDeleteTree& = _fad_err
-        EXIT SUB
-      END IF
-    END IF
-  WEND
-
   UnLock(lk)
 
-  ' Now delete the empty directory itself
-  IF DeleteFile(path$) = 0 THEN
-    _fad_err = IoErr
-    FadDeleteTree& = _fad_err
-  ELSE
+  ' Use AmigaDOS delete ALL for reliable recursive deletion
+  SYSTEM "delete " + path$ + " ALL QUIET"
+
+  ' Check if deletion succeeded
+  lk = Lock(path$, _FAD_ACCESS_READ)
+  IF lk = 0 THEN
+    ' Path gone = success
     FadDeleteTree& = 0
+  ELSE
+    UnLock(lk)
+    _fad_err = IoErr
+    IF _fad_err = 0 THEN _fad_err = 216
+    FadDeleteTree& = _fad_err
   END IF
 END SUB

@@ -139,7 +139,7 @@ END IF
 
 KILL "RAM:fadtest_src.tmp"
 KILL "RAM:fadtest_dst.tmp"
-SHELL "delete RAM:fadtest_mkdir ALL QUIET"
+SYSTEM "delete RAM:fadtest_mkdir ALL QUIET"
 
 {* --- Summary --- *}
 PRINT ""

@@ -18,7 +18,7 @@ PRINT "=== fad Directory Iteration Tests ==="
 {* --- Setup: create test directory structure in RAM: --- *}
 
 ' Create directory (using MKDIR via shell)
-SHELL "makedir RAM:fadtest_dir"
+SYSTEM "makedir RAM:fadtest_dir"
 
 ' Create two files
 OPEN "O", #1, "RAM:fadtest_dir/file1.txt"
@@ -30,7 +30,7 @@ PRINT #1, "second file content"
 CLOSE #1
 
 ' Create a subdirectory
-SHELL "makedir RAM:fadtest_dir/subdir"
+SYSTEM "makedir RAM:fadtest_dir/subdir"
 
 {* --- FadOpenDir% test --- *}
 
@@ -108,8 +108,8 @@ passed = passed + 1
 
 KILL "RAM:fadtest_dir/file1.txt"
 KILL "RAM:fadtest_dir/file2.txt"
-SHELL "delete RAM:fadtest_dir/subdir ALL QUIET"
-SHELL "delete RAM:fadtest_dir ALL QUIET"
+SYSTEM "delete RAM:fadtest_dir/subdir ALL QUIET"
+SYSTEM "delete RAM:fadtest_dir ALL QUIET"
 
 {* --- Summary --- *}
 PRINT ""
