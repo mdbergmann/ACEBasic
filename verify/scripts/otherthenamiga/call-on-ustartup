@@ -1,1 +1,5 @@
 
+cd ace:submods/hashmap
+execute ACE:bin/bas -m hashmap >ace:build-output.txt
+bas test_iter >>ace:build-output.txt
+test_iter >ace:test-output.txt

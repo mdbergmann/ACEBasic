@@ -1,6 +1,8 @@
 Lisp-style List Library for ACE BASIC
 ======================================
 
+Designed by Manfred Bergmann, copyright 2026.
+
 A singly-linked list implementation inspired by Common Lisp, providing
 type-safe cons cells with support for multiple data types.
 
