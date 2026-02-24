@@ -5,7 +5,6 @@ REM Uses RAM: for temp files (fast, no disk I/O).
 
 REM #using ace:submods/fad/fad.o
 #include <submods/fad.h>
-EXTERNAL fad
 
 LONGINT passed, failed
 passed = 0

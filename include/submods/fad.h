@@ -1,6 +1,6 @@
 {*
 ** Header for fad - Files And Directories submodule
-** Include this when using EXTERNAL fad
+** Include this when using the fad submodule
 **
 ** Wraps common AmigaDOS file system operations:
 ** - Existence and type checks (FadExists%, FadIsFile%, FadIsDir%)
@@ -13,7 +13,6 @@
 **
 ** Usage:
 **   #include <submods/fad.h>
-**   EXTERNAL fad
 **   ...
 **   IF FadExists%("SYS:Utilities/More") THEN PRINT "found"
 *}

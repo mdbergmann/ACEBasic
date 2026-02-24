@@ -10,7 +10,6 @@ Quick Start
 -----------
 
   #include <submods/fad.h>
-  EXTERNAL fad
 
   ' Check if a file exists
   IF FadExists%("SYS:Utilities/More") THEN
@@ -39,7 +38,6 @@ opens automatically. Just include the header and link the module:
 
   REM #using ace:submods/fad/fad.o
   #include <submods/fad.h>
-  EXTERNAL fad
 
 Build the module from the submods/fad/ directory:
 

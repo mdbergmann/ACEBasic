@@ -6,7 +6,6 @@ REM These are pure string operations (no file I/O needed).
 
 REM #using ace:submods/fad/fad.o
 #include <submods/fad.h>
-EXTERNAL fad
 
 LONGINT passed, failed
 passed = 0

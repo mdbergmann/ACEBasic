@@ -6,7 +6,6 @@ REM Creates a temp directory in RAM: with known contents.
 
 REM #using ace:submods/fad/fad.o
 #include <submods/fad.h>
-EXTERNAL fad
 
 LONGINT passed, failed
 LONGINT entryCount, fileCount, dirCount
