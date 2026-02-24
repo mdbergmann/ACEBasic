@@ -1,0 +1,96 @@
+{*
+** Header for Hashmap submodule
+** Include this when using EXTERNAL hashmap
+**
+** String-keyed hashmap with open addressing and linear probing.
+** CLASS-based: multiple independent instances, each with own storage.
+** DJB2 hash, power-of-2 capacity, 70% max load factor.
+**
+** Usage:
+**   #include <submods/hashmap.h>
+**   EXTERNAL hashmap
+**   DECLARE CLASS Hashmap map
+**   HmMake(map, HM_MEDIUM)
+**   HmPut$(map, "name", "Alice")
+**   PRINT HmGet$(map, "name")
+**   HmFree(map)
+*}
+
+#ifndef HASHMAP_H
+#define HASHMAP_H
+
+{* ============== Constants ============== *}
+
+' Error codes
+CONST HM_SUCCESS = 0
+CONST HM_ERR_FULL = -1
+CONST HM_ERR_NOTFOUND = -2
+CONST HM_ERR_CAPACITY = -3
+
+' Value type tags
+CONST HmTypeStr = 0
+CONST HmTypeLng = 1
+CONST HmTypeSng = 2
+CONST HmTypeRef = 3
+CONST HmTypeBool = 4
+CONST HmTypeNull = 5
+
+' Capacity presets
+CONST HM_SMALL = 32
+CONST HM_MEDIUM = 128
+CONST HM_LARGE = 512
+
+' String buffer sizes per element
+CONST HM_KEY_SIZE = 64
+CONST HM_VAL_SIZE = 256
+
+{* ============== CLASS Definition ============== *}
+
+CLASS Hashmap
+  ADDRESS keys
+  ADDRESS vals
+  ADDRESS valsL
+  ADDRESS types
+  ADDRESS status
+  ADDRESS order
+  LONGINT cap
+  LONGINT count
+  LONGINT orderCount
+  LONGINT cursor
+  LONGINT curIdx
+END CLASS
+
+{* ============== Factory & Cleanup ============== *}
+
+' HmMake - Allocate backing arrays at given capacity (must be power of 2)
+DECLARE SUB HmMake(Hashmap hm, LONGINT theCap&) EXTERNAL
+
+' HmFree - Free all ALLOC'd backing arrays
+DECLARE SUB HmFree(Hashmap hm) EXTERNAL
+
+' HmClear - Reset all entries to empty (does not free arrays)
+DECLARE SUB HmClear(Hashmap hm) EXTERNAL
+
+{* ============== Core Operations ============== *}
+
+' HmPut$ - Insert or update a string value. Returns HM_SUCCESS or HM_ERR_FULL.
+DECLARE SUB SHORTINT HmPut$(Hashmap hm, theKey$, theVal$) EXTERNAL
+
+' HmGet$ - Lookup string value by key. Returns "" if not found.
+DECLARE SUB STRING HmGet$(Hashmap hm, theKey$) EXTERNAL
+
+' HmHas - Check if key exists. Returns -1 (true) or 0 (false).
+DECLARE SUB SHORTINT HmHas(Hashmap hm, theKey$) EXTERNAL
+
+' HmDel - Delete entry by key. Returns HM_SUCCESS or HM_ERR_NOTFOUND.
+DECLARE SUB SHORTINT HmDel(Hashmap hm, theKey$) EXTERNAL
+
+{* ============== Info ============== *}
+
+' HmCount - Number of entries currently stored
+DECLARE SUB LONGINT HmCount(Hashmap hm) EXTERNAL
+
+' HmCapacity - Current capacity of the hashmap
+DECLARE SUB LONGINT HmCapacity(Hashmap hm) EXTERNAL
+
+#endif

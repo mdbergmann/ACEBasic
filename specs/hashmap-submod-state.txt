@@ -1,0 +1,51 @@
+Hashmap Submodule - Implementation State
+=========================================
+
+Spec: specs/hashmap-submod.txt
+Branch: hashmap-phase1
+
+Phase 1: Core                                   [COMPLETE]
+  - CLASS Hashmap definition                    [done]
+  - HmMake / HmFree / HmClear                  [done]
+  - DJB2 hash function                          [done]
+  - DIM...ADDRESS overlay pattern               [done]
+  - HmPut$ / HmGet$ / HmHas / HmDel            [done]
+  - HmCount / HmCapacity                        [done]
+  - Probe safety (counter to prevent infinite loop) [done]
+  - Load factor check (after probe, allows update at full load) [done]
+  - Test: test_core.b (49 tests)                [done]
+  - Emulator verification                       [done] all 49 pass
+
+Phase 2: Typed Values                           [not started]
+  - HmPut& / HmPut! / HmPutBool / HmPutNull / HmPutRef
+  - HmGet& / HmGet! / HmGetRef
+  - HmType
+  - Tests for mixed types, CLASS refs
+
+Phase 3: Iteration                              [not started]
+  - Insertion-order tracking (order array)
+  - HmIterReset / HmIterNext
+  - HmIterKey$ / HmIterVal$ / HmIterVal& / HmIterVal! / HmIterType
+  - Modify HmPut to maintain order array
+  - Tests for iteration order, iteration after deletes
+
+Phase 4: JSON Integration (optional)            [not started]
+  - JsonEmitObject / JsonEmitArray
+  - JsonParse / JsonCountKeys
+
+Files:
+  submods/hashmap/hashmap.b       - Module source
+  include/submods/hashmap.h       - Header
+  submods/hashmap/make            - Build script
+  submods/hashmap/test_core.b     - Phase 1 tests
+
+Design Notes:
+  - String arrays: HM_KEY_SIZE=64 bytes/key, HM_VAL_SIZE=256 bytes/value
+  - All 6 backing arrays allocated from Phase 1 (forward compat)
+  - Type tags set in HmPut$ (HmTypeStr) even before Phase 2
+  - Probe counter prevents infinite loop in pathological tombstone cases
+  - Load factor checked after probe (allows update of existing key at full load)
+  - DIM...ADDRESS requires CONST for array bound (ACE parser limitation)
+    -> HM_MAX_BOUND=511 used for all overlays; actual access bounded by hm->cap
+  - DIM...ADDRESS can't use struct members (hm->status) directly
+    -> Must copy to local ADDRESS variable first
