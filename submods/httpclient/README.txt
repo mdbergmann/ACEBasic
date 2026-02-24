@@ -1,6 +1,8 @@
 HTTP/1.1 Client Library for ACE BASIC
 ======================================
 
+Designed by Manfred Bergmann, copyright 2026.
+
 An HTTP/1.1 client submodule for ACE BASIC with optional HTTPS support
 via AmiSSL. Provides three API tiers for different use cases.
 

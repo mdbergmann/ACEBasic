@@ -1,6 +1,8 @@
 TCPClient - TCP Connection Submodule for ACE BASIC
 ==================================================
 
+Designed by Manfred Bergmann, copyright 2026.
+
 A struct-based TCP client library with optional SSL/TLS support.
 The caller owns TcpConn structs, so there is no connection limit.
 
