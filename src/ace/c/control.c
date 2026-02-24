@@ -55,6 +55,7 @@ extern	CODE	*curr_code;
 extern	CODE	*exit_for_cx;
 extern	CODE	*exit_while_cx;
 extern	CODE	*exit_repeat_cx;
+extern	int	addr[];
 extern	BOOL	end_of_source;
 extern	BOOL	have_equal;
 extern	BOOL	have_lparen;
@@ -496,6 +497,151 @@ SHORT i;
    make_label(case_end_labname,case_end_lablabel);
    gen(case_end_lablabel,"  ","  ");
    for (i=0;i<casecount;i++) change(case_ptr[i],"jmp",case_end_labname,"  ");
+   insymbol();
+  }
+ }
+}
+
+void typecase_statement()
+{
+/*
+** TYPECASE <classobj_variable>
+**   CASE <ClassName>
+**     ...statements...
+**   CASE ELSE
+**     ...statements...
+** END TYPECASE
+*/
+SYM   *tc_item;
+SYM   *saved_classdef;
+SYM   *case_classdef;
+CODE  *end_jumps[MAXCASES];
+char  addrbuf[40], tempbuf[40];
+char  hashbuf[40];
+char  next_name[80], next_label[80];
+char  end_name[80], end_label[80];
+SHORT casecount = 0;
+LONG  hash;
+
+ /* expect identifier after TYPECASE */
+ insymbol();
+ if (sym != ident)
+    { _error(98); return; }
+
+ /* must be a classobj */
+ if (!exist(id, classobj))
+    { _error(98); return; }
+
+ tc_item = curr_item;
+ saved_classdef = tc_item->other;
+
+ /* allocate a temp frame slot for the descriptor pointer */
+ addr[lev] += 4;
+ gen_frame_addr(addr[lev], tempbuf);
+
+ /* load descriptor pointer into temp:
+    1) get BSS address from frame slot
+    2) read descriptor pointer from offset 0 of BSS data */
+ gen_frame_addr(tc_item->address, addrbuf);
+ gen("movea.l", addrbuf, "a0");
+ if (tc_item->shared && lev == ONE)
+    gen("movea.l", "(a0)", "a0");  /* shared: extra indirection */
+ gen("move.l", "(a0)", tempbuf);   /* descriptor ptr -> temp */
+
+ insymbol();
+ while (sym == endofline) insymbol(); /* skip blank lines */
+
+ /* loop over CASE branches */
+ while (sym == casesym && casecount < MAXCASES && !end_of_source)
+ {
+  insymbol();
+
+  if (sym == elsesym)
+  {
+   /* CASE ELSE */
+   insymbol();
+   while (sym == endofline) insymbol();
+
+   /* parse statements until END */
+   while (sym != endsym && !end_of_source)
+    statement();
+
+   /* jump to END TYPECASE */
+   gen("jmp", "  ", "  ");
+   end_jumps[casecount++] = curr_code;
+   break; /* CASE ELSE must be last */
+  }
+  else
+  if (sym == ident)
+  {
+   /* CASE ClassName */
+   if (!exist(id, classdef))
+      { _error(99); insymbol(); continue; }
+
+   case_classdef = curr_item;
+   hash = case_classdef->numconst.longnum;
+
+   /* emit ISA check */
+   gen("movea.l", tempbuf, "a0");
+   sprintf(hashbuf, "#$%lx", (unsigned long)hash);
+   gen("move.l", hashbuf, "d0");
+   enter_XREF("_isa_check");
+   gen("jsr", "_isa_check", "  ");
+   gen_bool_test("d0");
+   make_label(next_name, next_label);
+   gen("beq", next_name, "  ");
+
+   /* TYPE NARROWING: swap classdef pointer */
+   tc_item->other = case_classdef;
+
+   insymbol();
+   while (sym == endofline) insymbol();
+
+   /* parse statements until next CASE or END */
+   while (sym != casesym && sym != endsym && !end_of_source)
+    statement();
+
+   /* RESTORE original classdef */
+   tc_item->other = saved_classdef;
+
+   /* jump to END TYPECASE */
+   gen("jmp", "  ", "  ");
+   end_jumps[casecount++] = curr_code;
+
+   /* label for next CASE */
+   gen(next_label, "  ", "  ");
+  }
+  else
+  {
+   _error(99);
+   insymbol();
+  }
+
+  while (sym == endofline) insymbol(); /* skip blank lines */
+ }
+
+ if (casecount >= MAXCASES) _error(101);
+
+ /* END TYPECASE */
+ if (sym != endsym)
+    _error(100);
+ else
+ {
+  insymbol();
+  if (sym != typecasesym)
+     _error(100);
+  else
+  {
+   make_label(end_name, end_label);
+   gen(end_label, "  ", "  ");
+
+   /* patch all end jumps */
+   {
+    SHORT i;
+    for (i = 0; i < casecount; i++)
+     change(end_jumps[i], "jmp", end_name, "  ");
+   }
+
    insymbol();
   }
  }

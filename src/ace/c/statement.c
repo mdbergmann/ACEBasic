@@ -931,6 +931,9 @@ char  idholder[50];
  /* case */
  if (sym == casesym) { check_for_event(); case_statement(); }
  else
+ /* typecase */
+ if (sym == typecasesym) { check_for_event(); typecase_statement(); }
+ else
  /* chdir */
  if (sym == chdirsym) chdir();
  else
