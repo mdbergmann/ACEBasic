@@ -16,13 +16,13 @@ v=5:ASSERT v=5, "colon after assignment no spaces"
 
 REM --- Colon separator with atom on same line ---
 ATOM st
-st=`ready:ASSERT st=`ready, "colon sep with atom literal"
+st=#:ready:ASSERT st=#:ready, "colon sep with atom literal"
 
 REM --- Colon separator between atom assignments ---
 ATOM p, q
-p=`ok:q=`fail
-ASSERT p=`ok, "first atom after colon sep"
-ASSERT q=`fail, "second atom after colon sep"
+p=#:ok:q=#:fail
+ASSERT p=#:ok, "first atom after colon sep"
+ASSERT q=#:fail, "second atom after colon sep"
 
 REM --- Colon in IF..THEN single-line ---
 LONGINT r

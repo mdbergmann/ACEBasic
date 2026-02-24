@@ -1,0 +1,796 @@
+# Spec: Struct SUB Parameters + CLASS with Dynamic Multiple Dispatch
+
+## Context
+
+ACE BASIC currently requires a verbose pattern for passing struct instances to SUBs:
+
+  SUB DoSomething(ADDRESS connAddr, LONGINT port)
+    DECLARE STRUCT TcpConn *conn
+    conn = connAddr
+    PRINT conn->port
+  END SUB
+
+Additionally, there's no dispatch mechanism -- all SUB calls resolve statically at compile time.
+
+This spec introduces two features:
+1. Struct-typed SUB parameters -- syntactic sugar to eliminate the boilerplate
+2. CLASS + METHOD -- a new type system with dynamic multiple dispatch (CLOS-style generic functions)
+
+
+## Feature A: Struct-typed SUB Parameters
+
+### Syntax
+
+  SUB DoSomething(TcpConn conn, LONGINT port)
+    PRINT conn->port
+  END SUB
+
+  ' Call:
+  DECLARE STRUCT TcpConn myConn
+  DoSomething(myConn, 8080)
+
+### Semantics
+
+Pure syntactic sugar. The compiler treats "TcpConn conn" as:
+1. An ADDRESS parameter internally (4 bytes, longtype)
+2. Auto-generates "DECLARE STRUCT TcpConn *conn" in the SUB body
+3. Auto-assigns the ADDRESS value to the struct pointer
+
+No runtime type info. No dispatch. Works with existing STRUCT definitions
+(including Amiga system structs).
+
+### Compiler Changes
+
+sub_params() in src/ace/c/sub.c (~line 309):
+- Currently recognizes 5 type keywords: shortintsym, longintsym, addresssym,
+  singlesym, stringsym
+- Add: if current token is an identifier, check exist(id, structdef) OR
+  exist(id, classdef) in symbol table
+- If found: store longtype as param type (same as ADDRESS), record the
+  structdef/classdef pointer
+- After entering the parameter as a variable, auto-emit the appropriate
+  declare + assignment code:
+  - For structdef: DECLARE STRUCT TypeName *param
+  - For classdef:  DECLARE CLASS TypeName *param
+
+forward_ref() in src/ace/c/sub.c (~line 115):
+- Same extension: recognize struct and class type names in parameter lists
+- Store as longtype in p_type[]
+
+load_params() in src/ace/c/sub.c (~line 188):
+- No change needed -- struct instances already coerce to ADDRESS (longtype)
+  when passed
+
+SYM struct extension (src/ace/c/acedef.h):
+- Add SYM *p_structdef[MAXPARAMS] to store structdef pointers for
+  struct-typed params
+- NULL for non-struct params
+
+### Files to Modify
+
+  src/ace/c/acedef.h  -- Add p_structdef[] to SYM struct
+  src/ace/c/sub.c     -- Extend sub_params(), forward_ref() to recognize struct types
+
+
+## Feature B: CLASS + Dynamic Multiple Dispatch
+
+### New Keywords
+
+Only 3 new reserved words needed. Other constructs reuse existing keywords.
+
+  New keywords:
+    CLASS    -- Define a dispatchable struct type (like STRUCT but with hidden type ID)
+    GENERIC  -- Begin generic method declaration
+    METHOD   -- Define a method specialization
+
+  Reused keywords:
+    END      -- END CLASS, END METHOD, END GENERIC (existing pattern: END SUB, END STRUCT)
+    ON       -- Type registration inside GENERIC block (existing: ON ERROR, ON TIMER)
+    DECLARE  -- DECLARE CLASS for instances, DECLARE GENERIC METHOD for cross-module forward decl
+
+### CLASS Definition
+
+  CLASS Circle
+    SINGLE radius
+  END CLASS
+
+  CLASS Rectangle
+    SINGLE width
+    SINGLE height
+  END CLASS
+
+A CLASS is like STRUCT but:
+- Has a hidden 4-byte type ID at offset 0 (all member offsets shift by 4)
+- The type ID is a 32-bit FNV-1a hash of the class name (uppercase)
+- Type ID is initialized automatically when an instance is created
+
+Instance creation:
+
+  DECLARE CLASS Circle myC
+  myC->radius = 5.0
+
+Internally: DECLARE CLASS works like DECLARE STRUCT but:
+- Allocates 4 extra bytes at the start of BSS storage (for type ID)
+- Emits initialization code: move.l #<hash>, _classN (type ID at offset 0)
+- Member access myC->radius uses offset 4 (not 0) because of the hidden type ID
+
+Pointer instances:
+
+  DECLARE CLASS Circle *ptr
+  ptr = someAddress    ' pointed-to data must have Circle type ID at offset 0
+
+### Type ID Scheme
+
+Each class gets a compile-time 32-bit hash of its name (FNV-1a, case-insensitive
+since ACE uppercases identifiers):
+
+  hash("CIRCLE")     = 0xA3B7C91F  (example)
+  hash("RECTANGLE")  = 0x7E2D4F8B  (example)
+
+This is cross-module safe: same class name produces same hash in any compilation
+unit. No linker coordination needed.
+
+The hash is emitted as a literal in the generated assembly:
+
+  ; DECLARE CLASS Circle myC
+  _class0:
+    dc.l $A3B7C91F        ; type ID (FNV-1a hash of "CIRCLE")
+    ds.l 1                ; radius (SINGLE, 4 bytes)
+  ; Total: 8 bytes
+
+  ; Initialize at instance creation:
+    lea _class0, a0
+    move.l #$A3B7C91F, (a0)   ; set type ID
+    move.l a0, -4(a4)         ; store BSS address in frame
+
+### GENERIC METHOD Declaration
+
+  GENERIC METHOD Draw(CLASS, LONGINT)
+    ON Circle
+    ON Rectangle
+  END GENERIC
+
+Semantics:
+- "Draw" is registered as a generic method in the symbol table (new object
+  type: genericmethod)
+- Parameter signature: (CLASS, LONGINT) -- first param is dispatched,
+  second is fixed LONGINT
+- ON Circle registers that a method _METH_Draw_Circle exists for Circle
+- ON Rectangle registers that _METH_Draw_Rectangle exists
+
+Return types:
+
+  GENERIC SINGLE METHOD Area(CLASS)
+    ON Circle
+    ON Rectangle
+  END GENERIC
+
+Multiple dispatch:
+
+  GENERIC METHOD Collide(CLASS, CLASS)
+    ON Circle, Circle
+    ON Circle, Rectangle
+    ON Rectangle, Rectangle
+  END GENERIC
+
+### ATOM Dispatch
+
+ATOMs (already implemented in ACE: commit d60f75c) can participate in
+METHOD dispatch. ATOM dispatch is value matching -- the atom's hash value
+is compared directly, rather than reading a type ID from a CLASS instance.
+
+Syntax:
+
+  GENERIC METHOD Handle(ATOM)
+    ON #:ok
+    ON #:error
+    ON #:timeout
+  END GENERIC
+
+  METHOD Handle(#:ok result)
+    PRINT "Success"
+  END METHOD
+
+  METHOD Handle(#:error result)
+    PRINT "Failed"
+  END METHOD
+
+  METHOD Handle(#:timeout result)
+    PRINT "Timed out"
+  END METHOD
+
+  ' Call:
+  ATOM status
+  status = #:ok
+  Handle(status)     ' dispatches to first method
+  Handle(#:error)    ' dispatches to second method
+
+Mixed with CLASS dispatch (multiple dispatch on both CLASS and ATOM):
+
+  GENERIC METHOD React(CLASS, ATOM)
+    ON Circle, #:click
+    ON Circle, #:drag
+    ON Rectangle, #:click
+  END GENERIC
+
+  METHOD React(Circle c, #:click evt)
+    PRINT "Circle clicked"
+  END METHOD
+
+  METHOD React(Circle c, #:drag evt)
+    PRINT "Circle dragged"
+  END METHOD
+
+  METHOD React(Rectangle r, #:click evt)
+    PRINT "Rectangle clicked"
+  END METHOD
+
+Dispatch mechanics -- CLASS vs. ATOM:
+- CLASS position: call site reads type ID from offset 0 of the instance
+    move.l instance_addr, a0
+    move.l (a0), d0            ; d0 = type ID hash
+- ATOM position: the value IS the hash, pass it directly
+    move.l atom_value, d0      ; d0 = atom hash (already a LONGINT)
+- In the dispatch table, both are stored as dc.l hash values
+- The runtime _gm_dispatch function is identical for both -- it just
+  compares LONGINTs. The difference is only in how the call site pushes
+  the dispatch value onto the stack.
+
+Dispatch table encoding for the dispatcher to know how to extract values:
+- The position indices section encodes the extraction mode per position
+- Bit 15 of each position word = 0 for CLASS, 1 for ATOM
+- Bits 0-14 = parameter index
+
+Example table for React(CLASS, ATOM):
+
+  _GMETH_React:
+    dc.w  2                    ; N = 2 dispatched positions
+    dc.w  3                    ; M = 3 method entries
+    dc.w  0                    ; position 0: CLASS (bit 15=0), param index 0
+    dc.w  $8001                ; position 1: ATOM  (bit 15=1), param index 1
+    ; Entry 0: Circle, #:click
+    dc.l  <hash_Circle>, <hash_click>
+    dc.l  _METH_React_Circle_click
+    ; Entry 1: Circle, #:drag
+    dc.l  <hash_Circle>, <hash_drag>
+    dc.l  _METH_React_Circle_drag
+    ; Entry 2: Rectangle, #:click
+    dc.l  <hash_Rectangle>, <hash_click>
+    dc.l  _METH_React_Rectangle_click
+
+METHOD label naming for ATOM specializers:
+- Atom name without #: prefix: _METH_Handle_ok, _METH_Handle_error
+- Mixed: _METH_React_Circle_click, _METH_React_Circle_drag
+
+Note: atom_hash() in misc.c (already implemented) computes the same FNV-1a
+hash used for CLASS type IDs. Both CLASS and ATOM dispatch values live in
+the same hash space. This is fine -- a CLASS type ID is stored at offset 0
+of an instance, while an ATOM value is passed directly. They never collide
+in practice because they occupy different parameter positions in the
+dispatch table.
+
+Generated dispatch table (emitted inline in code section):
+
+    xdef _GMETH_Draw
+  _GMETH_Draw:
+    dc.w  1                    ; N = number of dispatched positions
+    dc.w  2                    ; M = number of method entries
+    dc.w  0                    ; dispatched position index 0
+    ; Entry 0: Circle
+    dc.l  $A3B7C91F            ; type hash for Circle
+    dc.l  _METH_Draw_Circle    ; implementation address
+    ; Entry 1: Rectangle
+    dc.l  $7E2D4F8B            ; type hash for Rectangle
+    dc.l  _METH_Draw_Rectangle ; implementation address
+
+For multiple dispatch (2 dispatched args):
+
+  _GMETH_Collide:
+    dc.w  2                    ; N = 2 dispatched positions
+    dc.w  3                    ; M = 3 method entries
+    dc.w  0, 1                 ; dispatched positions: 0 and 1
+    ; Entry 0: Circle, Circle
+    dc.l  $A3B7C91F, $A3B7C91F
+    dc.l  _METH_Collide_Circle_Circle
+    ; Entry 1: Circle, Rectangle
+    dc.l  $A3B7C91F, $7E2D4F8B
+    dc.l  _METH_Collide_Circle_Rectangle
+    ; Entry 2: Rectangle, Rectangle
+    dc.l  $7E2D4F8B, $7E2D4F8B
+    dc.l  _METH_Collide_Rectangle_Rectangle
+
+### METHOD Definition
+
+  METHOD Draw(Circle c, LONGINT color)
+    PRINT "Circle r="; c->radius; " color="; color
+  END METHOD
+
+  METHOD Draw(Rectangle r, LONGINT color)
+    PRINT "Rect "; r->width; "x"; r->height; " color="; color
+  END METHOD
+
+With return values:
+
+  SINGLE METHOD Area(Circle c)
+    Area = 3.14159 * c->radius * c->radius
+  END METHOD
+
+Semantics:
+- Compiles like a SUB with deterministic label naming
+- Class-typed params work like struct-typed SUB params (ADDRESS + auto-declare pointer)
+- Label convention: _METH_<GenericName>_<ClassName1>[_<ClassName2>...]
+- XDEF'd for cross-module linking
+
+Generated code:
+
+    xdef _METH_Draw_Circle
+  _METH_Draw_Circle:
+    link a5, #-16
+    movea.l _AbsExecBase, a6
+    jsr _LVOPermit(a6)
+    ; auto-declared: DECLARE CLASS Circle *c
+    ; c = param_address (from frame)
+    ; ... method body ...
+  _EXIT_METH_Draw_Circle:
+    unlk a5
+    rts
+
+### Call Site Code Generation
+
+Example 1: CLASS dispatch -- Draw(myCircle, 42)
+
+  ; 1. Evaluate all arguments into caller frame temps
+    ; arg 0: myCircle (CLASS instance)
+    move.l -4(a4), a0         ; a0 = myCircle BSS address
+    move.l a0, -8(a4)         ; store in temp
+    ; arg 1: 42 (LONGINT)
+    move.l #42, -12(a4)       ; store in temp
+
+  ; 2. Extract dispatch values from dispatched args
+    move.l -8(a4), a0         ; a0 = myCircle BSS address
+    move.l (a0), -(sp)        ; push type ID (read from offset 0 of instance)
+
+  ; 3. Dispatch
+    pea _GMETH_Draw            ; push dispatch table address
+    move.w #1, -(sp)           ; push: 1 dispatch value on stack
+    jsr _gm_dispatch           ; returns method address in a0
+    addq.l #10, sp             ; clean up dispatch args
+
+  ; 4. Call resolved method (like SUB call)
+    movea.l a0, a2             ; save method address
+    movea.l _AbsExecBase, a6
+    jsr _LVOForbid(a6)
+    ; move params to callee frame
+    move.l -8(a4), -8(sp)     ; arg 0 (address)
+    move.l -12(a4), -12(sp)   ; arg 1 (LONGINT)
+    jsr (a2)                   ; call resolved method
+
+Example 2: ATOM dispatch -- Handle(#:ok)
+
+  ; 1. Evaluate argument
+    move.l #<hash_ok>, -8(a4)  ; atom hash is a literal LONGINT
+
+  ; 2. Extract dispatch value (ATOM = value IS the hash, pass directly)
+    move.l -8(a4), -(sp)      ; push atom hash directly (no dereference)
+
+  ; 3. Dispatch
+    pea _GMETH_Handle
+    move.w #1, -(sp)
+    jsr _gm_dispatch
+    addq.l #10, sp
+
+  ; 4. Call resolved method
+    movea.l a0, a2
+    movea.l _AbsExecBase, a6
+    jsr _LVOForbid(a6)
+    move.l -8(a4), -8(sp)     ; pass atom value to method
+    jsr (a2)
+
+The key difference: for CLASS, the call site dereferences the instance
+address to read the type ID (move.l (a0), ...). For ATOM, the value
+itself is the dispatch key (no dereference needed).
+
+### Runtime Dispatch Function
+
+New runtime library function _gm_dispatch in src/lib/asm/dispatch.s:
+
+  ; _gm_dispatch
+  ; Input:  dispatch args on stack:
+  ;         2(sp) = N (word): number of dispatch values
+  ;         4(sp) = dispatch table address (long)
+  ;         8(sp)... = N dispatch values (longs) -- CLASS type IDs or ATOM hashes
+  ; Output: a0 = resolved method address
+  ; Destroys: d0-d3, a0-a1
+  ;
+  ; Note: The dispatch function does not distinguish CLASS from ATOM values.
+  ; Both are just LONGINTs compared against table entries. The call site is
+  ; responsible for extracting the right value (dereference for CLASS,
+  ; direct value for ATOM).
+
+  _gm_dispatch:
+    move.w 2(sp), d1          ; d1 = N (type ID count)
+    movea.l 4(sp), a0         ; a0 = dispatch table
+    move.w (a0)+, d2          ; skip N in table (already known)
+    move.w (a0)+, d3          ; d3 = M (method count)
+    ; skip position indices (N words)
+    lea (a0, d1.w), a0        ; past position words (each 2 bytes)
+    lea (a0, d1.w), a0        ; = a0 + N*2
+
+  .check_method:
+    move.w d1, d2             ; d2 = counter
+    lea 8(sp), a1             ; a1 = first type ID on stack
+
+  .check_type:
+    move.l (a1)+, d0          ; d0 = caller's type ID
+    cmp.l (a0)+, d0           ; compare with table entry
+    bne.s .next_method
+    subq.w #1, d2
+    bne.s .check_type
+
+    ; Match! Function pointer is next
+    movea.l (a0), a0          ; a0 = method address
+    rts
+
+  .next_method:
+    ; Skip remaining type hashes + function pointer for this entry
+    ; Need to advance a0 to next entry
+    ; ... (calculate skip based on remaining d2 comparisons)
+    subq.w #1, d3
+    bne.s .check_method
+
+    ; No match -- runtime error
+    jsr _no_method_error       ; new error: "No applicable method"
+
+### Cross-Module Support
+
+Module that defines methods:
+
+  ' circle_methods.b (compiled with bas -m)
+  METHOD Draw(Circle c, LONGINT color)
+    PRINT "Circle"
+  END METHOD
+
+  SINGLE METHOD Area(Circle c)
+    Area = 3.14159 * c->radius * c->radius
+  END METHOD
+
+Emits _METH_Draw_Circle, _METH_Area_Circle with XDEF.
+
+Module that declares the generic:
+
+  ' shapes.b (compiled with bas -m)
+  GENERIC METHOD Draw(CLASS, LONGINT)
+    ON Circle
+    ON Rectangle
+  END GENERIC
+
+  GENERIC SINGLE METHOD Area(CLASS)
+    ON Circle
+    ON Rectangle
+  END GENERIC
+
+Emits _GMETH_Draw, _GMETH_Area with XDEF. XREFs _METH_Draw_Circle, etc.
+
+Calling module:
+
+  ' main.b
+  REM #using shapes.o
+  REM #using circle_methods.o
+  REM #using rect_methods.o
+
+  DECLARE GENERIC METHOD Draw(CLASS, LONGINT)
+  DECLARE GENERIC SINGLE METHOD Area(CLASS)
+
+  DECLARE CLASS Circle myC
+  myC->radius = 5.0
+  Draw(myC, 1)
+  PRINT Area(myC)
+
+The DECLARE GENERIC METHOD tells the compiler: "Draw is a generic method,
+its signature is (CLASS, LONGINT), dispatch table is elsewhere." Emits XREF
+to _GMETH_Draw. Consistent with existing DECLARE FUNCTION / DECLARE STRUCT
+patterns.
+
+### Constraints
+
+1. All METHODs of a GENERIC must have the same parameter count and same
+   non-dispatched types (congruent parameter lists, like CLOS)
+2. Both STRUCT and CLASS types work as SUB parameters (syntactic sugar for
+   ADDRESS). Use SUBs for static calls when you know the type -- faster
+   than METHOD dispatch (direct jsr vs. runtime table lookup).
+3. Only CLASS and ATOM types can be used as dispatched METHOD params
+   (STRUCT has no type ID; LONGINT/SINGLE/STRING don't participate in dispatch)
+4. Type ID collision: FNV-1a 32-bit hash -- negligible risk for typical
+   class counts. Runtime error if collision causes wrong dispatch.
+5. No inheritance/subtyping in V1: Dispatch is exact match only. A Circle
+   method does not apply to a "Shape" argument.
+
+### Forward Compatibility: Inheritance
+
+The V1 design is fully forward-compatible with class inheritance. Nothing
+needs redesigning.
+
+Future syntax:
+
+  CLASS Circle EXTENDS Shape
+    SINGLE radius    ' Shape's members inherited automatically
+  END CLASS
+
+Why it works:
+
+1. Member layout: Subclass appends members after parent's. A Circle instance:
+
+     offset 0: type ID (4 bytes)
+     offset 4: color  (inherited from Shape, same offset as in Shape)
+     offset 8: radius (Circle's own member)
+
+   A METHOD specialized on Shape that reads s->color at offset 4 works
+   correctly on a Circle instance -- parent member offsets are identical.
+
+2. Dispatch with subtyping: Two upgrade paths, neither breaks V1:
+   - Class descriptor: Change type ID from a hash literal to a pointer to a
+     small descriptor struct ({ hash, parent_descriptor_ptr }). Dispatch
+     walks parent chain.
+   - Dispatch table expansion: Compiler auto-generates entries mapping
+     subclass hash -> parent method when no override exists. No runtime
+     change needed.
+
+3. Type ID at offset 0: Whether hash or descriptor pointer, still 4 bytes
+   at offset 0.
+
+Additions needed for inheritance (future phases):
+- EXTENDS keyword
+- Class descriptor structs (BSS: hash + parent pointer)
+- Updated _gm_dispatch to walk parent chain (or expanded dispatch tables)
+- MRO (method resolution order) if multiple inheritance desired
+  (Note: EQL-style dispatch is already covered by ATOM dispatch in V1)
+
+
+## Implementation Phases
+
+### Phase 1: Struct-typed SUB Parameters
+- Add p_structdef[] to SYM struct in acedef.h
+- Extend sub_params() and forward_ref() in sub.c to recognize struct type
+  identifiers
+- Auto-emit DECLARE STRUCT *ptr + assignment for struct params
+- Files: acedef.h, sub.c
+- Test: Write SUB with struct param, verify generated assembly matches
+  ADDRESS pattern
+
+### Phase 2: CLASS Keyword
+- Add classsym to keyword enum (acedef.h) and reserved words (lexvar.c)
+- END CLASS parsed as endsym + classsym (same pattern as END SUB, END STRUCT)
+- Add classdef object type (parallel to structdef) and classobj (parallel
+  to structure)
+- CLASS definition parsing in declare.c (like STRUCT but +4 offset for type ID)
+- DECLARE CLASS in declare.c (like DECLARE STRUCT but emits type ID init)
+- Member access via -> works same as STRUCT (offsets shifted by 4)
+- FNV-1a hash function in misc.c
+- Files: acedef.h, lexvar.c, lex.c, declare.c, sym.c, misc.c, assign.c
+- Test: DECLARE CLASS, set/get members, verify type ID at offset 0
+
+### Phase 3: METHOD Definition
+- Add methodsym to keyword enum and reserved words
+- END METHOD parsed as endsym + methodsym
+- METHOD parsing in parse.c (like SUB but with deterministic label naming)
+- Class-typed params use same mechanism as Phase 1 struct params
+- XDEF generated for method label
+- Files: acedef.h, lexvar.c, parse.c, sub.c
+- Test: Define METHOD, verify generated assembly is correct SUB-like code
+
+### Phase 4: GENERIC METHOD + Dispatch Table
+- Add genericsym to keyword enum and reserved words
+- END GENERIC parsed as endsym + genericsym
+- ON already exists as onsym -- reused inside GENERIC blocks
+- New object type genericmethod in symbol table
+- GENERIC METHOD parsing: collect ON entries, emit dispatch table
+- DECLARE GENERIC METHOD parsing: register signature, emit XREF to table
+- Dispatch table format: N, M, position indices, entries (hashes + method addr)
+- Files: acedef.h, lexvar.c, parse.c (or new generic.c), sym.c
+- Test: Define GENERIC + ON clauses, verify dispatch table in assembly output
+
+### Phase 5: Call Site + Runtime Dispatch
+- Call site recognition: if callee is genericmethod, emit dispatch code
+- Extract type IDs from CLASS args, call _gm_dispatch
+- New runtime function _gm_dispatch in src/lib/asm/dispatch.s
+- Runtime error handler _no_method_error
+- Build dispatch.s into db.lib (update Makefile-lib)
+- Files: statement.c or invoke.c, factor.c, src/lib/asm/dispatch.s, Makefile-lib
+- Test: Full end-to-end: define classes, generic, methods, call, verify dispatch
+
+### Phase 6: Cross-Module + Integration
+- Test METHOD definitions in separate modules
+- Test DECLARE GENERIC METHOD in calling module
+- Verify XDEF/XREF linkage works with vlink
+- IDE files update (autocase, syntax highlighting, quickref)
+- Files: IDE/CubicIDE-ACE/*, docs/quickref.txt
+- Test: Multi-module dispatch test on emulator
+
+
+## Test Plan
+
+### Phase 1 Tests
+
+  ' test_struct_sub_param.b
+  STRUCT Point
+    SINGLE x
+    SINGLE y
+  END STRUCT
+
+  SUB PrintPoint(Point p)
+    PRINT p->x; ","; p->y
+  END SUB
+
+  DECLARE STRUCT Point pt
+  pt->x = 3.0
+  pt->y = 4.0
+  PrintPoint(pt)
+  ' Expected output: 3,4
+
+### Phase 2 Tests
+
+  ' test_class_basic.b
+  CLASS Circle
+    SINGLE radius
+  END CLASS
+
+  DECLARE CLASS Circle c
+  c->radius = 5.0
+  PRINT c->radius
+  ' Expected output: 5
+
+  ' Verify type ID at offset 0:
+  PRINT PEEKL(c)   ' should print the FNV-1a hash of "CIRCLE"
+
+### Phase 5 Tests
+
+  ' test_dispatch.b
+  CLASS Circle
+    SINGLE radius
+  END CLASS
+
+  CLASS Rectangle
+    SINGLE width
+    SINGLE height
+  END CLASS
+
+  GENERIC METHOD Draw(CLASS)
+    ON Circle
+    ON Rectangle
+  END GENERIC
+
+  METHOD Draw(Circle c)
+    PRINT "Circle r="; c->radius
+  END METHOD
+
+  METHOD Draw(Rectangle r)
+    PRINT "Rect "; r->width; "x"; r->height
+  END METHOD
+
+  DECLARE CLASS Circle c
+  DECLARE CLASS Rectangle r
+  c->radius = 5.0
+  r->width = 10.0
+  r->height = 3.0
+
+  Draw(c)    ' should print: Circle r=5
+  Draw(r)    ' should print: Rect 10x3
+
+### Phase 5 -- Multiple Dispatch Test
+
+  ' test_multi_dispatch.b
+  CLASS Circle
+    SINGLE radius
+  END CLASS
+
+  CLASS Rectangle
+    SINGLE width
+    SINGLE height
+  END CLASS
+
+  GENERIC METHOD Collide(CLASS, CLASS)
+    ON Circle, Circle
+    ON Circle, Rectangle
+  END GENERIC
+
+  METHOD Collide(Circle a, Circle b)
+    PRINT "circle-circle"
+  END METHOD
+
+  METHOD Collide(Circle a, Rectangle b)
+    PRINT "circle-rect"
+  END METHOD
+
+  DECLARE CLASS Circle c1, c2
+  DECLARE CLASS Rectangle r1
+
+  Collide(c1, c2)    ' should print: circle-circle
+  Collide(c1, r1)    ' should print: circle-rect
+
+### Phase 5 -- Mixed Params + Return Value Test
+
+  ' test_mixed_return.b
+  CLASS Circle
+    SINGLE radius
+  END CLASS
+
+  GENERIC SINGLE METHOD Area(CLASS)
+    ON Circle
+  END GENERIC
+
+  SINGLE METHOD Area(Circle c)
+    Area = 3.14159 * c->radius * c->radius
+  END METHOD
+
+  DECLARE CLASS Circle c
+  c->radius = 5.0
+  PRINT Area(c)    ' should print: ~78.54
+
+### Phase 5 -- ATOM Dispatch Test
+
+  ' test_atom_dispatch.b
+  GENERIC METHOD Handle(ATOM)
+    ON #:ok
+    ON #:error
+    ON #:timeout
+  END GENERIC
+
+  METHOD Handle(#:ok result)
+    PRINT "Success"
+  END METHOD
+
+  METHOD Handle(#:error result)
+    PRINT "Failed"
+  END METHOD
+
+  METHOD Handle(#:timeout result)
+    PRINT "Timed out"
+  END METHOD
+
+  Handle(#:ok)      ' should print: Success
+  Handle(#:error)   ' should print: Failed
+  Handle(#:timeout) ' should print: Timed out
+
+  ' Also test with variable:
+  ATOM status
+  status = #:ok
+  Handle(status)    ' should print: Success
+
+### Phase 5 -- Mixed CLASS + ATOM Dispatch Test
+
+  ' test_class_atom_dispatch.b
+  CLASS Circle
+    SINGLE radius
+  END CLASS
+
+  CLASS Rectangle
+    SINGLE width
+    SINGLE height
+  END CLASS
+
+  GENERIC METHOD React(CLASS, ATOM)
+    ON Circle, #:click
+    ON Circle, #:drag
+    ON Rectangle, #:click
+  END GENERIC
+
+  METHOD React(Circle c, #:click evt)
+    PRINT "Circle clicked, r="; c->radius
+  END METHOD
+
+  METHOD React(Circle c, #:drag evt)
+    PRINT "Circle dragged"
+  END METHOD
+
+  METHOD React(Rectangle r, #:click evt)
+    PRINT "Rectangle clicked"
+  END METHOD
+
+  DECLARE CLASS Circle c
+  DECLARE CLASS Rectangle r
+  c->radius = 5.0
+  r->width = 10.0
+
+  React(c, #:click)   ' should print: Circle clicked, r=5
+  React(c, #:drag)    ' should print: Circle dragged
+  React(r, #:click)   ' should print: Rectangle clicked

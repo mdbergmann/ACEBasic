@@ -4,7 +4,7 @@ ATOM Type Specification for ACE BASIC
 1. Overview
 -----------
 ATOM is a new primitive type for ACE BASIC: lightweight symbolic constants
-identified by a backtick-prefixed name (e.g. `foo, `error, `ready).
+identified by a #: prefixed name (e.g. #:foo, #:error, #:ready).
 
 Atoms provide type-safe symbolic values without pre-declaring enums.
 Useful for state machines, option flags, message types, etc.
@@ -20,32 +20,32 @@ compiled modules.
 
   Declaration:
     ATOM state                    ' declares atom, initialized to 0
-    ATOM state = `ready           ' declares and assigns
+    ATOM state = #:ready          ' declares and assigns
     ATOM a, b, c                  ' multiple declarations
 
   Atom literal:
-    `identifier                   ' backtick followed by BASIC identifier
+    #:identifier                  ' hash-colon followed by BASIC identifier
                                   ' letters, digits, underscore only
-                                  ' case-insensitive (`foo = `FOO = `Foo)
+                                  ' case-insensitive (#:foo = #:FOO = #:Foo)
 
   Assignment:
-    state = `done
+    state = #:done
 
   Comparison (= and <> only, NO ordering):
-    IF state = `ready THEN ...
-    IF state <> `done THEN ...
+    IF state = #:ready THEN ...
+    IF state <> #:done THEN ...
 
   SUB parameter:
     SUB Process(ATOM action)
-      IF action = `run THEN ...
+      IF action = #:run THEN ...
     END SUB
-    CALL Process(`run)
+    CALL Process(#:run)
 
   CASE matching (via full boolean expressions):
-    ATOM action = `run
+    ATOM action = #:run
     CASE
-      action = `stop: PRINT "stopping"
-      action = `run:  PRINT "running"
+      action = #:stop: PRINT "stopping"
+      action = #:run:  PRINT "running"
     END CASE
 
   Arrays:
@@ -92,7 +92,7 @@ compiled modules.
 5. Not Included (Future Enhancements)
 --------------------------------------
 
-  - CONST myAtom = `foo         (atom constants)
+  - CONST myAtom = #:foo        (atom constants)
   - ATOM$() function            (atom -> string name, needs runtime table)
   - Ordering comparisons        (<, >, <=, >=)
   - No type suffix character    (use ATOM keyword for declarations)
@@ -120,8 +120,9 @@ compiled modules.
     - Add prototype in acedef.h
 
   Step 3: Lexer - atom literal recognition (lex.c)
-    - In insymbol(), scan backtick: if ch==`backtick` and next is a letter,
-      read identifier, uppercase, compute hash, set sym=atomconst
+    - In scan_symbol(), after '#' check: if ch=='#' and next char is ':',
+      consume both, read identifier, uppercase, compute hash, set sym=atomconst
+    - The '#' is already a special symbol; add '#:' two-char prefix handling
     - Add extern LONG atomval
 
   Step 4: Type mapping (misc.c)
@@ -167,40 +168,40 @@ compiled modules.
   REM *** Atom type test ***
 
   REM --- Declaration with initialization ---
-  ATOM state = `ready
-  ASSERT state = `ready, "atom declare and init"
+  ATOM state = #:ready
+  ASSERT state = #:ready, "atom declare and init"
 
   REM --- Inequality ---
-  ASSERT state <> `done, "atom inequality"
+  ASSERT state <> #:done, "atom inequality"
 
   REM --- Reassignment ---
-  state = `done
-  ASSERT state = `done, "atom reassignment"
+  state = #:done
+  ASSERT state = #:done, "atom reassignment"
 
   REM --- Same atom literal produces same value ---
-  ATOM other = `done
+  ATOM other = #:done
   ASSERT state = other, "same atom name equals same value"
 
   REM --- Different atoms are not equal ---
-  other = `waiting
+  other = #:waiting
   ASSERT state <> other, "different atoms not equal"
 
   REM --- Declaration without initialization ---
   ATOM unset
-  ASSERT unset <> `ready, "uninitialized atom is zero"
+  ASSERT unset <> #:ready, "uninitialized atom is zero"
 
   REM --- Atom in SUB parameter ---
-  CALL TestAtom(`hello)
+  CALL TestAtom(#:hello)
 
   REM --- Atom in CASE ---
-  ATOM action = `run
+  ATOM action = #:run
   CASE
-    action = `stop: ASSERT 0, "should not match stop"
-    action = `run: ASSERT 1, "case matched run"
+    action = #:stop: ASSERT 0, "should not match stop"
+    action = #:run: ASSERT 1, "case matched run"
   END CASE
 
   SUB TestAtom(ATOM a)
-    ASSERT a = `hello, "atom SUB parameter"
+    ASSERT a = #:hello, "atom SUB parameter"
   END SUB
 
 
@@ -209,7 +210,7 @@ compiled modules.
 
   src/ace/c/acedef.h   - atomsym, atomconst, atomtype enums; atom_hash proto
   src/ace/c/lexvar.c   - "ATOM" in rword[]; LONG atomval global
-  src/ace/c/lex.c      - atom literal `name recognition in insymbol()
+  src/ace/c/lex.c      - atom literal #:name recognition in scan_symbol()
   src/ace/c/misc.c     - atom_hash() function; atomsym case in sym_to_type()
   src/ace/c/factor.c   - atomconst case in factor()
   src/ace/c/expr.c     - coercion rejection; atomtype comparison; make_integer

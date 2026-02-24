@@ -924,6 +924,28 @@ char lastch;
    if ((sym==gtrthan || sym==colon) && ch=='=')
       { ssym[1]=ch; ssym[2]='\0'; sym=rsvd_sym(ssym); nextch(); }
    else
+   /* atom literal #:name */
+   if (sym==hash && ch==':')
+   {
+    char peek = line[column+1];  /* look ahead past ':' */
+    if ((peek>='A' && peek<='Z') || (peek>='a' && peek<='z'))
+    {
+     int ac=0;
+     char abuf[MAXIDSIZE];
+     nextch();  /* consume ':' */
+     while ((ch>='A' && ch<='Z') || (ch>='a' && ch<='z') ||
+            (ch>='0' && ch<='9') || ch=='_')
+     {
+      if (ac < MAXIDSIZE-1) abuf[ac++] = ch;
+      nextch();
+     }
+     abuf[ac] = '\0';
+     strupr(abuf);
+     atomval = atom_hash(abuf);
+     sym = atomconst; typ = atomtype; obj = constant;
+    }
+   }
+   else
    /* &H,&O */
    if (lastch=='&' && (ch=='H' || ch=='O'))
       { ssym[1]=ch; ssym[2]='\0'; sym=rsvd_sym(ssym); nextch(); }
@@ -1064,29 +1086,6 @@ int cc;
   if (ssymbol() || (ch == '&') || (ch == '#'))
   {
    scan_symbol();
-  }
-  else
-  /* atom literal `name */
-  if (ch == '`')
-  {
-   int ac=0;
-   char abuf[MAXIDSIZE];
-   nextch();
-   if (!((ch>='A' && ch<='Z') || (ch>='a' && ch<='z')))
-      { _error(2); }
-   else
-   {
-    while ((ch>='A' && ch<='Z') || (ch>='a' && ch<='z') ||
-           (ch>='0' && ch<='9') || ch=='_')
-    {
-     if (ac < MAXIDSIZE-1) abuf[ac++] = ch;
-     nextch();
-    }
-    abuf[ac] = '\0';
-    strupr(abuf);
-    atomval = atom_hash(abuf);
-    sym = atomconst; typ = atomtype; obj = constant;
-   }
   }
   /*
   ** Unknown symbol.

@@ -20,7 +20,7 @@ Steps Completed:
 
   3. Lexer atom literal recognition (lex.c)                       DONE
      - extern LONG atomval declaration
-     - `name scanning in insymbol() via backtick check
+     - #:name scanning in scan_symbol() (hash + colon + letter lookahead)
      - Reads identifier chars, uppercases, hashes, sets sym/typ/obj
 
   4. Factor - atom literal in expressions (factor.c)              DONE
@@ -37,7 +37,7 @@ Steps Completed:
      - dim() recognizes atomsym for DIM ATOM arr(n)
 
   7. Variable declaration (declare.c)                             DONE
-     - declare_variable() atomtype: init to 0, optional = :expr init
+     - declare_variable() atomtype: init to 0, optional = #:expr init
      - define_structure() atomsym/atomtype as member type
      - atomtype in BSS generation for struct members
      - atomsym in SIZE guard for struct member arrays
