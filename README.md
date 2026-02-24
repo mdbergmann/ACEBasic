@@ -258,7 +258,7 @@ Use descriptive names without spaces: `float_add.b`, not `float add.b`
 | `bin/` | ACE compiler and build scripts |
 | `bmaps/` | Binary maps for Amiga OS 39 shared libraries |
 | `examples/` | Example programs (30+ categories) |
-| `submods/` | Reusable BASIC libraries (MUI, list, HTTP, turtle, etc.) |
+| `submods/` | Reusable BASIC libraries (MUI, list, HTTP, hashmap, fad, turtle, etc.) |
 | `utils/` | Utility programs (fd2bmap, convert2ace, yap preprocessor) |
 | `docs/` | Documentation files |
 | `verify/tests/` | Test suite |
@@ -407,6 +407,31 @@ END IF
 ```
 
 Compile: `bas -m dp-float` (module), then `bas myprogram ace:submods/dp-float/dp-float.o` or use `REM #using ace:submods/dp-float/dp-float.o` in your source.
+
+### FAD Submodule (`submods/fad/`)
+
+Files And Directories library wrapping common AmigaDOS file system operations into simple, high-level SUBs. Inspired by Common Lisp's CL-FAD. No initialization or cleanup calls needed (dos.library is auto-opened by ACE).
+
+- **Existence/type checks**: `FadExists%`, `FadIsFile%`, `FadIsDir%`
+- **File info**: `FadSize&`, `FadProtect&`, `FadComment$`, `FadDate%`
+- **Path manipulation**: `FadBaseName$`, `FadDirName$`, `FadExt$`, `FadReplaceExt$`, `FadJoin$`, `FadParent$`
+- **Directory iteration**: `FadOpenDir%`, `FadNext%`, `FadEntryName$`, `FadEntrySize&`, `FadEntryIsDir%`, `FadCloseDir`
+- **File operations**: `FadCopy&`, `FadMkDir&`, `FadMkDirP&` (recursive), `FadDeleteTree&` (recursive delete)
+- **Error query**: `FadError&` returns last dos.library error code
+
+### Hashmap Submodule (`submods/hashmap/`)
+
+String-keyed hashmap (dictionary/associative array) with type-tagged values. Uses open addressing with linear probing, DJB2 hashing, power-of-2 capacity, and 70% max load factor. Supports multiple independent instances via CLASS-based design.
+
+- **Factory/cleanup**: `HmMake`, `HmFree`, `HmClear`
+- **Put operations**: `HmPut$`, `HmPut&`, `HmPut!`, `HmPutRef`, `HmPutBool`, `HmPutNull`
+- **Get operations**: `HmGet$`, `HmGet&`, `HmGet!`, `HmGetRef`, `HmHas`, `HmType`
+- **Delete**: `HmDel` (tombstone-based)
+- **Iteration** (insertion order): `HmIterReset`, `HmIterNext`, `HmIterKey$`, `HmIterVal$`, `HmIterVal&`, `HmIterVal!`, `HmIterType`
+- **Higher-order**: `HmForEach` with INVOKABLE callback
+- **Builder pattern**: `HmNew`, `HmAdd$`/`HmAdd&`/`HmAdd!`/`HmAddRef`/`HmAddBool`/`HmAddNull`, `HmEnd`
+
+Capacities: `HM_SMALL` (32), `HM_MEDIUM` (128), `HM_LARGE` (512).
 
 ### Turtle Graphics Submodule (`submods/turtle/`)
 
