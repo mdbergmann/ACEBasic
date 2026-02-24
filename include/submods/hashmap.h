@@ -143,4 +143,12 @@ DECLARE SUB SINGLE HmIterVal!(Hashmap hm) EXTERNAL
 ' HmIterType - Type tag at current position
 DECLARE SUB SHORTINT HmIterType(Hashmap hm) EXTERNAL
 
+{* ============== Higher-Order Iteration ============== *}
+
+' HmForEach - Call callback for each entry in insertion order.
+' Callback: SUB ADDRESS cb(ADDRESS keyPtr, LONGINT rawVal&,
+'              ADDRESS strPtr, SHORTINT typ%) INVOKABLE
+' Use CSTR(keyPtr)/CSTR(strPtr) for string access. Pass as BIND(@MySub).
+DECLARE SUB HmForEach(Hashmap hm, ADDRESS fun) EXTERNAL
+
 #endif

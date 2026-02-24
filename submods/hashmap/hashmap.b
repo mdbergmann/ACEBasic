@@ -864,3 +864,39 @@ SUB SHORTINT HmIterType(Hashmap hm) EXTERNAL
   DIM tp%(HM_MAX_BOUND) ADDRESS tpAddr
   HmIterType = tp%(hm->curIdx)
 END SUB
+
+{* ============== Higher-Order Iteration ============== *}
+
+{*
+** HmForEach - Call a function for each entry in insertion order.
+** Callback signature:
+**   SUB ADDRESS cb(ADDRESS keyPtr, LONGINT rawVal&,
+**                  ADDRESS strPtr, SHORTINT typ%) INVOKABLE
+** Use CSTR(keyPtr) and CSTR(strPtr) in callback for string access.
+** Pass callback as BIND(@MySub).
+*}
+SUB HmForEach(Hashmap hm, ADDRESS fun) EXTERNAL
+  ADDRESS oAddr, stAddr, vlAddr, tpAddr, kPtr, vPtr
+  LONGINT pos&, bIdx&
+
+  oAddr = hm->order
+  stAddr = hm->status
+  vlAddr = hm->valsL
+  tpAddr = hm->types
+
+  DIM ord%(HM_MAX_BOUND) ADDRESS oAddr
+  DIM st%(HM_MAX_BOUND) ADDRESS stAddr
+  DIM vL&(HM_MAX_BOUND) ADDRESS vlAddr
+  DIM tp%(HM_MAX_BOUND) ADDRESS tpAddr
+
+  pos& = 0
+  WHILE pos& < hm->orderCount
+    bIdx& = ord%(pos&)
+    IF bIdx& >= 0 AND st%(bIdx&) = HM_OCCUPIED THEN
+      kPtr = hm->keys + bIdx& * HM_KEY_SIZE
+      vPtr = hm->vals + bIdx& * HM_VAL_SIZE
+      INVOKE fun(kPtr, vL&(bIdx&), vPtr, tp%(bIdx&))
+    END IF
+    pos& = pos& + 1
+  WEND
+END SUB

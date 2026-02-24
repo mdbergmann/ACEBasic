@@ -36,17 +36,30 @@ Phase 3: Iteration                              [COMPLETE]
   - Test: test_iter.b (13 test groups, 70 asserts) [done]
   - Emulator verification                       [done] all 70 pass
 
+Phase 3b: HmForEach (Higher-Order Iteration)    [CODED]
+  - HmForEach(Hashmap hm, ADDRESS fun)          [done]
+    - Walks insertion order, calls INVOKE fun(keyPtr, rawVal&, strPtr, typ%)
+    - Callback uses ADDRESS for strings (proven pattern from list submodule)
+    - Callback should be INVOKABLE, passed via BIND(@MySub)
+  - hashmap.h updated with HmForEach declare    [done]
+  - Test: test_foreach.b (7 tests, 18 asserts)  [done]
+    - Empty map, counting, key order, after delete, sum longs,
+      mixed type counting, string value access via CSTR
+  - Emulator verification                       [done] all 13 pass
+  - Regression: test_iter 70/70 pass             [done]
+
 Phase 4: JSON Integration (optional)            [not started]
   - JsonEmitObject / JsonEmitArray
   - JsonParse / JsonCountKeys
 
 Files:
-  submods/hashmap/hashmap.b       - Module source (~840 lines, 26 SUBs)
+  submods/hashmap/hashmap.b       - Module source (~900 lines, 27 SUBs)
   include/submods/hashmap.h       - Header
   submods/hashmap/make            - Build script
   submods/hashmap/test_core.b     - Phase 1 tests (49 tests)
   submods/hashmap/test_typed.b    - Phase 2 tests (54 tests)
   submods/hashmap/test_iter.b     - Phase 3 tests
+  submods/hashmap/test_foreach.b  - Phase 3b tests (HmForEach)
 
 Design Notes:
   - String arrays: HM_KEY_SIZE=64 bytes/key, HM_VAL_SIZE=256 bytes/value
