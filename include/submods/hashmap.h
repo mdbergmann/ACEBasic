@@ -76,11 +76,38 @@ DECLARE SUB HmClear(Hashmap hm) EXTERNAL
 ' HmPut$ - Insert or update a string value. Returns HM_SUCCESS or HM_ERR_FULL.
 DECLARE SUB SHORTINT HmPut$(Hashmap hm, theKey$, theVal$) EXTERNAL
 
+' HmPut& - Insert or update a LONGINT value.
+DECLARE SUB SHORTINT HmPut&(Hashmap hm, theKey$, LONGINT theVal&) EXTERNAL
+
+' HmPut! - Insert or update a SINGLE value (raw bits stored in valsL).
+DECLARE SUB SHORTINT HmPut!(Hashmap hm, theKey$, SINGLE theVal!) EXTERNAL
+
+' HmPutRef - Insert or update an ADDRESS reference (CLASS instance pointer).
+DECLARE SUB SHORTINT HmPutRef(Hashmap hm, theKey$, ADDRESS theRef&) EXTERNAL
+
+' HmPutBool - Insert or update a boolean value (0 or 1).
+DECLARE SUB SHORTINT HmPutBool(Hashmap hm, theKey$, SHORTINT theVal%) EXTERNAL
+
+' HmPutNull - Insert or update a null entry (type tag only, no value).
+DECLARE SUB SHORTINT HmPutNull(Hashmap hm, theKey$) EXTERNAL
+
 ' HmGet$ - Lookup string value by key. Returns "" if not found.
 DECLARE SUB STRING HmGet$(Hashmap hm, theKey$) EXTERNAL
 
+' HmGet& - Lookup LONGINT value by key. Returns 0 if not found.
+DECLARE SUB LONGINT HmGet&(Hashmap hm, theKey$) EXTERNAL
+
+' HmGet! - Lookup SINGLE value by key. Returns 0 if not found.
+DECLARE SUB SINGLE HmGet!(Hashmap hm, theKey$) EXTERNAL
+
+' HmGetRef - Lookup ADDRESS reference by key. Returns 0 if not found.
+DECLARE SUB LONGINT HmGetRef(Hashmap hm, theKey$) EXTERNAL
+
 ' HmHas - Check if key exists. Returns -1 (true) or 0 (false).
 DECLARE SUB SHORTINT HmHas(Hashmap hm, theKey$) EXTERNAL
+
+' HmType - Get type tag for key. Returns -1 if not found.
+DECLARE SUB SHORTINT HmType(Hashmap hm, theKey$) EXTERNAL
 
 ' HmDel - Delete entry by key. Returns HM_SUCCESS or HM_ERR_NOTFOUND.
 DECLARE SUB SHORTINT HmDel(Hashmap hm, theKey$) EXTERNAL
@@ -92,5 +119,28 @@ DECLARE SUB LONGINT HmCount(Hashmap hm) EXTERNAL
 
 ' HmCapacity - Current capacity of the hashmap
 DECLARE SUB LONGINT HmCapacity(Hashmap hm) EXTERNAL
+
+{* ============== Iteration ============== *}
+
+' HmIterReset - Reset iterator to beginning
+DECLARE SUB HmIterReset(Hashmap hm) EXTERNAL
+
+' HmIterNext - Advance to next entry. Returns -1 (true) or 0 (false).
+DECLARE SUB SHORTINT HmIterNext(Hashmap hm) EXTERNAL
+
+' HmIterKey$ - Key at current iterator position
+DECLARE SUB STRING HmIterKey$(Hashmap hm) EXTERNAL
+
+' HmIterVal$ - String value at current position
+DECLARE SUB STRING HmIterVal$(Hashmap hm) EXTERNAL
+
+' HmIterVal& - LONGINT value at current position (also for bool/ref)
+DECLARE SUB LONGINT HmIterVal&(Hashmap hm) EXTERNAL
+
+' HmIterVal! - SINGLE value at current position
+DECLARE SUB SINGLE HmIterVal!(Hashmap hm) EXTERNAL
+
+' HmIterType - Type tag at current position
+DECLARE SUB SHORTINT HmIterType(Hashmap hm) EXTERNAL
 
 #endif
