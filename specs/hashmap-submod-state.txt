@@ -36,7 +36,7 @@ Phase 3: Iteration                              [COMPLETE]
   - Test: test_iter.b (13 test groups, 70 asserts) [done]
   - Emulator verification                       [done] all 70 pass
 
-Phase 3b: HmForEach (Higher-Order Iteration)    [CODED]
+Phase 3b: HmForEach (Higher-Order Iteration)    [COMPLETE]
   - HmForEach(Hashmap hm, ADDRESS fun)          [done]
     - Walks insertion order, calls INVOKE fun(keyPtr, rawVal&, strPtr, typ%)
     - Callback uses ADDRESS for strings (proven pattern from list submodule)
@@ -48,18 +48,45 @@ Phase 3b: HmForEach (Higher-Order Iteration)    [CODED]
   - Emulator verification                       [done] all 13 pass
   - Regression: test_iter 70/70 pass             [done]
 
+Phase 3c: Builder Pattern                       [COMPLETE]
+  - HmNew / HmEnd                               [done]
+  - HmAdd$ / HmAdd& / HmAdd! / HmAddRef / HmAddBool / HmAddNull [done]
+  - hashmap.h updated with 8 builder declares   [done]
+  - Test: test_builder.b (7 test groups, 30 asserts) [done]
+    - Basic string, mixed types, nested builder, valid ADDRESS,
+      error propagation, iteration order, empty builder
+  - Emulator verification                       [done] all 30 pass
+  - Full regression: 216/216 pass (49+54+70+13+30) [done]
+
+Phase 3d: Internal Deduplication Refactoring     [COMPLETE]
+  - 3 internal helpers extracted:                  [done]
+    - _HmFindKey: lookup probe, sets _hmFoundIdx
+    - _HmPutProbe: insert probe with tombstone tracking, sets _hmSlotIdx/_hmSlotMode
+    - _HmCommitNew: writes key, status, count++, order append
+  - 3 module-level result variables:               [done]
+    - _hmFoundIdx, _hmSlotIdx, _hmSlotMode
+  - 7 lookup consumers refactored to _HmFindKey:   [done]
+    - HmGet$, HmGet&, HmGet!, HmGetRef, HmHas, HmType, HmDel
+  - 6 Put SUBs refactored to _HmPutProbe + _HmCommitNew: [done]
+    - HmPut$, HmPut&, HmPut!, HmPutRef, HmPutBool, HmPutNull
+  - Line count: 984 -> 789 (~20% reduction)        [done]
+  - Public API unchanged                           [done]
+  - Emulator verification                          [done] all 216 pass
+  - Full regression: 216/216 (49+54+70+13+30)      [done]
+
 Phase 4: JSON Integration (optional)            [not started]
   - JsonEmitObject / JsonEmitArray
   - JsonParse / JsonCountKeys
 
 Files:
-  submods/hashmap/hashmap.b       - Module source (~900 lines, 27 SUBs)
+  submods/hashmap/hashmap.b       - Module source (~790 lines, 38 SUBs)
   include/submods/hashmap.h       - Header
   submods/hashmap/make            - Build script
   submods/hashmap/test_core.b     - Phase 1 tests (49 tests)
   submods/hashmap/test_typed.b    - Phase 2 tests (54 tests)
-  submods/hashmap/test_iter.b     - Phase 3 tests
-  submods/hashmap/test_foreach.b  - Phase 3b tests (HmForEach)
+  submods/hashmap/test_iter.b     - Phase 3 tests (70 tests)
+  submods/hashmap/test_foreach.b  - Phase 3b tests (13 tests)
+  submods/hashmap/test_builder.b  - Phase 3c tests (30 tests)
 
 Design Notes:
   - String arrays: HM_KEY_SIZE=64 bytes/key, HM_VAL_SIZE=256 bytes/value
@@ -75,3 +102,38 @@ Design Notes:
   - _HmOrderAppend compacts order array when orderCount reaches cap
     (removes -1 and tombstoned entries, then appends)
   - Updates (same key) don't affect order (handled in probe loop before insert)
+
+Builder Pattern Design Notes:
+  - Builder uses LONGINT _hmBldPtr at module level (not DECLARE CLASS)
+    because SHARED with module-level CLASS variables causes exit crashes.
+  - Each builder SUB does SHARED _hmBldPtr, then local DECLARE CLASS
+    Hashmap bld, then bld = _hmBldPtr to operate on the ALLOC'd block.
+  - HmNew ALLOCs a fresh 48-byte CLASS block (_HM_STRUCT_SIZE) for each
+    builder, so sequential builders produce independent maps.
+  - HmEnd returns the ALLOC'd ADDRESS. The return assignment MUST be the
+    last statement in the SUB (ACE clobbers d0 on any subsequent statement).
+  - Builder maps require TWO cleanup calls:
+      HmFree(m)   — frees the 6 backing arrays (keys, vals, valsL, types,
+                     status, order) that HmMake allocated
+      FREE map&   — frees the 48-byte CLASS struct block that HmNew allocated
+    For DECLARE CLASS maps (not from builder), only HmFree is needed
+    because the struct lives in BSS (not ALLOC'd).
+  - DECLARE CLASS ... ADDRESS syntax does NOT exist for CLASS (only STRUCT).
+    Instead: DECLARE CLASS Hashmap m, then m = addr& to redirect.
+
+Internal Helper Design Notes:
+  - Helpers communicate results via SHARED module-level LONGINTs
+    (ACE SUBs can't return multiple values or use out-params for LONGINTs)
+  - _HmFindKey sets _hmFoundIdx to backing index or -1
+  - _HmPutProbe sets _hmSlotIdx (slot) and _hmSlotMode (1=update, 0=new, -1=full)
+  - _HmCommitNew takes idx& as param (not SHARED) for clarity
+  - Module-level vars declared before first SUB that uses SHARED on them
+  - Pattern: call helper, check result var, then access type-specific array locally
+
+ACE Pitfalls Discovered:
+  - SHARED with module-level DECLARE CLASS causes crashes at program exit
+  - DECLARE CLASS ... ADDRESS is not valid syntax (use assignment instead)
+  - Return value assignment (FuncName = expr) must be last statement in SUB;
+    any subsequent statement clobbers d0
+  - ASSERT is a built-in statement that halts on failure (not for test suites)
+  - "Assert" cannot be used as a SUB name (reserved word)

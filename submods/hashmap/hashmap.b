@@ -7,7 +7,6 @@
 **
 ** Usage:
 **   #include <submods/hashmap.h>
-**   EXTERNAL hashmap
 **   DECLARE CLASS Hashmap map
 **   HmMake(map, HM_MEDIUM)
 **   HmPut$(map, "name", "Alice")

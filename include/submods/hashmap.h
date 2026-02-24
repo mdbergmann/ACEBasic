@@ -8,7 +8,6 @@
 **
 ** Usage:
 **   #include <submods/hashmap.h>
-**   EXTERNAL hashmap
 **   DECLARE CLASS Hashmap map
 **   HmMake(map, HM_MEDIUM)
 **   HmPut$(map, "name", "Alice")
@@ -150,5 +149,31 @@ DECLARE SUB SHORTINT HmIterType(Hashmap hm) EXTERNAL
 '              ADDRESS strPtr, SHORTINT typ%) INVOKABLE
 ' Use CSTR(keyPtr)/CSTR(strPtr) for string access. Pass as BIND(@MySub).
 DECLARE SUB HmForEach(Hashmap hm, ADDRESS fun) EXTERNAL
+
+{* ============== Builder Pattern ============== *}
+
+' HmNew - Start building a new hashmap with given capacity
+DECLARE SUB HmNew(LONGINT theCap&) EXTERNAL
+
+' HmAdd$ - Add string entry to builder
+DECLARE SUB SHORTINT HmAdd$(theKey$, theVal$) EXTERNAL
+
+' HmAdd& - Add LONGINT entry to builder
+DECLARE SUB SHORTINT HmAdd&(theKey$, LONGINT theVal&) EXTERNAL
+
+' HmAdd! - Add SINGLE entry to builder
+DECLARE SUB SHORTINT HmAdd!(theKey$, SINGLE theVal!) EXTERNAL
+
+' HmAddRef - Add ADDRESS reference entry to builder
+DECLARE SUB SHORTINT HmAddRef(theKey$, ADDRESS theRef&) EXTERNAL
+
+' HmAddBool - Add boolean entry to builder
+DECLARE SUB SHORTINT HmAddBool(theKey$, SHORTINT theVal%) EXTERNAL
+
+' HmAddNull - Add null entry to builder
+DECLARE SUB SHORTINT HmAddNull(theKey$) EXTERNAL
+
+' HmEnd - Finalize builder, return ADDRESS of completed Hashmap
+DECLARE SUB LONGINT HmEnd EXTERNAL
 
 #endif
