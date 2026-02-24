@@ -65,6 +65,16 @@ CLASS Hashmap
   LONGINT curIdx
 END CLASS
 
+{* ============== Module-Level State ============== *}
+
+' Size of Hashmap CLASS: 4 (descriptor) + 6*4 (ADDRESS) + 5*4 (LONGINT) = 48
+CONST _HM_STRUCT_SIZE = 48
+
+' Internal helper result variables
+LONGINT _hmFoundIdx   ' _HmFindKey result: backing index or -1
+LONGINT _hmSlotIdx    ' _HmPutProbe result: slot index
+LONGINT _hmSlotMode   ' _HmPutProbe result: 1=update, 0=new, -1=full
+
 {* ============== Internal: Hash Function (DJB2) ============== *}
 
 SUB LONGINT _HmHash(theKey$, LONGINT theCap&)
@@ -120,6 +130,119 @@ SUB _HmOrderAppend(Hashmap hm, LONGINT backIdx&)
   ' Append new entry
   ord%(hm->orderCount) = backIdx&
   hm->orderCount = hm->orderCount + 1
+END SUB
+
+{* ============== Internal: Lookup Probe ============== *}
+
+{*
+** Find an existing key's backing index via linear probe.
+** Sets _hmFoundIdx to the index, or -1 if not found.
+*}
+SUB _HmFindKey(Hashmap hm, theKey$)
+  SHARED _hmFoundIdx
+  LONGINT idx&, probes&, capVal&
+  ADDRESS kAddr, stAddr
+
+  capVal& = hm->cap
+  kAddr = hm->keys
+  stAddr = hm->status
+
+  DIM k$(HM_MAX_BOUND) SIZE HM_KEY_SIZE ADDRESS kAddr
+  DIM st%(HM_MAX_BOUND) ADDRESS stAddr
+
+  idx& = _HmHash(theKey$, capVal&)
+  probes& = 0
+
+  WHILE probes& < capVal& AND st%(idx&) <> HM_EMPTY
+    IF st%(idx&) = HM_OCCUPIED AND k$(idx&) = theKey$ THEN
+      _hmFoundIdx = idx&
+      EXIT SUB
+    END IF
+    idx& = (idx& + 1) AND (capVal& - 1)
+    probes& = probes& + 1
+  WEND
+
+  _hmFoundIdx = -1
+END SUB
+
+{* ============== Internal: Insert Probe ============== *}
+
+{*
+** Find the slot for a put operation. Handles tombstone tracking
+** and load-factor check.
+** Sets _hmSlotIdx and _hmSlotMode:
+**   _hmSlotMode = 1  -> key exists at _hmSlotIdx (update)
+**   _hmSlotMode = 0  -> new slot at _hmSlotIdx (insert)
+**   _hmSlotMode = -1 -> map full (no insert possible)
+*}
+SUB _HmPutProbe(Hashmap hm, theKey$)
+  SHARED _hmSlotIdx, _hmSlotMode
+  LONGINT idx&, tombIdx&, maxLoad&, probes&, capVal&
+  ADDRESS kAddr, stAddr
+
+  capVal& = hm->cap
+  kAddr = hm->keys
+  stAddr = hm->status
+
+  DIM k$(HM_MAX_BOUND) SIZE HM_KEY_SIZE ADDRESS kAddr
+  DIM st%(HM_MAX_BOUND) ADDRESS stAddr
+
+  idx& = _HmHash(theKey$, capVal&)
+  tombIdx& = -1
+  probes& = 0
+
+  WHILE probes& < capVal& AND st%(idx&) <> HM_EMPTY
+    IF st%(idx&) = HM_OCCUPIED THEN
+      IF k$(idx&) = theKey$ THEN
+        _hmSlotIdx = idx&
+        _hmSlotMode = 1
+        EXIT SUB
+      END IF
+    ELSEIF tombIdx& = -1 THEN
+      tombIdx& = idx&
+    END IF
+    idx& = (idx& + 1) AND (capVal& - 1)
+    probes& = probes& + 1
+  WEND
+
+  ' Key not found - check load factor before inserting
+  maxLoad& = (capVal& * 7) \ 10
+  IF hm->count >= maxLoad& THEN
+    _hmSlotMode = -1
+    EXIT SUB
+  END IF
+
+  ' Use tombstone slot if available, else empty slot
+  IF tombIdx& >= 0 THEN
+    _hmSlotIdx = tombIdx&
+    _hmSlotMode = 0
+  ELSEIF probes& >= capVal& THEN
+    _hmSlotMode = -1
+  ELSE
+    _hmSlotIdx = idx&
+    _hmSlotMode = 0
+  END IF
+END SUB
+
+{* ============== Internal: Commit New Entry ============== *}
+
+{*
+** Write key, set status to OCCUPIED, increment count, append to order.
+** Called by Put* SUBs only when _hmSlotMode = 0 (new entry).
+*}
+SUB _HmCommitNew(Hashmap hm, theKey$, LONGINT idx&)
+  ADDRESS kAddr, stAddr
+
+  kAddr = hm->keys
+  stAddr = hm->status
+
+  DIM k$(HM_MAX_BOUND) SIZE HM_KEY_SIZE ADDRESS kAddr
+  DIM st%(HM_MAX_BOUND) ADDRESS stAddr
+
+  k$(idx&) = theKey$
+  st%(idx&) = HM_OCCUPIED
+  hm->count = hm->count + 1
+  _HmOrderAppend(hm, idx&)
 END SUB
 
 {* ============== Factory & Cleanup ============== *}
@@ -192,561 +315,249 @@ END SUB
 {* ============== Core: Put String ============== *}
 
 SUB SHORTINT HmPut$(Hashmap hm, theKey$, theVal$) EXTERNAL
-  LONGINT idx&, tombIdx&, maxLoad&, probes&, capVal&
-  ADDRESS kAddr, vAddr, stAddr, tpAddr
+  SHARED _hmSlotIdx, _hmSlotMode
+  ADDRESS vAddr, tpAddr
 
-  ' Extract struct members to locals for DIM
-  capVal& = hm->cap
-  kAddr = hm->keys
+  _HmPutProbe(hm, theKey$)
+  IF _hmSlotMode < 0 THEN
+    HmPut$ = HM_ERR_FULL
+    EXIT SUB
+  END IF
+
   vAddr = hm->vals
-  stAddr = hm->status
   tpAddr = hm->types
-
-  ' Overlay arrays
-  DIM k$(HM_MAX_BOUND) SIZE HM_KEY_SIZE ADDRESS kAddr
   DIM v$(HM_MAX_BOUND) SIZE HM_VAL_SIZE ADDRESS vAddr
-  DIM st%(HM_MAX_BOUND) ADDRESS stAddr
   DIM tp%(HM_MAX_BOUND) ADDRESS tpAddr
 
-  ' Hash and probe
-  idx& = _HmHash(theKey$, capVal&)
-  tombIdx& = -1
-  probes& = 0
-
-  WHILE probes& < capVal& AND st%(idx&) <> HM_EMPTY
-    IF st%(idx&) = HM_OCCUPIED THEN
-      IF k$(idx&) = theKey$ THEN
-        ' Key exists - update value
-        v$(idx&) = theVal$
-        tp%(idx&) = HmTypeStr
-        HmPut$ = HM_SUCCESS
-        EXIT SUB
-      END IF
-    ELSEIF tombIdx& = -1 THEN
-      tombIdx& = idx&
-    END IF
-    idx& = (idx& + 1) AND (capVal& - 1)
-    probes& = probes& + 1
-  WEND
-
-  ' Key not found - check load factor before inserting
-  maxLoad& = (capVal& * 7) \ 10
-  IF hm->count >= maxLoad& THEN
-    HmPut$ = HM_ERR_FULL
-    EXIT SUB
-  END IF
-
-  ' Use tombstone slot if available, else empty slot
-  IF tombIdx& >= 0 THEN
-    idx& = tombIdx&
-  ELSEIF probes& >= capVal& THEN
-    ' All slots occupied or tombstoned, no tombstone found
-    HmPut$ = HM_ERR_FULL
-    EXIT SUB
-  END IF
-
-  ' Insert new entry
-  k$(idx&) = theKey$
-  v$(idx&) = theVal$
-  tp%(idx&) = HmTypeStr
-  st%(idx&) = HM_OCCUPIED
-  hm->count = hm->count + 1
-  _HmOrderAppend(hm, idx&)
+  v$(_hmSlotIdx) = theVal$
+  tp%(_hmSlotIdx) = HmTypeStr
+  IF _hmSlotMode = 0 THEN _HmCommitNew(hm, theKey$, _hmSlotIdx)
   HmPut$ = HM_SUCCESS
 END SUB
 
 {* ============== Core: Put Long ============== *}
 
 SUB SHORTINT HmPut&(Hashmap hm, theKey$, LONGINT theVal&) EXTERNAL
-  LONGINT idx&, tombIdx&, maxLoad&, probes&, capVal&
-  ADDRESS kAddr, vlAddr, stAddr, tpAddr
+  SHARED _hmSlotIdx, _hmSlotMode
+  ADDRESS vlAddr, tpAddr
 
-  capVal& = hm->cap
-  kAddr = hm->keys
+  _HmPutProbe(hm, theKey$)
+  IF _hmSlotMode < 0 THEN
+    HmPut& = HM_ERR_FULL
+    EXIT SUB
+  END IF
+
   vlAddr = hm->valsL
-  stAddr = hm->status
   tpAddr = hm->types
-
-  DIM k$(HM_MAX_BOUND) SIZE HM_KEY_SIZE ADDRESS kAddr
   DIM vL&(HM_MAX_BOUND) ADDRESS vlAddr
-  DIM st%(HM_MAX_BOUND) ADDRESS stAddr
   DIM tp%(HM_MAX_BOUND) ADDRESS tpAddr
 
-  idx& = _HmHash(theKey$, capVal&)
-  tombIdx& = -1
-  probes& = 0
-
-  WHILE probes& < capVal& AND st%(idx&) <> HM_EMPTY
-    IF st%(idx&) = HM_OCCUPIED THEN
-      IF k$(idx&) = theKey$ THEN
-        vL&(idx&) = theVal&
-        tp%(idx&) = HmTypeLng
-        HmPut& = HM_SUCCESS
-        EXIT SUB
-      END IF
-    ELSEIF tombIdx& = -1 THEN
-      tombIdx& = idx&
-    END IF
-    idx& = (idx& + 1) AND (capVal& - 1)
-    probes& = probes& + 1
-  WEND
-
-  maxLoad& = (capVal& * 7) \ 10
-  IF hm->count >= maxLoad& THEN
-    HmPut& = HM_ERR_FULL
-    EXIT SUB
-  END IF
-
-  IF tombIdx& >= 0 THEN
-    idx& = tombIdx&
-  ELSEIF probes& >= capVal& THEN
-    HmPut& = HM_ERR_FULL
-    EXIT SUB
-  END IF
-
-  k$(idx&) = theKey$
-  vL&(idx&) = theVal&
-  tp%(idx&) = HmTypeLng
-  st%(idx&) = HM_OCCUPIED
-  hm->count = hm->count + 1
-  _HmOrderAppend(hm, idx&)
+  vL&(_hmSlotIdx) = theVal&
+  tp%(_hmSlotIdx) = HmTypeLng
+  IF _hmSlotMode = 0 THEN _HmCommitNew(hm, theKey$, _hmSlotIdx)
   HmPut& = HM_SUCCESS
 END SUB
 
 {* ============== Core: Put Single ============== *}
 
 SUB SHORTINT HmPut!(Hashmap hm, theKey$, SINGLE theVal!) EXTERNAL
-  LONGINT idx&, tombIdx&, maxLoad&, probes&, capVal&
-  ADDRESS kAddr, vlAddr, stAddr, tpAddr
+  SHARED _hmSlotIdx, _hmSlotMode
+  ADDRESS vlAddr, tpAddr
 
-  capVal& = hm->cap
-  kAddr = hm->keys
+  _HmPutProbe(hm, theKey$)
+  IF _hmSlotMode < 0 THEN
+    HmPut! = HM_ERR_FULL
+    EXIT SUB
+  END IF
+
   vlAddr = hm->valsL
-  stAddr = hm->status
   tpAddr = hm->types
-
-  DIM k$(HM_MAX_BOUND) SIZE HM_KEY_SIZE ADDRESS kAddr
   DIM vF!(HM_MAX_BOUND) ADDRESS vlAddr
-  DIM st%(HM_MAX_BOUND) ADDRESS stAddr
   DIM tp%(HM_MAX_BOUND) ADDRESS tpAddr
 
-  idx& = _HmHash(theKey$, capVal&)
-  tombIdx& = -1
-  probes& = 0
-
-  WHILE probes& < capVal& AND st%(idx&) <> HM_EMPTY
-    IF st%(idx&) = HM_OCCUPIED THEN
-      IF k$(idx&) = theKey$ THEN
-        vF!(idx&) = theVal!
-        tp%(idx&) = HmTypeSng
-        HmPut! = HM_SUCCESS
-        EXIT SUB
-      END IF
-    ELSEIF tombIdx& = -1 THEN
-      tombIdx& = idx&
-    END IF
-    idx& = (idx& + 1) AND (capVal& - 1)
-    probes& = probes& + 1
-  WEND
-
-  maxLoad& = (capVal& * 7) \ 10
-  IF hm->count >= maxLoad& THEN
-    HmPut! = HM_ERR_FULL
-    EXIT SUB
-  END IF
-
-  IF tombIdx& >= 0 THEN
-    idx& = tombIdx&
-  ELSEIF probes& >= capVal& THEN
-    HmPut! = HM_ERR_FULL
-    EXIT SUB
-  END IF
-
-  k$(idx&) = theKey$
-  vF!(idx&) = theVal!
-  tp%(idx&) = HmTypeSng
-  st%(idx&) = HM_OCCUPIED
-  hm->count = hm->count + 1
-  _HmOrderAppend(hm, idx&)
+  vF!(_hmSlotIdx) = theVal!
+  tp%(_hmSlotIdx) = HmTypeSng
+  IF _hmSlotMode = 0 THEN _HmCommitNew(hm, theKey$, _hmSlotIdx)
   HmPut! = HM_SUCCESS
 END SUB
 
 {* ============== Core: Put Ref ============== *}
 
 SUB SHORTINT HmPutRef(Hashmap hm, theKey$, ADDRESS theRef&) EXTERNAL
-  LONGINT idx&, tombIdx&, maxLoad&, probes&, capVal&
-  ADDRESS kAddr, vlAddr, stAddr, tpAddr
+  SHARED _hmSlotIdx, _hmSlotMode
+  ADDRESS vlAddr, tpAddr
 
-  capVal& = hm->cap
-  kAddr = hm->keys
+  _HmPutProbe(hm, theKey$)
+  IF _hmSlotMode < 0 THEN
+    HmPutRef = HM_ERR_FULL
+    EXIT SUB
+  END IF
+
   vlAddr = hm->valsL
-  stAddr = hm->status
   tpAddr = hm->types
-
-  DIM k$(HM_MAX_BOUND) SIZE HM_KEY_SIZE ADDRESS kAddr
   DIM vL&(HM_MAX_BOUND) ADDRESS vlAddr
-  DIM st%(HM_MAX_BOUND) ADDRESS stAddr
   DIM tp%(HM_MAX_BOUND) ADDRESS tpAddr
 
-  idx& = _HmHash(theKey$, capVal&)
-  tombIdx& = -1
-  probes& = 0
-
-  WHILE probes& < capVal& AND st%(idx&) <> HM_EMPTY
-    IF st%(idx&) = HM_OCCUPIED THEN
-      IF k$(idx&) = theKey$ THEN
-        vL&(idx&) = theRef&
-        tp%(idx&) = HmTypeRef
-        HmPutRef = HM_SUCCESS
-        EXIT SUB
-      END IF
-    ELSEIF tombIdx& = -1 THEN
-      tombIdx& = idx&
-    END IF
-    idx& = (idx& + 1) AND (capVal& - 1)
-    probes& = probes& + 1
-  WEND
-
-  maxLoad& = (capVal& * 7) \ 10
-  IF hm->count >= maxLoad& THEN
-    HmPutRef = HM_ERR_FULL
-    EXIT SUB
-  END IF
-
-  IF tombIdx& >= 0 THEN
-    idx& = tombIdx&
-  ELSEIF probes& >= capVal& THEN
-    HmPutRef = HM_ERR_FULL
-    EXIT SUB
-  END IF
-
-  k$(idx&) = theKey$
-  vL&(idx&) = theRef&
-  tp%(idx&) = HmTypeRef
-  st%(idx&) = HM_OCCUPIED
-  hm->count = hm->count + 1
-  _HmOrderAppend(hm, idx&)
+  vL&(_hmSlotIdx) = theRef&
+  tp%(_hmSlotIdx) = HmTypeRef
+  IF _hmSlotMode = 0 THEN _HmCommitNew(hm, theKey$, _hmSlotIdx)
   HmPutRef = HM_SUCCESS
 END SUB
 
 {* ============== Core: Put Bool ============== *}
 
 SUB SHORTINT HmPutBool(Hashmap hm, theKey$, SHORTINT theVal%) EXTERNAL
-  LONGINT idx&, tombIdx&, maxLoad&, probes&, capVal&
-  ADDRESS kAddr, vlAddr, stAddr, tpAddr
+  SHARED _hmSlotIdx, _hmSlotMode
+  ADDRESS vlAddr, tpAddr
 
-  capVal& = hm->cap
-  kAddr = hm->keys
+  _HmPutProbe(hm, theKey$)
+  IF _hmSlotMode < 0 THEN
+    HmPutBool = HM_ERR_FULL
+    EXIT SUB
+  END IF
+
   vlAddr = hm->valsL
-  stAddr = hm->status
   tpAddr = hm->types
-
-  DIM k$(HM_MAX_BOUND) SIZE HM_KEY_SIZE ADDRESS kAddr
   DIM vL&(HM_MAX_BOUND) ADDRESS vlAddr
-  DIM st%(HM_MAX_BOUND) ADDRESS stAddr
   DIM tp%(HM_MAX_BOUND) ADDRESS tpAddr
 
-  idx& = _HmHash(theKey$, capVal&)
-  tombIdx& = -1
-  probes& = 0
-
-  WHILE probes& < capVal& AND st%(idx&) <> HM_EMPTY
-    IF st%(idx&) = HM_OCCUPIED THEN
-      IF k$(idx&) = theKey$ THEN
-        IF theVal% THEN vL&(idx&) = 1 ELSE vL&(idx&) = 0
-        tp%(idx&) = HmTypeBool
-        HmPutBool = HM_SUCCESS
-        EXIT SUB
-      END IF
-    ELSEIF tombIdx& = -1 THEN
-      tombIdx& = idx&
-    END IF
-    idx& = (idx& + 1) AND (capVal& - 1)
-    probes& = probes& + 1
-  WEND
-
-  maxLoad& = (capVal& * 7) \ 10
-  IF hm->count >= maxLoad& THEN
-    HmPutBool = HM_ERR_FULL
-    EXIT SUB
-  END IF
-
-  IF tombIdx& >= 0 THEN
-    idx& = tombIdx&
-  ELSEIF probes& >= capVal& THEN
-    HmPutBool = HM_ERR_FULL
-    EXIT SUB
-  END IF
-
-  k$(idx&) = theKey$
-  IF theVal% THEN vL&(idx&) = 1 ELSE vL&(idx&) = 0
-  tp%(idx&) = HmTypeBool
-  st%(idx&) = HM_OCCUPIED
-  hm->count = hm->count + 1
-  _HmOrderAppend(hm, idx&)
+  IF theVal% THEN vL&(_hmSlotIdx) = 1 ELSE vL&(_hmSlotIdx) = 0
+  tp%(_hmSlotIdx) = HmTypeBool
+  IF _hmSlotMode = 0 THEN _HmCommitNew(hm, theKey$, _hmSlotIdx)
   HmPutBool = HM_SUCCESS
 END SUB
 
 {* ============== Core: Put Null ============== *}
 
 SUB SHORTINT HmPutNull(Hashmap hm, theKey$) EXTERNAL
-  LONGINT idx&, tombIdx&, maxLoad&, probes&, capVal&
-  ADDRESS kAddr, stAddr, tpAddr
+  SHARED _hmSlotIdx, _hmSlotMode
+  ADDRESS tpAddr
 
-  capVal& = hm->cap
-  kAddr = hm->keys
-  stAddr = hm->status
+  _HmPutProbe(hm, theKey$)
+  IF _hmSlotMode < 0 THEN
+    HmPutNull = HM_ERR_FULL
+    EXIT SUB
+  END IF
+
   tpAddr = hm->types
-
-  DIM k$(HM_MAX_BOUND) SIZE HM_KEY_SIZE ADDRESS kAddr
-  DIM st%(HM_MAX_BOUND) ADDRESS stAddr
   DIM tp%(HM_MAX_BOUND) ADDRESS tpAddr
 
-  idx& = _HmHash(theKey$, capVal&)
-  tombIdx& = -1
-  probes& = 0
-
-  WHILE probes& < capVal& AND st%(idx&) <> HM_EMPTY
-    IF st%(idx&) = HM_OCCUPIED THEN
-      IF k$(idx&) = theKey$ THEN
-        tp%(idx&) = HmTypeNull
-        HmPutNull = HM_SUCCESS
-        EXIT SUB
-      END IF
-    ELSEIF tombIdx& = -1 THEN
-      tombIdx& = idx&
-    END IF
-    idx& = (idx& + 1) AND (capVal& - 1)
-    probes& = probes& + 1
-  WEND
-
-  maxLoad& = (capVal& * 7) \ 10
-  IF hm->count >= maxLoad& THEN
-    HmPutNull = HM_ERR_FULL
-    EXIT SUB
-  END IF
-
-  IF tombIdx& >= 0 THEN
-    idx& = tombIdx&
-  ELSEIF probes& >= capVal& THEN
-    HmPutNull = HM_ERR_FULL
-    EXIT SUB
-  END IF
-
-  k$(idx&) = theKey$
-  tp%(idx&) = HmTypeNull
-  st%(idx&) = HM_OCCUPIED
-  hm->count = hm->count + 1
-  _HmOrderAppend(hm, idx&)
+  tp%(_hmSlotIdx) = HmTypeNull
+  IF _hmSlotMode = 0 THEN _HmCommitNew(hm, theKey$, _hmSlotIdx)
   HmPutNull = HM_SUCCESS
 END SUB
 
 {* ============== Core: Get String ============== *}
 
 SUB STRING HmGet$(Hashmap hm, theKey$) EXTERNAL
-  LONGINT idx&, probes&, capVal&
-  ADDRESS kAddr, vAddr, stAddr
+  SHARED _hmFoundIdx
+  ADDRESS vAddr
 
-  capVal& = hm->cap
-  kAddr = hm->keys
+  _HmFindKey(hm, theKey$)
+  IF _hmFoundIdx < 0 THEN
+    HmGet$ = ""
+    EXIT SUB
+  END IF
+
   vAddr = hm->vals
-  stAddr = hm->status
-
-  DIM k$(HM_MAX_BOUND) SIZE HM_KEY_SIZE ADDRESS kAddr
   DIM v$(HM_MAX_BOUND) SIZE HM_VAL_SIZE ADDRESS vAddr
-  DIM st%(HM_MAX_BOUND) ADDRESS stAddr
-
-  idx& = _HmHash(theKey$, capVal&)
-  probes& = 0
-
-  WHILE probes& < capVal& AND st%(idx&) <> HM_EMPTY
-    IF st%(idx&) = HM_OCCUPIED AND k$(idx&) = theKey$ THEN
-      HmGet$ = v$(idx&)
-      EXIT SUB
-    END IF
-    idx& = (idx& + 1) AND (capVal& - 1)
-    probes& = probes& + 1
-  WEND
-
-  HmGet$ = ""
+  HmGet$ = v$(_hmFoundIdx)
 END SUB
 
 {* ============== Core: Get Long ============== *}
 
 SUB LONGINT HmGet&(Hashmap hm, theKey$) EXTERNAL
-  LONGINT idx&, probes&, capVal&
-  ADDRESS kAddr, vlAddr, stAddr
+  SHARED _hmFoundIdx
+  ADDRESS vlAddr
 
-  capVal& = hm->cap
-  kAddr = hm->keys
+  _HmFindKey(hm, theKey$)
+  IF _hmFoundIdx < 0 THEN
+    HmGet& = 0
+    EXIT SUB
+  END IF
+
   vlAddr = hm->valsL
-  stAddr = hm->status
-
-  DIM k$(HM_MAX_BOUND) SIZE HM_KEY_SIZE ADDRESS kAddr
   DIM vL&(HM_MAX_BOUND) ADDRESS vlAddr
-  DIM st%(HM_MAX_BOUND) ADDRESS stAddr
-
-  idx& = _HmHash(theKey$, capVal&)
-  probes& = 0
-
-  WHILE probes& < capVal& AND st%(idx&) <> HM_EMPTY
-    IF st%(idx&) = HM_OCCUPIED AND k$(idx&) = theKey$ THEN
-      HmGet& = vL&(idx&)
-      EXIT SUB
-    END IF
-    idx& = (idx& + 1) AND (capVal& - 1)
-    probes& = probes& + 1
-  WEND
-
-  HmGet& = 0
+  HmGet& = vL&(_hmFoundIdx)
 END SUB
 
 {* ============== Core: Get Single ============== *}
 
 SUB SINGLE HmGet!(Hashmap hm, theKey$) EXTERNAL
-  LONGINT idx&, probes&, capVal&
-  ADDRESS kAddr, vlAddr, stAddr
+  SHARED _hmFoundIdx
+  ADDRESS vlAddr
 
-  capVal& = hm->cap
-  kAddr = hm->keys
+  _HmFindKey(hm, theKey$)
+  IF _hmFoundIdx < 0 THEN
+    HmGet! = 0
+    EXIT SUB
+  END IF
+
   vlAddr = hm->valsL
-  stAddr = hm->status
-
-  DIM k$(HM_MAX_BOUND) SIZE HM_KEY_SIZE ADDRESS kAddr
   DIM vF!(HM_MAX_BOUND) ADDRESS vlAddr
-  DIM st%(HM_MAX_BOUND) ADDRESS stAddr
-
-  idx& = _HmHash(theKey$, capVal&)
-  probes& = 0
-
-  WHILE probes& < capVal& AND st%(idx&) <> HM_EMPTY
-    IF st%(idx&) = HM_OCCUPIED AND k$(idx&) = theKey$ THEN
-      HmGet! = vF!(idx&)
-      EXIT SUB
-    END IF
-    idx& = (idx& + 1) AND (capVal& - 1)
-    probes& = probes& + 1
-  WEND
-
-  HmGet! = 0
+  HmGet! = vF!(_hmFoundIdx)
 END SUB
 
 {* ============== Core: Get Ref ============== *}
 
 SUB LONGINT HmGetRef(Hashmap hm, theKey$) EXTERNAL
-  LONGINT idx&, probes&, capVal&
-  ADDRESS kAddr, vlAddr, stAddr
+  SHARED _hmFoundIdx
+  ADDRESS vlAddr
 
-  capVal& = hm->cap
-  kAddr = hm->keys
+  _HmFindKey(hm, theKey$)
+  IF _hmFoundIdx < 0 THEN
+    HmGetRef = 0
+    EXIT SUB
+  END IF
+
   vlAddr = hm->valsL
-  stAddr = hm->status
-
-  DIM k$(HM_MAX_BOUND) SIZE HM_KEY_SIZE ADDRESS kAddr
   DIM vL&(HM_MAX_BOUND) ADDRESS vlAddr
-  DIM st%(HM_MAX_BOUND) ADDRESS stAddr
-
-  idx& = _HmHash(theKey$, capVal&)
-  probes& = 0
-
-  WHILE probes& < capVal& AND st%(idx&) <> HM_EMPTY
-    IF st%(idx&) = HM_OCCUPIED AND k$(idx&) = theKey$ THEN
-      HmGetRef = vL&(idx&)
-      EXIT SUB
-    END IF
-    idx& = (idx& + 1) AND (capVal& - 1)
-    probes& = probes& + 1
-  WEND
-
-  HmGetRef = 0
+  HmGetRef = vL&(_hmFoundIdx)
 END SUB
 
 {* ============== Core: Has Key ============== *}
 
 SUB SHORTINT HmHas(Hashmap hm, theKey$) EXTERNAL
-  LONGINT idx&, probes&, capVal&
-  ADDRESS kAddr, stAddr
+  SHARED _hmFoundIdx
 
-  capVal& = hm->cap
-  kAddr = hm->keys
-  stAddr = hm->status
-
-  DIM k$(HM_MAX_BOUND) SIZE HM_KEY_SIZE ADDRESS kAddr
-  DIM st%(HM_MAX_BOUND) ADDRESS stAddr
-
-  idx& = _HmHash(theKey$, capVal&)
-  probes& = 0
-
-  WHILE probes& < capVal& AND st%(idx&) <> HM_EMPTY
-    IF st%(idx&) = HM_OCCUPIED AND k$(idx&) = theKey$ THEN
-      HmHas = -1
-      EXIT SUB
-    END IF
-    idx& = (idx& + 1) AND (capVal& - 1)
-    probes& = probes& + 1
-  WEND
-
-  HmHas = 0
+  _HmFindKey(hm, theKey$)
+  IF _hmFoundIdx >= 0 THEN HmHas = -1 ELSE HmHas = 0
 END SUB
 
 {* ============== Core: Type ============== *}
 
 SUB SHORTINT HmType(Hashmap hm, theKey$) EXTERNAL
-  LONGINT idx&, probes&, capVal&
-  ADDRESS kAddr, stAddr, tpAddr
+  SHARED _hmFoundIdx
+  ADDRESS tpAddr
 
-  capVal& = hm->cap
-  kAddr = hm->keys
-  stAddr = hm->status
+  _HmFindKey(hm, theKey$)
+  IF _hmFoundIdx < 0 THEN
+    HmType = -1
+    EXIT SUB
+  END IF
+
   tpAddr = hm->types
-
-  DIM k$(HM_MAX_BOUND) SIZE HM_KEY_SIZE ADDRESS kAddr
-  DIM st%(HM_MAX_BOUND) ADDRESS stAddr
   DIM tp%(HM_MAX_BOUND) ADDRESS tpAddr
-
-  idx& = _HmHash(theKey$, capVal&)
-  probes& = 0
-
-  WHILE probes& < capVal& AND st%(idx&) <> HM_EMPTY
-    IF st%(idx&) = HM_OCCUPIED AND k$(idx&) = theKey$ THEN
-      HmType = tp%(idx&)
-      EXIT SUB
-    END IF
-    idx& = (idx& + 1) AND (capVal& - 1)
-    probes& = probes& + 1
-  WEND
-
-  HmType = -1
+  HmType = tp%(_hmFoundIdx)
 END SUB
 
 {* ============== Core: Delete ============== *}
 
 SUB SHORTINT HmDel(Hashmap hm, theKey$) EXTERNAL
-  LONGINT idx&, probes&, capVal&
-  ADDRESS kAddr, stAddr
+  SHARED _hmFoundIdx
+  ADDRESS stAddr
 
-  capVal& = hm->cap
-  kAddr = hm->keys
+  _HmFindKey(hm, theKey$)
+  IF _hmFoundIdx < 0 THEN
+    HmDel = HM_ERR_NOTFOUND
+    EXIT SUB
+  END IF
+
   stAddr = hm->status
-
-  DIM k$(HM_MAX_BOUND) SIZE HM_KEY_SIZE ADDRESS kAddr
   DIM st%(HM_MAX_BOUND) ADDRESS stAddr
-
-  idx& = _HmHash(theKey$, capVal&)
-  probes& = 0
-
-  WHILE probes& < capVal& AND st%(idx&) <> HM_EMPTY
-    IF st%(idx&) = HM_OCCUPIED AND k$(idx&) = theKey$ THEN
-      st%(idx&) = HM_TOMBSTONE
-      hm->count = hm->count - 1
-      HmDel = HM_SUCCESS
-      EXIT SUB
-    END IF
-    idx& = (idx& + 1) AND (capVal& - 1)
-    probes& = probes& + 1
-  WEND
-
-  HmDel = HM_ERR_NOTFOUND
+  st%(_hmFoundIdx) = HM_TOMBSTONE
+  hm->count = hm->count - 1
+  HmDel = HM_SUCCESS
 END SUB
 
 {* ============== Info ============== *}
@@ -899,4 +710,80 @@ SUB HmForEach(Hashmap hm, ADDRESS fun) EXTERNAL
     END IF
     pos& = pos& + 1
   WEND
+END SUB
+
+{* ============== Builder Pattern ============== *}
+
+{*
+** Fluent construction: HmNew -> HmAdd* -> HmEnd
+** Uses a LONGINT to hold the builder's Hashmap ADDRESS.
+** Each SUB creates a local DECLARE CLASS to operate on it.
+** One builder at a time; inner maps must finish before outer.
+*}
+
+LONGINT _hmBldPtr
+
+SUB HmNew(LONGINT theCap&) EXTERNAL
+  SHARED _hmBldPtr
+  DECLARE CLASS Hashmap bld
+
+  ' ALLOC a fresh CLASS block so each builder is independent
+  _hmBldPtr = ALLOC(_HM_STRUCT_SIZE)
+  bld = _hmBldPtr
+  HmMake(bld, theCap&)
+END SUB
+
+SUB SHORTINT HmAdd$(theKey$, theVal$) EXTERNAL
+  SHARED _hmBldPtr
+  DECLARE CLASS Hashmap bld
+  bld = _hmBldPtr
+  HmAdd$ = HmPut$(bld, theKey$, theVal$)
+END SUB
+
+SUB SHORTINT HmAdd&(theKey$, LONGINT theVal&) EXTERNAL
+  SHARED _hmBldPtr
+  DECLARE CLASS Hashmap bld
+  bld = _hmBldPtr
+  HmAdd& = HmPut&(bld, theKey$, theVal&)
+END SUB
+
+SUB SHORTINT HmAdd!(theKey$, SINGLE theVal!) EXTERNAL
+  SHARED _hmBldPtr
+  DECLARE CLASS Hashmap bld
+  bld = _hmBldPtr
+  HmAdd! = HmPut!(bld, theKey$, theVal!)
+END SUB
+
+SUB SHORTINT HmAddRef(theKey$, ADDRESS theRef&) EXTERNAL
+  SHARED _hmBldPtr
+  DECLARE CLASS Hashmap bld
+  bld = _hmBldPtr
+  HmAddRef = HmPutRef(bld, theKey$, theRef&)
+END SUB
+
+SUB SHORTINT HmAddBool(theKey$, SHORTINT theVal%) EXTERNAL
+  SHARED _hmBldPtr
+  DECLARE CLASS Hashmap bld
+  bld = _hmBldPtr
+  HmAddBool = HmPutBool(bld, theKey$, theVal%)
+END SUB
+
+SUB SHORTINT HmAddNull(theKey$) EXTERNAL
+  SHARED _hmBldPtr
+  DECLARE CLASS Hashmap bld
+  bld = _hmBldPtr
+  HmAddNull = HmPutNull(bld, theKey$)
+END SUB
+
+{*
+** HmEnd - Return the builder's Hashmap ADDRESS.
+** The BSS-backed CLASS instance from HmNew is returned directly.
+** Clear the builder pointer for next use.
+*}
+SUB LONGINT HmEnd EXTERNAL
+  SHARED _hmBldPtr
+  LONGINT retVal&
+  retVal& = _hmBldPtr
+  _hmBldPtr = 0
+  HmEnd = retVal&
 END SUB
