@@ -99,6 +99,8 @@ PRINT "Area:"; Area(r)   ' prints 50
 ### Utilities and Libraries
 - **Double-precision math** - IEEE 64-bit floating point (15+ significant digits) with full arithmetic, trigonometric, and string conversion
 - **TCP/HTTP client** - Struct-based TCP client with SSL/TLS support, plus full HTTP/1.1 client with GET/POST/PUT, chunked transfers, streaming callbacks, and HTTPS via AmiSSL
+- **Hashmap** - String-keyed dictionary with type-tagged values, insertion-order iteration, and builder pattern
+- **Files and Directories (FAD)** - High-level file system operations: path manipulation, directory traversal, recursive copy/delete
 - **Lisp-style list library** - Singly-linked lists with higher-order functions (map, filter, reduce, etc.) - requires OS 3.0+
 - **ASSERT statement** - Runtime assertion checking for defensive programming
 - **Sound support** - Audio playback, speech synthesis, and SAGA 16-bit audio (Vampire)
