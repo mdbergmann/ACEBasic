@@ -1,18 +1,16 @@
-; Phase 6: Compile json module + test JsFree and convenience
+; Verify merged _JsWriteNode (compact + formatted)
 
 cd ace:submods/json
 
-; Recompile json module (JsFree, JsMakeObj, JsMakeArr added)
+; Recompile json module
 execute make >ace:build-output.txt
 
-; Compile and run Phase 6 test
+; Run all test suites
 execute ACE:bin/bas test_free >>ace:build-output.txt
 test_free >>ace:build-output.txt
 
-; Regression: run Phase 5 test
 execute ACE:bin/bas test_roundtrip >>ace:build-output.txt
 test_roundtrip >>ace:build-output.txt
 
-; Regression: run Phase 4 test
 execute ACE:bin/bas test_gen >>ace:build-output.txt
 test_gen >>ace:build-output.txt

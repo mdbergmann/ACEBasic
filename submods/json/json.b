@@ -720,10 +720,12 @@ SUB _JsWriteStr(s$, SHORTINT ch%)
 END SUB
 
 {* ============== Generator: Recursive node writer ============== *}
+' lvl% = -1: compact mode (no whitespace)
+' lvl% >= 0: formatted mode (2-space indent at that level)
 
-SUB _JsWriteNode(ADDRESS addr&, SHORTINT ch%)
-  LONGINT savedAddr&, i&, cnt&
-  SHORTINT first%, typ%
+SUB _JsWriteNode(ADDRESS addr&, SHORTINT ch%, SHORTINT lvl%)
+  LONGINT savedAddr&, i&, cnt&, nextLvl&
+  SHORTINT first%, typ%, fmt%, pad%
   SINGLE fVal!
   DECLARE CLASS Hashmap tcItem
 
@@ -731,6 +733,8 @@ SUB _JsWriteNode(ADDRESS addr&, SHORTINT ch%)
 
   savedAddr& = addr&
   tcItem = addr&
+  fmt% = (lvl% >= 0)
+  IF fmt% THEN nextLvl& = lvl% + 1 ELSE nextLvl& = -1
 
   TYPECASE tcItem
     CASE Hashmap
@@ -739,9 +743,14 @@ SUB _JsWriteNode(ADDRESS addr&, SHORTINT ch%)
       first% = -1
       WHILE HmIterNext(tcItem)
         IF NOT first% THEN PRINT #ch%, ",";
+        IF fmt% THEN
+          PRINT #ch%, CHR$(10);
+          pad% = (lvl% + 1) * 2
+          IF pad% > 0 THEN PRINT #ch%, SPACE$(pad%);
+        END IF
         first% = 0
         _JsWriteStr(HmIterKey$(tcItem), ch%)
-        PRINT #ch%, ":";
+        IF fmt% THEN PRINT #ch%, ": "; ELSE PRINT #ch%, ":";
 
         typ% = HmIterType(tcItem)
         IF typ% = HmTypeStr THEN
@@ -760,94 +769,11 @@ SUB _JsWriteNode(ADDRESS addr&, SHORTINT ch%)
         ELSEIF typ% = HmTypeNull THEN
           PRINT #ch%, "null";
         ELSEIF typ% = HmTypeRef THEN
-          _JsWriteNode(HmIterVal&(tcItem), ch%)
+          _JsWriteNode(HmIterVal&(tcItem), ch%, nextLvl&)
           tcItem = savedAddr&
         END IF
       WEND
-      PRINT #ch%, "}";
-
-    CASE DynArray
-      cnt& = DaCount(tcItem)
-      PRINT #ch%, "[";
-      FOR i& = 0 TO cnt& - 1
-        IF i& > 0 THEN PRINT #ch%, ",";
-
-        typ% = DaType(tcItem, i&)
-        IF typ% = DaTypeStr THEN
-          _JsWriteStr(DaGet$(tcItem, i&), ch%)
-        ELSEIF typ% = DaTypeLng THEN
-          PRINT #ch%, LTRIM$(STR$(DaGet&(tcItem, i&)));
-        ELSEIF typ% = DaTypeSng THEN
-          fVal! = DaGet!(tcItem, i&)
-          PRINT #ch%, LTRIM$(STR$(fVal!));
-        ELSEIF typ% = DaTypeBool THEN
-          IF DaGet&(tcItem, i&) THEN
-            PRINT #ch%, "true";
-          ELSE
-            PRINT #ch%, "false";
-          END IF
-        ELSEIF typ% = DaTypeNull THEN
-          PRINT #ch%, "null";
-        ELSEIF typ% = DaTypeRef THEN
-          _JsWriteNode(DaGet&(tcItem, i&), ch%)
-          tcItem = savedAddr&
-        END IF
-      NEXT
-      PRINT #ch%, "]";
-  END TYPECASE
-END SUB
-
-{* ============== Generator: Formatted (pretty-print) node writer ============== *}
-
-SUB _JsWriteNodeFmt(ADDRESS addr&, SHORTINT ch%, SHORTINT lvl%)
-  LONGINT savedAddr&, i&, cnt&
-  SHORTINT first%, typ%, pad%
-  SINGLE fVal!
-  DECLARE CLASS Hashmap tcItem
-
-  IF addr& = 0 THEN EXIT SUB
-
-  savedAddr& = addr&
-  tcItem = addr&
-
-  TYPECASE tcItem
-    CASE Hashmap
-      PRINT #ch%, "{";
-      HmIterReset(tcItem)
-      first% = -1
-      WHILE HmIterNext(tcItem)
-        IF NOT first% THEN
-          PRINT #ch%, ",";
-        END IF
-        PRINT #ch%, CHR$(10);
-        first% = 0
-        pad% = (lvl% + 1) * 2
-        IF pad% > 0 THEN PRINT #ch%, SPACE$(pad%);
-        _JsWriteStr(HmIterKey$(tcItem), ch%)
-        PRINT #ch%, ": ";
-
-        typ% = HmIterType(tcItem)
-        IF typ% = HmTypeStr THEN
-          _JsWriteStr(HmIterVal$(tcItem), ch%)
-        ELSEIF typ% = HmTypeLng THEN
-          PRINT #ch%, LTRIM$(STR$(HmIterVal&(tcItem)));
-        ELSEIF typ% = HmTypeSng THEN
-          fVal! = HmIterVal!(tcItem)
-          PRINT #ch%, LTRIM$(STR$(fVal!));
-        ELSEIF typ% = HmTypeBool THEN
-          IF HmIterVal&(tcItem) THEN
-            PRINT #ch%, "true";
-          ELSE
-            PRINT #ch%, "false";
-          END IF
-        ELSEIF typ% = HmTypeNull THEN
-          PRINT #ch%, "null";
-        ELSEIF typ% = HmTypeRef THEN
-          _JsWriteNodeFmt(HmIterVal&(tcItem), ch%, lvl% + 1)
-          tcItem = savedAddr&
-        END IF
-      WEND
-      IF NOT first% THEN
+      IF fmt% AND NOT first% THEN
         PRINT #ch%, CHR$(10);
         pad% = lvl% * 2
         IF pad% > 0 THEN PRINT #ch%, SPACE$(pad%);
@@ -858,12 +784,12 @@ SUB _JsWriteNodeFmt(ADDRESS addr&, SHORTINT ch%, SHORTINT lvl%)
       cnt& = DaCount(tcItem)
       PRINT #ch%, "[";
       FOR i& = 0 TO cnt& - 1
-        IF i& > 0 THEN
-          PRINT #ch%, ",";
+        IF i& > 0 THEN PRINT #ch%, ",";
+        IF fmt% THEN
+          PRINT #ch%, CHR$(10);
+          pad% = (lvl% + 1) * 2
+          IF pad% > 0 THEN PRINT #ch%, SPACE$(pad%);
         END IF
-        PRINT #ch%, CHR$(10);
-        pad% = (lvl% + 1) * 2
-        IF pad% > 0 THEN PRINT #ch%, SPACE$(pad%);
 
         typ% = DaType(tcItem, i&)
         IF typ% = DaTypeStr THEN
@@ -882,11 +808,11 @@ SUB _JsWriteNodeFmt(ADDRESS addr&, SHORTINT ch%, SHORTINT lvl%)
         ELSEIF typ% = DaTypeNull THEN
           PRINT #ch%, "null";
         ELSEIF typ% = DaTypeRef THEN
-          _JsWriteNodeFmt(DaGet&(tcItem, i&), ch%, lvl% + 1)
+          _JsWriteNode(DaGet&(tcItem, i&), ch%, nextLvl&)
           tcItem = savedAddr&
         END IF
       NEXT
-      IF cnt& > 0 THEN
+      IF fmt% AND cnt& > 0 THEN
         PRINT #ch%, CHR$(10);
         pad% = lvl% * 2
         IF pad% > 0 THEN PRINT #ch%, SPACE$(pad%);
@@ -899,12 +825,12 @@ END SUB
 
 SUB JsWrite(ADDRESS root&, SHORTINT ch%) EXTERNAL
   IF root& = 0 THEN EXIT SUB
-  _JsWriteNode(root&, ch%)
+  _JsWriteNode(root&, ch%, -1)
 END SUB
 
 SUB JsWriteFmt(ADDRESS root&, SHORTINT ch%) EXTERNAL
   IF root& = 0 THEN EXIT SUB
-  _JsWriteNodeFmt(root&, ch%, 0)
+  _JsWriteNode(root&, ch%, 0)
 END SUB
 
 SUB STRING JsToStr$(ADDRESS root&) EXTERNAL
