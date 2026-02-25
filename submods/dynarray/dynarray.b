@@ -604,6 +604,7 @@ SUB DaNew(LONGINT initCap&) EXTERNAL
   DECLARE CLASS DynArray bld
 
   _daBldPtr = ALLOC(_DA_STRUCT_SIZE)
+  POKEL _daBldPtr, PEEKL(bld)        ' stamp class descriptor for TYPECASE
   bld = _daBldPtr
   DaMake(bld, initCap&)
 END SUB

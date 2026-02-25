@@ -1,0 +1,705 @@
+# JSON Submodule — Implementation Plan
+
+## Context
+
+A JSON parser and generator for ACE BASIC, using the existing Hashmap
+(for JSON objects) and DynArray (for JSON arrays) as the intermediate
+representation. TYPECASE provides clean runtime discrimination between
+the two when walking the tree.
+
+Dependencies: hashmap.o, dynarray.o, testkit.o (tests only)
+
+
+## Data Model
+
+JSON maps naturally onto the existing type-tagged structures:
+
+    JSON value       ACE representation        Storage
+    ──────────────   ──────────────────────     ─────────────────
+    { ... }          Hashmap                    HmTypeRef / DaTypeRef
+    [ ... ]          DynArray                   HmTypeRef / DaTypeRef
+    "string"         string value               HmTypeStr / DaTypeStr
+    42               LONGINT                    HmTypeLng / DaTypeLng
+    3.14             SINGLE (FFP)               HmTypeSng / DaTypeSng
+    true / false     boolean                    HmTypeBool / DaTypeBool
+    null             null                       HmTypeNull / DaTypeNull
+
+Nested objects and arrays are stored as Ref entries (HmTypeRef / DaTypeRef)
+pointing to child Hashmap or DynArray instances. TYPECASE on the ref
+address determines which type the child is — no extra discriminator needed.
+
+### Example mapping
+
+    {"name":"Alice","age":30,"tags":["dev","amiga"],"addr":{"city":"Berlin"}}
+
+    Root Hashmap:
+      "name"  → HmTypeStr  "Alice"
+      "age"   → HmTypeLng  30
+      "tags"  → HmTypeRef  → DynArray [DaTypeStr "dev", DaTypeStr "amiga"]
+      "addr"  → HmTypeRef  → Hashmap {"city" → HmTypeStr "Berlin"}
+
+
+## Prerequisite: CLASS Descriptor Stamping
+
+TYPECASE requires a valid class descriptor pointer at offset 0 of each
+CLASS instance. DECLARE CLASS sets this for BSS-backed instances, but
+ALLOC'd instances (from builders and from the JSON parser) get raw memory
+with no descriptor.
+
+Fix: stamp the descriptor in HmNew and DaNew after ALLOC.
+
+    SUB HmNew(LONGINT theCap&) EXTERNAL
+      SHARED _hmBldPtr
+      DECLARE CLASS Hashmap bld
+
+      _hmBldPtr = ALLOC(_HM_STRUCT_SIZE)
+      POKEL _hmBldPtr, PEEKL(bld)        ' <-- stamp descriptor
+      bld = _hmBldPtr
+      HmMake(bld, theCap&)
+    END SUB
+
+Same pattern for DaNew. This is a 1-line addition per builder and makes
+all heap-allocated CLASS instances TYPECASE-compatible. The JSON parser
+uses the same stamp pattern when it creates nodes directly.
+
+Branch for this fix: apply before or as part of json-submod branch.
+
+
+## Files to Create
+
+    submods/json/json.b               Implementation (~400-600 lines est.)
+    include/submods/json.h             Header: constants, DECLARE SUBs
+    submods/json/make                  AmigaDOS build script
+    submods/json/test_parse_obj.b      Phase 1: parse objects
+    submods/json/test_parse_arr.b      Phase 2: parse arrays + nesting
+    submods/json/test_parse_misc.b     Phase 3: escapes, file input, errors
+    submods/json/test_gen.b            Phase 4: generator
+    submods/json/test_roundtrip.b      Phase 5: parse → generate → compare
+    submods/json/test_free.b           Phase 6: recursive free
+
+## Files to Modify
+
+    submods/hashmap/hashmap.b          Add descriptor stamp in HmNew
+    submods/dynarray/dynarray.b        Add descriptor stamp in DaNew
+
+## Files to Reference (read-only patterns)
+
+    submods/hashmap/hashmap.b          DIM...ADDRESS overlay, builder, SHARED state
+    submods/dynarray/dynarray.b        Append, iteration, DaTypeRef
+    include/submods/hashmap.h          Header structure
+    include/submods/dynarray.h         Header structure
+    include/submods/testkit.h          Test assertions
+
+## Branch
+
+    json-submod
+
+
+## Constants
+
+    ' Error codes
+    CONST JS_SUCCESS    = 0
+    CONST JS_ERR_SYNTAX = -1       ' Unexpected character or token
+    CONST JS_ERR_DEPTH  = -2       ' Nesting too deep
+    CONST JS_ERR_OVERFLOW = -3     ' Input buffer overflow
+    CONST JS_ERR_IO     = -4       ' File read error
+
+    ' Root type (returned by JsRootType)
+    CONST JsObject = 0
+    CONST JsArray  = 1
+
+    ' Parser limits
+    CONST JS_MAX_INPUT = 8192      ' Max input buffer size (bytes)
+    CONST JS_MAX_DEPTH = 10        ' Max nesting depth
+
+
+## Public API
+
+### Parser
+
+    ' Parse JSON from string. Returns ADDRESS of root (Hashmap or DynArray).
+    ' Returns 0 on error. Call JsError$() for message.
+    DECLARE SUB LONGINT JsParse(src$) EXTERNAL
+
+    ' Parse JSON from open file channel. Reads entire file into buffer.
+    ' Returns ADDRESS of root, or 0 on error.
+    DECLARE SUB LONGINT JsParseFile(SHORTINT ch%) EXTERNAL
+
+    ' Last parser error message (empty string if no error).
+    DECLARE SUB STRING JsError$ EXTERNAL
+
+    ' Type of root returned by last successful parse.
+    ' JsObject (0) or JsArray (1).
+    DECLARE SUB SHORTINT JsRootType EXTERNAL
+
+### Generator
+
+    ' Write compact JSON to open file channel.
+    ' root& is ADDRESS of Hashmap (object) or DynArray (array).
+    DECLARE SUB JsWrite(ADDRESS root&, SHORTINT ch%) EXTERNAL
+
+    ' Write pretty-printed JSON with indentation to file channel.
+    DECLARE SUB JsWriteFmt(ADDRESS root&, SHORTINT ch%) EXTERNAL
+
+    ' Generate compact JSON as string. For small documents only.
+    ' Returns "" on overflow (> ~4000 chars).
+    DECLARE SUB STRING JsToStr$(ADDRESS root&) EXTERNAL
+
+### Cleanup
+
+    ' Recursively free entire JSON tree (all nested Hashmaps and DynArrays).
+    ' Uses TYPECASE to determine node types. Calls HmFree+FREE / DaFree+FREE.
+    DECLARE SUB JsFree(ADDRESS root&) EXTERNAL
+
+### Convenience — not strictly needed, but reduce boilerplate
+
+    ' Initialize a DynArray as a JSON array (DaMake + stamp descriptor).
+    ' Caller can then DaAppend* to it and HmPutRef / DaAppendRef it.
+    DECLARE SUB JsMakeArr(DynArray da, LONGINT cap&) EXTERNAL
+
+    ' Initialize a Hashmap as a JSON object (HmMake + stamp descriptor).
+    DECLARE SUB JsMakeObj(Hashmap hm, LONGINT cap&) EXTERNAL
+
+
+## Parser Architecture
+
+Recursive descent parser operating on a string buffer via PEEK
+for fast byte-level access.
+
+### Module-level shared state
+
+    LONGINT _jsBase&          ' SADD of input string (base for PEEK)
+    LONGINT _jsPos&           ' Current byte offset (0-based)
+    LONGINT _jsLen&           ' Input length
+    LONGINT _jsDepth%         ' Current nesting depth
+    SHORTINT _jsRootType%     ' JsObject or JsArray
+    DIM _jsErr$ AS STRING     ' Last error message
+
+    ' Descriptor pointers (cached once at module init)
+    LONGINT _jsHmDesc&        ' PEEKL of a DECLARE CLASS Hashmap instance
+    LONGINT _jsDaDesc&        ' PEEKL of a DECLARE CLASS DynArray instance
+
+### Internal helpers
+
+    _JsCh%                  ' Return byte at current position (PEEK), or -1 at EOF
+    _JsAdvance              ' Increment _jsPos&
+    _JsSkipWs               ' Skip spaces, tabs, CR, LF
+    _JsExpect(SHORTINT ch%) ' Assert current byte matches, advance; set error if not
+    _JsSetError(msg$)       ' Set _jsErr$ if not already set
+
+### Recursive descent
+
+    JsParse(src$)
+      _jsBase& = SADD(src$), _jsPos& = 0, _jsLen& = LEN(src$)
+      _jsErr$ = "", _jsDepth% = 0
+      _JsSkipWs
+      ch = _JsCh%
+      IF ch = 123 THEN          ' {
+        result = _JsParseObject
+        _jsRootType% = JsObject
+      ELSEIF ch = 91 THEN       ' [
+        result = _JsParseArray
+        _jsRootType% = JsArray
+      ELSE
+        _JsSetError("Expected { or [")
+        result = 0
+      END IF
+      JsParse = result
+
+    _JsParseObject -> LONGINT (ADDRESS of new Hashmap)
+      _jsDepth% + 1, check JS_MAX_DEPTH
+      Allocate Hashmap (ALLOC + stamp descriptor + HmMake)
+      _JsAdvance (skip '{')
+      _JsSkipWs
+      IF _JsCh% <> 125 THEN     ' not '}'
+        Loop:
+          key$ = _JsParseString$
+          _JsSkipWs, _JsExpect(58)   ' ':'
+          _JsSkipWs
+          _JsParseValue(hm, key$)
+          _JsSkipWs
+          IF _JsCh% = 44 THEN _JsAdvance ELSE exit loop   ' ','
+          _JsSkipWs
+      END IF
+      _JsExpect(125)             ' '}'
+      _jsDepth% - 1
+      return ADDRESS of hm
+
+    _JsParseArray -> LONGINT (ADDRESS of new DynArray)
+      _jsDepth% + 1, check JS_MAX_DEPTH
+      Allocate DynArray (ALLOC + stamp descriptor + DaMake)
+      _JsAdvance (skip '[')
+      _JsSkipWs
+      IF _JsCh% <> 93 THEN      ' not ']'
+        Loop:
+          _JsSkipWs
+          _JsParseValueArr(da)
+          _JsSkipWs
+          IF _JsCh% = 44 THEN _JsAdvance ELSE exit loop
+          _JsSkipWs
+      END IF
+      _JsExpect(93)              ' ']'
+      _jsDepth% - 1
+      return ADDRESS of da
+
+    _JsParseValue(Hashmap parent, key$)
+      Peek at _JsCh%:
+        34  (")  → s$ = _JsParseString$ → HmPut$(parent, key$, s$)
+        123 ({)  → addr& = _JsParseObject → HmPutRef(parent, key$, addr&)
+        91  ([)  → addr& = _JsParseArray  → HmPutRef(parent, key$, addr&)
+        116 (t)  → _JsExpectLiteral("true")  → HmPutBool(parent, key$, -1)
+        102 (f)  → _JsExpectLiteral("false") → HmPutBool(parent, key$, 0)
+        110 (n)  → _JsExpectLiteral("null")  → HmPutNull(parent, key$)
+        digit/-  → _JsParseNumber(parent, key$)
+
+    _JsParseValueArr(DynArray parent)
+      Same dispatch as above but uses DaAppend* instead of HmPut*
+
+    _JsParseString$ -> STRING
+      _JsExpect(34)              ' opening "
+      Build result string char by char:
+        92 (\) → read next char for escape sequence
+        34 (") → end of string
+        other  → append to result
+      _JsAdvance past closing "
+      Return result
+
+    _JsParseNumber(Hashmap parent, key$)
+      Scan digits, optional '.', optional 'e'/'E' into a buffer string
+      If buffer contains '.' or 'e'/'E':
+        val! = VAL(buffer$)
+        HmPut!(parent, key$, val!)
+      Else:
+        val& = VAL(buffer$)      ' VAL returns SINGLE, CLNG for integer
+        HmPut&(parent, key$, val&)
+
+    _JsParseNumberArr(DynArray parent)
+      Same logic but uses DaAppend& / DaAppend!
+
+### JsParseFile implementation
+
+    Read file contents into an ALLOC'd buffer via repeated GET # or
+    a block read (_Read library call). Copy into module-level string.
+    Then call JsParse on the string.
+
+
+## Generator Architecture
+
+Tree walker using TYPECASE to distinguish Hashmap (object) vs
+DynArray (array) at each node.
+
+### Core dispatch
+
+    SUB JsWrite(ADDRESS root&, SHORTINT ch%) EXTERNAL
+      TYPECASE root&
+        CASE Hashmap hm
+          _JsWriteObj(hm, ch%)
+        CASE DynArray da
+          _JsWriteArr(da, ch%)
+      END TYPECASE
+    END SUB
+
+### Object writer
+
+    _JsWriteObj(Hashmap hm, SHORTINT ch%)
+      PRINT #ch%, "{";
+      HmIterReset(hm)
+      SHORTINT first% = -1
+      WHILE HmIterNext(hm)
+        IF NOT first% THEN PRINT #ch%, ",";
+        first% = 0
+        _JsWriteStr(HmIterKey$(hm), ch%)
+        PRINT #ch%, ":";
+        _JsWriteTypedVal(HmIterType(hm), HmIterVal$(hm), ~
+                         HmIterVal&(hm), ch%)
+      WEND
+      PRINT #ch%, "}";
+
+### Array writer
+
+    _JsWriteArr(DynArray da, SHORTINT ch%)
+      PRINT #ch%, "[";
+      LONGINT i&
+      FOR i& = 0 TO DaCount(da) - 1
+        IF i& > 0 THEN PRINT #ch%, ",";
+        _JsWriteTypedVal(DaType(da, i&), DaGet$(da, i&), ~
+                         DaGet&(da, i&), ch%)
+      NEXT
+      PRINT #ch%, "]";
+
+### Value writer (dispatches on type tag)
+
+    _JsWriteTypedVal(SHORTINT typ%, val$, LONGINT valL&, SHORTINT ch%)
+      IF typ% = HmTypeStr THEN
+        _JsWriteStr(val$, ch%)
+      ELSEIF typ% = HmTypeLng THEN
+        PRINT #ch%, LTRIM$(STR$(valL&));
+      ELSEIF typ% = HmTypeSng THEN
+        ' Convert FFP bits back to SINGLE, print
+        _JsWriteFloat(valL&, ch%)
+      ELSEIF typ% = HmTypeBool THEN
+        IF valL& THEN PRINT #ch%, "true"; ELSE PRINT #ch%, "false";
+      ELSEIF typ% = HmTypeNull THEN
+        PRINT #ch%, "null";
+      ELSEIF typ% = HmTypeRef THEN
+        ' Recurse — TYPECASE determines object vs array
+        JsWrite(valL&, ch%)
+      END IF
+
+### String writer (with escaping)
+
+    _JsWriteStr(s$, ch%)
+      PRINT #ch%, CHR$(34);
+      FOR each byte in s$:
+        34 (")  → PRINT #ch%, "\"; CHR$(34);
+        92 (\)  → PRINT #ch%, "\\";
+        10 (LF) → PRINT #ch%, "\n";
+        13 (CR) → PRINT #ch%, "\r";
+        9  (TAB)→ PRINT #ch%, "\t";
+        < 32    → skip or \uXXXX (v2)
+        other   → PRINT #ch%, CHR$(byte);
+      NEXT
+      PRINT #ch%, CHR$(34);
+
+### Pretty printer
+
+    JsWriteFmt uses the same structure as JsWrite but passes an indent
+    depth counter. Each nested object/array increases indent by 2 spaces.
+    Newlines after '{', '[', ',', before '}', ']'.
+
+### String generator (JsToStr$)
+
+    Write to a temporary file (T:js_tmp), then read back as string.
+    Or: build via string concatenation with overflow check.
+    If result exceeds ~4000 chars, return "".
+
+
+## Recursive Free (JsFree)
+
+    SUB JsFree(ADDRESS root&) EXTERNAL
+      IF root& = 0 THEN EXIT SUB
+
+      TYPECASE root&
+        CASE Hashmap hm
+          ' Walk all entries, recurse into Ref children
+          HmIterReset(hm)
+          WHILE HmIterNext(hm)
+            IF HmIterType(hm) = HmTypeRef THEN
+              JsFree(HmIterVal&(hm))
+            END IF
+          WEND
+          HmFree(hm)
+          FREE root&
+
+        CASE DynArray da
+          ' Walk all elements, recurse into Ref children
+          LONGINT i&
+          FOR i& = 0 TO DaCount(da) - 1
+            IF DaType(da, i&) = DaTypeRef THEN
+              JsFree(DaGet&(da, i&))
+            END IF
+          NEXT
+          DaFree(da)
+          FREE root&
+      END TYPECASE
+    END SUB
+
+
+## String Escape Handling
+
+### Parse direction (JSON → BASIC string)
+
+    \"   →  "       (CHR$(34))
+    \\   →  \       (CHR$(92))
+    \/   →  /       (CHR$(47))
+    \n   →  LF      (CHR$(10))
+    \r   →  CR      (CHR$(13))
+    \t   →  TAB     (CHR$(9))
+    \b   →  BS      (CHR$(8))
+    \f   →  FF      (CHR$(12))
+    \uXXXX → skip for v1 (copy literally as \uXXXX)
+
+### Generate direction (BASIC string → JSON)
+
+    "    →  \"
+    \    →  \\
+    LF   →  \n
+    CR   →  \r
+    TAB  →  \t
+    < 32 →  skip (or \u00XX in v2)
+
+
+## Number Handling
+
+### Parse
+
+    Scan: optional '-', digits, optional '.'+digits, optional 'e'/'E'[+-]digits
+    Collect into a buffer string.
+
+    Classification:
+    - Contains '.' or 'e'/'E' → SINGLE (FFP) via VAL()
+    - Otherwise → LONGINT via VAL() then CLNG()
+    - LONGINT range: -2,147,483,648 to 2,147,483,647
+    - Values outside LONGINT range with no decimal → store as SINGLE
+
+### Generate
+
+    - HmTypeLng → LTRIM$(STR$(val&))     (no leading space)
+    - HmTypeSng → LTRIM$(STR$(val!))     (ACE prints FFP with ~7 digits)
+
+    Note: round-trip precision is limited to ~7 significant digits (FFP).
+
+
+## Limitations
+
+    - Input buffer: 8192 bytes max (JS_MAX_INPUT). Larger files truncated.
+    - String keys: 63 chars max (HM_KEY_SIZE - 1, hashmap limit)
+    - String values: 255 chars max (HM_VAL_SIZE - 1 / DA_VAL_SIZE - 1)
+    - Nesting depth: 10 levels max (JS_MAX_DEPTH, stack-limited)
+    - Array elements: up to 2048 (DA_MAX_CAP, with auto-growth)
+    - Object entries: up to ~358 (70% of HM_LARGE = 512)
+    - Float precision: ~7 significant digits (Amiga FFP)
+    - No \uXXXX Unicode escape support in v1
+    - No streaming parse — entire input buffered first
+    - Duplicate JSON keys: last value wins (hashmap overwrites)
+    - JsToStr$ limited to ~4000 chars
+    - PRINT #n, "" writes a null byte — generator uses PRINT #n, CHR$(c);
+      for character-level output to avoid this
+
+
+## Implementation Phases
+
+### Phase 0: Descriptor stamping prerequisite
+
+    Files: hashmap.b, dynarray.b
+    Change: Add POKEL ..., PEEKL(bld) after ALLOC in HmNew and DaNew
+    Test: Existing hashmap/dynarray tests still pass + new TYPECASE test
+
+### Phase 1: Parser — objects with scalar values
+
+    Parse: { "key": "str", "key": 42, "key": true, "key": null }
+    No nesting, no arrays, no floats yet.
+
+    Internal subs:
+      _JsCh%, _JsAdvance, _JsSkipWs, _JsExpect
+      _JsSetError, JsError$, JsRootType
+      _JsParseString$, _JsParseObject
+      _JsParseValue (string, integer, bool, null paths)
+      JsParse
+
+    Test: test_parse_obj.b
+      - Empty object {}
+      - Single string key-value
+      - Multiple key-value pairs
+      - Integer values (positive, negative, zero)
+      - Boolean true/false
+      - Null values
+      - Mixed types in one object
+      - Parser error cases (missing colon, missing quote, trailing comma)
+
+### Phase 2: Parser — arrays, nesting, floats
+
+    Parse: [...], nested {}, nested [], float values
+
+    Internal subs:
+      _JsParseArray, _JsParseValueArr
+      _JsParseNumber / _JsParseNumberArr (float path)
+      depth tracking and JS_MAX_DEPTH check
+
+    Test: test_parse_arr.b
+      - Empty array []
+      - Array of strings, integers, booleans, nulls
+      - Mixed-type array
+      - Nested object inside array
+      - Nested array inside object
+      - Nested array inside array
+      - Deeply nested structure
+      - Float values (positive, negative, with exponent)
+      - TYPECASE discrimination on nested refs
+      - Depth limit error
+
+### Phase 3: Parser — escapes, file input, error edge cases
+
+    String escape handling in _JsParseString$
+    JsParseFile implementation
+    Whitespace tolerance (tabs, newlines in input)
+
+    Test: test_parse_misc.b
+      - Escaped quotes, backslashes, newlines, tabs in strings
+      - Whitespace-heavy input (newlines between tokens)
+      - JsParseFile from a written file
+      - Empty string values
+      - Error: unterminated string
+      - Error: unexpected EOF
+      - Error: invalid literal (e.g. "tru")
+
+### Phase 4: Generator — compact output
+
+    JsWrite, JsToStr$
+    _JsWriteObj, _JsWriteArr, _JsWriteTypedVal, _JsWriteStr
+    String escaping in output
+
+    Test: test_gen.b
+      - Generate simple object
+      - Generate array
+      - Generate nested object + array
+      - Generate all value types
+      - String escaping in output (quotes, backslash, newline)
+      - JsToStr$ for small document
+      - JsToStr$ overflow returns ""
+
+### Phase 5: Pretty printer + round-trip
+
+    JsWriteFmt with indentation
+    Round-trip: parse JSON → generate → compare output
+
+    Test: test_roundtrip.b
+      - Parse then generate, compare strings
+      - Round-trip with nested structures
+      - Pretty-print output format verification
+      - Round-trip preserves types (int stays int, float stays float)
+
+### Phase 6: JsFree + JsMakeObj/JsMakeArr helpers
+
+    Recursive free of entire tree
+    Convenience constructors with descriptor stamping
+
+    Test: test_free.b
+      - Free simple object (no crash)
+      - Free nested object+array tree (no crash)
+      - Free empty object/array
+      - JsMakeObj / JsMakeArr produce TYPECASE-able instances
+      - Double-free safety (root& = 0 after free)
+
+
+## Usage Examples
+
+### Parse and access
+
+    REM #using ace:submods/hashmap/hashmap.o
+    REM #using ace:submods/dynarray/dynarray.o
+    REM #using ace:submods/json/json.o
+    #include <submods/json.h>
+
+    DIM src$ AS STRING SIZE 4096
+    src$ = "{" + CHR$(34) + "name" + CHR$(34) + ":" + CHR$(34) + "Alice" + CHR$(34) + "}"
+
+    LONGINT root&
+    root& = JsParse(src$)
+    IF root& = 0 THEN
+      PRINT "Parse error: "; JsError$
+      STOP
+    END IF
+
+    DECLARE CLASS Hashmap doc
+    doc = root&
+    PRINT HmGet$(doc, "name")      ' Alice
+
+    JsFree(root&)
+
+### Parse with nested array
+
+    src$ = ... JSON with "tags":["a","b"] ...
+    root& = JsParse(src$)
+    DECLARE CLASS Hashmap doc
+    doc = root&
+
+    ' Access nested array via TYPECASE
+    LONGINT ref&
+    ref& = HmGetRef(doc, "tags")
+
+    TYPECASE ref&
+      CASE DynArray tags
+        PRINT DaGet$(tags, 0)      ' a
+        PRINT DaCount(tags)        ' 2
+    END TYPECASE
+
+    JsFree(root&)
+
+### Build and generate
+
+    DECLARE CLASS Hashmap resp
+    JsMakeObj(resp, HM_MEDIUM)
+    HmPut$(resp, "status", "ok")
+    HmPut&(resp, "code", 200)
+
+    DECLARE CLASS DynArray items
+    JsMakeArr(items, DA_SMALL)
+    DaAppend$(items, "one")
+    DaAppend$(items, "two")
+    HmPutRef(resp, "items", items)
+
+    OPEN "O", #1, "resp.json"
+    JsWrite(resp, 1)
+    CLOSE #1
+    ' File: {"status":"ok","code":200,"items":["one","two"]}
+
+    ' Manual cleanup (not JsFree — we own the structs on BSS)
+    DaFree(items)
+    HmFree(resp)
+
+### Round-trip
+
+    root& = JsParse(original$)
+    OPEN "O", #1, "T:roundtrip.json"
+    JsWrite(root&, 1)
+    CLOSE #1
+    JsFree(root&)
+
+
+## Notes on PRINT # and Null Bytes
+
+ACE's PRINT #n, "" writes a null byte (0x00) before the newline.
+The generator must avoid PRINT #n, "". Instead:
+- Use PRINT #n, CHR$(c); for single characters
+- Use PRINT #n, str$; (with semicolon, non-empty strings only)
+- Newlines in pretty-print: PRINT #n, "" is acceptable there since
+  the null byte precedes a newline we want anyway — but test this.
+  Safer: use PRINT #n, CHR$(10); explicitly.
+
+
+## Header Template (include/submods/json.h)
+
+    #ifndef JSON_H
+    #define JSON_H
+
+    #include <submods/hashmap.h>
+    #include <submods/dynarray.h>
+
+    {* ============== Constants ============== *}
+
+    CONST JS_SUCCESS      = 0
+    CONST JS_ERR_SYNTAX   = -1
+    CONST JS_ERR_DEPTH    = -2
+    CONST JS_ERR_OVERFLOW = -3
+    CONST JS_ERR_IO       = -4
+
+    CONST JsObject = 0
+    CONST JsArray  = 1
+
+    CONST JS_MAX_INPUT = 8192
+    CONST JS_MAX_DEPTH = 10
+
+    {* ============== Parser ============== *}
+
+    DECLARE SUB LONGINT JsParse(src$) EXTERNAL
+    DECLARE SUB LONGINT JsParseFile(SHORTINT ch%) EXTERNAL
+    DECLARE SUB STRING JsError$ EXTERNAL
+    DECLARE SUB SHORTINT JsRootType EXTERNAL
+
+    {* ============== Generator ============== *}
+
+    DECLARE SUB JsWrite(ADDRESS root&, SHORTINT ch%) EXTERNAL
+    DECLARE SUB JsWriteFmt(ADDRESS root&, SHORTINT ch%) EXTERNAL
+    DECLARE SUB STRING JsToStr$(ADDRESS root&) EXTERNAL
+
+    {* ============== Cleanup ============== *}
+
+    DECLARE SUB JsFree(ADDRESS root&) EXTERNAL
+
+    {* ============== Convenience ============== *}
+
+    DECLARE SUB JsMakeObj(Hashmap hm, LONGINT cap&) EXTERNAL
+    DECLARE SUB JsMakeArr(DynArray da, LONGINT cap&) EXTERNAL
+
+    #endif

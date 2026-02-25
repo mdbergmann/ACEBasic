@@ -1,0 +1,84 @@
+# JSON Submodule — Implementation State
+
+Branch: json-submod
+
+## Phase 0: Descriptor stamping prerequisite
+Status: COMPLETE
+- [x] Add POKEL descriptor stamp in HmNew (hashmap.b)
+- [x] Add POKEL descriptor stamp in DaNew (dynarray.b)
+- [x] Create json.h header
+- [x] Create test_typecase.b (Phase 0 TYPECASE discrimination test)
+- [x] Test on emulator: existing hashmap/dynarray tests still pass
+- [x] Test on emulator: test_typecase passes (8/8)
+
+## Phase 1: Parser — objects with scalar values
+Status: COMPLETE
+- [x] Create json.b with parser (helpers, string, number, container)
+- [x] Create make script
+- [x] Create test_parse_obj.b
+- [x] Test on emulator: json module compiles
+- [x] Test on emulator: test_parse_obj passes (44/44)
+- Note: HmPutBool normalizes to 0/1 (not -1/0)
+- Note: json.b uses _JsParseContainer (single recursive SUB) to avoid mutual recursion
+- Note: json.b defines its own constants (can't include json.h due to DECLARE SUB conflicts)
+
+## Phase 2: Parser — arrays, nesting, floats
+Status: COMPLETE
+- [x] Create test_parse_arr.b (18 tests: empty array, string/int/bool/null arrays,
+      mixed-type, nested obj/arr, deeply nested, floats, TYPECASE, depth limit,
+      whitespace, int/float discrimination)
+- [x] Fix recursion bug: local STRING in SUBs is BSS-backed, clobbered by recursive calls.
+      Fix: module-level depth-indexed key stack _jsKeyStk$(depth%) + hm/da restore from retVal&
+- [x] Test on emulator: test_parse_arr passes (96/96)
+- [x] Regression: test_parse_obj still passes (44/44)
+
+## Phase 3: Parser — escapes, file input, error edge cases
+Status: COMPLETE
+- [x] Create test_parse_misc.b (17 tests: escaped quotes/backslash/nl/tab/cr/bs/ff/slash,
+      multiple escapes, empty string, escaped key, escaped in array,
+      JsParseFile simple/multiline/array, error EOF/literal/bracket/empty,
+      whitespace with newlines/tabs)
+- [x] Implement JsParseFile in json.b (reads file via LINE INPUT, sets shared state,
+      calls _JsParseContainer directly — avoids 256-byte string param copy limit)
+- [x] Test on emulator: json module compiles
+- [x] Test on emulator: test_parse_misc passes (55/55)
+- [x] Regression: test_parse_obj still passes (44/44) — verified in prior run
+- [x] Regression: test_parse_arr still passes (96/96) — verified in prior run
+
+## Phase 4: Generator — compact output
+Status: COMPLETE
+- [x] Add _JsWriteStr (string escaping: quote, backslash, LF, CR, TAB, BS, FF)
+- [x] Add _JsWriteNode (single recursive SUB, TYPECASE dispatch, save/restore pattern)
+- [x] Add JsWrite (public entry point, delegates to _JsWriteNode)
+- [x] Add JsToStr$ (writes to T:js_tmp via channel #9, reads back, 4000 char limit)
+- [x] Create test_gen.b (23 tests: empty obj/arr, string/int/neg/bool/null values,
+      multi-value, arrays, nested obj/arr/deep, string escaping for quote/backslash/
+      newline/tab, JsWrite to file, key escaping, empty string value)
+- [x] Test on emulator: json module compiles
+- [x] Test on emulator: test_gen passes (23/23)
+- [x] Regression: test_parse_obj still passes (44/44)
+
+## Phase 5: Pretty printer + round-trip
+Status: COMPLETE
+- [x] Add _JsWriteNodeFmt (recursive formatted writer with indent tracking)
+- [x] Add JsWriteFmt (public entry point)
+- [x] Create test_roundtrip.b (17 test groups: fmt empty/single/array/nested/bool-null,
+      compact round-trip int/str/mixed/1key/escape/nested, fmt round-trip arr/obj,
+      type preservation, deep nesting)
+- [x] Test on emulator: json module compiles
+- [x] Test on emulator: test_roundtrip passes (64/64)
+- [x] Regression: test_parse_obj still passes (44/44)
+- [x] Regression: test_gen still passes (23/23)
+
+## Phase 6: JsFree + JsMakeObj/JsMakeArr helpers
+Status: COMPLETE
+- [x] Add JsFree (recursive tree free using TYPECASE + save/restore pattern)
+- [x] Add JsMakeObj (convenience wrapper for HmMake)
+- [x] Add JsMakeArr (convenience wrapper for DaMake)
+- [x] Create test_free.b (13 test groups: null safety, simple/empty obj/arr,
+      nested obj/arr, deep nesting, array of arrays, mixed types,
+      JsMakeObj/JsMakeArr TYPECASE, full parse+use+free cycle)
+- [x] Test on emulator: json module compiles
+- [x] Test on emulator: test_free passes (30/30)
+- [x] Regression: test_roundtrip still passes (64/64)
+- [x] Regression: test_gen still passes (23/23)
