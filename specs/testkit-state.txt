@@ -14,5 +14,6 @@ Phase 2: Migrate hashmap tests (5 files)     COMPLETE
   - test_iter.b     70 passed, 0 failed
   - test_foreach.b  13 passed, 0 failed
   - test_builder.b  30 passed, 0 failed
-Phase 3: Migrate list test (1 file)          pending
+Phase 3: Migrate list test (1 file)          COMPLETE
+  - test_list.b     139 passed, 0 failed
 Phase 4: Migrate dp-float/fad tests          pending
