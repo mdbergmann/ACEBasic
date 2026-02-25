@@ -1,2 +1,2 @@
 ; Build list module
-execute ACE:bin/bas -m list
+execute ACE:bin/bas -mO list

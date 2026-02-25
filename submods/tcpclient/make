@@ -1,2 +1,2 @@
 ; Build tcpclient module
-execute ACE:bin/bas -m tcpclient
+execute ACE:bin/bas -mO tcpclient

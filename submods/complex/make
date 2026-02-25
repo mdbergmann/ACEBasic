@@ -1,4 +1,2 @@
-.key prg
-
-; Create executable from ACE program and Complex Math SUBmod.
-bas -O <prg> complex.o
+; Build complex module
+execute ACE:bin/bas -mO complex

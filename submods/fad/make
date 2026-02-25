@@ -1,2 +1,2 @@
 ; Build fad module
-execute ACE:bin/bas -m fad
+execute ACE:bin/bas -mO fad
