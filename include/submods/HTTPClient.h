@@ -235,7 +235,7 @@ DECLARE SUB LONGINT HttpPut(ADDRESS req, ADDRESS resp, ~
 '   On success: resp->statusCode, resp->contentLen set. Free with HttpFreeBuf().
 DECLARE SUB LONGINT HttpRequest(ADDRESS req, ADDRESS resp, ~
                                 ADDRESS tcpConn, STRING url, ~
-                                STRING method, STRING contentType, ~
+                                STRING verb, STRING contentType, ~
                                 STRING body) EXTERNAL
 
 
@@ -291,7 +291,7 @@ DECLARE SUB LONGINT HttpPutStream(ADDRESS req, ADDRESS resp, ~
 ' HttpRequestStream - Generic streaming request
 DECLARE SUB LONGINT HttpRequestStream(ADDRESS req, ADDRESS resp, ~
                                       ADDRESS tcpConn, STRING url, ~
-                                      STRING method, STRING contentType, ~
+                                      STRING verb, STRING contentType, ~
                                       ADDRESS onSend, ~
                                       ADDRESS onRecv) EXTERNAL
 
@@ -349,7 +349,7 @@ DECLARE SUB HttpSetHeader(ADDRESS req, STRING hdrName, ~
 ' HttpSendRequest - Send request line and headers
 '   req     - HttpRequest struct (headers, host)
 '   tcpConn - TcpConn struct (connection)
-'   method$ - HTTP method (e.g. "GET", "POST")
+'   verb$   - HTTP method (e.g. "GET", "POST")
 '   path$   - Request path with optional query (e.g. "/api?key=val")
 '   Returns: HTTP_SUCCESS on success, negative error code on failure
 '   IMPORTANT: Clears all request headers in req after sending
@@ -359,7 +359,7 @@ DECLARE SUB HttpSetHeader(ADDRESS req, STRING hdrName, ~
 '         For POST/PUT/PATCH, follow with HttpWriteBody or
 '         HttpWriteBodyChunked to send the request body.
 DECLARE SUB LONGINT HttpSendRequest(ADDRESS req, ADDRESS tcpConn, ~
-                                    STRING method, ~
+                                    STRING verb, ~
                                     STRING reqPath) EXTERNAL
 
 ' HttpWriteBody - Send a fixed-length request body

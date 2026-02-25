@@ -36,7 +36,7 @@ PRINT "T1: SslInit"
 
 rc = SslInit
 IF rc = SSL_ERR_NO_LIB THEN
-  PRINT "  SKIP (AmiSSL not installed)"
+  PRINT "SKIPPED: AmiSSL not installed"
   GOTO skipAll
 END IF
 TkAssertEq&(rc, SSL_SUCCESS, "SslInit returns SSL_SUCCESS")

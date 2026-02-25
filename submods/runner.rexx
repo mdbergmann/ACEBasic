@@ -12,7 +12,7 @@
  *
  * Test outcome detection (three states):
  *   PASS - test ran to completion without assertion failures
- *   FAIL - output contains "ASSERT FAILED", or build/link failed
+ *   FAIL - testkit "Results:" shows failures, or "ASSERT FAILED", or build/link failed
  *   SKIP - output contains "SKIPPED:" (missing hardware/library)
  */
 
@@ -199,10 +199,10 @@ runTest: PROCEDURE EXPOSE basCmd
         RETURN 'SKIP'
     END
 
-    /* Check for ASSERT FAILED in output */
+    /* Check for test failures in output */
     assertFailed = checkAssertFailed(outputFile)
     IF assertFailed THEN DO
-        SAY '[FAIL]' label '(assertion failed)'
+        SAY '[FAIL]' label '(test failed)'
         SAY '  Output:'
         CALL showFile(outputFile)
         CALL cleanupInDir(sm, testName, outputFile)
@@ -247,7 +247,10 @@ cleanupFiles: PROCEDURE
     RETURN
 
 /*------------------------------------------------------------*/
-/* Check if output file contains ASSERT FAILED                */
+/* Check if output file contains test failures                */
+/* 1. Testkit: parse "Results: N passed, M failed" line       */
+/*    - If M > 0 => FAIL; if M = 0 => PASS                   */
+/* 2. Legacy: detect "ASSERT FAILED" in output                */
 /*------------------------------------------------------------*/
 checkAssertFailed: PROCEDURE
     PARSE ARG filename
@@ -257,6 +260,22 @@ checkAssertFailed: PROCEDURE
     found = 0
     DO WHILE ~EOF('chkf')
         line = READLN('chkf')
+        /* Testkit summary: "Results: N passed, M failed" */
+        p = POS('failed', line)
+        IF p > 0 & POS('Results:', line) > 0 THEN DO
+            /* Extract the number before "failed" */
+            chunk = STRIP(LEFT(line, p - 1))
+            /* Last word before "failed" is the count */
+            lastComma = LASTPOS(',', chunk)
+            IF lastComma > 0 THEN DO
+                failStr = STRIP(SUBSTR(chunk, lastComma + 1))
+                IF DATATYPE(failStr, 'W') THEN DO
+                    IF failStr > 0 THEN found = 1
+                    LEAVE
+                END
+            END
+        END
+        /* Legacy: ASSERT FAILED */
         IF POS('ASSERT FAILED', line) > 0 THEN DO
             found = 1
             LEAVE

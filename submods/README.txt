@@ -48,8 +48,8 @@ Test Outcomes
 
 Three possible outcomes per test:
 
-  PASS  - Test ran to completion without assertion failures.
-  FAIL  - Output contains "ASSERT FAILED", or build/link failed.
+  PASS  - Test ran to completion without failures.
+  FAIL  - Testkit "Results:" shows failures, or "ASSERT FAILED", or build/link failed.
   SKIP  - Output contains "SKIPPED:" or source has REM $skip: directive.
 
 
@@ -63,19 +63,27 @@ File naming:
 Module linkage:
   - Use REM #using at the top to link the module's compiled .o file:
       REM #using ace:submods/modulename/modulename.o
-  - Include the module header:
+  - Link the testkit:
+      REM #using ace:submods/testkit/testkit.o
+  - Include headers:
       #include <submods/modulename.h>
+      #include <submods/testkit.h>
 
-Assertions:
-  - Use ACE's built-in ASSERT to validate results:
-      ASSERT condition, "description of what failed"
-  - The runner detects "ASSERT FAILED" in output to mark a test as FAIL
-  - For detailed diagnostics, also PRINT pass/fail per test case
+Assertions (via testkit):
+  - TkAssertTrue(condition, "description")
+  - TkAssertFalse(condition, "description")
+  - TkAssertEq%(actual, expected, "description")   SHORTINT equality
+  - TkAssertEq&(actual, expected, "description")    LONGINT equality
+  - TkAssertEqAddr(actual, expected, "description") ADDRESS equality
+  - TkAssertEqStr(actual$, expected$, "description") STRING equality
+  - TkAssertEqFloat(actual, expected, "description") SINGLE with tolerance
+  - TkAssertNeq&(actual, notExpected, "description") LONGINT inequality
+  - TkAssertNeqAddr(actual, notExpected, "description") ADDRESS inequality
+  - On failure, testkit prints "FAIL: description" which the runner detects
 
 Summary pattern:
-  - Track passed/failed counts and print a summary at the end
-  - Use a final ASSERT to signal overall pass/fail:
-      ASSERT failed = 0, "Some tests failed"
+  - Call TkInit at the start and TkSummary at the end
+  - TkSummary prints "Results: N passed, M failed" and ASSERTs M = 0
 
 Skipping tests:
   - At compile time (source directive, checked in first 10 lines):
@@ -84,12 +92,13 @@ Skipping tests:
       PRINT "SKIPPED: reason why this test is skipped"
 
 Test structure (recommended):
-  1. REM #using and #include at top
-  2. Variable declarations
-  3. Initialize counters (passed = 0, failed = 0)
-  4. Test groups with descriptive PRINT headers
-  5. Individual test cases with ASSERT or pass/fail counting
-  6. Summary: print results, final ASSERT
+  1. REM #using for module + testkit at top
+  2. #include for module header + testkit.h
+  3. Variable declarations
+  4. TkInit
+  5. Test groups with descriptive PRINT headers
+  6. Individual test cases with TkAssert* calls
+  7. TkSummary
 
 See test_tmpl.b in this directory for a skeleton test file.
 

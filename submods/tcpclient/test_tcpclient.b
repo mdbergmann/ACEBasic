@@ -53,7 +53,7 @@ PRINT "T2: SSL TCP connection"
 
 rc = TcpOpen(conn1, "httpbin.org", 443, 1)
 IF rc = TCP_ERR_SSL THEN
-  PRINT "  SKIP (AmiSSL not available)"
+  PRINT "SKIPPED: AmiSSL not available"
   GOTO test3
 END IF
 TkAssertEq&(rc, TCP_SUCCESS, "T2: TcpOpen SSL")

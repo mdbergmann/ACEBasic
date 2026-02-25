@@ -402,7 +402,7 @@ SUB HttpSetHeader(ADDRESS req, STRING hdrNm$, ~
 END SUB
 
 SUB LONGINT HttpSendRequest(ADDRESS req, ADDRESS tcpConn, ~
-                            STRING method$, ~
+                            STRING verb$, ~
                             STRING reqPath$) EXTERNAL
   DECLARE STRUCT HttpRequest *r
   DECLARE STRUCT HttpHeader *h
@@ -412,8 +412,8 @@ SUB LONGINT HttpSendRequest(ADDRESS req, ADDRESS tcpConn, ~
 
   r = req
 
-  ' Request line: METHOD path HTTP/1.1\r\n
-  rc = _HttpSendStr(tcpConn, method$ + " " + reqPath$ + " HTTP/1.1" + _crlf$)
+  ' Request line: verb path HTTP/1.1\r\n
+  rc = _HttpSendStr(tcpConn, verb$ + " " + reqPath$ + " HTTP/1.1" + _crlf$)
   IF rc < 0 THEN
     HttpSendRequest = HTTP_ERR_SEND
     EXIT SUB
@@ -970,7 +970,7 @@ END SUB
 
 SUB LONGINT HttpRequest(ADDRESS req, ADDRESS resp, ~
                         ADDRESS tcpConn, STRING url$, ~
-                        STRING method$, STRING contentType$, ~
+                        STRING verb$, STRING contentType$, ~
                         STRING body$) EXTERNAL
   DECLARE STRUCT UrlParts urlP
   LONGINT rc, sc, bufAddr
@@ -990,9 +990,9 @@ SUB LONGINT HttpRequest(ADDRESS req, ADDRESS resp, ~
     EXIT SUB
   END IF
 
-  ' Determine if this method sends a body
+  ' Determine if this verb sends a body
   hasBody = 0
-  IF method$ <> "GET" AND method$ <> "HEAD" AND method$ <> "DELETE" THEN
+  IF verb$ <> "GET" AND verb$ <> "HEAD" AND verb$ <> "DELETE" THEN
     IF LEN(body$) > 0 THEN
       hasBody = 1
     END IF
@@ -1006,7 +1006,7 @@ SUB LONGINT HttpRequest(ADDRESS req, ADDRESS resp, ~
     HttpSetHeader(req, "Content-Length", FMT$("%ld", LEN(body$)))
   END IF
 
-  rc = HttpSendRequest(req, tcpConn, method$, CSTR(@urlP->path))
+  rc = HttpSendRequest(req, tcpConn, verb$, CSTR(@urlP->path))
   IF rc < 0 THEN
     HttpClose(tcpConn)
     HttpRequest = rc
@@ -1031,7 +1031,7 @@ SUB LONGINT HttpRequest(ADDRESS req, ADDRESS resp, ~
   END IF
 
   ' Read response body (unless HEAD)
-  IF method$ <> "HEAD" THEN
+  IF verb$ <> "HEAD" THEN
     bufAddr = _HttpReadAllBody(tcpConn, resp)
     HttpClose(tcpConn)
     IF bufAddr = 0 THEN
@@ -1063,7 +1063,7 @@ END SUB
 
 SUB LONGINT HttpRequestStream(ADDRESS req, ADDRESS resp, ~
                               ADDRESS tcpConn, STRING url$, ~
-                              STRING method$, STRING contentType$, ~
+                              STRING verb$, STRING contentType$, ~
                               ADDRESS onSend, ~
                               ADDRESS onRecv) EXTERNAL
   DECLARE STRUCT UrlParts urlP
@@ -1088,9 +1088,9 @@ SUB LONGINT HttpRequestStream(ADDRESS req, ADDRESS resp, ~
     EXIT SUB
   END IF
 
-  ' Determine if this method sends a body
+  ' Determine if this verb sends a body
   hasBody = 0
-  IF method$ <> "GET" AND method$ <> "HEAD" AND method$ <> "DELETE" THEN
+  IF verb$ <> "GET" AND verb$ <> "HEAD" AND verb$ <> "DELETE" THEN
     IF onSend <> 0 THEN
       hasBody = 1
     END IF
@@ -1104,7 +1104,7 @@ SUB LONGINT HttpRequestStream(ADDRESS req, ADDRESS resp, ~
     HttpSetHeader(req, "Transfer-Encoding", "chunked")
   END IF
 
-  rc = HttpSendRequest(req, tcpConn, method$, CSTR(@urlP->path))
+  rc = HttpSendRequest(req, tcpConn, verb$, CSTR(@urlP->path))
   IF rc < 0 THEN
     HttpClose(tcpConn)
     HttpRequestStream = rc
@@ -1142,7 +1142,7 @@ SUB LONGINT HttpRequestStream(ADDRESS req, ADDRESS resp, ~
   END IF
 
   ' Read response body via callback (unless HEAD or no callback)
-  IF method$ <> "HEAD" AND onRecv <> 0 THEN
+  IF verb$ <> "HEAD" AND onRecv <> 0 THEN
     rdDone = 0
     WHILE rdDone = 0
       bytesGot = HttpReadBody(tcpConn, resp, sBufAddr, READ_BUF_SIZE)

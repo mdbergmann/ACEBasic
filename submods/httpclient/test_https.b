@@ -27,11 +27,11 @@ rc = HttpGet(myReq, myResp, myTcp, ~
              "https://httpbun.com/get")
 IF rc < 0 THEN
   IF rc = HTTP_ERR_NO_LIB THEN
-    PRINT "  SKIP (AmiSSL not installed)"
+    PRINT "SKIPPED: AmiSSL not installed"
   ELSEIF rc = HTTP_ERR_SSL_INIT THEN
-    PRINT "  SKIP (AmiSSL init failed)"
+    PRINT "SKIPPED: AmiSSL init failed"
   ELSE
-    PRINT "  SKIP (error:"; rc; ")"
+    PRINT "SKIPPED: error"; rc
   END IF
   GOTO SkipAll
 END IF
