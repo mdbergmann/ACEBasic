@@ -1,0 +1,27 @@
+TestKit Submodule - Implementation State
+=========================================
+
+Phase 1: Create testkit submodule            COMPLETE
+  - submods/testkit/testkit.b                created
+  - include/submods/testkit.h                created
+  - submods/testkit/test_testkit.b           created
+  - Compile on emulator                      done (no errors)
+  - Smoke test passes                        done (12 passed, 0 failed)
+
+Phase 2: Migrate hashmap tests (5 files)     COMPLETE
+  - test_core.b     88 passed, 0 failed
+  - test_typed.b    54 passed, 0 failed
+  - test_iter.b     70 passed, 0 failed
+  - test_foreach.b  13 passed, 0 failed
+  - test_builder.b  30 passed, 0 failed
+Phase 3: Migrate list test (1 file)          COMPLETE
+  - test_list.b     139 passed, 0 failed
+Phase 4: Migrate dp-float/fad tests          COMPLETE
+  - test_dp_float.b       13 passed, 0 failed
+  - test_dp_float_math.b  21 passed, 0 failed
+  - test_dp_float_str.b   16 passed, 0 failed
+  - test_path.b           23 passed, 0 failed
+  - test_dir.b             6 passed, 0 failed
+  - test_exists.b         11 passed, 0 failed
+  - test_info.b            8 passed, 0 failed
+  - test_ops.b            11 passed, 0 failed

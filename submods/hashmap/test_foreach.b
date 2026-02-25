@@ -1,4 +1,5 @@
 REM #using ace:submods/hashmap/hashmap.o
+REM #using ace:submods/testkit/testkit.o
 
 {*
 ** Hashmap: HmForEach Tests
@@ -8,50 +9,7 @@ REM #using ace:submods/hashmap/hashmap.o
 *}
 
 #include <submods/hashmap.h>
-
-SHORTINT _passed, _failed
-
-{* ============== Assertion Helpers ============== *}
-
-SUB AssertTrue(SHORTINT condition, msg$)
-  SHARED _passed, _failed
-  IF condition THEN
-    _passed = _passed + 1
-  ELSE
-    PRINT "FAIL: "; msg$
-    _failed = _failed + 1
-  END IF
-END SUB
-
-SUB AssertEqStr(actual$, expected$, msg$)
-  SHARED _passed, _failed
-  IF actual$ = expected$ THEN
-    _passed = _passed + 1
-  ELSE
-    PRINT "FAIL: "; msg$; " (expected '"; expected$; "' got '"; actual$; "')"
-    _failed = _failed + 1
-  END IF
-END SUB
-
-SUB AssertEq&(LONGINT actual, LONGINT expected, msg$)
-  SHARED _passed, _failed
-  IF actual = expected THEN
-    _passed = _passed + 1
-  ELSE
-    PRINT "FAIL: "; msg$; " (expected"; expected; " got"; actual; ")"
-    _failed = _failed + 1
-  END IF
-END SUB
-
-SUB AssertEq%(SHORTINT actual, SHORTINT expected, msg$)
-  SHARED _passed, _failed
-  IF actual = expected THEN
-    _passed = _passed + 1
-  ELSE
-    PRINT "FAIL: "; msg$; " (expected"; expected; " got"; actual; ")"
-    _failed = _failed + 1
-  END IF
-END SUB
+#include <submods/testkit.h>
 
 {* ============== Shared State for Callbacks ============== *}
 
@@ -84,8 +42,7 @@ DECLARE SUB ADDRESS CaptureStr(ADDRESS keyPtr, LONGINT rawVal&, ~
 PRINT "=== Hashmap: HmForEach Tests ==="
 PRINT
 
-_passed = 0
-_failed = 0
+TkInit
 
 SHORTINT rc%
 
@@ -96,7 +53,7 @@ HmMake(m1, HM_SMALL)
 
 _feCount = 0
 HmForEach(m1, BIND(@CountEntry))
-AssertEq%(_feCount, 0, "count 0 on empty")
+TkAssertEq%(_feCount, 0, "count 0 on empty")
 
 HmFree(m1)
 
@@ -111,7 +68,7 @@ rc% = HmPut$(m2, "c", "C")
 
 _feCount = 0
 HmForEach(m2, BIND(@CountEntry))
-AssertEq%(_feCount, 3, "count 3 entries")
+TkAssertEq%(_feCount, 3, "count 3 entries")
 
 HmFree(m2)
 
@@ -126,7 +83,7 @@ rc% = HmPut$(m3, "gamma", "3")
 
 _feKeys$ = ""
 HmForEach(m3, BIND(@CollectKeys))
-AssertEqStr(_feKeys$, "alpha,beta,gamma", "keys in order")
+TkAssertEqStr(_feKeys$, "alpha,beta,gamma", "keys in order")
 
 HmFree(m3)
 
@@ -142,11 +99,11 @@ rc% = HmDel(m4, "y")
 
 _feCount = 0
 HmForEach(m4, BIND(@CountEntry))
-AssertEq%(_feCount, 2, "count 2 after del")
+TkAssertEq%(_feCount, 2, "count 2 after del")
 
 _feKeys$ = ""
 HmForEach(m4, BIND(@CollectKeys))
-AssertEqStr(_feKeys$, "x,z", "del: keys x,z (y skipped)")
+TkAssertEqStr(_feKeys$, "x,z", "del: keys x,z (y skipped)")
 
 HmFree(m4)
 
@@ -161,7 +118,7 @@ rc% = HmPut&(m5, "c", 30)
 
 _feSum = 0
 HmForEach(m5, BIND(@SumLongs))
-AssertEq&(_feSum, 60, "sum is 60")
+TkAssertEq&(_feSum, 60, "sum is 60")
 
 HmFree(m5)
 
@@ -183,11 +140,11 @@ _feSngCnt = 0
 _feBoolCnt = 0
 _feNullCnt = 0
 HmForEach(m6, BIND(@CountTypes))
-AssertEq%(_feStrCnt, 2, "2 strings")
-AssertEq%(_feLngCnt, 1, "1 long")
-AssertEq%(_feSngCnt, 1, "1 single")
-AssertEq%(_feBoolCnt, 1, "1 bool")
-AssertEq%(_feNullCnt, 1, "1 null")
+TkAssertEq%(_feStrCnt, 2, "2 strings")
+TkAssertEq%(_feLngCnt, 1, "1 long")
+TkAssertEq%(_feSngCnt, 1, "1 single")
+TkAssertEq%(_feBoolCnt, 1, "1 bool")
+TkAssertEq%(_feNullCnt, 1, "1 null")
 
 HmFree(m6)
 
@@ -201,17 +158,13 @@ rc% = HmPut$(m7, "msg", "hello world")
 _feLastKey$ = ""
 _feLastStr$ = ""
 HmForEach(m7, BIND(@CaptureStr))
-AssertEqStr(_feLastKey$, "msg", "key via CSTR")
-AssertEqStr(_feLastStr$, "hello world", "val via CSTR")
+TkAssertEqStr(_feLastKey$, "msg", "key via CSTR")
+TkAssertEqStr(_feLastStr$, "hello world", "val via CSTR")
 
 HmFree(m7)
 
 {* ============== Summary ============== *}
-PRINT
-PRINT "Results:"; _passed; " passed,"; _failed; " failed"
-IF _failed > 0 THEN
-  PRINT "ASSERT FAILED: Some tests failed"
-END IF
+TkSummary
 
 {* ============== Callback Implementations ============== *}
 

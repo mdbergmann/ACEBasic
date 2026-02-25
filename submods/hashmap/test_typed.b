@@ -1,4 +1,5 @@
 REM #using ace:submods/hashmap/hashmap.o
+REM #using ace:submods/testkit/testkit.o
 
 {*
 ** Hashmap Phase 2: Typed Value Tests
@@ -7,58 +8,14 @@ REM #using ace:submods/hashmap/hashmap.o
 *}
 
 #include <submods/hashmap.h>
-
-SHORTINT _passed, _failed
-
-{* ============== Assertion Helpers ============== *}
-
-SUB AssertTrue(SHORTINT condition, msg$)
-  SHARED _passed, _failed
-  IF condition THEN
-    _passed = _passed + 1
-  ELSE
-    PRINT "FAIL: "; msg$
-    _failed = _failed + 1
-  END IF
-END SUB
-
-SUB AssertEqStr(actual$, expected$, msg$)
-  SHARED _passed, _failed
-  IF actual$ = expected$ THEN
-    _passed = _passed + 1
-  ELSE
-    PRINT "FAIL: "; msg$; " (expected '"; expected$; "' got '"; actual$; "')"
-    _failed = _failed + 1
-  END IF
-END SUB
-
-SUB AssertEq&(LONGINT actual, LONGINT expected, msg$)
-  SHARED _passed, _failed
-  IF actual = expected THEN
-    _passed = _passed + 1
-  ELSE
-    PRINT "FAIL: "; msg$; " (expected"; expected; " got"; actual; ")"
-    _failed = _failed + 1
-  END IF
-END SUB
-
-SUB AssertEq%(SHORTINT actual, SHORTINT expected, msg$)
-  SHARED _passed, _failed
-  IF actual = expected THEN
-    _passed = _passed + 1
-  ELSE
-    PRINT "FAIL: "; msg$; " (expected"; expected; " got"; actual; ")"
-    _failed = _failed + 1
-  END IF
-END SUB
+#include <submods/testkit.h>
 
 {* ============== Test Suite ============== *}
 
 PRINT "=== Hashmap Phase 2: Typed Value Tests ==="
 PRINT
 
-_passed = 0
-_failed = 0
+TkInit
 
 SHORTINT rc%
 DECLARE CLASS Hashmap m
@@ -68,25 +25,25 @@ PRINT "--- Put / Get LONGINT ---"
 HmMake(m, HM_SMALL)
 
 rc% = HmPut&(m, "age", 30)
-AssertEq%(rc%, 0, "put& age should succeed")
-AssertEq&(HmGet&(m, "age"), 30, "get& age")
+TkAssertEq%(rc%, 0, "put& age should succeed")
+TkAssertEq&(HmGet&(m, "age"), 30, "get& age")
 
 rc% = HmPut&(m, "year", 2026)
-AssertEq%(rc%, 0, "put& year should succeed")
-AssertEq&(HmGet&(m, "year"), 2026, "get& year")
+TkAssertEq%(rc%, 0, "put& year should succeed")
+TkAssertEq&(HmGet&(m, "year"), 2026, "get& year")
 
 ' Negative value
 rc% = HmPut&(m, "neg", -42)
-AssertEq%(rc%, 0, "put& negative should succeed")
-AssertEq&(HmGet&(m, "neg"), -42, "get& negative")
+TkAssertEq%(rc%, 0, "put& negative should succeed")
+TkAssertEq&(HmGet&(m, "neg"), -42, "get& negative")
 
 ' Zero
 rc% = HmPut&(m, "zero", 0)
-AssertEq%(rc%, 0, "put& zero should succeed")
-AssertEq&(HmGet&(m, "zero"), 0, "get& zero")
+TkAssertEq%(rc%, 0, "put& zero should succeed")
+TkAssertEq&(HmGet&(m, "zero"), 0, "get& zero")
 
 ' Get missing returns 0
-AssertEq&(HmGet&(m, "missing"), 0, "get& missing returns 0")
+TkAssertEq&(HmGet&(m, "missing"), 0, "get& missing returns 0")
 
 HmFree(m)
 
@@ -98,20 +55,20 @@ HmMake(ms, HM_SMALL)
 SINGLE testF!
 
 rc% = HmPut!(ms, "pi", 3.14)
-AssertEq%(rc%, 0, "put! pi should succeed")
+TkAssertEq%(rc%, 0, "put! pi should succeed")
 testF! = HmGet!(ms, "pi")
-AssertTrue(testF! > 3.13 AND testF! < 3.15, "get! pi approx 3.14")
+TkAssertTrue(testF! > 3.13 AND testF! < 3.15, "get! pi approx 3.14")
 
 rc% = HmPut!(ms, "half", 0.5)
-AssertEq%(rc%, 0, "put! half should succeed")
+TkAssertEq%(rc%, 0, "put! half should succeed")
 testF! = HmGet!(ms, "half")
-AssertTrue(testF! > 0.49 AND testF! < 0.51, "get! half approx 0.5")
+TkAssertTrue(testF! > 0.49 AND testF! < 0.51, "get! half approx 0.5")
 
 ' Negative float
 rc% = HmPut!(ms, "negf", -1.5)
-AssertEq%(rc%, 0, "put! negf should succeed")
+TkAssertEq%(rc%, 0, "put! negf should succeed")
 testF! = HmGet!(ms, "negf")
-AssertTrue(testF! < -1.4 AND testF! > -1.6, "get! negf approx -1.5")
+TkAssertTrue(testF! < -1.4 AND testF! > -1.6, "get! negf approx -1.5")
 
 HmFree(ms)
 
@@ -121,12 +78,12 @@ DECLARE CLASS Hashmap mb
 HmMake(mb, HM_SMALL)
 
 rc% = HmPutBool(mb, "active", -1)
-AssertEq%(rc%, 0, "putBool active should succeed")
-AssertEq&(HmGet&(mb, "active"), 1, "getBool active is 1")
+TkAssertEq%(rc%, 0, "putBool active should succeed")
+TkAssertEq&(HmGet&(mb, "active"), 1, "getBool active is 1")
 
 rc% = HmPutBool(mb, "deleted", 0)
-AssertEq%(rc%, 0, "putBool deleted should succeed")
-AssertEq&(HmGet&(mb, "deleted"), 0, "getBool deleted is 0")
+TkAssertEq%(rc%, 0, "putBool deleted should succeed")
+TkAssertEq&(HmGet&(mb, "deleted"), 0, "getBool deleted is 0")
 
 HmFree(mb)
 
@@ -136,9 +93,9 @@ DECLARE CLASS Hashmap mn
 HmMake(mn, HM_SMALL)
 
 rc% = HmPutNull(mn, "nothing")
-AssertEq%(rc%, 0, "putNull should succeed")
-AssertTrue(HmHas(mn, "nothing"), "has null key")
-AssertEq%(HmType(mn, "nothing"), HmTypeNull, "type is null")
+TkAssertEq%(rc%, 0, "putNull should succeed")
+TkAssertTrue(HmHas(mn, "nothing"), "has null key")
+TkAssertEq%(HmType(mn, "nothing"), HmTypeNull, "type is null")
 
 HmFree(mn)
 
@@ -148,22 +105,22 @@ DECLARE CLASS Hashmap mt
 HmMake(mt, HM_SMALL)
 
 rc% = HmPut$(mt, "s", "hello")
-AssertEq%(HmType(mt, "s"), HmTypeStr, "type str")
+TkAssertEq%(HmType(mt, "s"), HmTypeStr, "type str")
 
 rc% = HmPut&(mt, "l", 100)
-AssertEq%(HmType(mt, "l"), HmTypeLng, "type lng")
+TkAssertEq%(HmType(mt, "l"), HmTypeLng, "type lng")
 
 rc% = HmPut!(mt, "f", 1.5)
-AssertEq%(HmType(mt, "f"), HmTypeSng, "type sng")
+TkAssertEq%(HmType(mt, "f"), HmTypeSng, "type sng")
 
 rc% = HmPutBool(mt, "b", -1)
-AssertEq%(HmType(mt, "b"), HmTypeBool, "type bool")
+TkAssertEq%(HmType(mt, "b"), HmTypeBool, "type bool")
 
 rc% = HmPutNull(mt, "n")
-AssertEq%(HmType(mt, "n"), HmTypeNull, "type null")
+TkAssertEq%(HmType(mt, "n"), HmTypeNull, "type null")
 
 ' Missing key returns -1
-AssertEq%(HmType(mt, "nope"), -1, "type missing returns -1")
+TkAssertEq%(HmType(mt, "nope"), -1, "type missing returns -1")
 
 HmFree(mt)
 
@@ -174,20 +131,20 @@ HmMake(mo, HM_SMALL)
 
 ' Start as string
 rc% = HmPut$(mo, "x", "hello")
-AssertEq%(HmType(mo, "x"), HmTypeStr, "x initially str")
-AssertEqStr(HmGet$(mo, "x"), "hello", "x str value")
+TkAssertEq%(HmType(mo, "x"), HmTypeStr, "x initially str")
+TkAssertEqStr(HmGet$(mo, "x"), "hello", "x str value")
 
 ' Overwrite with LONGINT
 rc% = HmPut&(mo, "x", 99)
-AssertEq%(HmType(mo, "x"), HmTypeLng, "x now lng")
-AssertEq&(HmGet&(mo, "x"), 99, "x lng value")
+TkAssertEq%(HmType(mo, "x"), HmTypeLng, "x now lng")
+TkAssertEq&(HmGet&(mo, "x"), 99, "x lng value")
 
 ' Overwrite with null
 rc% = HmPutNull(mo, "x")
-AssertEq%(HmType(mo, "x"), HmTypeNull, "x now null")
+TkAssertEq%(HmType(mo, "x"), HmTypeNull, "x now null")
 
 ' Count unchanged through overwrites
-AssertEq&(HmCount(mo), 1, "count still 1 after overwrites")
+TkAssertEq&(HmCount(mo), 1, "count still 1 after overwrites")
 
 HmFree(mo)
 
@@ -202,14 +159,14 @@ rc% = HmPut!(mx, "ht", 5.5)
 rc% = HmPutBool(mx, "ok", -1)
 rc% = HmPutNull(mx, "nn")
 
-AssertEq&(HmCount(mx), 5, "5 mixed entries")
+TkAssertEq&(HmCount(mx), 5, "5 mixed entries")
 
-AssertEqStr(HmGet$(mx, "nm"), "Alice", "mixed get str")
-AssertEq&(HmGet&(mx, "ag"), 30, "mixed get lng")
+TkAssertEqStr(HmGet$(mx, "nm"), "Alice", "mixed get str")
+TkAssertEq&(HmGet&(mx, "ag"), 30, "mixed get lng")
 testF! = HmGet!(mx, "ht")
-AssertTrue(testF! > 5.4 AND testF! < 5.6, "mixed get sng")
-AssertEq&(HmGet&(mx, "ok"), 1, "mixed get bool")
-AssertEq%(HmType(mx, "nn"), HmTypeNull, "mixed type null")
+TkAssertTrue(testF! > 5.4 AND testF! < 5.6, "mixed get sng")
+TkAssertEq&(HmGet&(mx, "ok"), 1, "mixed get bool")
+TkAssertEq%(HmType(mx, "nn"), HmTypeNull, "mixed type null")
 
 HmFree(mx)
 
@@ -225,18 +182,18 @@ rc% = HmPut$(inner, "street", "123 Main St")
 
 ' Store inner map as ref in outer map
 rc% = HmPutRef(outer, "addr", inner)
-AssertEq%(rc%, 0, "putRef should succeed")
-AssertEq%(HmType(outer, "addr"), HmTypeRef, "type is ref")
+TkAssertEq%(rc%, 0, "putRef should succeed")
+TkAssertEq%(HmType(outer, "addr"), HmTypeRef, "type is ref")
 
 ' Retrieve the ref and verify it points to inner
 LONGINT refAddr&
 refAddr& = HmGetRef(outer, "addr")
-AssertTrue(refAddr& <> 0, "ref is non-zero")
-AssertEq&(refAddr&, inner, "ref equals inner address")
+TkAssertTrue(refAddr& <> 0, "ref is non-zero")
+TkAssertEq&(refAddr&, inner, "ref equals inner address")
 
 ' Use the retrieved ref as a Hashmap
 ' (Verify inner map data is intact)
-AssertEqStr(HmGet$(inner, "street"), "123 Main St", "inner data intact")
+TkAssertEqStr(HmGet$(inner, "street"), "123 Main St", "inner data intact")
 
 HmFree(inner)
 HmFree(outer)
@@ -247,11 +204,11 @@ DECLARE CLASS Hashmap mu
 HmMake(mu, HM_SMALL)
 
 rc% = HmPut&(mu, "count", 10)
-AssertEq&(HmGet&(mu, "count"), 10, "initial count")
+TkAssertEq&(HmGet&(mu, "count"), 10, "initial count")
 
 rc% = HmPut&(mu, "count", 20)
-AssertEq&(HmGet&(mu, "count"), 20, "updated count")
-AssertEq&(HmCount(mu), 1, "count unchanged after update")
+TkAssertEq&(HmGet&(mu, "count"), 20, "updated count")
+TkAssertEq&(HmCount(mu), 1, "count unchanged after update")
 
 HmFree(mu)
 
@@ -263,22 +220,18 @@ HmMake(md, HM_SMALL)
 rc% = HmPut&(md, "a", 1)
 rc% = HmPut!(md, "b", 2.5)
 rc% = HmPutBool(md, "c", -1)
-AssertEq&(HmCount(md), 3, "3 entries before delete")
+TkAssertEq&(HmCount(md), 3, "3 entries before delete")
 
 rc% = HmDel(md, "b")
-AssertEq%(rc%, 0, "del typed entry succeeds")
-AssertTrue(NOT HmHas(md, "b"), "b gone after del")
-AssertEq&(HmCount(md), 2, "count after del")
+TkAssertEq%(rc%, 0, "del typed entry succeeds")
+TkAssertTrue(NOT HmHas(md, "b"), "b gone after del")
+TkAssertEq&(HmCount(md), 2, "count after del")
 
 ' Remaining entries still accessible
-AssertEq&(HmGet&(md, "a"), 1, "a still accessible")
-AssertEq&(HmGet&(md, "c"), 1, "c still accessible")
+TkAssertEq&(HmGet&(md, "a"), 1, "a still accessible")
+TkAssertEq&(HmGet&(md, "c"), 1, "c still accessible")
 
 HmFree(md)
 
 {* ============== Summary ============== *}
-PRINT
-PRINT "Results:"; _passed; " passed,"; _failed; " failed"
-IF _failed > 0 THEN
-  PRINT "ASSERT FAILED: Some tests failed"
-END IF
+TkSummary
