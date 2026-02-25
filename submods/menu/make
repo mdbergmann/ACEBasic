@@ -1,2 +1,2 @@
-.key arg
-newbas -O <arg> menu.o
+; Build menu module
+execute ACE:bin/bas -mO menu

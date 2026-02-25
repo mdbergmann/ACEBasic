@@ -1,0 +1,231 @@
+# DynArray Submodule — Implementation Plan
+
+## Context
+
+The project already has a CLASS-based Hashmap submodule (`submods/hashmap/`) with builder, iteration, and HoF patterns. We need a companion **DynArray** — a growable, type-tagged, indexed collection following the same conventions.
+
+Key differences from Hashmap:
+- **No keys/status/order arrays** — elements are indexed by position, contiguous, no gaps
+- **Auto-grow** — doubles capacity on append (up to DA_MAX_CAP=2048), no fixed-cap error
+- **No tombstones** — remove shifts elements left
+- **Shellsort** — destructive in-place sort with comparator callback
+- **No DaInsert** in v1 — append-only + sort is sufficient
+
+## Files to Create
+
+| File | Purpose |
+|------|---------|
+| `submods/dynarray/dynarray.b` | Implementation (~500-600 lines est.) |
+| `include/submods/dynarray.h` | Header with CLASS, constants, DECLARE SUBs |
+| `submods/dynarray/make` | Build script (AmigaDOS) |
+| `submods/dynarray/test_core.b` | Phase 1 tests |
+| `submods/dynarray/test_iter.b` | Phase 2 tests |
+| `submods/dynarray/test_builder.b` | Phase 3 tests |
+| `submods/dynarray/test_search.b` | Phase 4 tests |
+| `submods/dynarray/test_hof.b` | Phase 5 tests |
+| `submods/dynarray/test_sort.b` | Phase 6 tests |
+
+## Files to Reference (read-only patterns)
+
+- `submods/hashmap/hashmap.b` — all patterns (DIM...ADDRESS, builder, INVOKE, SHARED state)
+- `include/submods/hashmap.h` — header structure
+- `include/submods/testkit.h` — TkAssertEq%, TkAssertEq&, TkAssertEqStr, TkInit, TkSummary
+- `submods/hashmap/make` — build script pattern
+
+## Branch
+
+`dynarray-submodule`
+
+## CLASS Definition
+
+```basic
+CLASS DynArray
+  ADDRESS vals          ' ALLOC'd string buffer (DA_VAL_SIZE per slot)
+  ADDRESS valsL         ' ALLOC'd LONGINT buffer (4 bytes per slot)
+  ADDRESS types         ' ALLOC'd type tags (SHORTINT, 2 bytes per slot)
+  LONGINT cap           ' Current allocated capacity
+  LONGINT count         ' Number of elements stored
+  LONGINT cursor        ' Iterator position (-1 = before first)
+END CLASS
+```
+
+Struct size: `_DA_STRUCT_SIZE = 28` (4 descriptor + 3x4 ADDRESS + 3x4 LONGINT)
+
+## Constants
+
+```basic
+CONST DA_SUCCESS     = 0
+CONST DA_ERR_FULL    = -1    ' Hit DA_MAX_CAP
+CONST DA_ERR_BOUNDS  = -2    ' Index out of range
+
+CONST DA_SMALL  = 16
+CONST DA_MEDIUM = 64
+CONST DA_LARGE  = 256
+CONST DA_MAX_CAP   = 2048
+CONST DA_MAX_BOUND = 2047
+
+CONST DaTypeStr  = 0
+CONST DaTypeLng  = 1
+CONST DaTypeSng  = 2
+CONST DaTypeRef  = 3
+CONST DaTypeBool = 4
+CONST DaTypeNull = 5
+
+CONST DA_VAL_SIZE = 256
+```
+
+## Internal Helpers
+
+### _DaGrow(DynArray da)
+Auto-grow when count == cap:
+1. `newCap = cap * 2` (if > DA_MAX_CAP, return DA_ERR_FULL)
+2. ALLOC 3 new arrays at newCap
+3. Copy old data via DIM...ADDRESS overlay loop
+4. FREE old 3 arrays
+5. Update da->vals, da->valsL, da->types, da->cap
+
+### _DaShiftLeft(DynArray da, LONGINT fromIdx&)
+For DaRemove: copy elements [fromIdx+1..count-1] one position left across all 3 arrays, decrement count.
+
+### _DaSwap(overlay arrays, LONGINT i&, LONGINT j&)
+For sort: swap elements at i and j across all 3 arrays (vals string copy, valsL LONGINT swap, types SHORTINT swap).
+
+## Implementation Phases
+
+### Phase 1: Core (~20 SUBs)
+
+**Factory & Lifecycle:**
+- `DaMake(DynArray da, LONGINT initCap&)` — ALLOC 3 arrays, set cap/count/cursor
+- `DaFree(DynArray da)` — FREE 3 arrays, zero all fields
+- `DaClear(DynArray da)` — set count=0, cursor=-1
+
+**Append (6 typed variants):**
+- `DaAppend$(da, val$)` / `DaAppend&` / `DaAppend!` / `DaAppendRef` / `DaAppendBool` / `DaAppendNull`
+- Each: check count==cap -> `_DaGrow`, write to slot[count], increment count
+
+**Get (4 typed + type query):**
+- `DaGet$(da, idx&)` / `DaGet&` / `DaGet!` / `DaGetRef` — bounds check, return default if OOB
+- `DaType(da, idx&)` — return type tag or -1 if OOB
+
+**Set (6 typed variants):**
+- `DaSet$(da, idx&, val$)` / `DaSet&` / `DaSet!` / `DaSetRef` / `DaSetBool` / `DaSetNull`
+- Bounds check, return DA_ERR_BOUNDS if OOB
+
+**Remove:**
+- `DaRemove(da, idx&)` — bounds check, `_DaShiftLeft`, decrement count
+
+**Info:**
+- `DaCount(da)` / `DaCapacity(da)`
+
+**Internal:**
+- `_DaGrow(da)` — double capacity, copy, free old
+
+### Phase 2: Iteration (~8 SUBs)
+
+- `DaIterReset(da)` — cursor = -1
+- `DaIterNext(da)` — cursor++, return -1 if cursor < count, else 0
+- `DaIterIdx(da)` — return cursor
+- `DaIterVal$(da)` / `DaIterVal&(da)` / `DaIterVal!(da)` / `DaIterRef(da)` — value at cursor
+- `DaIterType(da)` — type at cursor
+
+### Phase 3: Builder (~8 SUBs)
+
+Module-level `_daBldPtr` (LONGINT, SHARED pattern from hashmap):
+
+- `DaNew(cap&)` — ALLOC _DA_STRUCT_SIZE, call DaMake
+- `DaAdd$` / `DaAdd&` / `DaAdd!` / `DaAddRef` / `DaAddBool` / `DaAddNull` — delegate to DaAppend*
+- `DaEnd` -> LONGINT — return ADDRESS, clear _daBldPtr
+
+### Phase 4: Search & Mutate (~6 SUBs)
+
+- `DaIndexOf$(da, val$)` -> LONGINT — linear scan, return index or -1
+- `DaIndexOf&(da, val&)` -> LONGINT
+- `DaContains$(da, val$)` -> SHORTINT — wraps IndexOf, returns -1/0
+- `DaContains&(da, val&)` -> SHORTINT
+- `DaReverse(da)` — swap elements [0..count/2-1] with [count-1..count/2]
+
+### Phase 5: Higher-Order Functions (~5 SUBs)
+
+**Callback signature for ForEach/Map:**
+```basic
+SUB ADDRESS cb(LONGINT idx&, LONGINT rawVal&,
+               ADDRESS strPtr, SHORTINT typ%) INVOKABLE
+```
+
+- `DaForEach(da, ADDRESS fun)` — iterate 0..count-1, INVOKE fun for each
+- `DaFilter(da, DynArray dest, ADDRESS predFun)` — predicate returns -1 keep / 0 discard; copies matching elements to dest
+- `DaFind(da, ADDRESS predFun)` -> LONGINT — return first matching index or -1
+- `DaReduce(da, LONGINT init&, ADDRESS foldFun)` -> LONGINT — fold left with accumulator
+  - Fold callback: `SUB ADDRESS cb(LONGINT acc&, LONGINT rawVal&, ADDRESS strPtr, SHORTINT typ%) INVOKABLE`
+- `DaMap(da, DynArray dest, ADDRESS mapFun)` — callback writes to dest via SHARED
+
+### Phase 6: Sort (~5 SUBs)
+
+**Shellsort** with Knuth gap sequence (1, 4, 13, 40, 121, 364, 1093):
+
+```
+gap = 1
+WHILE gap < count \ 3
+  gap = gap * 3 + 1
+WEND
+WHILE gap >= 1
+  FOR i = gap TO count - 1
+    j = i
+    WHILE j >= gap AND cmp(arr[j], arr[j-gap]) < 0
+      swap(j, j-gap)
+      j = j - gap
+    WEND
+  NEXT
+  gap = gap \ 3
+WEND
+```
+
+**Comparator callback:**
+```basic
+SUB ADDRESS CmpFun(LONGINT rawA&, LONGINT rawB&,
+                    ADDRESS strPtrA, ADDRESS strPtrB,
+                    SHORTINT typA%, SHORTINT typB%) INVOKABLE
+' Return: negative (a < b), 0 (equal), positive (a > b)
+```
+
+- `DaSort(da, ADDRESS cmpFun)` — Shellsort with comparator
+- `DaSortStr(da)` — convenience: ascending string sort (built-in comparator)
+- `DaSortLng(da)` — convenience: ascending LONGINT sort (built-in comparator)
+- `_DaCmpStr` / `_DaCmpLng` — internal INVOKABLE comparators for convenience wrappers
+
+Swap: must swap in all 3 arrays (vals string copy via MID$/overlay, valsL LONGINT, types SHORTINT).
+
+For string swap in the vals buffer: use pointer arithmetic + POKE/PEEK loop or temporary STRING + overlay copy. The simplest approach: overlay both positions, copy via string assignment through the DIM...ADDRESS overlay.
+
+## Verification
+
+Each phase gets a dedicated test file using testkit:
+
+1. **test_core.b** — Make/Free/Clear, all Append/Get/Set variants, Type, Remove, Count, Capacity, auto-grow
+2. **test_iter.b** — IterReset/Next/Idx/Val*/Type, empty iteration, iteration after remove
+3. **test_builder.b** — New/Add*/End, empty builder, mixed types, cleanup
+4. **test_search.b** — IndexOf$/&, Contains$/&, Reverse
+5. **test_hof.b** — ForEach, Filter, Find, Reduce, Map
+6. **test_sort.b** — Sort with custom comparator, SortStr, SortLng, sort stability, empty/single-element
+
+Build and test on emulator:
+```
+cd ace:submods/dynarray
+execute make
+bas test_core >ace:test-output.txt
+test_core >>ace:test-output.txt
+```
+
+## Implementation Order
+
+1. Create branch `dynarray-submodule`
+2. Create `include/submods/dynarray.h` (header with CLASS + constants + all DECLARE SUBs)
+3. Create `submods/dynarray/dynarray.b` Phase 1 (core)
+4. Create `submods/dynarray/test_core.b`
+5. Create `submods/dynarray/make` build script
+6. Build + test Phase 1 on emulator
+7. Add Phase 2 (iteration) to dynarray.b + test_iter.b, build + test
+8. Add Phase 3 (builder) + test_builder.b, build + test
+9. Add Phase 4 (search/mutate) + test_search.b, build + test
+10. Add Phase 5 (HoF) + test_hof.b, build + test
+11. Add Phase 6 (sort) + test_sort.b, build + test

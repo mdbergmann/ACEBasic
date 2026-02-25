@@ -1,2 +1,2 @@
 ; Build amissl module
-execute ACE:bin/bas -m amissl
+execute ACE:bin/bas -mO amissl

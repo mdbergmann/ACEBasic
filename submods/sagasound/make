@@ -1,2 +1,2 @@
 ; Build sagasound module
-execute ACE:bin/bas -m sagasound
+execute ACE:bin/bas -mO sagasound

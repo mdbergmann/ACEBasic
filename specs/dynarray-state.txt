@@ -1,0 +1,77 @@
+# DynArray Submodule — Implementation State
+
+## Branch: dynarray-submodule
+
+## Current Phase: 6 (Sort)
+## Phase Status: COMPLETE — ALL PHASES DONE
+
+## Phase Overview
+
+| Phase | Description           | Status      | Tests |
+|-------|-----------------------|-------------|-------|
+| 1     | Core (~22 SUBs)       | DONE        | 92    |
+| 2     | Iteration (8 SUBs)    | DONE        | 47    |
+| 3     | Builder (8 SUBs)      | DONE        | 23    |
+| 4     | Search & Mutate (5)   | DONE        | 32    |
+| 5     | Higher-Order (6)      | DONE        | 20    |
+| 6     | Sort (6 SUBs)         | DONE        | 40    |
+| **Total** |                   |             | **254** |
+
+## Phase 6 Checklist
+
+- [x] Add _DaSwap internal helper
+- [x] Add DaSort (Shellsort with Knuth gaps + comparator callback)
+- [x] Add _DaCmpStr, _DaCmpLng built-in comparators
+- [x] Add DaSortStr, DaSortLng convenience wrappers
+- [x] Create submods/dynarray/test_sort.b (10 test sections)
+- [x] Build + test on emulator (40 passed, 0 failed)
+
+## Files Created
+
+- specs/dynarray-spec.txt (plan)
+- specs/dynarray-state.txt (this file)
+- include/submods/dynarray.h (header — all phases)
+- submods/dynarray/dynarray.b (55 SUBs, ~960 lines)
+- submods/dynarray/test_core.b (92 assertions)
+- submods/dynarray/test_iter.b (47 assertions)
+- submods/dynarray/test_builder.b (23 assertions)
+- submods/dynarray/test_search.b (32 assertions)
+- submods/dynarray/test_hof.b (20 assertions)
+- submods/dynarray/test_sort.b (40 assertions)
+- submods/dynarray/make (AmigaDOS build script)
+
+## All SUBs (55)
+
+### Internal (5)
+_DaGrow, _DaShiftLeft, _DaCopyElement, _DaSwap, _DaCmpStr, _DaCmpLng
+
+### Phase 1 - Core (20)
+DaMake, DaFree, DaClear
+DaAppend$, DaAppend&, DaAppend!, DaAppendRef, DaAppendBool, DaAppendNull
+DaGet$, DaGet&, DaGet!, DaGetRef, DaType
+DaSet$, DaSet&, DaSet!, DaSetRef, DaSetBool, DaSetNull
+DaRemove, DaCount, DaCapacity
+
+### Phase 2 - Iteration (8)
+DaIterReset, DaIterNext, DaIterIdx
+DaIterVal$, DaIterVal&, DaIterVal!, DaIterRef, DaIterType
+
+### Phase 3 - Builder (8)
+DaNew, DaAdd$, DaAdd&, DaAdd!, DaAddRef, DaAddBool, DaAddNull, DaEnd
+
+### Phase 4 - Search & Mutate (5)
+DaIndexOf$, DaIndexOf&, DaContains$, DaContains&, DaReverse
+
+### Phase 5 - Higher-Order (5)
+DaForEach, DaFilter, DaFind, DaReduce, DaMap
+
+### Phase 6 - Sort (3)
+DaSort, DaSortStr, DaSortLng
+
+## Notes
+
+- INVOKE with return value: `x = INVOKE fun(args)` NOT `x = INVOKE(fun(args))`
+- `fn` is a reserved word — don't use as variable name
+- _DaCopyElement handles all type tags for Filter (avoids SINGLE conversion issues)
+- Shellsort uses Knuth gap sequence (1, 4, 13, 40, 121, 364, 1093)
+- Comparator receives raw LONGINT values + string pointers + type tags

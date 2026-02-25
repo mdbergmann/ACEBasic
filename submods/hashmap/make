@@ -1,2 +1,2 @@
 ; Build hashmap module
-execute ACE:bin/bas -m hashmap
+execute ACE:bin/bas -mO hashmap
