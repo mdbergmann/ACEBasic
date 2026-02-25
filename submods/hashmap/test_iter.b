@@ -1,4 +1,5 @@
 REM #using ace:submods/hashmap/hashmap.o
+REM #using ace:submods/testkit/testkit.o
 
 {*
 ** Hashmap Phase 3: Iteration Tests
@@ -7,58 +8,14 @@ REM #using ace:submods/hashmap/hashmap.o
 *}
 
 #include <submods/hashmap.h>
-
-SHORTINT _passed, _failed
-
-{* ============== Assertion Helpers ============== *}
-
-SUB AssertTrue(SHORTINT condition, msg$)
-  SHARED _passed, _failed
-  IF condition THEN
-    _passed = _passed + 1
-  ELSE
-    PRINT "FAIL: "; msg$
-    _failed = _failed + 1
-  END IF
-END SUB
-
-SUB AssertEqStr(actual$, expected$, msg$)
-  SHARED _passed, _failed
-  IF actual$ = expected$ THEN
-    _passed = _passed + 1
-  ELSE
-    PRINT "FAIL: "; msg$; " (expected '"; expected$; "' got '"; actual$; "')"
-    _failed = _failed + 1
-  END IF
-END SUB
-
-SUB AssertEq&(LONGINT actual, LONGINT expected, msg$)
-  SHARED _passed, _failed
-  IF actual = expected THEN
-    _passed = _passed + 1
-  ELSE
-    PRINT "FAIL: "; msg$; " (expected"; expected; " got"; actual; ")"
-    _failed = _failed + 1
-  END IF
-END SUB
-
-SUB AssertEq%(SHORTINT actual, SHORTINT expected, msg$)
-  SHARED _passed, _failed
-  IF actual = expected THEN
-    _passed = _passed + 1
-  ELSE
-    PRINT "FAIL: "; msg$; " (expected"; expected; " got"; actual; ")"
-    _failed = _failed + 1
-  END IF
-END SUB
+#include <submods/testkit.h>
 
 {* ============== Test Suite ============== *}
 
 PRINT "=== Hashmap Phase 3: Iteration Tests ==="
 PRINT
 
-_passed = 0
-_failed = 0
+TkInit
 
 SHORTINT rc%, ok%
 
@@ -74,22 +31,22 @@ rc% = HmPut$(m1, "gamma", "C")
 HmIterReset(m1)
 
 ok% = HmIterNext(m1)
-AssertTrue(ok%, "iter1 has 1st")
-AssertEqStr(HmIterKey$(m1), "alpha", "iter1 1st key")
-AssertEqStr(HmIterVal$(m1), "A", "iter1 1st val")
+TkAssertTrue(ok%, "iter1 has 1st")
+TkAssertEqStr(HmIterKey$(m1), "alpha", "iter1 1st key")
+TkAssertEqStr(HmIterVal$(m1), "A", "iter1 1st val")
 
 ok% = HmIterNext(m1)
-AssertTrue(ok%, "iter1 has 2nd")
-AssertEqStr(HmIterKey$(m1), "beta", "iter1 2nd key")
-AssertEqStr(HmIterVal$(m1), "B", "iter1 2nd val")
+TkAssertTrue(ok%, "iter1 has 2nd")
+TkAssertEqStr(HmIterKey$(m1), "beta", "iter1 2nd key")
+TkAssertEqStr(HmIterVal$(m1), "B", "iter1 2nd val")
 
 ok% = HmIterNext(m1)
-AssertTrue(ok%, "iter1 has 3rd")
-AssertEqStr(HmIterKey$(m1), "gamma", "iter1 3rd key")
-AssertEqStr(HmIterVal$(m1), "C", "iter1 3rd val")
+TkAssertTrue(ok%, "iter1 has 3rd")
+TkAssertEqStr(HmIterKey$(m1), "gamma", "iter1 3rd key")
+TkAssertEqStr(HmIterVal$(m1), "C", "iter1 3rd val")
 
 ok% = HmIterNext(m1)
-AssertTrue(NOT ok%, "iter1 ends after 3")
+TkAssertTrue(NOT ok%, "iter1 ends after 3")
 
 HmFree(m1)
 
@@ -100,7 +57,7 @@ HmMake(m2, HM_SMALL)
 
 HmIterReset(m2)
 ok% = HmIterNext(m2)
-AssertTrue(NOT ok%, "empty map iter returns 0")
+TkAssertTrue(NOT ok%, "empty map iter returns 0")
 
 HmFree(m2)
 
@@ -121,7 +78,7 @@ HmIterReset(m3)
 WHILE HmIterNext(m3)
   iterCnt% = iterCnt% + 1
 WEND
-AssertEq%(iterCnt%, 5, "iter count matches HmCount")
+TkAssertEq%(iterCnt%, 5, "iter count matches HmCount")
 
 HmFree(m3)
 
@@ -140,15 +97,15 @@ rc% = HmDel(m4, "y")
 HmIterReset(m4)
 
 ok% = HmIterNext(m4)
-AssertTrue(ok%, "del iter has 1st")
-AssertEqStr(HmIterKey$(m4), "x", "del iter 1st key")
+TkAssertTrue(ok%, "del iter has 1st")
+TkAssertEqStr(HmIterKey$(m4), "x", "del iter 1st key")
 
 ok% = HmIterNext(m4)
-AssertTrue(ok%, "del iter has 2nd")
-AssertEqStr(HmIterKey$(m4), "z", "del iter 2nd key (y skipped)")
+TkAssertTrue(ok%, "del iter has 2nd")
+TkAssertEqStr(HmIterKey$(m4), "z", "del iter 2nd key (y skipped)")
 
 ok% = HmIterNext(m4)
-AssertTrue(NOT ok%, "del iter ends after 2")
+TkAssertTrue(NOT ok%, "del iter ends after 2")
 
 HmFree(m4)
 
@@ -166,10 +123,10 @@ rc% = HmDel(m5, "last")
 
 HmIterReset(m5)
 ok% = HmIterNext(m5)
-AssertTrue(ok%, "del-fl has 1 entry")
-AssertEqStr(HmIterKey$(m5), "mid", "del-fl only mid remains")
+TkAssertTrue(ok%, "del-fl has 1 entry")
+TkAssertEqStr(HmIterKey$(m5), "mid", "del-fl only mid remains")
 ok% = HmIterNext(m5)
-AssertTrue(NOT ok%, "del-fl ends after 1")
+TkAssertTrue(NOT ok%, "del-fl ends after 1")
 
 HmFree(m5)
 
@@ -190,13 +147,13 @@ rc% = HmPut$(m6, "dd", "4")
 HmIterReset(m6)
 
 ok% = HmIterNext(m6)
-AssertEqStr(HmIterKey$(m6), "aa", "tomb order 1st = aa")
+TkAssertEqStr(HmIterKey$(m6), "aa", "tomb order 1st = aa")
 ok% = HmIterNext(m6)
-AssertEqStr(HmIterKey$(m6), "cc", "tomb order 2nd = cc")
+TkAssertEqStr(HmIterKey$(m6), "cc", "tomb order 2nd = cc")
 ok% = HmIterNext(m6)
-AssertEqStr(HmIterKey$(m6), "dd", "tomb order 3rd = dd")
+TkAssertEqStr(HmIterKey$(m6), "dd", "tomb order 3rd = dd")
 ok% = HmIterNext(m6)
-AssertTrue(NOT ok%, "tomb order ends after 3")
+TkAssertTrue(NOT ok%, "tomb order ends after 3")
 
 HmFree(m6)
 
@@ -216,32 +173,32 @@ SINGLE testF!
 HmIterReset(m7)
 
 ok% = HmIterNext(m7)
-AssertEqStr(HmIterKey$(m7), "nm", "mix iter 1st key")
-AssertEq%(HmIterType(m7), HmTypeStr, "mix iter 1st type")
-AssertEqStr(HmIterVal$(m7), "Alice", "mix iter 1st val")
+TkAssertEqStr(HmIterKey$(m7), "nm", "mix iter 1st key")
+TkAssertEq%(HmIterType(m7), HmTypeStr, "mix iter 1st type")
+TkAssertEqStr(HmIterVal$(m7), "Alice", "mix iter 1st val")
 
 ok% = HmIterNext(m7)
-AssertEqStr(HmIterKey$(m7), "ag", "mix iter 2nd key")
-AssertEq%(HmIterType(m7), HmTypeLng, "mix iter 2nd type")
-AssertEq&(HmIterVal&(m7), 30, "mix iter 2nd val")
+TkAssertEqStr(HmIterKey$(m7), "ag", "mix iter 2nd key")
+TkAssertEq%(HmIterType(m7), HmTypeLng, "mix iter 2nd type")
+TkAssertEq&(HmIterVal&(m7), 30, "mix iter 2nd val")
 
 ok% = HmIterNext(m7)
-AssertEqStr(HmIterKey$(m7), "ht", "mix iter 3rd key")
-AssertEq%(HmIterType(m7), HmTypeSng, "mix iter 3rd type")
+TkAssertEqStr(HmIterKey$(m7), "ht", "mix iter 3rd key")
+TkAssertEq%(HmIterType(m7), HmTypeSng, "mix iter 3rd type")
 testF! = HmIterVal!(m7)
-AssertTrue(testF! > 5.4 AND testF! < 5.6, "mix iter 3rd val ~5.5")
+TkAssertTrue(testF! > 5.4 AND testF! < 5.6, "mix iter 3rd val ~5.5")
 
 ok% = HmIterNext(m7)
-AssertEqStr(HmIterKey$(m7), "ok", "mix iter 4th key")
-AssertEq%(HmIterType(m7), HmTypeBool, "mix iter 4th type")
-AssertEq&(HmIterVal&(m7), 1, "mix iter 4th val")
+TkAssertEqStr(HmIterKey$(m7), "ok", "mix iter 4th key")
+TkAssertEq%(HmIterType(m7), HmTypeBool, "mix iter 4th type")
+TkAssertEq&(HmIterVal&(m7), 1, "mix iter 4th val")
 
 ok% = HmIterNext(m7)
-AssertEqStr(HmIterKey$(m7), "nn", "mix iter 5th key")
-AssertEq%(HmIterType(m7), HmTypeNull, "mix iter 5th type")
+TkAssertEqStr(HmIterKey$(m7), "nn", "mix iter 5th key")
+TkAssertEq%(HmIterType(m7), HmTypeNull, "mix iter 5th type")
 
 ok% = HmIterNext(m7)
-AssertTrue(NOT ok%, "mix iter ends after 5")
+TkAssertTrue(NOT ok%, "mix iter ends after 5")
 
 HmFree(m7)
 
@@ -256,18 +213,18 @@ rc% = HmPut$(m8, "q", "2")
 ' First pass
 HmIterReset(m8)
 ok% = HmIterNext(m8)
-AssertEqStr(HmIterKey$(m8), "p", "pass1 1st")
+TkAssertEqStr(HmIterKey$(m8), "p", "pass1 1st")
 ok% = HmIterNext(m8)
-AssertEqStr(HmIterKey$(m8), "q", "pass1 2nd")
+TkAssertEqStr(HmIterKey$(m8), "q", "pass1 2nd")
 
 ' Second pass - same results
 HmIterReset(m8)
 ok% = HmIterNext(m8)
-AssertEqStr(HmIterKey$(m8), "p", "pass2 1st")
+TkAssertEqStr(HmIterKey$(m8), "p", "pass2 1st")
 ok% = HmIterNext(m8)
-AssertEqStr(HmIterKey$(m8), "q", "pass2 2nd")
+TkAssertEqStr(HmIterKey$(m8), "q", "pass2 2nd")
 ok% = HmIterNext(m8)
-AssertTrue(NOT ok%, "pass2 ends")
+TkAssertTrue(NOT ok%, "pass2 ends")
 
 HmFree(m8)
 
@@ -292,7 +249,7 @@ HmIterReset(ia)
 WHILE HmIterNext(ia)
   cntA% = cntA% + 1
 WEND
-AssertEq%(cntA%, 2, "ia has 2 entries")
+TkAssertEq%(cntA%, 2, "ia has 2 entries")
 
 ' Iterate ib
 SHORTINT cntB%
@@ -301,23 +258,23 @@ HmIterReset(ib)
 WHILE HmIterNext(ib)
   cntB% = cntB% + 1
 WEND
-AssertEq%(cntB%, 3, "ib has 3 entries")
+TkAssertEq%(cntB%, 3, "ib has 3 entries")
 
 ' Verify ia order
 HmIterReset(ia)
 ok% = HmIterNext(ia)
-AssertEqStr(HmIterKey$(ia), "a1", "ia 1st key")
+TkAssertEqStr(HmIterKey$(ia), "a1", "ia 1st key")
 ok% = HmIterNext(ia)
-AssertEqStr(HmIterKey$(ia), "a2", "ia 2nd key")
+TkAssertEqStr(HmIterKey$(ia), "a2", "ia 2nd key")
 
 ' Verify ib order
 HmIterReset(ib)
 ok% = HmIterNext(ib)
-AssertEqStr(HmIterKey$(ib), "b1", "ib 1st key")
+TkAssertEqStr(HmIterKey$(ib), "b1", "ib 1st key")
 ok% = HmIterNext(ib)
-AssertEqStr(HmIterKey$(ib), "b2", "ib 2nd key")
+TkAssertEqStr(HmIterKey$(ib), "b2", "ib 2nd key")
 ok% = HmIterNext(ib)
-AssertEqStr(HmIterKey$(ib), "b3", "ib 3rd key")
+TkAssertEqStr(HmIterKey$(ib), "b3", "ib 3rd key")
 
 HmFree(ia)
 HmFree(ib)
@@ -337,11 +294,11 @@ rc% = HmPut$(mc, "new2", "w2")
 
 HmIterReset(mc)
 ok% = HmIterNext(mc)
-AssertEqStr(HmIterKey$(mc), "new1", "clear: 1st is new1")
+TkAssertEqStr(HmIterKey$(mc), "new1", "clear: 1st is new1")
 ok% = HmIterNext(mc)
-AssertEqStr(HmIterKey$(mc), "new2", "clear: 2nd is new2")
+TkAssertEqStr(HmIterKey$(mc), "new2", "clear: 2nd is new2")
 ok% = HmIterNext(mc)
-AssertTrue(NOT ok%, "clear: ends after 2")
+TkAssertTrue(NOT ok%, "clear: ends after 2")
 
 HmFree(mc)
 
@@ -359,14 +316,14 @@ rc% = HmPut$(mu, "k2", "updated")
 
 HmIterReset(mu)
 ok% = HmIterNext(mu)
-AssertEqStr(HmIterKey$(mu), "k1", "upd order 1st = k1")
+TkAssertEqStr(HmIterKey$(mu), "k1", "upd order 1st = k1")
 ok% = HmIterNext(mu)
-AssertEqStr(HmIterKey$(mu), "k2", "upd order 2nd = k2")
-AssertEqStr(HmIterVal$(mu), "updated", "upd k2 has new value")
+TkAssertEqStr(HmIterKey$(mu), "k2", "upd order 2nd = k2")
+TkAssertEqStr(HmIterVal$(mu), "updated", "upd k2 has new value")
 ok% = HmIterNext(mu)
-AssertEqStr(HmIterKey$(mu), "k3", "upd order 3rd = k3")
+TkAssertEqStr(HmIterKey$(mu), "k3", "upd order 3rd = k3")
 ok% = HmIterNext(mu)
-AssertTrue(NOT ok%, "upd order ends")
+TkAssertTrue(NOT ok%, "upd order ends")
 
 HmFree(mu)
 
@@ -389,20 +346,20 @@ HmIterReset(mm)
 WHILE HmIterNext(mm)
   mCnt% = mCnt% + 1
 WEND
-AssertEq%(mCnt%, 20, "many: 20 entries iterated")
+TkAssertEq%(mCnt%, 20, "many: 20 entries iterated")
 
 ' Verify first and last
 HmIterReset(mm)
 ok% = HmIterNext(mm)
-AssertEqStr(HmIterKey$(mm), "item0", "many: 1st is item0")
-AssertEq&(HmIterVal&(mm), 0, "many: 1st val is 0")
+TkAssertEqStr(HmIterKey$(mm), "item0", "many: 1st is item0")
+TkAssertEq&(HmIterVal&(mm), 0, "many: 1st val is 0")
 
 ' Walk to last
 FOR j% = 1 TO 19
   ok% = HmIterNext(mm)
 NEXT
-AssertEqStr(HmIterKey$(mm), "item19", "many: last is item19")
-AssertEq&(HmIterVal&(mm), 19, "many: last val is 19")
+TkAssertEqStr(HmIterKey$(mm), "item19", "many: last is item19")
+TkAssertEq&(HmIterVal&(mm), 19, "many: last val is 19")
 
 HmFree(mm)
 
@@ -419,21 +376,17 @@ rc% = HmPutRef(mr, "child", inner)
 
 HmIterReset(mr)
 ok% = HmIterNext(mr)
-AssertEqStr(HmIterKey$(mr), "label", "ref iter 1st key")
-AssertEq%(HmIterType(mr), HmTypeStr, "ref iter 1st type")
+TkAssertEqStr(HmIterKey$(mr), "label", "ref iter 1st key")
+TkAssertEq%(HmIterType(mr), HmTypeStr, "ref iter 1st type")
 
 ok% = HmIterNext(mr)
-AssertEqStr(HmIterKey$(mr), "child", "ref iter 2nd key")
-AssertEq%(HmIterType(mr), HmTypeRef, "ref iter 2nd type")
-AssertTrue(HmIterVal&(mr) <> 0, "ref iter 2nd val non-zero")
-AssertEq&(HmIterVal&(mr), inner, "ref iter 2nd val = inner addr")
+TkAssertEqStr(HmIterKey$(mr), "child", "ref iter 2nd key")
+TkAssertEq%(HmIterType(mr), HmTypeRef, "ref iter 2nd type")
+TkAssertTrue(HmIterVal&(mr) <> 0, "ref iter 2nd val non-zero")
+TkAssertEq&(HmIterVal&(mr), inner, "ref iter 2nd val = inner addr")
 
 HmFree(inner)
 HmFree(mr)
 
 {* ============== Summary ============== *}
-PRINT
-PRINT "Results:"; _passed; " passed,"; _failed; " failed"
-IF _failed > 0 THEN
-  PRINT "ASSERT FAILED: Some tests failed"
-END IF
+TkSummary

@@ -8,6 +8,11 @@ Phase 1: Create testkit submodule            COMPLETE
   - Compile on emulator                      done (no errors)
   - Smoke test passes                        done (12 passed, 0 failed)
 
-Phase 2: Migrate hashmap tests (5 files)     pending
+Phase 2: Migrate hashmap tests (5 files)     COMPLETE
+  - test_core.b     88 passed, 0 failed
+  - test_typed.b    54 passed, 0 failed
+  - test_iter.b     70 passed, 0 failed
+  - test_foreach.b  13 passed, 0 failed
+  - test_builder.b  30 passed, 0 failed
 Phase 3: Migrate list test (1 file)          pending
 Phase 4: Migrate dp-float/fad tests          pending
