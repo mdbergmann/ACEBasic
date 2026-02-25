@@ -728,6 +728,7 @@ SUB HmNew(LONGINT theCap&) EXTERNAL
 
   ' ALLOC a fresh CLASS block so each builder is independent
   _hmBldPtr = ALLOC(_HM_STRUCT_SIZE)
+  POKEL _hmBldPtr, PEEKL(bld)        ' stamp class descriptor for TYPECASE
   bld = _hmBldPtr
   HmMake(bld, theCap&)
 END SUB
