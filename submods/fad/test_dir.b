@@ -5,14 +5,15 @@ REM FadEntryIsDir%, FadCloseDir.
 REM Creates a temp directory in RAM: with known contents.
 
 REM #using ace:submods/fad/fad.o
+REM #using ace:submods/testkit/testkit.o
 #include <submods/fad.h>
+#include <submods/testkit.h>
 
-LONGINT passed, failed
 LONGINT entryCount, fileCount, dirCount
-passed = 0
-failed = 0
 
 PRINT "=== fad Directory Iteration Tests ==="
+
+TkInit
 
 {* --- Setup: create test directory structure in RAM: --- *}
 
@@ -33,13 +34,7 @@ SYSTEM "makedir RAM:fadtest_dir/subdir"
 
 {* --- FadOpenDir% test --- *}
 
-IF FadOpenDir%("RAM:fadtest_dir") THEN
-  PRINT "PASS: FadOpenDir% success"
-  passed = passed + 1
-ELSE
-  PRINT "FAIL: FadOpenDir% failed, error:"; FadError&
-  failed = failed + 1
-END IF
+TkAssertTrue(FadOpenDir%("RAM:fadtest_dir"), "FadOpenDir% success")
 
 {* --- FadNext% iteration test --- *}
 
@@ -62,46 +57,18 @@ WEND
 FadCloseDir
 
 ' We created 2 files + 1 subdirectory = 3 entries
-IF entryCount = 3 THEN
-  PRINT "PASS: found 3 entries"
-  passed = passed + 1
-ELSE
-  PRINT "FAIL: expected 3 entries, found"; entryCount
-  failed = failed + 1
-END IF
-
-IF fileCount = 2 THEN
-  PRINT "PASS: found 2 files"
-  passed = passed + 1
-ELSE
-  PRINT "FAIL: expected 2 files, found"; fileCount
-  failed = failed + 1
-END IF
-
-IF dirCount = 1 THEN
-  PRINT "PASS: found 1 directory"
-  passed = passed + 1
-ELSE
-  PRINT "FAIL: expected 1 directory, found"; dirCount
-  failed = failed + 1
-END IF
+TkAssertEq&(entryCount, 3, "found 3 entries")
+TkAssertEq&(fileCount, 2, "found 2 files")
+TkAssertEq&(dirCount, 1, "found 1 directory")
 
 {* --- FadOpenDir% on nonexistent path --- *}
 
-IF NOT FadOpenDir%("RAM:nonexistent_dir_xyz") THEN
-  PRINT "PASS: FadOpenDir% fails for nonexistent"
-  passed = passed + 1
-ELSE
-  PRINT "FAIL: FadOpenDir% succeeded for nonexistent"
-  FadCloseDir
-  failed = failed + 1
-END IF
+TkAssertTrue(NOT FadOpenDir%("RAM:nonexistent_dir_xyz"), "FadOpenDir% fails for nonexistent")
 
 {* --- Double close is safe --- *}
 
 FadCloseDir
-PRINT "PASS: double FadCloseDir is safe"
-passed = passed + 1
+TkAssertTrue(-1, "double FadCloseDir is safe")
 
 {* --- Cleanup --- *}
 
@@ -111,7 +78,4 @@ SYSTEM "delete RAM:fadtest_dir/subdir ALL QUIET"
 SYSTEM "delete RAM:fadtest_dir ALL QUIET"
 
 {* --- Summary --- *}
-PRINT ""
-PRINT "Results:"; passed; "passed,"; failed; "failed"
-
-ASSERT failed = 0, "Some dir tests failed"
+TkSummary

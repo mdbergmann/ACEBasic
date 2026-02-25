@@ -5,13 +5,13 @@ REM date component accessors.
 REM Uses RAM: for temp files.
 
 REM #using ace:submods/fad/fad.o
+REM #using ace:submods/testkit/testkit.o
 #include <submods/fad.h>
-
-LONGINT passed, failed
-passed = 0
-failed = 0
+#include <submods/testkit.h>
 
 PRINT "=== fad File Info Tests ==="
+
+TkInit
 
 {* --- Setup: create a temp file with known content --- *}
 
@@ -24,33 +24,15 @@ CLOSE #1
 LONGINT sz
 sz = FadSize&("RAM:fadtest_info.tmp")
 ' "Hello World" + newline = 12 bytes
-IF sz > 0 THEN
-  PRINT "PASS: FadSize& returned"; sz; "(positive)"
-  passed = passed + 1
-ELSE
-  PRINT "FAIL: FadSize& returned"; sz
-  failed = failed + 1
-END IF
+TkAssertTrue(sz > 0, "FadSize& positive")
 
-IF FadSize&("RAM:nonexistent_xyz") = -1 THEN
-  PRINT "PASS: FadSize& returns -1 for missing file"
-  passed = passed + 1
-ELSE
-  PRINT "FAIL: FadSize& for missing file, got:"; FadSize&("RAM:nonexistent_xyz")
-  failed = failed + 1
-END IF
+TkAssertEq&(FadSize&("RAM:nonexistent_xyz"), -1, "FadSize& -1 for missing file")
 
 {* --- FadProtect& tests --- *}
 
 LONGINT prot
 prot = FadProtect&("RAM:fadtest_info.tmp")
-IF prot <> -1 THEN
-  PRINT "PASS: FadProtect& returned value"; prot
-  passed = passed + 1
-ELSE
-  PRINT "FAIL: FadProtect& returned -1 (not found)"
-  failed = failed + 1
-END IF
+TkAssertTrue(prot <> -1, "FadProtect& returned value")
 
 {* --- FadComment$ tests --- *}
 
@@ -58,45 +40,24 @@ STRING cmt$
 cmt$ = FadComment$("RAM:fadtest_info.tmp")
 ' New files typically have no comment
 PRINT "INFO: FadComment$ = '"; cmt$; "'"
-passed = passed + 1
+TkAssertTrue(-1, "FadComment$ returned")
 
 {* --- FadDate% tests --- *}
 
-IF FadDate%("RAM:fadtest_info.tmp") THEN
-  PRINT "PASS: FadDate% returned success"
-  passed = passed + 1
+TkAssertTrue(FadDate%("RAM:fadtest_info.tmp"), "FadDate% success")
 
-  ' Days should be non-zero (days since Jan 1, 1978)
-  IF FadDateDays& > 0 THEN
-    PRINT "PASS: FadDateDays& ="; FadDateDays&
-    passed = passed + 1
-  ELSE
-    PRINT "FAIL: FadDateDays& ="; FadDateDays&
-    failed = failed + 1
-  END IF
+' Days should be non-zero (days since Jan 1, 1978)
+TkAssertTrue(FadDateDays& > 0, "FadDateDays& positive")
 
-  ' Mins and ticks should be valid (0 is possible for midnight)
-  PRINT "INFO: FadDateMins& ="; FadDateMins&; " FadDateTicks& ="; FadDateTicks&
-  passed = passed + 1
-ELSE
-  PRINT "FAIL: FadDate% returned failure"
-  failed = failed + 1
-END IF
+' Mins and ticks should be valid (0 is possible for midnight)
+PRINT "INFO: FadDateMins& ="; FadDateMins&; " FadDateTicks& ="; FadDateTicks&
+TkAssertTrue(-1, "FadDate components accessible")
 
-IF NOT FadDate%("RAM:nonexistent_xyz") THEN
-  PRINT "PASS: FadDate% fails for missing file"
-  passed = passed + 1
-ELSE
-  PRINT "FAIL: FadDate% succeeded for missing file"
-  failed = failed + 1
-END IF
+TkAssertTrue(NOT FadDate%("RAM:nonexistent_xyz"), "FadDate% fails for missing file")
 
 {* --- Cleanup --- *}
 
 KILL "RAM:fadtest_info.tmp"
 
 {* --- Summary --- *}
-PRINT ""
-PRINT "Results:"; passed; "passed,"; failed; "failed"
-
-ASSERT failed = 0, "Some info tests failed"
+TkSummary
