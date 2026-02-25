@@ -3,8 +3,10 @@
 REM #using ace:submods/httpclient/httpclient.o
 REM #using ace:submods/tcpclient/tcpclient.o
 REM #using ace:submods/amissl/amissl.o
+REM #using ace:submods/testkit/testkit.o
 
 #include <submods/httpclient.h>
+#include <submods/testkit.h>
 
 DECLARE STRUCT TcpConn myTcp
 DECLARE STRUCT HttpRequest myReq
@@ -20,20 +22,22 @@ STRING respDump$ SIZE 8192
 respBuf = SADD(resp$)
 
 PRINT "=== Comprehensive Low-Level API Test ==="
-PRINT
+
+TkInit
 
 ' ---------------------------------------------------------------
 ' T1: Custom headers via HttpSetHeader
 ' ---------------------------------------------------------------
 PRINT "T1: Custom headers via HttpSetHeader"
 rc = HttpOpen(myReq, myTcp, "httpbun.com", 80, HTTP_PLAIN)
-ASSERT rc = HTTP_SUCCESS, "T1: HttpOpen failed"
+TkAssertEq&(rc, HTTP_SUCCESS, "T1: HttpOpen")
+IF rc <> HTTP_SUCCESS THEN GOTO test2
 
 HttpSetHeader(myReq, "Accept", "application/json")
 HttpSetHeader(myReq, "X-Test-Custom", "hello-ace")
 
 rc = HttpSendRequest(myReq, myTcp, "GET", "/get")
-ASSERT rc >= 0, "T1: HttpSendRequest failed"
+TkAssertTrue(rc >= 0, "T1: HttpSendRequest")
 
 sc = HttpReadStatus(myTcp, myResp)
 PRINT "  Status:"; sc
@@ -53,20 +57,20 @@ POKE respBuf + totalRd, 0
 
 HttpClose(myTcp)
 
-ASSERT sc = 200, "T1: status not 200"
-ASSERT INSTR(CSTR(respBuf), "hello-ace") > 0, "T1: custom header not in response"
-PRINT "  Found custom header in response"
-PRINT
+TkAssertEq&(sc, 200, "T1: status 200")
+TkAssertTrue(INSTR(CSTR(respBuf), "hello-ace") > 0, "T1: custom header in response")
 
+test2:
 ' ---------------------------------------------------------------
 ' T2: Response header enumeration
 ' ---------------------------------------------------------------
 PRINT "T2: Response header enumeration"
 rc = HttpOpen(myReq, myTcp, "httpbun.com", 80, HTTP_PLAIN)
-ASSERT rc = HTTP_SUCCESS, "T2: HttpOpen failed"
+TkAssertEq&(rc, HTTP_SUCCESS, "T2: HttpOpen")
+IF rc <> HTTP_SUCCESS THEN GOTO test3
 
 rc = HttpSendRequest(myReq, myTcp, "GET", "/get")
-ASSERT rc >= 0, "T2: HttpSendRequest failed"
+TkAssertTrue(rc >= 0, "T2: HttpSendRequest")
 
 sc = HttpReadStatus(myTcp, myResp)
 PRINT "  Status:"; sc
@@ -97,17 +101,18 @@ WEND
 
 HttpClose(myTcp)
 
-ASSERT sc = 200, "T2: status not 200"
-ASSERT cnt > 0, "T2: no response headers"
-ASSERT INSTR(ct$, "json") > 0, "T2: Content-Type not json"
-PRINT
+TkAssertEq&(sc, 200, "T2: status 200")
+TkAssertTrue(cnt > 0, "T2: response headers present")
+TkAssertTrue(INSTR(ct$, "json") > 0, "T2: Content-Type json")
 
+test3:
 ' ---------------------------------------------------------------
 ' T3: Low-level POST with HttpWriteBody (Content-Length)
 ' ---------------------------------------------------------------
 PRINT "T3: Low-level POST with HttpWriteBody"
 rc = HttpOpen(myReq, myTcp, "httpbun.com", 80, HTTP_PLAIN)
-ASSERT rc = HTTP_SUCCESS, "T3: HttpOpen failed"
+TkAssertEq&(rc, HTTP_SUCCESS, "T3: HttpOpen")
+IF rc <> HTTP_SUCCESS THEN GOTO test4
 
 STRING postBody$ SIZE 64
 postBody$ = "greeting=hello&who=amiga"
@@ -116,11 +121,10 @@ HttpSetHeader(myReq, "Content-Type", "application/x-www-form-urlencoded")
 HttpSetHeader(myReq, "Content-Length", "24")
 
 rc = HttpSendRequest(myReq, myTcp, "POST", "/post")
-ASSERT rc >= 0, "T3: HttpSendRequest failed"
+TkAssertTrue(rc >= 0, "T3: HttpSendRequest")
 
 rc = HttpWriteBody(myTcp, SADD(postBody$), LEN(postBody$))
-PRINT "  WriteBody rc:"; rc
-ASSERT rc >= 0, "T3: HttpWriteBody failed"
+TkAssertTrue(rc >= 0, "T3: HttpWriteBody")
 
 sc = HttpReadStatus(myTcp, myResp)
 PRINT "  Status:"; sc
@@ -140,23 +144,23 @@ POKE respBuf + totalRd, 0
 
 HttpClose(myTcp)
 
-ASSERT sc = 200, "T3: status not 200"
-ASSERT INSTR(CSTR(respBuf), "greeting") > 0, "T3: form data not in response"
-PRINT "  Found form data in response"
-PRINT
+TkAssertEq&(sc, 200, "T3: status 200")
+TkAssertTrue(INSTR(CSTR(respBuf), "greeting") > 0, "T3: form data in response")
 
+test4:
 ' ---------------------------------------------------------------
 ' T4: Low-level POST with HttpWriteBodyChunked
 ' ---------------------------------------------------------------
 PRINT "T4: Low-level POST with HttpWriteBodyChunked"
 rc = HttpOpen(myReq, myTcp, "httpbun.com", 80, HTTP_PLAIN)
-ASSERT rc = HTTP_SUCCESS, "T4: HttpOpen failed"
+TkAssertEq&(rc, HTTP_SUCCESS, "T4: HttpOpen")
+IF rc <> HTTP_SUCCESS THEN GOTO test5
 
 HttpSetHeader(myReq, "Content-Type", "text/plain")
 HttpSetHeader(myReq, "Transfer-Encoding", "chunked")
 
 rc = HttpSendRequest(myReq, myTcp, "POST", "/post")
-ASSERT rc >= 0, "T4: HttpSendRequest failed"
+TkAssertTrue(rc >= 0, "T4: HttpSendRequest")
 
 STRING chunk1$ SIZE 32
 STRING chunk2$ SIZE 32
@@ -164,17 +168,14 @@ chunk1$ = "Hello "
 chunk2$ = "World"
 
 rc = HttpWriteBodyChunked(myTcp, SADD(chunk1$), LEN(chunk1$))
-PRINT "  Chunk1 rc:"; rc
-ASSERT rc >= 0, "T4: chunk1 failed"
+TkAssertTrue(rc >= 0, "T4: chunk1")
 
 rc = HttpWriteBodyChunked(myTcp, SADD(chunk2$), LEN(chunk2$))
-PRINT "  Chunk2 rc:"; rc
-ASSERT rc >= 0, "T4: chunk2 failed"
+TkAssertTrue(rc >= 0, "T4: chunk2")
 
 ' Send final empty chunk
 rc = HttpWriteBodyChunked(myTcp, 0&, 0)
-PRINT "  Final chunk rc:"; rc
-ASSERT rc >= 0, "T4: final chunk failed"
+TkAssertTrue(rc >= 0, "T4: final chunk")
 
 sc = HttpReadStatus(myTcp, myResp)
 PRINT "  Status:"; sc
@@ -194,30 +195,27 @@ POKE respBuf + totalRd, 0
 
 HttpClose(myTcp)
 
-ASSERT sc = 200, "T4: status not 200"
-ASSERT INSTR(CSTR(respBuf), "Hello World") > 0, "T4: chunked body not in response"
-PRINT "  Found chunked body in response"
-PRINT
+TkAssertEq&(sc, 200, "T4: status 200")
+TkAssertTrue(INSTR(CSTR(respBuf), "Hello World") > 0, "T4: chunked body in response")
 
+test5:
 ' ---------------------------------------------------------------
 ' T5: HttpDumpRespHeaders
 ' ---------------------------------------------------------------
 PRINT "T5: HttpDumpRespHeaders"
 rc = HttpOpen(myReq, myTcp, "httpbun.com", 80, HTTP_PLAIN)
-ASSERT rc = HTTP_SUCCESS, "T5: HttpOpen failed"
+TkAssertEq&(rc, HTTP_SUCCESS, "T5: HttpOpen")
+IF rc <> HTTP_SUCCESS THEN GOTO done
 
 rc = HttpSendRequest(myReq, myTcp, "GET", "/get")
-ASSERT rc >= 0, "T5: HttpSendRequest failed"
+TkAssertTrue(rc >= 0, "T5: HttpSendRequest")
 
 sc = HttpReadStatus(myTcp, myResp)
 PRINT "  Status:"; sc
 
 respDump$ = HttpDumpRespHeaders(myResp)
-PRINT "  Response headers:"
-PRINT respDump$
-ASSERT LEN(respDump$) > 0, "T5: response header dump empty"
-ASSERT INSTR(respDump$, "Content-Type") > 0, "T5: Content-Type not in dump"
-PRINT "  Found Content-Type in dump"
+TkAssertTrue(LEN(respDump$) > 0, "T5: resp header dump non-empty")
+TkAssertTrue(INSTR(respDump$, "Content-Type") > 0, "T5: Content-Type in dump")
 
 ' Drain body
 rdDone = 0
@@ -228,7 +226,7 @@ WEND
 
 HttpClose(myTcp)
 
-ASSERT sc = 200, "T5: status not 200"
-PRINT
+TkAssertEq&(sc, 200, "T5: status 200")
 
-PRINT "=== Test Done ==="
+done:
+TkSummary

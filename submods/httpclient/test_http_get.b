@@ -2,8 +2,10 @@ REM test_http_get.b - Regression test (low-level + high-level)
 REM #using ace:submods/httpclient/httpclient.o
 REM #using ace:submods/tcpclient/tcpclient.o
 REM #using ace:submods/amissl/amissl.o
+REM #using ace:submods/testkit/testkit.o
 
 #include <submods/httpclient.h>
+#include <submods/testkit.h>
 
 DECLARE STRUCT TcpConn myTcp
 DECLARE STRUCT HttpRequest myReq
@@ -18,28 +20,27 @@ respBuf = SADD(resp$)
 
 PRINT "=== HTTP Regression Test ==="
 
+TkInit
+
 ' --- Test 1: HttpHead (high-level) ---
 PRINT "T1: HttpHead"
 sc = HttpHead(myReq, myResp, myTcp, "http://www.google.com/")
 PRINT "  status:"; sc
-ASSERT sc = 200, "T1: HttpHead status not 200"
+TkAssertEq&(sc, 200, "T1: HttpHead status 200")
 
 ' --- Test 2: Low-level GET (step by step) ---
 PRINT "T2: Low-level GET"
-PRINT "  opening..."
 rc = HttpOpen(myReq, myTcp, "www.google.com", 80, 0)
-PRINT "  rc:"; rc
-ASSERT rc = HTTP_SUCCESS, "T2: HttpOpen failed"
+TkAssertEq&(rc, HTTP_SUCCESS, "T2: HttpOpen")
+IF rc <> HTTP_SUCCESS THEN GOTO done
 
-PRINT "  sending..."
 rc = HttpSendRequest(myReq, myTcp, "GET", "/")
-PRINT "  send rc:"; rc
-ASSERT rc >= 0, "T2: HttpSendRequest failed"
+TkAssertTrue(rc >= 0, "T2: HttpSendRequest")
+IF rc < 0 THEN GOTO closeT2
 
-PRINT "  reading status..."
 sc = HttpReadStatus(myTcp, myResp)
 PRINT "  status:"; sc
-ASSERT sc = 200, "T2: status not 200"
+TkAssertEq&(sc, 200, "T2: status 200")
 
 PRINT "  reading body..."
 totalLen = 0
@@ -62,8 +63,10 @@ WEND
 POKE respBuf + totalLen, 0
 
 PRINT "  body bytes:"; totalLen
-ASSERT totalLen > 0, "T2: no body bytes received"
-PRINT "  closing..."
+TkAssertTrue(totalLen > 0, "T2: body bytes received")
+
+closeT2:
 HttpClose(myTcp)
 
-PRINT "=== Test Done ==="
+done:
+TkSummary

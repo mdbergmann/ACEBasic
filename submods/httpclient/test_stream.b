@@ -2,8 +2,10 @@
 REM #using ace:submods/httpclient/httpclient.o
 REM #using ace:submods/tcpclient/tcpclient.o
 REM #using ace:submods/amissl/amissl.o
+REM #using ace:submods/testkit/testkit.o
 
 #include <submods/httpclient.h>
+#include <submods/testkit.h>
 
 DECLARE STRUCT TcpConn myTcp
 DECLARE STRUCT HttpRequest myReq
@@ -46,21 +48,21 @@ END SUB
 LONGINT sc
 
 PRINT "=== HTTP Streaming Test ==="
-PRINT
+
+TkInit
 
 ' --- Test 1: HttpGetStream ---
-PRINT "Test 1: HttpGetStream httpbun.com/get"
+PRINT "T1: HttpGetStream httpbun.com/get"
 totalBytes = 0
 sc = HttpGetStream(myReq, myResp, myTcp, ~
                    "http://httpbun.com/get", BIND(@CountBytes))
 PRINT "  Status: "; sc
 PRINT "  Bytes received: "; totalBytes
-ASSERT sc = 200, "T1: HttpGetStream status not 200"
-ASSERT totalBytes > 0, "T1: no bytes received"
-PRINT
+TkAssertEq&(sc, 200, "T1: HttpGetStream status 200")
+TkAssertTrue(totalBytes > 0, "T1: bytes received")
 
 ' --- Test 2: HttpPostStream with send callback ---
-PRINT "Test 2: HttpPostStream httpbun.com/post"
+PRINT "T2: HttpPostStream httpbun.com/post"
 totalBytes = 0
 sendDone = 0
 sc = HttpPostStream(myReq, myResp, myTcp, ~
@@ -69,12 +71,11 @@ sc = HttpPostStream(myReq, myResp, myTcp, ~
                     BIND(@SendBody), BIND(@CountBytes))
 PRINT "  Status: "; sc
 PRINT "  Bytes received: "; totalBytes
-ASSERT sc = 200, "T2: HttpPostStream status not 200"
-ASSERT totalBytes > 0, "T2: no bytes received"
-PRINT
+TkAssertEq&(sc, 200, "T2: HttpPostStream status 200")
+TkAssertTrue(totalBytes > 0, "T2: bytes received")
 
 ' --- Test 3: HttpPutStream with send + receive callbacks ---
-PRINT "Test 3: HttpPutStream httpbun.com/put"
+PRINT "T3: HttpPutStream httpbun.com/put"
 totalBytes = 0
 sendDone = 0
 sc = HttpPutStream(myReq, myResp, myTcp, ~
@@ -83,12 +84,11 @@ sc = HttpPutStream(myReq, myResp, myTcp, ~
                    BIND(@SendBody), BIND(@CountBytes))
 PRINT "  Status: "; sc
 PRINT "  Bytes received: "; totalBytes
-ASSERT sc = 200, "T3: HttpPutStream status not 200"
-ASSERT totalBytes > 0, "T3: no bytes received"
-PRINT
+TkAssertEq&(sc, 200, "T3: HttpPutStream status 200")
+TkAssertTrue(totalBytes > 0, "T3: bytes received")
 
 ' --- Test 4: HttpRequestStream with DELETE (no send body) ---
-PRINT "Test 4: HttpRequestStream DELETE httpbun.com/anything"
+PRINT "T4: HttpRequestStream DELETE httpbun.com/anything"
 totalBytes = 0
 sc = HttpRequestStream(myReq, myResp, myTcp, ~
                        "http://httpbun.com/anything", ~
@@ -96,8 +96,7 @@ sc = HttpRequestStream(myReq, myResp, myTcp, ~
                        0&, BIND(@CountBytes))
 PRINT "  Status: "; sc
 PRINT "  Bytes received: "; totalBytes
-ASSERT sc = 200, "T4: HttpRequestStream status not 200"
-ASSERT totalBytes > 0, "T4: no bytes received"
-PRINT
+TkAssertEq&(sc, 200, "T4: HttpRequestStream status 200")
+TkAssertTrue(totalBytes > 0, "T4: bytes received")
 
-PRINT "=== Test Done ==="
+TkSummary

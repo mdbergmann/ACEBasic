@@ -1,4 +1,5 @@
 REM #using ace:submods/turtle/turtle.o
+REM #using ace:submods/testkit/testkit.o
 {*
  * Test program for the turtle graphics submodule.
  * Writes diagnostic steps to file #1 (ace:test-output.txt)
@@ -6,6 +7,7 @@ REM #using ace:submods/turtle/turtle.o
  *}
 
 #include <submods/turtle.h>
+#include <submods/testkit.h>
 
 REM Force _openmathtrans in startup so _MathTransBase is initialized.
 REM The turtle module uses COS/SIN via _MathTransBase but the compiler
@@ -14,7 +16,9 @@ REM This is a known compiler limitation (see specs/submod-test-runner-state.txt)
 SINGLE _forceMathtrans
 _forceMathtrans = SIN(0.1)
 
-PRINT "Turtle submodule test"
+PRINT "=== Turtle Tests ==="
+
+TkInit
 
 WINDOW 1,"Turtle Test",(0,0)-(640,200),6
 FONT "topaz",8
@@ -23,14 +27,16 @@ CLS
 
 REM --- Initialize at screen center ---
 TgInit(320, 100)
-PRINT "Init: X=";TgXcor;" Y=";TgYcor;" H=";TgHeading
+TkAssertEqFloat(TgXcor, 320, "Init X=320")
+TkAssertEqFloat(TgYcor, 100, "Init Y=100")
+TkAssertEqFloat(TgHeading, 0, "Init heading=0")
 
 REM --- Draw a square (side=40) ---
 FOR i% = 1 TO 4
   TgForward(40)
   TgTurnRight(90)
 NEXT
-PRINT "After square: X=";TgXcor;" Y=";TgYcor;" H=";TgHeading
+TkAssertEqFloat(TgHeading, 0, "After square heading=0")
 
 REM --- Move right with pen up ---
 TgPenUp
@@ -43,7 +49,7 @@ FOR i% = 1 TO 3
   TgForward(60)
   TgTurnRight(120)
 NEXT
-PRINT "After triangle: X=";TgXcor;" Y=";TgYcor;" H=";TgHeading
+TkAssertEqFloat(TgHeading, 0, "After triangle heading=0")
 
 REM --- Test HOME: move away, then go home ---
 TgPenUp
@@ -53,7 +59,8 @@ TgSetHeading(0)
 TgForward(30)
 PRINT "Before home: X=";TgXcor;" Y=";TgYcor
 TgHome
-PRINT "After home: X=";TgXcor;" Y=";TgYcor
+TkAssertEqFloat(TgXcor, 320, "After home X=320")
+TkAssertEqFloat(TgYcor, 100, "After home Y=100")
 
 REM --- Test TgBack ---
 TgPenUp
@@ -72,10 +79,10 @@ TgSetHeading(270)
 TgForward(30)
 TgTurnLeft(90)
 TgForward(30)
-PRINT "After TurnLeft: X=";TgXcor;" Y=";TgYcor;" H=";TgHeading
-
-PRINT "PASS"
+TkAssertEqFloat(TgHeading, 0, "After TurnLeft heading=0")
 
 SLEEP FOR 2
 
 WINDOW CLOSE 1
+
+TkSummary
