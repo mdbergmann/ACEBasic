@@ -1,0 +1,188 @@
+String Buffer Safety — Bug Report & Fix Specification
+=====================================================
+
+Three related buffer safety issues in the ACE runtime string handling.
+All stem from the same root cause: C-string operations with no bounds
+checking against actual allocated buffer sizes.
+
+
+Bug 1: _strcat has no bounds checking
+--------------------------------------
+
+Location: src/lib/asm/simple_str.s:63-75
+
+_strcat concatenates source (a1) onto destination (a0) by scanning to the
+end of the destination, then copying source bytes until the source null
+terminator. There is no limit on how many bytes are appended.
+
+If dest holds 900 bytes and source holds 200 bytes, the result (1100 bytes)
+overflows a 1024-byte buffer. The overflow corrupts whatever BSS object
+follows the destination buffer in memory.
+
+Triggered by any string concatenation in ACE BASIC:
+  DIM a$ AS STRING SIZE 1024
+  a$ = big1$ + big2$
+
+The compiler generates (expr.c:542-553):
+  1. _strcpy first operand into _tmpstring (1024 bytes, string_data.s:66)
+  2. _strcat second operand onto _tmpstring — can overflow _tmpstring
+  3. _strcpy result from _tmpstring to target variable — can overflow target
+
+Impact: Silent memory corruption. Depending on BSS layout, could corrupt
+other string variables, numeric variables, or runtime state. Hard to
+diagnose because symptoms appear far from the cause.
+
+
+Bug 2: _strcpy has no bounds checking
+--------------------------------------
+
+Location: src/lib/asm/simple_str.s:51-58
+
+_strcpy copies source (a1) to destination (a0) byte-by-byte until the
+source null terminator. There is no limit parameter.
+
+If the source string is longer than the destination buffer, _strcpy writes
+past the end of the buffer.
+
+This is the final step in every string assignment:
+  assign_to_string_variable() in assign.c:267-269 generates:
+    move.l (sp)+,a1    ; source (from expression evaluation)
+    move.l addrbuf,a0  ; destination (BSS buffer)
+    jsr _strcpy
+
+The destination buffer size is known at compile time (string_size parameter
+in create_string_variable, assign.c:213-219), but this size is never passed
+to the copy operation.
+
+Impact: Same as Bug 1 — silent BSS corruption.
+
+
+Bug 3: LINE INPUT# always reads up to MAXSTRINGSIZE bytes
+----------------------------------------------------------
+
+Location: src/lib/asm/file.s:686
+
+_line_input passes MAXSTRINGSIZE (1024) as the buffer size to fgetline(),
+regardless of the actual target buffer size:
+
+  _do_line_input:
+      move.l (a3),-(sp)             ; file handle
+      move.l #MAXSTRINGSIZE,-(sp)   ; HARDCODED to 1024
+      move.l a0,-(sp)               ; buffer address
+      jsr    _fgetline
+
+fgetline (fgets.c:72-97) then calls Read(iop, s, n-1), reading up to 1023
+bytes into the buffer.
+
+For a variable declared as STRING var$ SIZE 256, the buffer is only 256
+bytes. If the file line is longer than 255 characters, fgetline writes past
+the buffer end.
+
+The compiler knows the actual buffer size (it emits "ds.b <size>" in
+create_string_variable), but this size is not propagated to the runtime.
+
+Similarly, _finputstring (file.s:725) has the same hardcoded MAXSTRINGSIZE.
+
+Impact: Buffer overflow for any STRING SIZE < 1024. Strings declared without
+SIZE default to MAXSTRLEN (1024), matching MAXSTRINGSIZE, so the default
+case is safe.
+
+
+Proposed Fix Strategy
+---------------------
+
+All three bugs share the same fundamental issue: the runtime string
+operations don't know the destination buffer size. Two approaches:
+
+### Approach A: Bounded runtime functions (minimal change)
+
+Add bounded variants of the core string functions:
+
+  _strncpy(a0=dest, a1=src, d1=maxlen)
+    Copy at most maxlen-1 bytes from src to dest, always null-terminate.
+
+  _strncat(a0=dest, a1=src, d1=maxlen)
+    Append src to dest, but stop if total length would exceed maxlen-1.
+    Always null-terminate.
+
+The compiler already knows the buffer size at the point of assignment
+(string_size parameter). It would emit the size into a register (d1) before
+calling the bounded variant.
+
+For LINE INPUT#, the compiler would emit the buffer size into a known
+location (register or BSS variable) before calling _line_input, which
+would pass it to fgetline instead of MAXSTRINGSIZE.
+
+Changes required:
+  - simple_str.s: add _strncpy, _strncat
+  - file.s: _line_input and _finputstring read size from register/BSS
+  - fgets.c: fgetline already accepts n parameter, just needs correct value
+  - assign.c: emit buffer size before _strcpy calls
+  - expr.c: emit buffer size before _strcat in concatenation
+  - file.c: emit buffer size before _line_input calls
+  - acedef.h: no changes needed (string_size already tracked)
+
+### Approach B: Truncation with MAXSTRINGSIZE cap (simpler)
+
+Since MAXSTRINGSIZE == MAXSTRLEN == 1024 and most buffers are 1024 bytes,
+a simpler fix would cap all string operations at MAXSTRINGSIZE-1:
+
+  _strcpy: add a counter, stop after MAXSTRINGSIZE-1 bytes
+  _strcat: check combined length against MAXSTRINGSIZE-1
+  _line_input: already capped (this is the current behavior)
+
+This fixes the overflow for default-sized buffers and the _tmpstring
+intermediate buffer, but does NOT fix overflow for STRING SIZE < 1024.
+
+Tradeoff: simpler to implement but incomplete. Buffers smaller than 1024
+remain vulnerable.
+
+
+Recommendation
+--------------
+
+Approach A is the correct long-term fix. The compiler already tracks
+buffer sizes; the information just needs to reach the runtime.
+
+Approach B could be a quick interim fix to prevent the most common
+overflow scenarios (concatenation overflowing _tmpstring).
+
+
+Test Plan
+---------
+
+1. Concatenation overflow:
+   DIM a$ AS STRING SIZE 64
+   a$ = STRING$(60, "X") + STRING$(60, "Y")
+   ' Result should be truncated to 63 chars, not overflow
+
+2. Assignment overflow:
+   DIM short$ AS STRING SIZE 32
+   DIM long$ AS STRING SIZE 1024
+   long$ = STRING$(500, "A")
+   short$ = long$
+   ' short$ should be truncated to 31 chars
+
+3. LINE INPUT# overflow:
+   DIM buf$ AS STRING SIZE 64
+   ' Write a 200-char line to a file, then:
+   LINE INPUT #1, buf$
+   ' buf$ should be truncated to 63 chars
+
+4. Verify no overflow of adjacent variables:
+   DIM a$ AS STRING SIZE 64
+   DIM sentinel AS LONGINT
+   sentinel = 12345678
+   a$ = STRING$(200, "X")
+   ' sentinel must still be 12345678
+
+
+Related: PRINT# false alarm
+----------------------------
+
+The previously suspected PRINT #n bug (writing more bytes than the string
+content) was investigated and found NOT to be a runtime bug. The
+_writestring function (file.s:437-451) correctly uses _strlen to determine
+byte count before calling _LVOWrite. The original observation was likely
+caused by POKE-based buffer manipulation without null termination during
+HTTP client development.

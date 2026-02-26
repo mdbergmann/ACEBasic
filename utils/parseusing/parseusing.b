@@ -9,15 +9,11 @@ REM Replaces the ARexx script bin/parseUsing.rexx.
 
 DEFINT a-z
 
-DECLARE FUNCTION _Write&(fh&, buf&, length&) LIBRARY dos
-
 STRING fname$ SIZE 256
 STRING outName$ SIZE 256
 STRING ln$ SIZE 256
 STRING uln$ SIZE 256
 STRING pathStr$ SIZE 256
-STRING sp$ SIZE 2
-LONGINT outFh&
 
 IF ARGCOUNT < 2 THEN
   PRINT "Usage: parseusing <sourcefile> <outputfile>"
@@ -37,9 +33,7 @@ END IF
 
 REM Open output file
 OPEN "O",#2,outName$
-outFh& = HANDLE(2)
 
-sp$ = " "
 count = 0
 lineNum = 0
 
@@ -55,10 +49,8 @@ WHILE lineNum < 20 AND NOT EOF(1)
     REM Extract path after #using (6 chars)
     pathStr$ = LTRIM$(MID$(ln$, p + 6))
     IF LEN(pathStr$) > 0 THEN
-      IF count > 0 THEN
-        _Write(outFh&, SADD(sp$), 1)
-      END IF
-      _Write(outFh&, SADD(pathStr$), LEN(pathStr$))
+      IF count > 0 THEN PRINT #2, " ";
+      PRINT #2, pathStr$;
       count = count + 1
     END IF
   END IF
