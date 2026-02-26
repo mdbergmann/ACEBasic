@@ -1801,6 +1801,91 @@ including the h_Data field for passing context:
 	END SUB
 
 
+TASKPROC SUBs for Exec Tasks
+-----------------------------
+The TASKPROC keyword creates a SUB that is safe to use as an Exec Task
+entry point. Without TASKPROC, using a SUB as a task entry is error-prone:
+the task crashes when it returns because there is no calling code to return
+to. TASKPROC prevents this by auto-inserting a Wait(0) call before the
+return sequence, which suspends the task safely so it can be deleted by
+the parent.
+
+
+TASKPROC SUB Syntax
+~~~~~~~~~~~~~~~~~~~
+A TASKPROC SUB must have zero parameters:
+
+	SUB SubName TASKPROC
+	  ' Task body
+	END SUB
+
+The TASKPROC keyword comes after the subprogram name. Parentheses and
+parameters are not allowed (error 102).
+
+
+Generated Code
+~~~~~~~~~~~~~~
+The compiler generates the following for a TASKPROC SUB:
+
+	Entry:  movem.l d1-d7/a0-a6,-(sp)    ; save all registers
+	        link a5,#-N                    ; create stack frame
+
+	Exit:   movea.l _AbsExecBase,a6       ; auto-inserted Wait(0)
+	        moveq #0,d0
+	        jsr _LVOWait(a6)              ; suspends task forever
+	        unlk a5
+	        movem.l (sp)+,d1-d7/a0-a6     ; restore registers
+	        rts
+
+
+Getting the Entry Point Address
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Use the @ operator to get the entry point for CreateTask or TaskLaunch:
+
+	entryPoint& = @worker
+
+
+Restrictions
+~~~~~~~~~~~~
+1. Zero parameters only (compile error if parameters are declared).
+2. Cannot be called directly from ACE code (error 103).
+3. Must use GLOBAL variables for cross-task data (not SHARED, since the
+   task does not share the main program's A4 frame pointer).
+4. No string operations or library open/close inside the task body.
+5. Ensure the task stack is large enough (minimum 4096 bytes recommended).
+
+
+Example: Simple Counter Task
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	#include <submods/taskutil.h>
+	REM #using ace:submods/tasks/taskutil.o
+
+	GLOBAL LONGINT counter
+	GLOBAL SHORTINT done%
+
+	SUB worker TASKPROC
+	  WHILE counter < 1000
+	    counter = counter + 1
+	  WEND
+	  done% = -1
+	END SUB
+
+	counter = 0
+	done% = 0
+
+	LONGINT hTask&
+	hTask& = TaskLaunch(SADD("worker"), @worker, 0, 4096, 0)
+
+	WHILE done% = 0
+	WEND
+
+	PRINT "counter ="; counter
+	TaskTerminate(hTask&)
+
+See the tasks submodule (submods/tasks/) for TaskLaunch, TaskGetData, and
+TaskTerminate which wrap CreateTask/DeleteTask with tc_UserData-based
+parameter passing.
+
 
 Structures
 ----------

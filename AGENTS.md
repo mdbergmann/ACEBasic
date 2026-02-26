@@ -92,6 +92,22 @@ It may be necessary to call the commands of bas individually, i.e. to get the as
 
 A module must be compiled using `-m` switch: `bas -m mymod`.
 
+### Using `-E` flag for compiler errors
+
+`bas -E myfile` makes ace write compiler errors to `ace.err` in the current directory. **IMPORTANT: `ace.err` is overwritten on each `bas -E` call.** When compiling multiple files, save or append the errors after each compilation:
+
+```
+; Compile module, save errors
+bas -mEO mymod >ace:build-output.txt
+type ace.err >>ace:build-output.txt
+
+; Compile test, save errors separately
+bas -E test_foo >>ace:build-output.txt
+type ace.err >>ace:build-output.txt
+```
+
+Without this, only the last file's errors will remain in `ace.err`.
+
 ## ACE BASIC Syntax
 
 Full reference: `docs/ref.txt`

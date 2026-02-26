@@ -126,6 +126,10 @@ $(OBJ_DIR):
 $(BIN_DIR):
 	-@mkdir -p $(BIN_DIR)
 
+# Header dependency: all objects depend on the shared header
+HEADER = $(SRC_DIR)/acedef.h
+$(OBJECTS): $(HEADER)
+
 # Compile source files to object files
 # Using explicit source path since VPATH doesn't work reliably on AmigaOS
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c

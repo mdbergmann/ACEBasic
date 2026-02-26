@@ -3039,6 +3039,38 @@ SUB..END SUB	- syntax:
 		  that isn't accessible to the caller via INVOKE.
 		- See also BIND, INVOKE, @.
 
+	OR
+		- syntax (TASKPROC):
+
+		  SUB <ident> TASKPROC
+		    <statements>
+		  END SUB
+
+		- Creates a subprogram safe for use as an Exec Task entry
+		  point. TASKPROC SUBs must have zero parameters.
+		- On entry: all registers (D1-D7/A0-A6) are saved.
+		- On exit: Wait(0) is called automatically to suspend the
+		  task safely, then registers are restored and RTS executes.
+		  Without the auto-Wait, the task would crash on return.
+		- TASKPROC SUBs cannot be called directly from ACE code.
+		  Use @SubName to get the entry point address for CreateTask
+		  or the TaskLaunch submodule wrapper.
+		- Use GLOBAL variables (not SHARED) for cross-task data,
+		  since the task does not share the main program's A4 frame.
+		- Example:
+
+		    GLOBAL LONGINT counter
+
+		    SUB worker TASKPROC
+		      WHILE counter < 1000
+		        ++counter
+		      WEND
+		    END SUB
+
+		    hTask& = TaskLaunch(SADD("worker"), @worker, 0, 4096, 0)
+
+		- See also GLOBAL, the tasks submodule (submods/tasks/).
+
 --------------------------------------------------------------------------------
 SWAP		- syntax: SWAP <object>,<object>
 		  where <object> is a simple/external variable, parameter,
@@ -3088,6 +3120,17 @@ SYSTEM		- syntax 1: SYSTEM n
 		  version of the operating system under which it is running.
 		- A value of 34 indicates Workbench 1.3 while 37 indicates
 		  Workbench 2.04.
+
+--------------------------------------------------------------------------------
+TASKPROC	- Modifier for SUB that creates an Exec Task entry point.
+		- syntax: SUB name TASKPROC
+		- Must have zero parameters.
+		- Saves/restores all registers (D1-D7/A0-A6).
+		- Auto-inserts Wait(0) before return to suspend the task.
+		- Cannot be called from ACE code; use @name with CreateTask
+		  or the TaskLaunch submodule wrapper.
+		- Use GLOBAL (not SHARED) for cross-task data.
+		- See SUB..END SUB entry and ace.txt for full details.
 
 --------------------------------------------------------------------------------
 TAB		- syntax: TAB(n)

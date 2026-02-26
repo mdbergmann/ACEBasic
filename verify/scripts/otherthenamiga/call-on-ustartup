@@ -1,16 +1,1 @@
-; Verify merged _JsWriteNode (compact + formatted)
-
-cd ace:submods/json
-
-; Recompile json module
-execute make >ace:build-output.txt
-
-; Run all test suites
-execute ACE:bin/bas test_free >>ace:build-output.txt
-test_free >>ace:build-output.txt
-
-execute ACE:bin/bas test_roundtrip >>ace:build-output.txt
-test_roundtrip >>ace:build-output.txt
-
-execute ACE:bin/bas test_gen >>ace:build-output.txt
-test_gen >>ace:build-output.txt
+; Add test commands here

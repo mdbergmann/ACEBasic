@@ -179,6 +179,7 @@ STYLE STYLE n : STYLE changes text style. n: 0=plain, 1=underlined, 2=bold, 4=it
 SUB SUB [<type>] <ident>[(params)] [EXTERNAL] .. END SUB : SUB defines a subprogram. SUBs are non-static, allow recursion, may have return values and optional parameter lists.
 SWAP SWAP <object>,<object> : SWAP exchanges the values of two variables, array elements, structures or structure members.
 SYSTEM SYSTEM n | SYSTEM <command$> : SYSTEM exits with return code n, or executes a shell command. As a function, SYSTEM returns the Exec library version.
+TASKPROC SUB <ident> TASKPROC .. END SUB : TASKPROC creates a SUB safe for use as an Exec Task entry point. Zero parameters, auto-Wait(0) on exit, register save/restore. Use @name to get the entry address.
 TAB( PRINT TAB(n) : TAB() moves the print position to the nth column (n=1..81).
 TAN( tangent = TAN(n) : TAN() returns the tangent of n.
 THEN IF <condition> THEN [<statement>] : THEN is part of the IF conditional construct.

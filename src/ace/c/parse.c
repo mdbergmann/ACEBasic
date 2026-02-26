@@ -647,6 +647,7 @@ char saved_trace_label[40];
 
     sub_ptr=curr_item; /* pointer to sub info' */
     sub_ptr->is_callback = FALSE;  /* initialize callback flag */
+    sub_ptr->is_task = FALSE;      /* initialize task flag */
 
     turn_event_off(sub_name);   /* see event.c */
 
@@ -748,6 +749,36 @@ char saved_trace_label[40];
     {
 	insymbol();
 	sub_ptr->address = extfunc;
+    }
+
+    /* TASK SUB for Exec Task entry point? */
+    if (sym == taskprocsym)
+    {
+	insymbol();
+	sub_ptr->is_task = TRUE;
+
+	/* TASK SUBs must have zero parameters */
+	if (sub_ptr->no_of_params != 0)
+	    _error(102);
+
+	/* Make externally visible */
+	strcpy(xdef_name,sub_name);
+	xdef_name[0] = '*';
+	enter_XREF(xdef_name);
+
+	/* Insert movem.l BEFORE link to save registers (same as CALLBACK) */
+	{
+	    CODE *movem_code;
+	    movem_code = (CODE *)alloc_code("movem.l","d1-d7/a0-a6","-(sp)");
+	    if (movem_code != NULL)
+	    {
+		strcpy(movem_code->opcode, "movem.l");
+		strcpy(movem_code->srcopr, "d1-d7/a0-a6");
+		strcpy(movem_code->destopr, "-(sp)");
+		movem_code->next = link;
+		sub_label_code->next = movem_code;
+	    }
+	}
     }
 
     /*
@@ -958,8 +989,18 @@ char saved_trace_label[40];
 	}
     }
 
+    /* TASK SUB: auto-insert Wait(0) so task suspends instead of crashing */
+    if (sub_ptr->is_task)
+    {
+	gen("movea.l","_AbsExecBase","a6");
+	gen("moveq","#0","d0");
+	gen("jsr","_LVOWait(a6)","  ");
+	enter_XREF("_AbsExecBase");
+	enter_XREF("_LVOWait");
+    }
+
     gen("unlk","a5","  ");
-    if (sub_ptr->is_callback) gen("movem.l","(sp)+","d1-d7/a0-a6");
+    if (sub_ptr->is_callback || sub_ptr->is_task) gen("movem.l","(sp)+","d1-d7/a0-a6");
     gen("rts","  ","  ");
     gen(end_of_sub_label,"  ","  ");
 

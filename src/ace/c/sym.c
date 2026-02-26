@@ -195,6 +195,7 @@ int i;
  new_item->level = lev;
  new_item->shared = FALSE;  /* shared may be explicitly SET later */
  new_item->is_callback = FALSE;  /* initialize callback flag */
+ new_item->is_task = FALSE;      /* initialize task flag */
 
  /* array? -> store index maxima */
  if (obj == array)

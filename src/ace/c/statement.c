@@ -347,8 +347,9 @@ BOOL  need_symbol=TRUE;
     else
     {
       /* call SUB */
-      if (sub_item->is_callback)
-         _error(85);  /* CALLBACK SUB cannot be called from ACE code */
+      if (sub_item->is_callback || sub_item->is_task)
+         _error(sub_item->is_task ? 103 : 85);
+
       else
       {
          if (sub_item->no_of_params != 0)
@@ -550,8 +551,8 @@ SHORT popcount;
     else
        {
         /* user-defined subprogram */
-        if (curr_item->is_callback)
-           _error(85);  /* CALLBACK SUB cannot be called from ACE code */
+        if (curr_item->is_callback || curr_item->is_task)
+           _error(curr_item->is_task ? 103 : 85);
         else
         {
            if (curr_item->no_of_params != 0)
