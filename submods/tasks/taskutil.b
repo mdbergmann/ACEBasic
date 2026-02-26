@@ -13,10 +13,6 @@ SUB _TaskOpenExec
   LIBRARY "exec.library"
 END SUB
 
-SUB _TaskCloseExec
-  LIBRARY CLOSE "exec.library"
-END SUB
-
 SUB LONGINT TaskLaunch(LONGINT taskNameAddr, LONGINT entryPoint, LONGINT pri, LONGINT stackSize, LONGINT userData) EXTERNAL
   _TaskOpenExec
   DECLARE STRUCT Task taskPtr
@@ -43,5 +39,4 @@ SUB TaskTerminate(LONGINT hTask) EXTERNAL
   Forbid
   DeleteTask(hTask)
   Permit
-  _TaskCloseExec
 END SUB
