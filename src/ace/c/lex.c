@@ -321,8 +321,8 @@ char *msg;
   case 99 : msg="CASE requires a CLASS type name"; break;
   case 100: msg="END TYPECASE expected"; break;
   case 101: msg="Too many CASE branches in TYPECASE"; break;
-  case 102: msg="TASK SUB must have zero parameters"; break;
-  case 103: msg="TASK SUB cannot be called from ACE code"; break;
+  case 102: msg="TASKPROC SUB must have zero parameters"; break;
+  case 103: msg="TASKPROC SUB cannot be called from ACE code"; break;
  }
 
  /* show the error */

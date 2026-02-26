@@ -1,16 +1,18 @@
-; Verify merged _JsWriteNode (compact + formatted)
+echo "START" >ace:build-output.txt
+cd ace:submods/tasks
 
-cd ace:submods/json
+; test_userdata
+echo "compiling test_userdata" >>ace:build-output.txt
+bas -E test_userdata >>ace:build-output.txt
+type ace.err >>ace:build-output.txt
+echo "running test_userdata" >>ace:build-output.txt
+test_userdata >>ace:build-output.txt
 
-; Recompile json module
-execute make >ace:build-output.txt
+; test_struct
+echo "compiling test_struct" >>ace:build-output.txt
+bas -E test_struct >>ace:build-output.txt
+type ace.err >>ace:build-output.txt
+echo "running test_struct" >>ace:build-output.txt
+test_struct >>ace:build-output.txt
 
-; Run all test suites
-execute ACE:bin/bas test_free >>ace:build-output.txt
-test_free >>ace:build-output.txt
-
-execute ACE:bin/bas test_roundtrip >>ace:build-output.txt
-test_roundtrip >>ace:build-output.txt
-
-execute ACE:bin/bas test_gen >>ace:build-output.txt
-test_gen >>ace:build-output.txt
+echo "END" >>ace:build-output.txt

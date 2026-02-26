@@ -1,0 +1,342 @@
+# Exec Tasks — Spec
+
+## Status: PLANNED
+
+## Purpose
+
+Provide easy-to-use Amiga Exec Task support in ACE BASIC. The feature
+has two parts:
+
+1. **Compiler: TASK SUB modifier** — makes SUBs safe to use as Exec Task
+   entry points (auto-Wait, register save, no params)
+2. **Submodule: submods/tasks/** — wraps CreateTask/DeleteTask with
+   tc_UserData-based data passing (TaskLaunch, TaskGetData, TaskTerminate)
+
+
+## Branch
+
+`exec-tasks`
+
+
+## Background: Why a Language Construct?
+
+ACE can already create tasks manually (see examples/misc/SubTask.b) using
+@SubName + CreateTask from amiga.lib. But it's error-prone:
+
+- Forgetting `_Wait(0)` at the end of the task SUB → crash on return
+- Using SHARED variables instead of GLOBAL → crash (A4 not set up)
+- Boilerplate: LIBRARY, DECLARE FUNCTION, Forbid/DeleteTask/Permit
+- No way to pass parameters to the task SUB
+
+The TASK modifier prevents the #1 crash cause. The submodule hides the
+boilerplate and adds tc_UserData-based parameter passing.
+
+
+## Part 1: Compiler — TASK SUB Modifier
+
+### Syntax
+
+```basic
+SUB worker TASK
+  ' ... task body ...
+END SUB
+```
+
+### Semantics
+
+- Zero parameters only (compile error if params declared)
+- Register save/restore: `movem.l d1-d7/a0-a6,-(sp)` before `link`,
+  `movem.l (sp)+,d1-d7/a0-a6` after `unlk` (same as CALLBACK)
+- Auto-insert `_Wait(0)` before unlk/rts so the task suspends safely
+  instead of crashing on return (Wait with signal mask 0 = wait forever)
+- Suppress the Forbid/Permit parameter passing protocol (NOP it out,
+  same as CALLBACK does)
+- XDEF the label `_SUB_<NAME>` so modules can reference it
+
+### Generated Assembly
+
+```asm
+_SUB_WORKER:
+    movem.l d1-d7/a0-a6,-(sp)      ; save all registers
+    link    a5,#-N                   ; create frame (N bytes for locals)
+    ; ... task body ...
+_EXIT_SUB_WORKER:
+    ; auto-inserted Wait(0):
+    movea.l _AbsExecBase,a6
+    moveq   #0,d0                    ; signal mask = 0
+    jsr     _LVOWait(a6)             ; wait forever (task suspended)
+    unlk    a5
+    movem.l (sp)+,d1-d7/a0-a6       ; restore registers
+    rts
+```
+
+### Files Changed
+
+1. **acedef.h**
+   - Add `tasksym` to reserved words enum (alphabetically after `tabsym`)
+
+2. **lexvar.c**
+   - Add `"TASK"` to rword[] array (alphabetical order is CRITICAL)
+   - NOTE: TASK is not currently a reserved word; verify no collision
+
+3. **parse.c** (block() function, SUB handling ~line 680-760)
+   - After CALLBACK/INVOKABLE check, add TASK check (modifier is last,
+     parsed after params like INVOKABLE)
+     - Set `is_task = TRUE` flag
+     - Generate `movem.l d1-d7/a0-a6,-(sp)` before `link` (like CALLBACK)
+     - Suppress Permit code (NOP out, like CALLBACK)
+     - Enforce zero params (error if params were declared)
+     - Before `unlk`/`rts` epilogue: emit Wait(0) call
+   - Add `_LVOWait` XREF when task SUB is encountered
+
+4. **Error message**
+   - New error code (e.g. 102): "TASK SUB must have zero parameters"
+
+
+## Part 2: Submodule — submods/tasks/
+
+### Files to Create
+
+| File | Purpose |
+|------|---------|
+| `submods/tasks/tasks.b` | Implementation (~50 lines) |
+| `include/submods/tasks.h` | Header with DECLARE SUBs |
+| `submods/tasks/make` | Build script (AmigaDOS) |
+| `submods/tasks/test_basic.b` | Basic task launch/terminate test |
+| `submods/tasks/test_userdata.b` | tc_UserData parameter passing test |
+| `submods/tasks/test_struct.b` | Struct/class as user data test |
+
+### API
+
+```basic
+' Launch a task. Returns task address (0 on failure).
+' userData& is stored in the task's tc_UserData field (pass 0 if unused).
+SUB LONGINT TaskLaunch(taskName$, entryPoint&, pri&, stackSize&, userData&)
+
+' Retrieve tc_UserData for the currently running task.
+' Call this from within a TASK SUB to read the data passed via TaskLaunch.
+SUB LONGINT TaskGetData
+
+' Safely terminate a task (Forbid + DeleteTask + Permit).
+SUB TaskTerminate(hTask&)
+```
+
+### Implementation: tasks.b
+
+```basic
+#include <exec/tasks.h>
+
+LIBRARY "exec.library"
+DECLARE FUNCTION FindTask&(taskName$) LIBRARY exec
+DECLARE FUNCTION Forbid() LIBRARY exec
+DECLARE FUNCTION Permit() LIBRARY exec
+
+DECLARE FUNCTION CreateTask&(n$,p&,pc&,sz&) EXTERNAL
+DECLARE FUNCTION DeleteTask(task&) EXTERNAL
+
+SUB LONGINT TaskLaunch(taskName$, entryPoint&, pri&, stackSize&, userData&)
+  DECLARE STRUCT Task taskPtr
+  LONGINT hTask
+  Forbid
+  hTask = CreateTask(taskName$, pri, entryPoint, stackSize)
+  IF hTask <> 0 THEN
+    taskPtr = hTask
+    taskPtr->tc_UserData = userData
+  END IF
+  Permit
+  TaskLaunch = hTask
+END SUB
+
+SUB LONGINT TaskGetData
+  DECLARE STRUCT Task taskPtr
+  taskPtr = FindTask(0&)
+  TaskGetData = taskPtr->tc_UserData
+END SUB
+
+SUB TaskTerminate(hTask&)
+  Forbid
+  DeleteTask(hTask)
+  Permit
+END SUB
+```
+
+### Implementation: tasks.h
+
+```basic
+#ifndef SUBMODS_TASKS_H
+#define SUBMODS_TASKS_H
+
+DECLARE SUB LONGINT TaskLaunch(STRING taskName, LONGINT entryPoint, &
+  LONGINT pri, LONGINT stackSize, LONGINT userData) EXTERNAL
+DECLARE SUB LONGINT TaskGetData EXTERNAL
+DECLARE SUB TaskTerminate(LONGINT hTask) EXTERNAL
+
+#endif
+```
+
+### How tc_UserData Works
+
+Each task created by CreateTask gets its own Task struct in memory.
+The tc_UserData field (offset 88 in the Task struct) is a general-purpose
+ADDRESS field provided by Exec for application use.
+
+**TaskLaunch** sequence:
+1. Forbid (prevent the new task from running before setup is complete)
+2. CreateTask (allocates Task struct, sets up stack, adds to scheduler)
+3. Poke userData into the new task's tc_UserData field
+4. Permit (new task can now run and safely read its tc_UserData)
+
+**TaskGetData** sequence:
+1. FindTask(NULL) — returns the calling task's own Task struct pointer
+2. Read tc_UserData from that struct
+
+This is safe with multiple tasks because each task has its own struct
+and FindTask(NULL) always returns the caller's own struct.
+
+
+## Usage Examples
+
+### Simple (no parameters)
+
+```basic
+#include <submods/tasks.h>
+REM #using ace:submods/tasks/tasks.o
+
+GLOBAL LONGINT counter
+
+SUB worker TASK
+  WHILE counter < 1000
+    ++counter
+  WEND
+END SUB
+
+LONGINT hTask
+hTask = TaskLaunch("worker", @worker, 0, 4096, 0)
+' ... do other work ...
+PRINT "counter ="; counter
+TaskTerminate(hTask)
+```
+
+### Single value via tc_UserData
+
+```basic
+#include <submods/tasks.h>
+REM #using ace:submods/tasks/tasks.o
+
+GLOBAL LONGINT result
+
+SUB worker TASK
+  LONGINT startVal
+  startVal = TaskGetData()
+  result = startVal * 2
+END SUB
+
+LONGINT hTask
+hTask = TaskLaunch("worker", @worker, 0, 4096, 42)
+' ... wait for task to finish ...
+TaskTerminate(hTask)
+PRINT "result ="; result   ' prints 84
+```
+
+### Struct as user data (multiple parameters)
+
+```basic
+#include <submods/tasks.h>
+REM #using ace:submods/tasks/tasks.o
+
+STRUCT WorkerArgs
+  LONGINT x
+  LONGINT y
+END STRUCT
+
+GLOBAL LONGINT result
+
+SUB worker TASK
+  DECLARE STRUCT WorkerArgs params
+  params = TaskGetData()
+  result = params->x + params->y
+END SUB
+
+DECLARE STRUCT WorkerArgs args
+args->x = 10
+args->y = 20
+
+LONGINT hTask
+hTask = TaskLaunch("worker", @worker, 0, 4096, args)
+' ... wait ...
+TaskTerminate(hTask)
+PRINT "result ="; result   ' prints 30
+```
+
+### Class instance as user data (with TYPECASE)
+
+```basic
+#include <submods/tasks.h>
+REM #using ace:submods/tasks/tasks.o
+
+CLASS Job
+  LONGINT priority
+  LONGINT payload
+END CLASS
+
+GLOBAL LONGINT result
+
+SUB worker TASK
+  DECLARE CLASS Job job
+  job = TaskGetData()
+  result = job->payload * job->priority
+END SUB
+
+DECLARE CLASS Job myJob
+myJob->priority = 5
+myJob->payload = 100
+
+LONGINT hTask
+hTask = TaskLaunch("worker", @worker, 0, 4096, myJob)
+' ... wait ...
+TaskTerminate(hTask)
+PRINT "result ="; result   ' prints 500
+```
+
+
+## Constraints and Pitfalls
+
+1. **GLOBAL only, not SHARED**: Task SUBs cannot access SHARED variables
+   (A4 frame pointer is not set up). Use GLOBAL for cross-task data.
+
+2. **No string operations in tasks**: String allocation uses the main
+   program's memory allocator and is not task-safe.
+
+3. **No library open/close in tasks**: Library bases (_DOSBase etc.) are
+   globals and accessible, but don't open/close libraries from a task SUB.
+
+4. **Struct/class lifetime**: Data passed via tc_UserData must be allocated
+   in global memory (DECLARE STRUCT/CLASS uses BSS — this is fine). Don't
+   pass addresses of stack-local variables.
+
+5. **Stack size**: The stack is allocated by CreateTask. Ensure it's large
+   enough for the task's local variables and any nested calls. Minimum
+   recommended: 4096 bytes.
+
+6. **Task termination**: TaskTerminate uses DeleteTask which forcibly
+   removes the task. For cooperative shutdown, use a GLOBAL flag variable
+   that the task checks periodically.
+
+
+## Implementation Phases
+
+### Phase 1: TASK SUB modifier (compiler)
+- Add TASK reserved word
+- Implement TASK SUB modifier in parse.c (follow CALLBACK pattern)
+- Add error for TASK SUB with parameters
+- Build compiler, verify generated assembly
+
+### Phase 2: Tasks submodule
+- Create submods/tasks/tasks.b with TaskLaunch, TaskGetData, TaskTerminate
+- Create include/submods/tasks.h
+- Create submods/tasks/make build script
+
+### Phase 3: Testing
+- test_basic.b: launch task, increment GLOBAL counter, terminate
+- test_userdata.b: pass LONGINT via tc_UserData, verify task reads it
+- test_struct.b: pass struct/class address, verify member access in task

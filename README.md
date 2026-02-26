@@ -79,6 +79,7 @@ PRINT "Area:"; Area(r)   ' prints 50
 - **Object system** - CLASS types with single inheritance (EXTENDS), METHOD definitions, and GENERIC methods with runtime dynamic dispatch (single and multiple dispatch)
 - **Closures and function pointers** - First-class function references with `@`, `BIND` for partial application, `INVOKE` for indirect calls, and `INVOKABLE` keyword for callback SUBs
 - **CALLBACK SUBs** - SUBs that can be invoked via AmigaOS CallHookPtr() for system callbacks
+- **TASKPROC SUBs** - SUBs safe to use as Exec Task entry points (auto-Wait, register save/restore, zero parameters enforced)
 - **68020 native code generation** - Native 68020 instructions by default (use `OPTION 2-` for 68000 compatibility)
 - **Tail-call optimization** - Self-recursive tail calls optimized to jumps for constant stack usage (with `-O` or `OPTION O+`)
 - **Rich string functions** - TRIM$, LTRIM$, RTRIM$, RINSTR, STARTSWITH, ENDSWITH, REPLACE$, REVERSE$, REPEAT$, LPAD$, RPAD$, FMT$ (sprintf-style formatting), and MID$ statement form
@@ -100,6 +101,7 @@ PRINT "Area:"; Area(r)   ' prints 50
 - **Double-precision math** - IEEE 64-bit floating point (15+ significant digits) with full arithmetic, trigonometric, and string conversion
 - **TCP/HTTP client** - Struct-based TCP client with SSL/TLS support, plus full HTTP/1.1 client with GET/POST/PUT, chunked transfers, streaming callbacks, and HTTPS via AmiSSL
 - **Hashmap** - String-keyed dictionary with type-tagged values, insertion-order iteration, and builder pattern
+- **Exec Tasks** - Task creation/termination submodule with tc_UserData parameter passing, paired with the TASKPROC compiler keyword
 - **Files and Directories (FAD)** - High-level file system operations: path manipulation, directory traversal, recursive copy/delete
 - **Lisp-style list library** - Singly-linked lists with higher-order functions (map, filter, reduce, etc.) - requires OS 3.0+
 - **ASSERT statement** - Runtime assertion checking for defensive programming
@@ -260,7 +262,7 @@ Use descriptive names without spaces: `float_add.b`, not `float add.b`
 | `bin/` | ACE compiler and build scripts |
 | `bmaps/` | Binary maps for Amiga OS 39 shared libraries |
 | `examples/` | Example programs (30+ categories) |
-| `submods/` | Reusable BASIC libraries (MUI, list, HTTP, hashmap, fad, turtle, etc.) |
+| `submods/` | Reusable BASIC libraries (MUI, list, HTTP, hashmap, fad, tasks, turtle, etc.) |
 | `utils/` | Utility programs (fd2bmap, convert2ace, yap preprocessor) |
 | `docs/` | Documentation files |
 | `verify/tests/` | Test suite |
@@ -409,6 +411,12 @@ END IF
 ```
 
 Compile: `bas -m dp-float` (module), then `bas myprogram ace:submods/dp-float/dp-float.o` or use `REM #using ace:submods/dp-float/dp-float.o` in your source.
+
+### Tasks Submodule (`submods/tasks/`)
+
+Exec Task creation wrapper using the `TASKPROC` compiler keyword. The `TASKPROC` modifier on a SUB makes it safe as an Exec Task entry point (register save/restore, auto-Wait on exit, zero parameters enforced). The submodule provides `TaskLaunch`, `TaskGetData`, and `TaskTerminate` for task lifecycle management with tc_UserData-based parameter passing.
+
+See `submods/tasks/test_basic.b`, `test_userdata.b`, and `test_struct.b` for examples.
 
 ### FAD Submodule (`submods/fad/`)
 

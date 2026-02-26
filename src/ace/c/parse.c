@@ -752,7 +752,7 @@ char saved_trace_label[40];
     }
 
     /* TASK SUB for Exec Task entry point? */
-    if (sym == tasksym)
+    if (sym == taskprocsym)
     {
 	insymbol();
 	sub_ptr->is_task = TRUE;

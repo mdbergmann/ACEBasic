@@ -1,0 +1,79 @@
+Exec Tasks Feature - State File
+================================
+
+Branch: task-sub-modifier
+
+== Phase 1: TASKPROC SUB Modifier (COMPLETE) ==
+
+Compiler changes to support TASKPROC keyword on SUB definitions.
+Entry: saves all regs (movem.l d1-d7/a0-a6), link a5
+Exit: Wait(0) to suspend, unlk, restore regs, rts
+Error 102: TASKPROC SUB must have zero parameters
+Error 103: TASKPROC SUB cannot be called from ACE code
+
+Files changed:
+- src/ace/c/acedef.h: added taskprocsym (renamed from tasksym)
+- src/ace/c/lexvar.c: added "TASKPROC" to rword[] (alphabetical order)
+- src/ace/c/parse.c: TASKPROC handling in SUB block (movem.l insert, Wait(0) exit)
+- src/ace/c/sub.c: forward ref handling for is_task flag
+- src/ace/c/lex.c: error messages for TASKPROC
+
+Originally named TASK, renamed to TASKPROC because TASK clashes with
+AmigaOS struct Task from exec/tasks.h (ACE is case-insensitive).
+
+
+== Phase 2: Tasks Submodule (COMPLETE) ==
+
+Files created:
+- submods/tasks/taskutil.b    - module source
+- include/submods/taskutil.h  - header for callers
+- submods/tasks/make          - build script
+
+API:
+- TaskLaunch(LONGINT taskNameAddr, LONGINT entryPoint, LONGINT pri,
+             LONGINT stackSize, LONGINT userData) → LONGINT
+- TaskGetData() → LONGINT (reads tc_UserData of current task)
+- TaskTerminate(LONGINT hTask) - deletes the task
+
+Uses CreateTask/DeleteTask from amiga.lib (DECLARE FUNCTION EXTERNAL).
+Opens exec.library via private helper SUB _TaskOpenExec.
+Sets tc_UserData on created task via DECLARE STRUCT Task pointer.
+
+
+== Phase 3: Testing (COMPLETE) ==
+
+All tests pass on emulator:
+- test_basic.b:    TaskLaunch/TASKPROC worker/TaskTerminate — PASS
+- test_userdata.b: tc_UserData passing (6/6 assertions) — PASS
+- test_struct.b:   struct via userData (6/6 assertions) — PASS
+- test_minimal.b:  direct CreateTask (bypasses module) — PASS
+
+
+== Build Infrastructure ==
+
+Makefile-ace: added acedef.h as dependency for all .o files to prevent
+stale struct layout issues during incremental builds.
+
+
+== Issues Encountered During Development ==
+
+1. TASK keyword clashes with struct Task from exec/tasks.h → renamed to TASKPROC
+2. Module .b filename can't contain reserved words → named taskutil.b
+3. LIBRARY "exec.library" inside parameterized SUBs corrupts frame offsets
+   → use private helper SUB _TaskOpenExec (following list.b LInit pattern)
+4. Module init code never runs → LIBRARY must be called from within SUBs
+5. SUB worker() TASKPROC rejects empty parens → use SUB worker TASKPROC
+6. EXTERNAL keyword required on module SUB definitions for linking
+7. ace.err overwritten on each bas -E call → append after each compilation
+8. Use bas -S flag to get assembly output for debugging
+9. CRITICAL: SUB param suffix mismatch — declaring params with & suffix
+   (e.g. a&) creates identifier "A_IL", but referencing as bare "a" in the
+   body creates a DIFFERENT variable "A". Always use LONGINT keyword syntax
+   for params: SUB Foo(LONGINT a, LONGINT b) not SUB Foo(a&, b&).
+   Or use the & suffix consistently in both declaration AND body.
+10. bas -S strips ALL flags (including -m, -E) — use separate passes:
+    bas -mE for compilation, bas -S for assembly inspection only.
+11. REM #using + command-line .o = double-link error (duplicate symbols).
+    Use only one method.
+12. TaskLaunch takes LONGINT for task name (address) — pass SADD("name"),
+    not a string literal.
