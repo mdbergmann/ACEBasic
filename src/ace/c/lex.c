@@ -1093,6 +1093,29 @@ int cc;
   {
    scan_symbol();
   }
+  else
+  /* atom literal `name */
+  if (ch == '`')
+  {
+   int ac=0;
+   char abuf[MAXIDSIZE];
+   nextch();
+   if (!((ch>='A' && ch<='Z') || (ch>='a' && ch<='z')))
+      { _error(2); }
+   else
+   {
+    while ((ch>='A' && ch<='Z') || (ch>='a' && ch<='z') ||
+           (ch>='0' && ch<='9') || ch=='_')
+    {
+     if (ac < MAXIDSIZE-1) abuf[ac++] = ch;
+     nextch();
+    }
+    abuf[ac] = '\0';
+    strupr(abuf);
+    atomval = atom_hash(abuf);
+    sym = atomconst; typ = atomtype; obj = constant;
+   }
+  }
   /*
   ** Unknown symbol.
   */
