@@ -75,7 +75,7 @@ ENDIF
 
 ; Scan for REM #using directives in first 20 lines
 SET usingobj ""
-rx ace:bin/parseUsing.rexx $srcbase.b >T:bas_using
+ace:bin/parseusing $srcbase.b T:bas_using
 SET usingobj `type T:bas_using`
 delete >NIL: T:bas_using
 
