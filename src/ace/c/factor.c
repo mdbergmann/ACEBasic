@@ -215,10 +215,10 @@ BOOL need_symbol;
   	        else
   		if (obj == subprogram || obj == definedfunc)  /* subprogram */
   		{
-		 /* CALLBACK SUB cannot be called from ACE code */
-		 if (fact_item->is_callback)
+		 /* CALLBACK/TASK SUB cannot be called from ACE code */
+		 if (fact_item->is_callback || fact_item->is_task)
 		 {
-		  _error(85);
+		  _error(fact_item->is_task ? 103 : 85);
 		  insymbol();
 		  return(notype);
 		 }

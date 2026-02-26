@@ -107,6 +107,13 @@ int   sub_type=undefined;
 	sub_ptr->address = extfunc;
    }
 
+   /* TASK SUB for Exec Task entry point (forward ref) */
+   if (sym == tasksym)
+   {
+	insymbol();
+	sub_ptr->is_task = TRUE;
+   }
+
    sub_ptr->no_of_params=0;
    return; /* no parameters -> return sym */
   }
@@ -166,6 +173,13 @@ int   sub_type=undefined;
    {
 	insymbol();
 	sub_ptr->address = extfunc;
+   }
+
+   /* TASK SUB for Exec Task entry point (forward ref) */
+   if (sym == tasksym)
+   {
+	insymbol();
+	sub_ptr->is_task = TRUE;
    }
   }
  }

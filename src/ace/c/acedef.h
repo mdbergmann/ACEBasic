@@ -357,6 +357,7 @@ enum { 	abssym = 0,
 	stringkindsym,
 	structsym,
 	stylesym,
+	tasksym,
 	textkindsym,
 	trimstrsym,
 	typecasesym,
@@ -489,6 +490,7 @@ typedef struct symstruct {
 			  BOOL   shared;	     /* is object shared? */
 			  BOOL   new_string_var;     /* new string variable? */
 			  BOOL   is_callback;        /* TRUE if CALLBACK SUB */
+			  BOOL   is_task;            /* TRUE if TASK SUB */
 			  SHORT  *index;     	     /* array indices */
 			  SHORT	 no_of_params;       /* # of SUB parameters */
 			  int	 p_type[MAXPARAMS];  /* SUB parameter types */
