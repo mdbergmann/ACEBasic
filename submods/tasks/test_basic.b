@@ -9,7 +9,7 @@ GLOBAL SHORTINT done%
 
 SUB worker TASKPROC
   WHILE counter < 1000
-    counter = counter + 1
+    ++counter
   WEND
   done% = -1
 END SUB
