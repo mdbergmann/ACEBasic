@@ -1,8 +1,8 @@
-REM Test: TASK SUB modifier
-REM Purpose: Verify TASK SUB compiles and is XDEF'd
+REM Test: TASKPROC SUB modifier
+REM Purpose: Verify TASKPROC SUB compiles and is XDEF'd
 REM Note: Cannot test runtime (needs Exec CreateTask), only compilation
 
-SUB worker TASK
+SUB worker TASKPROC
     LONGINT dummy
     dummy = 42
 END SUB
