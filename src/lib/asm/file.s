@@ -683,7 +683,7 @@ _line_input_get_handle:
 _do_line_input:
 	; call fgetline() -- (see fgets.c)
 	move.l	(a3),-(sp)		; push the filehandle.
-	move.l	#MAXSTRINGSIZE,-(sp)	; want to read MAXSTRINGSIZE-1 chars. 
+	move.l	d1,-(sp)		; push buffer size (from caller).
 	move.l	a0,-(sp)		; push buffer address.
 	jsr	_fgetline		; returns line of chars or NULL string.
 	add.l	#12,sp

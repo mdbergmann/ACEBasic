@@ -30,6 +30,8 @@
    	; simple string functions
    	xdef  	_strcpy
    	xdef  	_strcat
+   	xdef  	_strncpy
+   	xdef  	_strncat
    	xdef  	_strlen
 	xdef	_strcmp
    	xdef  	_streq
@@ -70,9 +72,54 @@ _concat:
         beq.s   _quitstrcat  ; source EOS?
         move.b    (a1)+,(a0)+  ; copy from source to dest
         bra.s   _concat
-_quitstrcat: 
+_quitstrcat:
         move.b (a1),(a0)    ; copy the EOS marker!
         rts
+
+;
+; bounded string copy: copy at most d1-1 bytes from a1 to a0, always null-terminate.
+; a0=dest, a1=src, d1=maxlen (buffer size including null terminator).
+;
+_strncpy:
+	subq.l	#1,d1
+	ble.s	_strncpy_eos		; maxlen <= 1 -> just null-terminate
+_strncpy_loop:
+	cmp.b	#0,(a1)
+	beq.s	_strncpy_eos
+	move.b	(a1)+,(a0)+
+	subq.l	#1,d1
+	beq.s	_strncpy_eos		; buffer full
+	bra.s	_strncpy_loop
+_strncpy_eos:
+	move.b	#0,(a0)
+	rts
+
+;
+; bounded string concatenation: append a1 to a0, total length <= d1-1, always null-terminate.
+; a0=dest, a1=src, d1=maxlen (buffer size including null terminator).
+;
+_strncat:
+	moveq	#0,d0
+_strncat_scan:
+	cmp.b	#0,(a0)+
+	beq.s	_strncat_found
+	addq.l	#1,d0
+	bra.s	_strncat_scan
+_strncat_found:
+	subq	#1,a0			; back to EOS
+	sub.l	d0,d1
+	subq.l	#1,d1			; d1 = remaining space
+	ble.s	_strncat_done		; no space
+_strncat_copy:
+	cmp.b	#0,(a1)
+	beq.s	_strncat_done
+	move.b	(a1)+,(a0)+
+	subq.l	#1,d1
+	beq.s	_strncat_done
+	bra.s	_strncat_copy
+_strncat_done:
+	move.b	#0,(a0)
+	rts
 
 ;
 ; find the length of the string pointed to by a2. d0=length (LONG).

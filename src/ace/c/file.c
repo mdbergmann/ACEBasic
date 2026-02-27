@@ -113,7 +113,7 @@ void close_a_file()
 
 void line_input()
 {
-char addrbuf[40];
+char addrbuf[40],buf[20];
 SYM  *storage;
 
  /* LINE INPUT  [;][prompt-string;]string-variable
@@ -160,16 +160,22 @@ SYM  *storage;
      /* get address of string pointed to by variable/array element */
      gen_frame_addr(storage->address,addrbuf);
 
-     /* pass filenumber (d0) and string address (a0) to function */
+     /* pass filenumber (d0), string address (a0), buffer size (d1) */
      if (storage->object == array)
      {
       point_to_array(storage,addrbuf);
       gen("move.l",addrbuf,"a0");
       gen("adda.l","d7","a0");
+      sprintf(buf,"#%ld",(long)storage->numconst.longnum);
+      gen("move.l",buf,"d1");
      }
      else
-      	 gen("move.l",addrbuf,"a0");	/* string address */
-      
+     {
+      gen("move.l",addrbuf,"a0");	/* string address */
+      sprintf(buf,"#%ld",(long)storage->size);
+      gen("move.l",buf,"d1");
+     }
+
      gen("move.l","(sp)+","d0");	/* filenumber */
 
      /* call _line_input */
@@ -485,7 +491,7 @@ SYM  *storage;
 	 		 if (storage->object == array)
 			 {
 			  point_to_array(storage,addrbuf);
-			  assign_to_string_array(addrbuf);
+			  assign_to_string_array(addrbuf, storage->numconst.longnum);
 			 }
 
 		      break;

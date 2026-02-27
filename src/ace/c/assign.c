@@ -263,24 +263,31 @@ char addrbuf[20],buf[80];
    gen("move.l",buf,addrbuf);
  }
 
- /* copy string on stack to variable */
+ /* copy string on stack to variable (bounded) */
  gen("move.l","(sp)+","a1");  /* source */
  gen("move.l",addrbuf,"a0");  /* destination */
- gen_rt_call("_strcpy");      /* copy source to destination */
+ sprintf(buf,"#%ld",(long)string_item->size);
+ gen("move.l",buf,"d1");
+ gen_rt_call("_strncpy");     /* bounded copy */
 }
 
-void assign_to_string_array(char *addrbuf)
+void assign_to_string_array(addrbuf, element_size)
+char *addrbuf;
+LONG element_size;
 {
-/* - assigns a string on the stack 
+/* - assigns a string on the stack
      to the specified string array element.
    - assumes absolute index is in d7.
 */
+char buf[20];
 
  gen("move.l","(sp)+","a1"); /* source */
- gen("move.l",addrbuf,"a0");  
+ gen("move.l",addrbuf,"a0");
  gen("adda.l","d7","a0");    /* destination */
 
- gen_rt_call("_strcpy");     /* copy source to destination */
+ sprintf(buf,"#%ld",(long)element_size);
+ gen("move.l",buf,"d1");
+ gen_rt_call("_strncpy");    /* bounded copy */
 }
 
 void assign_to_struct(SYM *item)
@@ -491,7 +498,9 @@ int    num_derefs,i;
       {
        gen("move.l","(sp)+","a1");
        gen("movea.l","(sp)+","a0");
-       gen_rt_call("_strcpy");
+       sprintf(numbuf,"#%ld",(long)member->strsize);
+       gen("move.l",numbuf,"d1");
+       gen_rt_call("_strncpy");
       }
       else
       if (member->type == shorttype)
@@ -609,7 +618,9 @@ int    num_derefs,i;
        sprintf(numbuf,"#%ld",(long)total_offset);
        gen("move.l","(sp)+","a1");  /* source */
        gen("adda.l",numbuf,"a0");   /* destination = struct address + offset */
-       gen_rt_call("_strcpy");      /* copy source to destination */
+       sprintf(numbuf,"#%ld",(long)member->strsize);
+       gen("move.l",numbuf,"d1");
+       gen_rt_call("_strncpy");     /* bounded copy */
       }
       else
       if (member->type == shorttype)
@@ -748,11 +759,13 @@ int  exprtype;
 		      else
 		      if (storage_item->type == stringtype)
 		      {
-			/* string */
+			/* string (bounded) */
 			gen("move.l","(sp)+","a1");
-			gen("lea",ext_name,"a0");	
-			gen_rt_call("_strcpy");
-		      }	
+			gen("lea",ext_name,"a0");
+			sprintf(buf,"#%ld",(long)storage_item->size);
+			gen("move.l",buf,"d1");
+			gen_rt_call("_strncpy");
+		      }
 		      else
 			 /* long integer, single-precision */
 			 gen("move.l","(sp)+",ext_name);
@@ -785,7 +798,7 @@ int  exprtype;
 			gen("move.l","_tmpelement","d7");
 
 		        if (storage_item->type == stringtype)
-			   assign_to_string_array(addrbuf);
+			   assign_to_string_array(addrbuf, storage_item->numconst.longnum);
         		else
 			{
 			gen("move.l",addrbuf,"a0");
@@ -1159,11 +1172,11 @@ SYM  *storage;
 
 		      if (storage->object == variable)
   	   		 assign_to_string_variable(storage,MAXSTRLEN);
-		      else 
+		      else
 	 		 if (storage->object == array)
 			 {
 			  point_to_array(storage,addrbuf);
-			  assign_to_string_array(addrbuf);
+			  assign_to_string_array(addrbuf, storage->numconst.longnum);
 			 }
 
 		      break;
@@ -1306,7 +1319,7 @@ SYM  *storage;
   	   		   assign_to_string_variable(storage,MAXSTRLEN);
 			else
 			   if (storage->object == array)
-			      assign_to_string_array(addrbuf);
+			      assign_to_string_array(addrbuf, storage->numconst.longnum);
 			break;
 
     case singletype :   gen_rt_call("_htol"); /* return LONG from (a1) */

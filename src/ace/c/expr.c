@@ -499,6 +499,7 @@ int  op,i;
 int  firsttype,localtype;
 BOOL coercion;
 CODE *cx[5];
+char buf[20];
 
  firsttype=modterm();
  localtype=firsttype;
@@ -539,16 +540,19 @@ CODE *cx[5];
     case singletype : 	gen_float_call("_LVOIEEESPAdd");
         		break;
 
-    case stringtype : 	/* copy source to temp string */
+    case stringtype : 	/* copy source to temp string (bounded) */
         		gen("move.l","(sp)+","a2"); /* 2nd */
         		gen("move.l","(sp)+","a1"); /* 1st */
 			make_temp_string();
         		gen("lea",tempstrname,"a0");
-        		gen_rt_call("_strcpy");
-        		/* prepare for strcat */
+			sprintf(buf,"#%d",MAXSTRLEN);
+			gen("move.l",buf,"d1");
+        		gen_rt_call("_strncpy");
+        		/* append 2nd string (bounded) */
         		gen("lea",tempstrname,"a0");
         		gen("move.l","a2","a1");
-        		gen_rt_call("_strcat");
+			gen("move.l",buf,"d1");
+        		gen_rt_call("_strncat");
         		gen("pea",tempstrname,"  ");
         		break;
    }
