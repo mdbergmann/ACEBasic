@@ -52,11 +52,11 @@
   @{" STOP              " link "STOP"}  @{" STR$              " link "STR$"}  @{" STRIG             " link "STRIG"}  @{" STRING            " link "STRING"}
   @{" STRING$           " link "STRING$"}  @{" STRUCT            " link "STRUCT"}  @{" STYLE             " link "STYLE"}  @{" SUB..END SUB      " link "SUB..END SUB"}
   @{" SWAP              " link "SWAP"}  @{" SYSTEM            " link "SYSTEM"}  @{" TAB               " link "TAB"}  @{" TAN               " link "TAN"}
-  @{" TIME$             " link "TIME$"}  @{" TIMER             " link "TIMER"}  @{" TIMER ON          " link "TIMER ON"}  @{" TRANSLATE$        " link "TRANSLATE$"}
-  @{" TRIM$             " link "TRIM$"}  @{" TROFF             " link "TROFF"}  @{" TRON              " link "TRON"}  @{" UCASE$            " link "UCASE$"}
-  @{" VAL               " link "VAL"}  @{" VARPTR            " link "VARPTR"}  @{" WAVE              " link "WAVE"}  @{" WHILE..WEND       " link "WHILE..WEND"}
-  @{" WINDOW            " link "WINDOW"}  @{" WINDOW CLOSE      " link "WINDOW CLOSE"}  @{" WINDOW ON         " link "WINDOW ON"}  @{" WINDOW OUTPUT     " link "WINDOW OUTPUT"}
-  @{" WRITE #           " link "WRITE #"}  @{" XOR               " link "XOR"}
+  @{" TASKPROC          " link "TASKPROC"}  @{" TIME$             " link "TIME$"}  @{" TIMER             " link "TIMER"}  @{" TIMER ON          " link "TIMER ON"}
+  @{" TRANSLATE$        " link "TRANSLATE$"}  @{" TRIM$             " link "TRIM$"}  @{" TROFF             " link "TROFF"}  @{" TRON              " link "TRON"}
+  @{" UCASE$            " link "UCASE$"}  @{" VAL               " link "VAL"}  @{" VARPTR            " link "VARPTR"}  @{" WAVE              " link "WAVE"}
+  @{" WHILE..WEND       " link "WHILE..WEND"}  @{" WINDOW            " link "WINDOW"}  @{" WINDOW CLOSE      " link "WINDOW CLOSE"}  @{" WINDOW ON         " link "WINDOW ON"}
+  @{" WINDOW OUTPUT     " link "WINDOW OUTPUT"}  @{" WRITE #           " link "WRITE #"}  @{" XOR               " link "XOR"}
 @ENDNODE
 @NODE "Introduction" "Introduction"
 +------------+
@@ -2968,8 +2968,9 @@ SIN		- syntax: SIN(n)
 @ENDNODE
 @NODE "SINGLE" "SINGLE"
 SINGLE *	- syntax: SINGLE <identifier>[,..]
-		- Declares and initialises one or more single-precision 
-		  variables.
+		- Declares and initialises one or more single-precision
+		  variables. Uses IEEE 754 single-precision format (4 bytes).
+		  Requires AmigaOS 2.0+ (Kickstart 37+).
  
 @ENDNODE
 @NODE "SIZEOF" "SIZEOF"
@@ -3271,6 +3272,38 @@ SUB..END SUB	- syntax:
 		  generates code that stores the return in a frame variable
 		  that isn't accessible to the caller via INVOKE.
 		- See also @{"BIND" link "BIND"}, @{"INVOKE" link "INVOKE"}, @.
+
+	OR
+		- syntax (TASKPROC):
+
+		  SUB <ident> TASKPROC
+		    <statements>
+		  END SUB
+
+		- Creates a subprogram safe for use as an Exec Task entry
+		  point. TASKPROC SUBs must have zero parameters.
+		- On entry: all registers (D1-D7/A0-A6) are saved.
+		- On exit: Wait(0) is called automatically to suspend the
+		  task safely, then registers are restored and RTS executes.
+		  Without the auto-Wait, the task would crash on return.
+		- TASKPROC SUBs cannot be called directly from ACE code.
+		  Use @SubName to get the entry point address for CreateTask
+		  or the TaskLaunch submodule wrapper.
+		- Use GLOBAL variables (not SHARED) for cross-task data,
+		  since the task does not share the main program's A4 frame.
+		- Example:
+
+		    GLOBAL LONGINT counter
+
+		    SUB worker TASKPROC
+		      WHILE counter < 1000
+		        ++counter
+		      WEND
+		    END SUB
+
+		    hTask& = TaskLaunch(SADD("worker"), @worker, 0, 4096, 0)
+
+		- See also @{"GLOBAL" link "GLOBAL"}, the tasks submodule (submods/tasks/).
  
 @ENDNODE
 @NODE "SWAP" "SWAP"
@@ -3339,6 +3372,18 @@ TAB		- syntax: TAB(n)
 @NODE "TAN" "TAN"
 TAN		- syntax: TAN(n)
 		- Returns the tangent of n.
+ 
+@ENDNODE
+@NODE "TASKPROC" "TASKPROC"
+TASKPROC	- Modifier for SUB that creates an Exec Task entry point.
+		- syntax: SUB name TASKPROC
+		- Must have zero parameters.
+		- Saves/restores all registers (D1-D7/A0-A6).
+		- Auto-inserts Wait(0) before return to suspend the task.
+		- Cannot be called from ACE code; use @name with CreateTask
+		  or the TaskLaunch submodule wrapper.
+		- Use GLOBAL (not SHARED) for cross-task data.
+		- See SUB..END SUB entry and @{"ace.guide" alink ace:docs/ace.guide/main} for full details.
  
 @ENDNODE
 @NODE "TIME$" "TIME$"
@@ -3826,6 +3871,7 @@ XOR		- Boolean operator: X XOR Y.
 
         @{" TAB               " link "TAB"}
         @{" TAN               " link "TAN"}
+        @{" TASKPROC          " link "TASKPROC"}
         @{" TIME$             " link "TIME$"}
         @{" TIMER             " link "TIMER"}
         @{" TIMER ON          " link "TIMER ON"}

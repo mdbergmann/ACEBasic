@@ -7,54 +7,57 @@
 			       | ACE v3.0.0 |
 			       +------------+
 
-                      @{" Printing this document               " link printing-this-document}
-                      @{" What is ACE?                         " link what-is-ace-}
-                      @{" Who is it for?                       " link who-is-it-for-}
-                      @{" Installation                         " link installation}
-                      @{" Using the compiler                   " link using-the-compiler}
-                      @{" Compiler options                     " link compiler-options}
-                      @{" Running ACE programs                 " link running-ace-programs}
-                      @{" About the example programs           " link about-the-example-programs}
-                      @{" General comments                     " link general-comments}
-                      @{" The preprocessor and #include files  " link the-preprocessor-and-include-files}
-                      @{" Precedence of operators              " link precedence-of-operators}
-                      @{" Indirection operators                " link indirection-operators}
-                      @{" Identifiers                          " link identifiers}
-                      @{" Sequential Files                     " link sequential-files}
-                      @{" Random Files                         " link random-files}
-                      @{" Command line and Workbench arguments " link command-line-and-workbench-arguments}
-                      @{" Subprograms                          " link subprograms}
-                      @{" Tail-Call Optimisation               " link tail-call-optimisation}
-                      @{" Function Pointers and Closures       " link function-pointers-and-closures}
-                      @{" Callback SUBs for Amiga Hooks        " link callback-subs-for-amiga-hooks}
-                      @{" Structures                           " link structures}
-                      @{" Shared library function calls        " link shared-library-function-calls}
-                      @{" Machine code calls                   " link machine-code-calls}
-                      @{" External references                  " link external-references}
-                      @{" Common and Global variables          " link common-and-global-variables}
-                      @{" Subprogram modules (SUBmods)         " link subprogram-modules-submods-}
-                      @{" Windows                              " link windows}
-                      @{" Screens                              " link screens}
-                      @{" Gadgets                              " link gadgets}
-                      @{" GadTools Gadgets                     " link gadtools-gadgets}
-                      @{" Menus                                " link menus}
-                      @{" Requesters                           " link requesters}
-                      @{" Turtle Graphics                      " link turtle-graphics}
-                      @{" Sound                                " link sound}
-                      @{" Event trapping                       " link event-trapping}
-                      @{" Interprocess Communication           " link interprocess-communication}
-                      @{" Error Handling                       " link error-handling}
-                      @{" Notes for assembly programmers       " link notes-for-assembly-programmers}
-                      @{" Internal Calling Conventions         " link internal-calling-conventions}
-                      @{" Limitations                          " link limitations}
-                      @{" Known Bugs                           " link known-bugs}
-                      @{" Future versions                      " link future-versions}
-                      @{" A note to PD libraries and reviewers " link a-note-to-pd-libraries-and-reviewers}
-                      @{" Disclaimer                           " link disclaimer}
-                      @{" References                           " link references}
-                      @{" Contacting the author                " link contacting-the-author}
-                      @{" CyberspACE: FTP, mailing list, WWW   " link cyberspace-ftp-mailing-list-www}
-                      @{" Final word                           " link final-word}
+                      @{" Printing this document                 " link printing-this-document}
+                      @{" What is ACE?                           " link what-is-ace-}
+                      @{" Who is it for?                         " link who-is-it-for-}
+                      @{" Installation                           " link installation}
+                      @{" Using the compiler                     " link using-the-compiler}
+                      @{" Compiler options                       " link compiler-options}
+                      @{" Running ACE programs                   " link running-ace-programs}
+                      @{" About the example programs             " link about-the-example-programs}
+                      @{" General comments                       " link general-comments}
+                      @{" The preprocessor and #include files    " link the-preprocessor-and-include-files}
+                      @{" Atoms                                  " link atoms}
+                      @{" Precedence of operators                " link precedence-of-operators}
+                      @{" Indirection operators                  " link indirection-operators}
+                      @{" Identifiers                            " link identifiers}
+                      @{" Sequential Files                       " link sequential-files}
+                      @{" Random Files                           " link random-files}
+                      @{" Command line and Workbench arguments   " link command-line-and-workbench-arguments}
+                      @{" Subprograms                            " link subprograms}
+                      @{" Tail-Call Optimisation                 " link tail-call-optimisation}
+                      @{" Function Pointers and Closures         " link function-pointers-and-closures}
+                      @{" Callback SUBs for Amiga Hooks          " link callback-subs-for-amiga-hooks}
+                      @{" TASKPROC SUBs for Exec Tasks           " link taskproc-subs-for-exec-tasks}
+                      @{" Structures                             " link structures}
+                      @{" Object System (CLASS, METHOD, GENERIC) " link object-system-class-method-generic-}
+                      @{" Shared library function calls          " link shared-library-function-calls}
+                      @{" Machine code calls                     " link machine-code-calls}
+                      @{" External references                    " link external-references}
+                      @{" Common and Global variables            " link common-and-global-variables}
+                      @{" Subprogram modules (SUBmods)           " link subprogram-modules-submods-}
+                      @{" Windows                                " link windows}
+                      @{" Screens                                " link screens}
+                      @{" Gadgets                                " link gadgets}
+                      @{" GadTools Gadgets                       " link gadtools-gadgets}
+                      @{" Menus                                  " link menus}
+                      @{" Requesters                             " link requesters}
+                      @{" Turtle Graphics                        " link turtle-graphics}
+                      @{" Sound                                  " link sound}
+                      @{" Event trapping                         " link event-trapping}
+                      @{" Interprocess Communication             " link interprocess-communication}
+                      @{" Error Handling                         " link error-handling}
+                      @{" Notes for assembly programmers         " link notes-for-assembly-programmers}
+                      @{" Internal Calling Conventions           " link internal-calling-conventions}
+                      @{" Limitations                            " link limitations}
+                      @{" Known Bugs                             " link known-bugs}
+                      @{" Future versions                        " link future-versions}
+                      @{" A note to PD libraries and reviewers   " link a-note-to-pd-libraries-and-reviewers}
+                      @{" Disclaimer                             " link disclaimer}
+                      @{" References                             " link references}
+                      @{" Contacting the author                  " link contacting-the-author}
+                      @{" CyberspACE: FTP, mailing list, WWW     " link cyberspace-ftp-mailing-list-www}
+                      @{" Final word                             " link final-word}
 @ENDNODE
 @NODE printing-this-document "Printing this document"
 Printing this document
@@ -583,8 +586,9 @@ The following fundamental data types are currently supported:
  
 	- signed short integers (2 bytes = 16 bits)
 	- signed long integers  (4 bytes = 32 bits)
-	- single-precision: Motorola fast floating point (4 bytes = 32 bits)
-	- strings (default length of 1024 bytes including ASCII 0 at end of string) 
+	- single-precision: IEEE 754 single-precision (4 bytes = 32 bits)
+	- strings (default length of 1024 bytes including ASCII 0 at end of string)
+	- atoms: lightweight symbolic constants (4 bytes = 32 bits)
  
 Exponential and fixed-point formats are recognised by ACE for single-precision 
 numbers.
@@ -670,8 +674,71 @@ strings manipulated by C's standard library functions.
  
 A string literal without a final '"' will be truncated at the end of the 
 line.
- 
- 
+
+
+@ENDNODE
+@NODE atoms "Atoms"
+Atoms
+-----
+Atoms are lightweight symbolic constants identified by the #: prefix
+(e.g. #:ready, #:error, #:done). They provide type-safe symbolic values
+without requiring pre-declared enums, making them useful for state machines,
+option flags, message types, and similar patterns.
+
+At runtime an atom is a LONG (4 bytes) containing a compile-time FNV-1a
+hash of the uppercased name. The hash is deterministic, so the same atom
+name always produces the same value, even across separately compiled
+modules. Atom names are case-insensitive: #:foo, #:FOO, and #:Foo are all
+identical.
+
+Declaration:
+
+	ATOM state                    ' declares atom variable, initialized to 0
+	ATOM state = #:ready          ' declares and assigns
+	ATOM a, b, c                  ' multiple declarations
+	DIM ATOM states(10)           ' atom array
+
+Atom literal syntax:
+
+	#:identifier                  ' hash-colon followed by BASIC identifier
+	                              ' letters, digits, underscore only
+
+Assignment and comparison:
+
+	state = #:done                ' assignment
+	IF state = #:ready THEN ...   ' equality test
+	IF state <> #:done THEN ...   ' inequality test
+
+Only = and <> comparisons are allowed for atoms. Ordering comparisons
+(<, >, <=, >=) and arithmetic operations are not permitted. Atoms cannot
+be mixed with other types: assigning a numeric or string value to an atom
+variable (or vice versa) is a type error.
+
+Atoms in SUB parameters:
+
+	SUB Process(ATOM action)
+	  IF action = #:run THEN ...
+	END SUB
+	CALL Process(#:run)
+
+Atoms in CASE statements (via boolean expressions):
+
+	ATOM action = #:run
+	CASE
+	  action = #:stop: PRINT "stopping"
+	  action = #:run:  PRINT "running"
+	END CASE
+
+Atoms as structure members:
+
+	STRUCT MyStruct
+	  ATOM status
+	END STRUCT
+
+PRINT of an atom variable prints its hash value as a long integer.
+Uninitialized atom variables have value 0.
+
+
 @ENDNODE
 @NODE precedence-of-operators "Precedence of operators"
 Precedence of operators
@@ -1713,6 +1780,93 @@ including the h_Data field for passing context:
 	END SUB
 
 
+@ENDNODE
+@NODE taskproc-subs-for-exec-tasks "TASKPROC SUBs for Exec Tasks"
+TASKPROC SUBs for Exec Tasks
+----------------------------
+The TASKPROC keyword creates a SUB that is safe to use as an Exec Task
+entry point. Without TASKPROC, using a SUB as a task entry is error-prone:
+the task crashes when it returns because there is no calling code to return
+to. TASKPROC prevents this by auto-inserting a Wait(0) call before the
+return sequence, which suspends the task safely so it can be deleted by
+the parent.
+
+
+TASKPROC SUB Syntax
+~~~~~~~~~~~~~~~~~~~
+A TASKPROC SUB must have zero parameters:
+
+	SUB SubName TASKPROC
+	  ' Task body
+	END SUB
+
+The TASKPROC keyword comes after the subprogram name. Parentheses and
+parameters are not allowed (error 102).
+
+
+Generated Code
+~~~~~~~~~~~~~~
+The compiler generates the following for a TASKPROC SUB:
+
+	Entry:  movem.l d1-d7/a0-a6,-(sp)    ; save all registers
+	        link a5,#-N                    ; create stack frame
+
+	Exit:   movea.l _AbsExecBase,a6       ; auto-inserted Wait(0)
+	        moveq #0,d0
+	        jsr _LVOWait(a6)              ; suspends task forever
+	        unlk a5
+	        movem.l (sp)+,d1-d7/a0-a6     ; restore registers
+	        rts
+
+
+Getting the Entry Point Address
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Use the @ operator to get the entry point for CreateTask or TaskLaunch:
+
+	entryPoint& = @worker
+
+
+Restrictions
+~~~~~~~~~~~~
+1. Zero parameters only (compile error if parameters are declared).
+2. Cannot be called directly from ACE code (error 103).
+3. Must use GLOBAL variables for cross-task data (not SHARED, since the
+   task does not share the main program's A4 frame pointer).
+4. No string operations or library open/close inside the task body.
+5. Ensure the task stack is large enough (minimum 4096 bytes recommended).
+
+
+Example: Simple Counter Task
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	#include <submods/taskutil.h>
+	REM #using ace:submods/tasks/taskutil.o
+
+	GLOBAL LONGINT counter
+	GLOBAL SHORTINT done%
+
+	SUB worker TASKPROC
+	  WHILE counter < 1000
+	    counter = counter + 1
+	  WEND
+	  done% = -1
+	END SUB
+
+	counter = 0
+	done% = 0
+
+	LONGINT hTask&
+	hTask& = TaskLaunch(SADD("worker"), @worker, 0, 4096, 0)
+
+	WHILE done% = 0
+	WEND
+
+	PRINT "counter ="; counter
+	TaskTerminate(hTask&)
+
+See the tasks submodule (submods/tasks/) for TaskLaunch, TaskGetData, and
+TaskTerminate which wrap CreateTask/DeleteTask with tc_UserData-based
+parameter passing.
+
 
 @ENDNODE
 @NODE structures "Structures"
@@ -1722,7 +1876,7 @@ Structures have been included in ACE mainly because of their utility in
 gaining access to operating system functions. 
  
 Structure members may be of the following type: BYTE (in structures only),
-SHORTINT, LONGINT, ADDRESS, SINGLE, STRING. Any of these types can have an
+SHORTINT, LONGINT, ADDRESS, SINGLE, STRING, ATOM. Any of these types can have an
 optional SIZE specifier to declare a fixed-size array of that type within the
 struct: <type> <ident> SIZE <count>. SIZE means element count for all types.
 
@@ -2011,12 +2165,420 @@ will complain. ACE _does_ long-word align a static structure's start address
 however, and assigning to structure pointer variables results in long-word
 aligned structures when using ACE's ALLOC or Exec's AllocMem() etc. 
  
-Finally, it is not currently possible to use INPUT, (LINE) INPUT# or READ 
+Finally, it is not currently possible to use INPUT, (LINE) INPUT# or READ
 in conjunction with structures.
- 
- 
- 
-	
+
+
+
+
+@ENDNODE
+@NODE object-system-class-method-generic- "Object System (CLASS, METHOD, GENERIC)"
+Object System (CLASS, METHOD, GENERIC)
+--------------------------------------
+ACE provides a lightweight object system built on top of structures. It adds
+type identity, single inheritance, and runtime method dispatch while remaining
+fully compatible with existing STRUCT-based code. The object system consists of
+three concepts:
+
+  - CLASS: a structure type with an automatic type descriptor (identity)
+  - METHOD: a subprogram associated with a particular class
+  - GENERIC METHOD: a dispatch declaration that routes a call to the correct
+    METHOD at runtime, based on the class (or atom) type of one or more
+    arguments
+
+Together they provide dynamic dispatch (also known as polymorphism): you write
+one call site and the runtime selects the correct method implementation based
+on the actual type of the argument.
+
+
+CLASS declaration
+.................
+A CLASS is declared with the same syntax as a STRUCT, but the compiler
+automatically inserts a hidden 4-byte descriptor pointer at offset 0. This
+pointer identifies the class type at runtime and is invisible to the
+programmer.
+
+	CLASS Shape
+	  LONGINT x
+	  LONGINT y
+	END CLASS
+
+	CLASS Box
+	  LONGINT w
+	  LONGINT h
+	END CLASS
+
+Like structures, class members can be BYTE, SHORTINT, LONGINT, ADDRESS,
+SINGLE, STRING, ATOM, or embedded struct/class types. SIZE arrays are
+supported too.
+
+Instances are created with DECLARE CLASS (analogous to DECLARE STRUCT):
+
+	DECLARE CLASS Shape s
+	s->x = 10
+	s->y = 20
+
+	DECLARE CLASS Box b
+	b->w = 5
+	b->h = 3
+
+SIZEOF works as expected, but includes the hidden 4-byte descriptor:
+
+	PRINT SIZEOF(Shape)     '..prints 12 (4 desc + 4 x + 4 y)
+	PRINT SIZEOF(Box)       '..prints 12 (4 desc + 4 w + 4 h)
+
+A CLASS instance can be passed to a SUB as a parameter, just like a struct:
+
+	SUB PrintPos(Shape s)
+	  PRINT s->x; ","; s->y
+	END SUB
+
+	PrintPos(s)
+
+
+CLASS EXTENDS (inheritance)
+...........................
+A class can inherit all members of a parent class with EXTENDS:
+
+	CLASS Rect EXTENDS Shape
+	  LONGINT w
+	  LONGINT h
+	END CLASS
+
+Rect inherits x and y from Shape, then adds w and h. Inherited members
+appear at the same offsets as in the parent, so a Rect can be used anywhere
+a Shape is expected.
+
+	DECLARE CLASS Rect r
+	r->x = 10          '..inherited from Shape
+	r->y = 20          '..inherited from Shape
+	r->w = 100         '..own member
+	r->h = 50          '..own member
+
+	PRINT SIZEOF(Rect)  '..prints 20 (4 desc + 4 x + 4 y + 4 w + 4 h)
+
+Multi-level chains are supported:
+
+	CLASS ColorRect EXTENDS Rect
+	  LONGINT colour
+	END CLASS
+
+	PRINT SIZEOF(ColorRect)  '..prints 24 (Rect's 20 + 4 colour)
+
+The parent class must be defined before the child. An empty body is
+allowed (CLASS X EXTENDS Y / END CLASS) to create an alias with distinct
+identity.
+
+
+METHOD definition
+.................
+A METHOD is a subprogram associated with a particular class. It looks like a
+SUB but uses the METHOD keyword and requires at least one CLASS-typed (or
+atom-literal) parameter:
+
+	METHOD Draw(Shape s)
+	  PRINT "Shape at"; s->x; ","; s->y
+	END METHOD
+
+	METHOD Draw(Box b)
+	  PRINT "Box"; b->w; "x"; b->h
+	END METHOD
+
+Methods can have a return type, just like typed SUBs:
+
+	METHOD LONGINT GetArea(Rect r)
+	  GetArea = r->w * r->h
+	END METHOD
+
+EXIT METHOD works the same as EXIT SUB:
+
+	METHOD LONGINT CheckVal(Shape s)
+	  IF s->x > 100 THEN
+	    CheckVal = -1
+	    EXIT METHOD
+	  END IF
+	  CheckVal = s->x
+	END METHOD
+
+Methods can mix dispatched parameters (CLASS, ATOM) with non-dispatched ones
+(LONGINT, SINGLE, STRING, etc.):
+
+	METHOD SetXY(Shape s, LONGINT nx, LONGINT ny)
+	  s->x = nx
+	  s->y = ny
+	END METHOD
+
+	METHOD LONGINT Rename(Shape s, STRING label$)
+	  IF label$ = "origin" THEN
+	    s->x = 0 : s->y = 0
+	    Rename = 1
+	  ELSE
+	    Rename = 0
+	  END IF
+	END METHOD
+
+	METHOD SINGLE Offset(Shape s, SINGLE delta)
+	  Offset = s->x + delta
+	END METHOD
+
+A METHOD can also specialise on atom literals:
+
+	METHOD LONGINT Apply(Shape s, #:set cmd, LONGINT amount)
+	  s->x = amount
+	  Apply = amount
+	END METHOD
+
+	METHOD LONGINT Apply(Shape s, #:add cmd, LONGINT amount)
+	  s->x = s->x + amount
+	  Apply = s->x
+	END METHOD
+
+Note: methods are not called directly. They are called through a GENERIC
+METHOD declaration (see below).
+
+
+GENERIC METHOD declaration
+..........................
+A GENERIC METHOD declares the dispatch signature and lists which class/atom
+combinations have implementations. It is the glue between call sites and
+METHOD definitions.
+
+	GENERIC METHOD Draw(CLASS)
+	  ON Shape
+	  ON Box
+	END GENERIC
+
+This tells the compiler: "Draw takes one dispatched CLASS argument. At
+runtime, look at the actual class type of the argument and call the matching
+METHOD." Each ON clause names one class that has a METHOD implementation.
+
+To call the generic method, use ordinary call syntax:
+
+	DECLARE CLASS Shape s1
+	DECLARE CLASS Box b1
+	s1->x = 10 : s1->y = 20
+	b1->w = 5 : b1->h = 3
+
+	Draw(s1)     '..calls METHOD Draw(Shape)
+	Draw(b1)     '..calls METHOD Draw(Box)
+
+For typed return values, put the type before METHOD:
+
+	GENERIC LONGINT METHOD GetArea(CLASS)
+	  ON Rect
+	END GENERIC
+
+	LONGINT area
+	area = GetArea(r)
+
+Non-dispatched parameters appear in the GENERIC signature by their type,
+but are NOT listed in the ON clauses:
+
+	GENERIC METHOD SetXY(CLASS, LONGINT, LONGINT)
+	  ON Shape
+	END GENERIC
+
+	SetXY(s1, 42, 99)
+
+When dispatching on both CLASS and ATOM, every ON clause must specify a type
+for each dispatched position:
+
+	GENERIC LONGINT METHOD Apply(CLASS, ATOM, LONGINT)
+	  ON Shape, #:set
+	  ON Shape, #:add
+	END GENERIC
+
+	Apply(s1, #:set, 50)      '..calls Apply(Shape, #:set, ...)
+	Apply(s1, #:add, 25)      '..calls Apply(Shape, #:add, ...)
+
+
+Multiple dispatch
+.................
+A GENERIC can dispatch on more than one position. Each ON clause lists a
+class/atom name for every dispatched position:
+
+	GENERIC LONGINT METHOD Collide(CLASS, CLASS)
+	  ON Disc, Disc
+	  ON Disc, Rect
+	  ON Rect, Disc
+	  ON Rect, Rect
+	END GENERIC
+
+	METHOD LONGINT Collide(Disc a, Disc b)
+	  Collide = 11
+	END METHOD
+
+	METHOD LONGINT Collide(Disc a, Rect b)
+	  Collide = 12
+	END METHOD
+
+	'..etc
+
+	result = Collide(d1, r1)   '..returns 12 (Disc, Rect)
+
+
+ATOM dispatch
+.............
+ATOM-only dispatch uses ATOM in the GENERIC signature instead of CLASS.
+The ON clauses name atom literals:
+
+	GENERIC LONGINT METHOD Process(ATOM)
+	  ON #:ok
+	  ON #:fail
+	END GENERIC
+
+	METHOD LONGINT Process(#:ok result)
+	  Process = 1
+	END METHOD
+
+	METHOD LONGINT Process(#:fail result)
+	  Process = -1
+	END METHOD
+
+	ATOM status
+	status = #:ok
+	LONGINT pv
+	pv = Process(status)      '..returns 1
+	pv = Process(#:fail)      '..returns -1
+
+Mixed CLASS + ATOM dispatch is also supported:
+
+	GENERIC LONGINT METHOD React(CLASS, ATOM)
+	  ON Widget, #:click
+	  ON Widget, #:hover
+	  ON Knob, #:click
+	END GENERIC
+
+	rv = React(wg, #:click)
+
+
+Inheritance and dispatch
+........................
+When a GENERIC dispatches on a CLASS and the child class has no matching
+METHOD, the runtime walks up the parent chain until it finds a match. This
+means you can define a METHOD for a base class and it will be called for all
+subclasses that do not override it:
+
+	CLASS Shape
+	  LONGINT x
+	  LONGINT y
+	END CLASS
+
+	CLASS Rect EXTENDS Shape
+	  LONGINT w
+	  LONGINT h
+	END CLASS
+
+	GENERIC LONGINT METHOD Describe(CLASS)
+	  ON Shape
+	END GENERIC
+
+	METHOD LONGINT Describe(Shape s)
+	  Describe = s->x + s->y
+	END METHOD
+
+	DECLARE CLASS Rect r
+	r->x = 3 : r->y = 4
+	LONGINT rv
+	rv = Describe(r)          '..returns 7 (walks Rect -> Shape)
+
+To override a parent's method, add the child class to the ON list and define
+a METHOD for it:
+
+	GENERIC LONGINT METHOD Info(CLASS)
+	  ON Shape
+	  ON Rect
+	END GENERIC
+
+	METHOD LONGINT Info(Shape s)
+	  Info = 1
+	END METHOD
+
+	METHOD LONGINT Info(Rect r)
+	  Info = 2
+	END METHOD
+
+	Info(s1)   '..returns 1 (Shape)
+	Info(r1)   '..returns 2 (Rect)
+
+Parent chain walking works through multiple levels. If you have
+Shape -> Rect -> ColorRect and only Shape has a METHOD, calling with a
+ColorRect will walk ColorRect -> Rect -> Shape and find it.
+
+Note: parent chain walking only applies to single-CLASS dispatch (one
+dispatched position). Multi-dispatch uses exact matching only.
+
+
+Cross-module dispatch
+.....................
+Methods and generics work across separately compiled modules. In the module,
+define the CLASSes, METHODs, and GENERIC as usual. In the main program, use
+DECLARE GENERIC METHOD to import the dispatch table:
+
+	'..In module: shapes_mod.b
+	CLASS Shape ... END CLASS
+	METHOD Draw(Shape s) ... END METHOD
+	GENERIC METHOD Draw(CLASS)
+	  ON Shape
+	END GENERIC
+
+	'..In main program:
+	DECLARE GENERIC METHOD Draw(CLASS)
+	  ON Shape
+	END GENERIC
+
+	Draw(s1)   '..dispatches to method defined in module
+
+
+Performance considerations
+..........................
+The object system adds a small amount of overhead compared to calling a SUB
+directly:
+
+  - Every GENERIC call goes through the _gm_dispatch runtime function, which
+    reads a dispatch table, compares hash values, and jumps to the resolved
+    METHOD. For single-CLASS dispatch this is a tight loop of hash comparisons
+    (one LONG compare + branch per ON entry) plus a descriptor dereference.
+    For N ON entries it is O(N) in the worst case.
+  - Each METHOD call uses Exec Forbid/Permit around parameter setup to protect
+    the callee's stack frame. This adds two library calls per dispatch.
+  - Parent chain walking (inheritance dispatch) adds one descriptor dereference
+    per inheritance level traversed, but is only needed when the exact class
+    is not listed in the ON clauses.
+
+For most programs this overhead is negligible. However, if you have
+performance-critical inner loops that call the same operation thousands of
+times per frame, prefer direct SUB calls. Use GENERIC METHOD where the
+flexibility of dynamic dispatch justifies the cost -- such as event handling,
+UI updates, or game entity logic where different types require different
+behaviour.
+
+As a rule of thumb: a direct SUB call is a single JSR instruction. A GENERIC
+METHOD dispatch adds roughly 20-40 instructions of overhead per call
+depending on the number of ON entries and dispatch positions.
+
+
+Error messages
+..............
+The compiler reports specific errors for the object system:
+
+  86: CLASS without END CLASS
+  87: Unknown class type (in DECLARE CLASS)
+  88: Class type already defined (duplicate CLASS name)
+  89: Class instance already declared
+  90: METHOD without END METHOD
+  91: Expected CLASS or atom literal in METHOD parameter
+  92: GENERIC without METHOD keyword
+  93: Expected ON in GENERIC block
+  94: END GENERIC expected
+  95: Too many ON entries in GENERIC
+  96: Wrong number of types in ON clause
+  97: EXTENDS requires a defined CLASS type
+
+If no METHOD matches at runtime, the program prints "NO APPLICABLE METHOD"
+and exits.
+
+
 @ENDNODE
 @NODE shared-library-function-calls "Shared library function calls"
 Shared library function calls
@@ -2059,7 +2621,7 @@ Notes about standard libraries used by ACE:
  
 	- There are currently six standard libraries which are often opened 
 	  by ACE routines during a program run. These are: dos, intuition,
-	  graphics, mathffp, mathtrans and translator libraries.
+	  graphics, mathieeesingbas, mathieeesingtrans and translator libraries.
  
 	- If one of these six is opened by the LIBRARY command it will 
 	  be opened at the start of the program *and* closed at the end. 
@@ -2380,8 +2942,8 @@ There are a few things to be kept in mind when using ACE modules:
 	by the other ACE modules linked to it. If in doubt add the 
 	following lines of code at the top of your main program:
  
-			LIBRARY mathffp
-			LIBRARY mathtrans
+			LIBRARY mathieeesingbas
+			LIBRARY mathieeesingtrans
 			LIBRARY graphics
 			LIBRARY intuition
 			LIBRARY translator	'..only if TRANSLATE$ used
@@ -2420,8 +2982,8 @@ actions will do.
 	  executed. This RESTORE command *must* be in a subprogram.
  
 	  For example, in the calling module:
- 
-		library mathffp
+
+		library mathieeesingbas
 		declare sub data_test external
 		data_test
  
@@ -2444,7 +3006,7 @@ actions will do.
  
 	  For example, in the calling module:
  
-	  	library mathffp
+	  	library mathieeesingbas
 	  	declare sub timer_test external
 	  	timer_test
  
@@ -3383,12 +3945,9 @@ closure may hold a stale pointer.
 @NODE known-bugs "Known Bugs"
 Known Bugs
 ----------
-If mathieeesingtrans.library is not present at runtime, the FFP SPPow()
-function will be used for exponentiation. This will produce incorrect
-results for a combination of a negative base and odd exponent. Only pre-2.0
-systems should be affected by this however. SPPow() is otherwise less
-accurate and apparently slower than its IEEE counterpart, which is used if
-the IEEE library is present.
+ACE now requires AmigaOS 2.0+ (Kickstart 37+) since it uses the IEEE 754
+single-precision math libraries (mathieeesingbas.library and
+mathieeesingtrans.library) which are part of AmigaOS 2.0 and later.
  
 The SAY(n) *function* works under release 2.x but not under 1.3. Since the 
 function uses no 2.x-specific code, this is puzzling. The SAY command works 
