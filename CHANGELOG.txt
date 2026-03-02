@@ -1,7 +1,7 @@
                                   CHANGELOG
                                   =========
 
-v3.0.0 (2026-02-20)
+v3.0.0 (2026-03-02)
 -------------------
 
 New Features:
@@ -14,9 +14,27 @@ New Features:
   - VBCC Toolchain: Switched ACE compiler build from GCC to VBCC
     cross-compiler. Runtime libraries rebuilt with VBCC.
 
-  - ATOM Primitive Type (#93): New lightweight symbolic constant type for
-    pattern matching and tagging. ATOM values are compile-time integer
-    constants that can be used in CASE statements and comparisons.
+  - Object System (#97): CLASS, METHOD, EXTENDS, and GENERIC keywords
+    for object-oriented programming. Single inheritance with runtime
+    type dispatch via parent chain walk. Polymorphic method dispatch
+    across multiple type combinations. TRON/TROFF trace support for
+    METHOD definitions.
+
+  - TYPECASE (#102): Type-based pattern matching (TYPECASE/CASE/END
+    TYPECASE) with ISA inheritance semantics and variable narrowing,
+    enabling runtime class dispatch where subclass members become
+    accessible within each matched case block.
+
+  - ATOM Primitive Type (#93): Lightweight symbolic constant type for
+    pattern matching and tagging. Literal syntax: #:name.
+
+  - TASKPROC Keyword (#114): SUB modifier for Exec Task entry points.
+    Auto-saves/restores registers and calls Wait(0) before return.
+    Zero-parameter SUBs only; cannot be called from ACE code directly.
+
+  - Struct SUB Parameters (#95): Struct type names as SUB parameter
+    types (e.g. SUB Foo(MyStruct s)), auto-generating pointer setup
+    and eliminating manual DECLARE STRUCT boilerplate.
 
   - EXIT WHILE / EXIT REPEAT (#82): New statements to break out of
     WHILE...WEND and REPEAT...UNTIL loops early, analogous to EXIT FOR.
@@ -32,18 +50,36 @@ New Features:
   - CyberGfx Screen Support (#86): SCREEN mode 13 now also supports
     CyberGraphX retargetable graphics (in addition to Picasso96).
 
+  - Bounded String Operations: Runtime _strncpy/_strncat preventing
+    buffer overflows. Compiler emits destination buffer size for string
+    variable, array, struct member assignments, and LINE INPUT#.
+
   - IFF Picture Submodule (#84): IFF ILBM picture support extracted from
     compiler/runtime into a standalone submodule.
 
 New Submodules:
 
   - iff.b: IFF ILBM picture loading (extracted from built-in commands).
+  - fad.b (#101): Files And Directories — 20+ SUBs for file system
+    operations (existence checks, metadata, path manipulation, directory
+    iteration).
+  - hashmap.b (#107): CLASS-based string-keyed hashmap with open
+    addressing, typed value storage, and iteration.
+  - dynarray.b (#111): Growable type-tagged indexed collection with
+    iteration, builder, search, higher-order functions, and sort.
+  - json.b (#113): Complete JSON parser, generator, and pretty-printer
+    using hashmap and dynarray as intermediate representation.
+  - taskutil.b (#114): Exec Task utilities — TaskLaunch, TaskGetData,
+    TaskTerminate.
+  - testkit.b (#108): Shared test assertion library (TkAssertTrue,
+    TkAssertEq, TkAssertEqStr, etc.) eliminating duplicated test
+    boilerplate across submodules.
 
 Changes:
 
-  - Replace ami.lib with amiga.lib (#90, #87): Replaced the custom ami.lib
-    with the standard amiga.lib plus custom ace_clib.s and ieee_math.s
-    modules for better compatibility.
+  - Replace ami.lib with amiga.lib (#90, #87): Replaced the custom
+    ami.lib with the standard amiga.lib plus custom ace_clib.s and
+    ieee_math.s modules for better compatibility.
 
   - Runtime Library Optimizations (#62): Lookup tables, O(1) argument
     access, and dynamic allocation improvements in runtime libraries.
@@ -51,7 +87,14 @@ Changes:
   - Submod Test Runner (#91): Unified submod test runner (runner.rexx)
     replacing per-submod test scripts.
 
+  - parseUsing Rewritten in ACE BASIC: Replaced ARexx parseUsing.rexx
+    with compiled ACE BASIC utility.
+
+  - AIDE Removed from Distribution: Still available on Aminet.
+
   - Eliminated ~170 Runtime Library Build Warnings (#61).
+
+  - Updated vasm to 2.0e.
 
 Bug Fixes:
 
