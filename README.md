@@ -135,6 +135,8 @@ The installer will:
 5. If an existing `ACE:` installation is found, offer to copy/upgrade files
 
 A manual install is of course also still possible. Just copy the extracted folder where you want it and setup the assigns as mentioned above.
+On manual install you should set +s flag on the ACE:bin/bas script: `protect ACE:bin/bas +s` so that it is executable.
+Also make sure the binaries in ACE:bin have the `e` flag set.
 
 ## Building
 
