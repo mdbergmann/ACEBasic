@@ -15,6 +15,11 @@
 ;
 ; The script also parses REM #using directives in the first 20 lines:
 ;   REM #using ace:submods/list/list.o  - Adds list.o to the link stage
+;
+; 68000 support:
+;   If the source contains OPTION 2- the program is linked against
+;   68000 runtime libraries (ACElib:68000/) and vc.lib.
+;   Otherwise 68020 runtime libraries (ACElib:) are used.
 
 ; Command paths
 ALIAS cmd_ace ace:bin/ace
@@ -85,6 +90,12 @@ IF NOT "$usingobj" EQ ""
   SET extraobj "$extraobj $usingobj"
 ENDIF
 
+; Detect OPTION 2- in source (68000 target)
+SET is68k 0
+rx "is68k=0;if open('IN','$srcbase.b','R') then do;do i=1 to 50;l=readln('IN');if pos('OPTION',upper(l))>0 & pos('2-',l)>0 then do;is68k=1;leave;end;end;call close('IN');end;say is68k" >T:bas_is68k
+SET is68k `type T:bas_is68k`
+delete >NIL: T:bas_is68k
+
 ; preprocess source file.
 echo "Preprocessing..."
 cmd_yap $srcbase.b T:$srcbase.b
@@ -139,7 +150,13 @@ IF $ismod EQ 1
   delete >NIL: T:$srcbase.o
 ELSE
   ; Normal: link to executable
-  cmd_vlink -bamigahunk -x -Bstatic -nostdlib -mrel -s -o T:$srcbase T:$srcbase.o $extraobj ACElib:startup.lib ACElib:db.lib ACElib:amiga.lib
+  ; Use 68000 libs + vc.lib if OPTION 2- was detected, otherwise 68020 libs
+  IF $is68k EQ 1
+    echo "Linking for 68000..."
+    cmd_vlink -bamigahunk -x -Bstatic -nostdlib -mrel -s -o T:$srcbase T:$srcbase.o $extraobj ACElib:68000/startup.lib ACElib:68000/db.lib ACElib:amiga.lib ACElib:vc.lib
+  ELSE
+    cmd_vlink -bamigahunk -x -Bstatic -nostdlib -mrel -s -o T:$srcbase T:$srcbase.o $extraobj ACElib:startup.lib ACElib:db.lib ACElib:amiga.lib
+  ENDIF
 
   ; leave us with the executable (and icon?).
   copy T:$srcbase ""

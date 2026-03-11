@@ -42,8 +42,8 @@ SHELL = sh
 # Toolchain
 # Using vbcc (matches Makefile-lib toolchain)
 CC = /vbcc/bin/vc
-CFLAGS = -c -O2 -cpu=68020
-LDFLAGS = -cpu=68020 -lmieee -lamiga
+CFLAGS = -c -O2 -cpu=68000
+LDFLAGS = -cpu=68000 -lmieee -lamiga
 
 # Paths - Using relative paths from src/make/ directory
 # Pattern rules require relative paths for Make to find source files correctly

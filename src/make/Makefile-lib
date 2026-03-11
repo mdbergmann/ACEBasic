@@ -12,7 +12,8 @@
 #
 # Usage:
 #   From src/make/ directory:
-#     make -f Makefile-lib           # Build both libraries (quiet mode)
+#     make -f Makefile-lib           # Build 68020 libraries (default)
+#     make -f Makefile-lib CPU=68000 # Build 68000 libraries (to lib/68000/)
 #     make -f Makefile-lib V=1       # Build with verbose output
 #     make -f Makefile-lib db.lib    # Build only db.lib
 #     make -f Makefile-lib startup   # Build only startup.lib
@@ -41,20 +42,30 @@
 # Shell - use AmigaDOS shell instead of /bin/sh
 SHELL = sh
 
+# CPU target (default: 68020, use CPU=68000 for 68000)
+CPU = 68020
+
 # Toolchain
 # Using vbcc/vasm/vlink for hunk format (compatible with ACE programs)
 # Use Unix-style paths (make doesn't understand Amiga colons)
 CC = /vbcc/bin/vc
-CFLAGS = -c -O2 -cpu=68020
+CFLAGS = -c -O2 -cpu=$(CPU)
 AS = /vbcc/bin/vasmm68k_mot
 ASFLAGS = -Fhunk -quiet
 
 # Paths - Using relative paths from src/make/ directory
 LIB_C_SRC = ../lib/c
 LIB_ASM_SRC = ../lib/asm
-LIB_OBJ = ../lib/obj
 STARTUP_SRC = ../lib/startup
-LIB_OUT = ../../lib
+
+# Output and object paths depend on CPU target
+ifeq ($(CPU),68000)
+  LIB_OBJ = ../lib/obj/68000
+  LIB_OUT = ../../lib/68000
+else
+  LIB_OBJ = ../lib/obj
+  LIB_OUT = ../../lib
+endif
 
 # Verbose control
 # V=0 (default): Quiet mode - shows only high-level progress
@@ -111,7 +122,7 @@ STARTUP_LIB = $(LIB_OUT)/startup.lib
 
 # Default target - build both libraries
 all: dirs $(DB_LIB) $(STARTUP_LIB)
-	@echo "Build complete: $(DB_LIB) $(STARTUP_LIB)"
+	@echo "Build complete ($(CPU)): $(DB_LIB) $(STARTUP_LIB)"
 
 # Convenience target for db.lib
 db.lib: dirs $(DB_LIB)
@@ -187,9 +198,11 @@ help:
 	@echo "  help     - Show this help message"
 	@echo ""
 	@echo "Options:"
-	@echo "  V=1      - Verbose output (show all commands)"
+	@echo "  CPU=68000 - Build for 68000 (default: 68020, output to lib/68000/)"
+	@echo "  V=1       - Verbose output (show all commands)"
 	@echo ""
 	@echo "Examples:"
-	@echo "  make -f Makefile-lib           # Build both libraries"
-	@echo "  make -f Makefile-lib V=1       # Build with verbose output"
-	@echo "  make -f Makefile-lib clean all # Clean rebuild"
+	@echo "  make -f Makefile-lib                    # Build 68020 libraries"
+	@echo "  make -f Makefile-lib CPU=68000          # Build 68000 libraries"
+	@echo "  make -f Makefile-lib clean all          # Clean rebuild (68020)"
+	@echo "  make -f Makefile-lib CPU=68000 clean all # Clean rebuild (68000)"

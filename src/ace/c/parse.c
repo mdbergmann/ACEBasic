@@ -1042,17 +1042,11 @@ static void emit_startup_xrefs()
     enter_XREF("_closetranslator");
    }
 
-   if (mathfloatused)
-   {
-    enter_XREF("_openmathieee");
-    enter_XREF("_closemathieee");
-   }
-
-   if (mathtransused)
-   {
-    enter_XREF("_openmathtrans");
-    enter_XREF("_closemathtrans");
-   }
+   /* Always open math libraries so modules can use float ops */
+   enter_XREF("_openmathieee");
+   enter_XREF("_closemathieee");
+   enter_XREF("_openmathtrans");
+   enter_XREF("_closemathtrans");
 
    if (gfxused)
    {

@@ -1,3 +1,4 @@
+OPTION 2-
 REM YAP - Yet Another Preprocessor for ACE BASIC
 REM Buffered I/O: reads entire files into memory, writes output in one shot.
 REM

@@ -1,3 +1,4 @@
+OPTION 2-
 REM parseusing - Scan source file for link directives
 REM
 REM Usage: parseusing <sourcefile> <outputfile>

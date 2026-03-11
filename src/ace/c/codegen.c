@@ -303,11 +303,9 @@ char buf[40],bytes[40];
    if (translateused)
     gen_lib_open_check("_opentranslator", "_translate_ok");
 
-   if (mathfloatused)
-    gen_lib_open_check("_openmathieee", "_mathieee_ok");
-
-   if (mathtransused)
-    gen_lib_open_check("_openmathtrans", "_mathtrans_ok");
+   /* Always open math libraries so modules can use float/trig ops */
+   gen_lib_open_check("_openmathieee", "_mathieee_ok");
+   gen_lib_open_check("_openmathtrans", "_mathtrans_ok");
 
    if (intuitionused && !gfxused)
     gen_lib_open_check("_openintuition", "_intuition_ok");
@@ -360,9 +358,8 @@ void gen_exit_code()
    ** Programs which abort should cleanup libraries, free allocated memory
    ** and possibly reply to a Wb startup message.
    */
-   if (intuitionused || gfxused || mathfloatused || mathtransused ||
-       translateused || gadtoolsused)
-      fprintf(dest,"_ABORT_PROG:\n");
+   /* Math libs are always opened, so _ABORT_PROG is always needed */
+   fprintf(dest,"_ABORT_PROG:\n");
 
    /* close trace file if tracing enabled */
    if (trace_opt)
@@ -379,8 +376,8 @@ void gen_exit_code()
    }
    if (narratorused) fprintf(dest,"\tjsr\t_cleanup_async_speech\n");
    if (intuitionused && !gfxused) fprintf(dest,"\tjsr\t_closeintuition\n");
-   if (mathtransused) fprintf(dest,"\tjsr\t_closemathtrans\n");
-   if (mathfloatused) fprintf(dest,"\tjsr\t_closemathieee\n");
+   fprintf(dest,"\tjsr\t_closemathtrans\n");
+   fprintf(dest,"\tjsr\t_closemathieee\n");
    if (translateused) fprintf(dest,"\tjsr\t_closetranslator\n");
    if (gadtoolsused) fprintf(dest,"\tjsr\t_closegadtools\n");
 
