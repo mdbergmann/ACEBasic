@@ -1428,10 +1428,37 @@ which would print first 2 and then 14.
  
 The same mechanism can be used to pass a string variable by reference (see
 the STRING command's ADDRESS option).
- 
- 
+
+
+Variable-Sized Arrays
+---------------------
+In addition to constant dimensions, DIM supports variable expressions as
+array sizes. When any dimension is a variable or expression, the array is
+automatically heap-allocated at runtime (via ALLOC) instead of using static
+BSS storage. The memory is freed at program exit like all ALLOC'd memory.
+
+	n% = 100
+	DIM SHORTINT data(n%)
+
+	rows% = 10
+	cols% = 20
+	DIM grid(rows%, cols%)
+
+	DIM names$(count%) SIZE 40
+
+Variable-sized arrays can also be used inside SUBs:
+
+	SUB ProcessItems(SHORTINT cnt%)
+	  DIM LONGINT items&(cnt%)
+	  ...
+	END SUB
+
+Note: Variable-sized arrays are not supported at module level (OPTION m+).
+The SIZE option for string element length must still be a constant.
+
+
                                   - page 21 -
- 
+
 These variable parameter mechanisms are most useful when used to pass data 
 *between* subprograms, otherwise it is simpler to use SHARED variables.
    
