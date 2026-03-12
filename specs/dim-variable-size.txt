@@ -1,0 +1,111 @@
+DIM Variable-Sized Arrays - Implementation Plan
+=================================================
+
+Problem
+-------
+Currently DIM arr(N) requires N to be a literal constant or a CONST.
+Variables and expressions are rejected (error 23).
+
+Core Challenge
+--------------
+Arrays are currently BSS-allocated at compile time - their size is baked
+into the assembly as "ds.l N". To support variable sizes, arrays must be
+heap-allocated at runtime via ALLOC.
+
+The runtime indexing code in get_abs_ndx() uses compile-time dimension
+values (curr->index[i]) to compute multipliers for multi-dimensional
+access. For variable-sized arrays, these values won't be known at compile
+time, so they must be stored alongside the array data at runtime.
+
+Design
+------
+Runtime array layout (variable-sized only):
+
+  [dim0_size][dim1_size]...[dimN_size][array_data...]
+   ^-- header (N+1 shorts)              ^-- array pointer stored in frame
+
+The frame pointer points to array_data (past the header), so existing
+indexing code for constant-sized arrays is unaffected. For variable-sized
+arrays, get_abs_ndx reads multipliers from the header instead of
+curr->index[i].
+
+Implementation Phases
+---------------------
+
+Phase 1: Symbol table changes
+  File: acedef.h, SYM struct
+  - Add flag: BOOL dynamic_array (indicates runtime-sized)
+  File: sym.c, enter()
+  - Store the new flag
+
+Phase 2: Parse variable dimensions
+  File: assign.c, dim() function (lines 866-886)
+  - Add a third branch: if the dimension is neither a literal nor a CONST,
+    call expr() to evaluate it at runtime
+  - Track which dimensions are variable vs constant with a new flag array
+    (e.g., BOOL dimvar[MAXDIMS])
+  - If ANY dimension is variable, mark the array as dynamically-sized
+  - Push each dimension value onto the stack for runtime use
+
+Phase 3: Runtime allocation
+  File: assign.c, dim() function (lines 952-1013)
+  - For variable-sized arrays, instead of enter_BSS:
+    1. Dimension values are already on stack from Phase 2
+    2. Compute total size at runtime: multiply all dimensions, then
+       multiply by element size
+    3. Add header size: (dims+1) * 2 bytes for storing dimension sizes
+    4. Call ALLOC for the total
+    5. Write dimension sizes into the header
+    6. Store pointer to array data (past header) in frame slot
+  - Store a sentinel value (e.g., 0) in curr->index[i] for variable
+    dimensions so the compiler knows they're runtime
+
+Phase 4: Runtime indexing for variable-sized arrays
+  File: misc.c, get_abs_ndx() (lines 224-251)
+  - Currently uses compile-time curr->index[i] to build multipliers
+  - For variable-sized arrays, emit code to read index[i] from the
+    runtime header instead
+  - The array pointer is in the frame; subtract (dims+1)*2 to reach
+    the header
+  - Change: instead of ndx_mult *= curr->index[i] (compile-time),
+    emit mulu with the runtime value loaded from the header
+
+Phase 5: Cleanup
+  - Variable-sized arrays are heap-allocated via ALLOC, so they are
+    automatically freed by _free_alloc at program exit (existing mechanism)
+  - No special cleanup needed
+
+Files Changed
+-------------
+  acedef.h    - Add dynamic_array flag to SYM
+  sym.c       - Store flag in enter()
+  assign.c    - Parse variable dims, emit runtime ALLOC + header init
+  misc.c      - get_abs_ndx(): read dims from header for dynamic arrays
+              - max_array_ndx(): return 0 or skip for dynamic arrays
+
+What Stays the Same
+-------------------
+  - Constant-sized arrays: zero changes, same BSS allocation, same indexing
+  - push_indices(): unchanged (just evaluates index expressions)
+  - Array element access in factor.c: unchanged (calls same
+    push_indices/get_abs_ndx)
+  - String array element size: still requires a constant (SIZE keyword)
+  - Multi-dimensional arrays: supported for both constant and variable dims
+
+Limitations
+-----------
+  - No REDIM (resize after creation) - out of scope
+  - Mixed constant/variable dims in one DIM: all treated as dynamic if
+    any dim is variable
+  - Module-level variable-sized arrays: need runtime init code, so not
+    supported for module_opt && lev == ZERO (same restriction as current
+    ADDRESS arrays)
+
+Test Cases
+----------
+  1. DIM arr(n)           - single variable dimension
+  2. DIM arr(n, m)        - multi-dimensional variable
+  3. DIM arr$(n) SIZE 20  - string array with variable count
+  4. DIM arr(n) inside SUB - local scope
+  5. Mix of constant and variable programs - verify constant arrays unchanged
+  6. Error case: negative variable value at runtime

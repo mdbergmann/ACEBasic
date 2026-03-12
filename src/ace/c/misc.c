@@ -181,11 +181,13 @@ void make_label_from_linenum(int intconst, char *buf)
 LONG max_array_ndx(SYM *curr)
 {
 /* Returns # of linear elements in an array.
-   eg: DIM X(10,10) yields 121 elements: 0..10, 0..10 -> 11 * 11 
+   eg: DIM X(10,10) yields 121 elements: 0..10, 0..10 -> 11 * 11
+   Returns 0 for dynamic arrays (size unknown at compile time).
 */
 int  i;
 LONG max=1;
 
+ if (curr->dynamic_array) return(0);
  for (i=curr->dims;i>=0;i--) max *= curr->index[i];
  return(max);
 }
@@ -195,11 +197,11 @@ void push_indices(SYM *curr)
 /* put array indices onto stack */
 int ndxcount=0;
 
- if (!have_lparen) 
-    insymbol(); 
- else 
+ if (!have_lparen)
+    insymbol();
+ else
     have_lparen=FALSE; /* don't want to leave this as TRUE, else if
-			  push_indices() called from factor() etc, 
+			  push_indices() called from factor() etc,
 			  insymbol() won't be called here! */
  if (sym != lparen)
     _error(14);
@@ -212,37 +214,85 @@ int ndxcount=0;
    ndxcount++;
   }
   while ((sym == comma) && (ndxcount <= curr->dims));
-  
+
   /* too few indices: comma expected (ndxcount should now be > curr->dims) */
-  if (ndxcount <= curr->dims) _error(16);  
+  if (ndxcount <= curr->dims) _error(16);
 
   /* too many indices or syntax error */
-  if (sym != rparen) _error(9);  
+  if (sym != rparen) _error(9);
  }
 }
-  
+
 void get_abs_ndx(SYM *curr)
 {
 /* calculate absolute pointer into array from multiple dimensions */
 int  i,ndx_mult=1;
-char mulbuf[40],srcbuf[40];
+char mulbuf[40],srcbuf[40],addrbuf[40];
 
  gen("moveq","#0","d7");
- 
- /* pop indices from stack one at a time */ 
- for (i=curr->dims;i>=0;i--)
- {
-  sprintf(mulbuf,"#%ld",(long)ndx_mult);
 
-  gen("move.w","(sp)+","d1");
-  gen_ext_to_long(FALSE, "d1");
-  gen("move.l","d1","-(sp)");   /* push next index after coercing to long */
-  gen("move.l",mulbuf,"-(sp)"); /* push cumulative index */
-  gen_rt_call("lmulu");
-  gen_stack_cleanup(8);
-  
-  gen("add.l","d0","d7");  
-  ndx_mult *= curr->index[i];
+ if (curr->dynamic_array)
+ {
+  /* Dynamic array: read dimension sizes from runtime header.
+     Header is located before the array data pointer:
+     [dim0_size][dim1_size]...[dimN_size][array_data...]
+     Frame slot points to array_data.
+     dim[i] is at offset -(ndims)*2 + i*2 from array_data.
+  */
+  int ndims = curr->dims + 1;
+  int hdr_offset;
+
+  /* Load array data pointer into a0 */
+  gen_var_addr(curr, addrbuf);
+  gen("movea.l",addrbuf,"a0");
+
+  /* d2 = cumulative multiplier, starts at 1 */
+  gen("moveq","#1","d2");
+
+  for (i=curr->dims; i>=0; i--)
+  {
+   /* pop index value */
+   gen("move.w","(sp)+","d1");
+   gen_ext_to_long(FALSE, "d1");
+
+   /* d7 += index * cumulative_multiplier */
+   gen("move.l","d1","-(sp)");
+   gen("move.l","d2","-(sp)");
+   gen_rt_call("lmulu");
+   gen_stack_cleanup(8);
+   gen("add.l","d0","d7");
+
+   /* Load dim_size[i] from header */
+   hdr_offset = -ndims * 2 + i * 2;
+   sprintf(mulbuf,"%d(a0)",hdr_offset);
+   gen("move.w",mulbuf,"d3");
+   gen_ext_to_long(FALSE, "d3");
+
+   /* cumulative_multiplier *= dim_size[i] */
+   gen("move.l","d2","-(sp)");
+   gen("move.l","d3","-(sp)");
+   gen_rt_call("lmulu");
+   gen_stack_cleanup(8);
+   gen("move.l","d0","d2");
+  }
+ }
+ else
+ {
+  /* Static array: compile-time multipliers */
+  for (i=curr->dims;i>=0;i--)
+  {
+   sprintf(mulbuf,"#%ld",(long)ndx_mult);
+
+   gen("move.w","(sp)+","d1");
+   gen_ext_to_long(FALSE, "d1");
+   gen("move.l","d1","-(sp)");   /* push next index after coercing to long */
+   gen("move.l",mulbuf,"-(sp)"); /* push cumulative index */
+   gen_rt_call("lmulu");
+   gen_stack_cleanup(8);
+
+   gen("add.l","d0","d7");
+   ndx_mult *= curr->index[i];
+  }
  }
 
  /* multiply offset by data type size */

@@ -831,7 +831,12 @@ SYM   *array_item;
 char  buf[80],numbuf[80],addrbuf[80];
 char  arrayname[80],arraylabel[80];
 LONG  max_element,string_element_size;
- 
+BOOL  has_variable_dim;
+BOOL  dimvar[MAXDIMS];
+char  dimtmpname[MAXDIMS][20];
+char  dimtmplabel[20];
+int   i;
+
 do
 {
  arraytype = undefined;
@@ -846,13 +851,13 @@ do
   insymbol();
  }
 
- if (sym == ident) 
+ if (sym == ident)
  {
   if (!exist(id,array))
-  { 
-	dimmed=FALSE; 
-	strcpy(arrayid,id); 
-	if (arraytype == undefined) arraytype=typ; 
+  {
+	dimmed=FALSE;
+	strcpy(arrayid,id);
+	if (arraytype == undefined) arraytype=typ;
   }
   else
      { _error(22); insymbol(); return; }  /* array already declared */
@@ -864,36 +869,83 @@ do
   else
   {
    index=0;
+   has_variable_dim = FALSE;
    do
    {
     insymbol();
     /* literal constant? */
     if ((sym == shortconst) && (shortval > 0))
-       dimsize[index++] = shortval+1;
+    {
+       dimsize[index] = shortval+1;
+       dimvar[index] = FALSE;
+       index++;
+       insymbol();
+    }
     else
     /* defined constant? */
     if ((sym == ident) && (exist(id,constant)))
     {
      if ((curr_item->type == shorttype) && (curr_item->numconst.shortnum > 0))
-        dimsize[index++] = curr_item->numconst.shortnum+1;
+     {
+        dimsize[index] = curr_item->numconst.shortnum+1;
+        dimvar[index] = FALSE;
+        index++;
+     }
      else
         _error(23);
+     insymbol();
     }
     else
-       _error(23);  /* illegal array index */
-    insymbol();
+    {
+     /* Variable expression - evaluate at runtime */
+     int dimtype;
+     dimtype = expr();
+     make_sure_short(dimtype);
+     /* add 1 for 0-based indexing (DIM arr(n) means 0..n = n+1 elements) */
+     gen("move.w","(sp)+","d0");
+     gen("addq.w","#1","d0");
+     /* store in temp BSS for later use */
+     sprintf(dimtmpname[index],"_dimtmp%d",index);
+     sprintf(dimtmplabel,"_dimtmp%d:",index);
+     enter_BSS(dimtmplabel,"ds.w 1");
+     gen("move.w","d0",dimtmpname[index]);
+     dimsize[index] = 0;  /* sentinel: runtime-determined */
+     dimvar[index] = TRUE;
+     has_variable_dim = TRUE;
+     index++;
+     /* expr() already advanced sym past expression - do NOT insymbol() */
+    }
    }
    while ((sym == comma) && (index < MAXDIMS));
 
    if (sym != rparen)
       _error(9);
 
-   if (!dimmed) 
+   if (!dimmed)
    {
     enter(arrayid,arraytype,array,index-1);
     array_item = curr_item;
 
-    max_element = max_array_ndx(array_item); /* number of linear elements */
+    if (has_variable_dim)
+       array_item->dynamic_array = TRUE;
+
+    /* For constant dims in a dynamic array, store values in temp BSS too */
+    if (has_variable_dim)
+    {
+     for (i=0; i<index; i++)
+     {
+      if (!dimvar[i])
+      {
+       sprintf(dimtmpname[i],"_dimtmp%d",i);
+       sprintf(dimtmplabel,"_dimtmp%d:",i);
+       enter_BSS(dimtmplabel,"ds.w 1");
+       sprintf(numbuf,"#%d",(int)dimsize[i]);
+       gen("move.w",numbuf,dimtmpname[i]);
+      }
+     }
+    }
+
+    max_element = max_array_ndx(array_item); /* 0 for dynamic arrays */
 
     /* frame address to hold array pointer */
     gen_frame_addr(array_item->address, addrbuf);
@@ -904,11 +956,11 @@ do
     if (sym == sizesym && array_item->type == stringtype)
     {
      insymbol();
-     if (sym == shortconst) 
-        string_element_size=(LONG)shortval; 
+     if (sym == shortconst)
+        string_element_size=(LONG)shortval;
      else
-     if (sym == longconst) 
-        string_element_size=longval; 
+     if (sym == longconst)
+        string_element_size=longval;
      else
      if (sym == ident && exist(id,constant))
      {
@@ -933,7 +985,88 @@ do
     else
         string_element_size=MAXSTRLEN;
 
-    /* record size of array in bytes (for SIZEOF) 
+    if (has_variable_dim)
+    {
+     /*
+     ** Dynamic array: runtime allocation via ALLOC.
+     ** Not supported for module-level arrays.
+     */
+     LONG header_size, elem_size;
+     int ndims;
+
+     if (module_opt && lev == ZERO)
+     {
+      _error(104);  /* variable-sized arrays not allowed at module level */
+     }
+     else
+     {
+      ndims = index;  /* number of dimensions */
+      header_size = (LONG)ndims * 2;
+
+      /* Determine element size */
+      if (array_item->type == stringtype)
+         elem_size = string_element_size;
+      else
+      if (array_item->type == shorttype)
+         elem_size = 2;
+      else
+         elem_size = 4;  /* long or single */
+
+      /* Store string element size for runtime indexing */
+      if (array_item->type == stringtype)
+         array_item->numconst.longnum = string_element_size;
+
+      /* Compute total elements at runtime: product of all dim sizes */
+      gen("moveq","#1","d4");  /* d4 = total elements */
+      for (i=0; i<ndims; i++)
+      {
+       sprintf(buf,"_dimtmp%d",i);
+       gen("move.w",buf,"d3");
+       gen_ext_to_long(FALSE,"d3");
+       gen("move.l","d4","-(sp)");
+       gen("move.l","d3","-(sp)");
+       gen_rt_call("lmulu");
+       gen_stack_cleanup(8);
+       gen("move.l","d0","d4");
+      }
+
+      /* Compute data bytes: d4 * elem_size */
+      sprintf(numbuf,"#%ld",elem_size);
+      gen("move.l","d4","-(sp)");
+      gen("move.l",numbuf,"-(sp)");
+      gen_rt_call("lmulu");
+      gen_stack_cleanup(8);
+      /* d0 = data bytes */
+
+      /* Add header size */
+      sprintf(numbuf,"#%ld",header_size);
+      gen("add.l",numbuf,"d0");
+
+      /* Allocate via _ACEalloc(size, type) */
+      gen("move.l","d0","-(sp)");
+      gen("move.l","#9","-(sp)");  /* default memory type */
+      gen_rt_call("_ACEalloc");
+      gen_stack_cleanup(8);
+      /* d0 = pointer to allocated block (or NULL) */
+
+      /* Write dimension sizes into header */
+      gen("movea.l","d0","a0");
+      for (i=0; i<ndims; i++)
+      {
+       sprintf(buf,"_dimtmp%d",i);
+       gen("move.w",buf,"(a0)+");
+      }
+
+      /* a0 now points past header = start of array data */
+      /* Store data pointer in frame */
+      gen("move.l","a0",addrbuf);
+     }
+    }
+    else
+    {
+    /* Static array: existing BSS allocation path */
+
+    /* record size of array in bytes (for SIZEOF)
        plus string element size */
     if (array_item->type == stringtype)
     {
@@ -946,8 +1079,8 @@ do
        array_item->size = max_element*2;
     else
        /* long or single */
-       array_item->size = max_element*4; 
- 
+       array_item->size = max_element*4;
+
     /* specify ADDRESS? */
     if (sym != addresssym)
     {
@@ -1056,6 +1189,7 @@ do
          }
      }
     }
+    } /* end static array path */
    }
   }
  }

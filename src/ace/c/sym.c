@@ -196,6 +196,7 @@ int i;
  new_item->shared = FALSE;  /* shared may be explicitly SET later */
  new_item->is_callback = FALSE;  /* initialize callback flag */
  new_item->is_task = FALSE;      /* initialize task flag */
+ new_item->dynamic_array = FALSE; /* initialize dynamic array flag */
 
  /* array? -> store index maxima */
  if (obj == array)

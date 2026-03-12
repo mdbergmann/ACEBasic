@@ -323,6 +323,7 @@ char *msg;
   case 101: msg="Too many CASE branches in TYPECASE"; break;
   case 102: msg="TASKPROC SUB must have zero parameters"; break;
   case 103: msg="TASKPROC SUB cannot be called from ACE code"; break;
+  case 104: msg="Variable-sized arrays not allowed at module level"; break;
  }
 
  /* show the error */

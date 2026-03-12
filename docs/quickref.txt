@@ -46,7 +46,7 @@ DEFLNG DEFLNG <letter>[-<letter>][,..] : DEFLNG declares all variables starting 
 DEFSNG DEFSNG <letter>[-<letter>][,..] : DEFSNG declares all variables starting with specified letters as single-precision unless overridden.
 DEFDBL DEFDBL <letter>[-<letter>][,..] : DEFDBL currently defaults to single-precision since double-precision is not yet supported.
 DEFSTR DEFSTR <letter>[-<letter>][,..] : DEFSTR declares all variables starting with specified letters as strings unless overridden.
-DIM DIM [<type>]<name>(<i>[,..])[SIZE <n>][ADDRESS <addr>][,..] : DIM creates arrays. Type can be ADDRESS, LONGINT, SHORTINT, SINGLE, STRING, ATOM. SIZE sets string element length. ADDRESS specifies memory location.
+DIM DIM [<type>]<name>(<i>[,..])[SIZE <n>][ADDRESS <addr>][,..] : DIM creates arrays. Type can be ADDRESS, LONGINT, SHORTINT, SINGLE, STRING, ATOM. SIZE sets string element length. ADDRESS specifies memory location. Dimensions can be variables or expressions (heap-allocated at runtime).
 END END : END terminates program execution, closes libraries and performs cleanup.
 ENDSWITH( result = ENDSWITH(X$, suffix$) : ENDSWITH() returns -1 (TRUE) if X$ ends with suffix$, 0 (FALSE) otherwise. Empty suffix always matches.
 EOF( result = EOF(n) : EOF() returns -1 if end-of-file reached for file number n, 0 otherwise. Returns -1 if file doesn't exist or isn't open.
