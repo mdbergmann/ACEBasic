@@ -491,6 +491,7 @@ typedef struct symstruct {
 			  BOOL   new_string_var;     /* new string variable? */
 			  BOOL   is_callback;        /* TRUE if CALLBACK SUB */
 			  BOOL   is_task;            /* TRUE if TASK SUB */
+			  BOOL   dynamic_array;      /* TRUE if runtime-sized */
 			  SHORT  *index;     	     /* array indices */
 			  SHORT	 no_of_params;       /* # of SUB parameters */
 			  int	 p_type[MAXPARAMS];  /* SUB parameter types */
