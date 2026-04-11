@@ -3,15 +3,17 @@
 
 @NODE MAIN "Main Menu"
 
-                        +--------------------------+
-                        | ACE SuperOptimizer V1.42 |
-                        +--------------------------+
+                         +--------------------------+
+                         | ACE SuperOptimizer V2.28 |
+                         +--------------------------+
 
 			
-                      @{" Introduction                 " link 1introduction}
-                      @{" Getting started              " link 2started}
-                      @{" History                      " link 3history}
-                      @{" Stop bits                    " link 4stop}
+                        @{" Introduction                 " link 1introduction}
+                        @{" Getting started              " link 2started}
+                        @{" History                      " link 3history}
+                        @{" Stop bits                    " link 4stop}
+
+
 @ENDNODE
 @NODE 1introduction "Introduction"
                                Introduction
@@ -19,8 +21,10 @@
 
 
 
-                             @{" What is the ACE SuperOptimizer?   " link 1what}
-                             @{" Who is it for?                    " link 1who}
+                        @{" What is the ACE SuperOptimizer?   " link 1what}
+                        @{" Who is it for?                    " link 1who}
+
+
 @ENDNODE
 @NODE 2started "Getting started"
                                Getting started
@@ -33,6 +37,8 @@
                         @{" SuperOptimizing ACE programs " link 2running}
                         @{" SuperOptimizer in action     " link 2results}
                         @{" Limitations                  " link 2limitations}
+                        @{" Hints,tips and chips         " link 2hintstips}
+
 
 @ENDNODE
 @NODE 3history "History"
@@ -43,12 +49,175 @@
            m = minor update.
            M = major update.
 
+14/08/1997 m Updated the guide. Holy s**t!!! Allmost a year has passed since
+             last public release!
 
-30/12/1995   First public release.
+01/08/1997 m Rewrote the SUB that tries to optimize the lmul/lmulu calls.
+             Ex. : It did optimize A=B*16 but not A=16*B.
+             Thank you Daniel, thank's to you it now handles both cases :)
 
-01/01/1996 m Added the RemoveLine.b program to the SuperOptimizer archive.
-             David forgot to include it, so I wrote my own version in ACE...
-             It uses two 8K buffers for reads/writes and is FAAAASSST :)
+29/07/1997 m Updated the guide. The 'M' option is explained now.
+
+
+28/07/1997 m Added code that removes unused _templong's when optimizing
+             'absolute' moves.
+             It also indicates how many bytes were saved.
+             Beware! It can take quite a long time when optimizing really
+             large sources.
+
+27/07/1997 m Special case added.  Register D4 is not used as an intermediate
+             register when the _instr function is encountered.
+             This allows the use and linkage of my new StringLib module.
+             As a result, source parsing has become 3 to 4 times faster!
+
+25/07/1997 m Added inlining of the ACE _streq function.
+
+23/07/1997 m DOS errorcode added, for use in conjunction with the new version
+             of AIDE.  If something goes wrong, it will be set to 20.
+             Requested by Daniel S.
+
+
+-=-=-=-=-=-  Sorry for the big delay...
+
+
+02/09/1996 ! The inlined _leftstr replacement had 2 serious bugs :(
+             Also the _leftstr replacement code in this guide was different
+             from the actual code being produced.
+             I sure was half asleep then...
+             These problems have been corrected now, the new code looks like this:
+
+                           move.l  a1,a3
+                           subq.w  #1,d0
+                           bge.s   leftloopxxx
+                           clr.b  (a1)
+                           bra.s   leftendxxx
+                leftloopxxx
+                           move.b  (a0)+,(a1)+
+                           dbeq    d0,leftloopxxx
+                           beq.s   leftendxxx
+                           clr.b   (a1)
+                leftendxxx
+                           move.l  a3,a0
+
+27/08/1996 M Rewrote a big part of the 'absolute move' optimization SUB.
+             More cases are optimized, specially when accessing array's.
+             The SUB has also become a zillion times faster when optimizing
+             very large programs.
+
+23/08/1996 m Added inlining of the _leftstr function.
+
+             - _leftstr is replaced with :
+
+                           move.l  a1,a3
+                           subq.w  #1,d0
+                           bge.s   firstleftxxx
+                           move.b  (a0),(a1)
+                           bra.s   leftendxxx
+                leftloopxxx
+                           move.b  (a0)+,(a1)+
+                firstleftxxx                     ; hmm, will be removed...
+                           dbeq    d0,leftloopxxx
+                leftendxxx
+                           move.l  a3,a0
+
+20/08/1996 m Added inlining of the _absw and _absl functions.
+
+             - _absw is replaced with :
+
+                           tst.w   d0          ; just to be safe...
+                           bge.s   abswxxx
+                           neg.w   d0
+                abswxxx
+
+             - _absl is replaced with :
+
+                           tst.l   d0          ; just to be safe...
+                           bge.s   abslxxx
+                           neg.l   d0
+                abslxxx
+
+19/08/1996 M Addded inlining of some string routines.
+
+             - _strcpy is replaced with :
+
+               strcpyxxx   move.b  (a1)+,(a0)+
+                           bne.s   strcpyxxx
+
+             - nullstring copying is replaced with 1 instruction :
+
+                           clr.b   (a0)
+
+             - _chrstring is replaced with :
+
+                           move.b  d0,(a0)+
+                           clr.b   (a0)
+             
+             - _strlen is replaced with :
+
+                           moveq   #-1,d0
+               strlenxxx   tst.b   (a2)+
+                           dbeq    d0,strlenxxx
+                           not.l   d0
+
+15/08/1996 M The most boring part...updated the guide.
+
+20/06/1996 M Started the development of SuperOptimizer V2.00 .
+             - rethought the whole concept.
+             - redesigned most of the routines.
+             - added more intermediate registers (d4-d7/a3).
+             - added more 'optimization levels'.
+             - better lmul(u) optimizations.
+             - replaced the optimizer 'levels' with combinations of letters.
+             - removed the move.x to moveq optimization level.
+               removed the add.x to addq.x optimizations.
+               These cases are handled by the assembler, so why bother...
+             - far better float optimization handling.
+
+15/06/1996 ! Corrected a bug when doing integer math optimizations.
+             Found the bug when optimizing the new BobStars program that
+             is now using arithmetic shifts.
+
+13/05/1996 M Added float-math optimizations, ACE is burning rubber!
+             Extended the absolute move optimizations, so that external calls
+             are also optimized.
+             Levels 9 and 10 have changed place.
+             Added version information.
+
+12/05/1996 ! Corrected a serious bug when optimizing absolute moves.
+
+10/01/1996 m FPuts, buffered writing, is used instead of _Write when creating the
+             SuperOptimized source.  This will give a noticeable speed increase.
+             This however makes the SuperOptimizer KS1.3 incompatible.
+
+06/01/1996 ! Found a bug when optimizing additional stack operations.
+             - Ex.: B=-B*A   where A and B are both of type SHORTINT. It  would
+                    produce this false code.
+
+                    ;; move.w
+                       neg.w  (sp)
+                       move.w -2(a4),d0    variable A in D0
+                    ;; move.w
+                       muls   -4(a4),d0    A * B
+                       move.w  d0,-4(a4)   store result in B
+
+                    As you can see, B is never negated but the stack is...
+
+               Bug is fixed and this code is generated instead :
+
+                       move.w -4(a4),-(sp) push B onto the stack
+                       neg.w  (sp)         negate B
+                       move.w -2(a4),d0    variable A in D0
+                    ;; move.w
+                       muls   (sp)+,d0     A * (-B)
+                       move.w  d0,-4(a4)   store result in B
+
+                    Could come up with a full registerized version in the future.
+
+04/01/1996 m Did a little bit of fine-tuning.
+             - move.l  #0,An becomes SUB.l  An,An when optimizing absolute
+               moves.
+             - some move.l #value,Dn were not optimized to MOveq when optimizing
+               absolute moves.
 
 01/01/1996 ! I have discovered some bugs when receiving ACE V2.37 
              - The program is now converting all movea mnemonics to move.
@@ -97,54 +266,16 @@
                MOveq #immediate value, can only be used if destination is a
                data register.
 
-04/01/1996 m Did a little bit of fine-tuning.
-             - move.l  #0,An becomes SUB.l  An,An when optimizing absolute
-               moves.
-             - some move.l #value,Dn were not optimized to MOveq when optimizing
-               absolute moves.
+01/01/1996 m Added the RemoveLine.b program to the SuperOptimizer archive.
+             David forgot to include it, so I wrote my own version in ACE...
+             It uses two 8K buffers for reads/writes and is FAAAASSST :)
 
-06/01/1996 ! Found a bug when optimizing additional stack operations.
-             - Ex.: B=-B*A   where A and B are both of type SHORTINT. It  would
-                    produce this false code.
+30/12/1995   First public release.
 
-                    ;; move.w
-                       neg.w  (sp)
-                       move.w -2(a4),d0    variable A in D0
-                    ;; move.w
-                       muls   -4(a4),d0    A * B
-                       move.w  d0,-4(a4)   store result in B
-
-                    As you can see, B is never negated but the stack is...
-
-               Bug is fixed and this code is generated instead :
-
-                       move.w -4(a4),-(sp) push B onto the stack
-                       neg.w  (sp)         negate B
-                       move.w -2(a4),d0    variable A in D0
-                    ;; move.w
-                       muls   (sp)+,d0     A * (-B)
-                       move.w  d0,-4(a4)   store result in B
-
-                    Could come up with a full registerized version in the future.
-
-10/01/1996 m FPuts, buffered writing, is used instead of _Write when creating the
-             SuperOptimized source.  This will give a noticeable speed increase.
-             This however makes the SuperOptimizer KS1.3 incompatible.
-
-12/05/1996 ! Corrected a serious bug when optimizing absolute moves.
-
-13/05/1996 M Added float-math optimizations, ACE is burning rubber!
-             Extended the absolute move optimizations, so that external calls
-             are also optimized.
-             Levels 9 and 10 have changed place.
-             Added version information.
-
-15/06/1996 ! Corrected a bug when doing integer math optimizations.
-             Found the bug when optimizing the new BobStars program that
-             is now using arithmetic shifts.
 
 @ENDNODE
 @NODE 4stop "Stop bits"
+
                                  Stop bits
                                  ---------
 
@@ -161,8 +292,8 @@ What is the ACE SuperOptimizer?
 -------------------------------
 
 The SuperOptimizer is a freely distributable, 'intelligent' peephole-optimising 
-A68K-compatible assembly source code optimizer that has been specially designed 
-for use with ACE.
+A68K/PhxAss-compatible assembly source code optimizer that has been specially
+designed for use with ACE.
 It can, in most cases, double the amount of optimisations when used in conjunction
 with ACE's internal peephole optimizer.
 
@@ -176,9 +307,9 @@ does not depend on it.
 The following files constitute a complete ACE SuperOptimizer package:
 
 
-	- SuperOptimizer        : the program.
+   - SuperOptimizer        : the program.
 
-	- SuperOptimizer.guide  : what you are reading now...
+   - SuperOptimizer.guide  : what you are reading now...
 
    - RemoveLine.b          : ACE version of RemoveLine, for use with acpp or dcpp.
                              Very fast preprocessed source line 'shaver'.
@@ -186,11 +317,14 @@ The following files constitute a complete ACE SuperOptimizer package:
 The ACE SuperOptimizer is written entirely in ACE and has been tested with
 Enforcer V37.62, © Michael Sinz.
 
-A68K and Blink are used to assemble and link the code produced by the 
-ACE SuperOptimizer. They can be found in the ACE archive.
+The ACE SuperOptimizer V2.00, FreePhxAss and PhxLnk were used to produce
+the final executable.
+
+FreePhxAss and PhxLnk are © Frank Wille.
 
 The complete ACE SuperOptimizer package may be freely distributed.
  
+
 @ENDNODE
 @NODE 1who "Who is it for?"
 Who is it for?
@@ -202,6 +336,7 @@ the following:
 	- Even faster program execution.
 
 	- Smaller code.
+
 
 @ENDNODE
 @NODE 2installation "Installation"
@@ -220,6 +355,7 @@ Installation consists of:
  
 That's it!
 
+
 @ENDNODE
 @NODE 2using "Using the ACE SuperOptimizer"
 Using the ACE SuperOptimizer
@@ -235,55 +371,67 @@ Whichever environment you choose to work with the SuperOptimizer, read on.
 The SuperOptimizer expects 3 parameters from the command line, none of them
 may be ommitted.
 
-It's general format is: SuperOptimizer optlevel asm_infile asm_outfile
+It's general format is: SuperOptimizer optswitches asm_infile asm_outfile
 The SuperOptimizer expects all assembly source files to have a ".s" extension.
  
 If you have an assembly program called foo.s, that has been created by the ACE 
 compiler, you would invoke the SuperOptimizer thus:
 
-	SuperOptimizer 12 foo.s foo_opt.s
+	SuperOptimizer FULL foo.s foo_opt.s
 
 This would produce foo_opt.s, an A68K-compatible assembly source (text) file
-with maximum optimization level.
+with maximum optimization.
 
-To use the SuperOptimizer from AIDE, you will have to modify the AIDE BASIC
-source and recompile it.
-My hopes for the future are, that the ACE SuperOptimizer will become an integral
-part of the ACE package.
+To use the SuperOptimizer from AIDE, activate the SuperOptimizer and enter the
+optimization switches.
+SuperOptimizing has now become totally transparent to the user!
+
 
 @ENDNODE
 @NODE 2options "SuperOptimizer options"
 SuperOptimizer options
 ----------------------
+
 The full command line syntax for the SuperOptimizer is:
 
-	SuperOptimizer optlevel asm_infile asm_outfile
+	SuperOptimizer optswitches asm_infile asm_outfile
 
-The 'optlevel' defines which level of optimisation has to be done (1 to 12).
+The 'optswitches' define what kind of optimisation(s) to be done.
 
-	1  Only optimizes stack operations.
-	2  Do level 1 optimizations plus move.x to moveq optimizations.
-	3  Do level 1 and 2 optimizations plus cmpi.x #0 to tst.x optimizations.
-	4  Do level 1 to 3 optimizations plus tst.x optimizations.
-	5  Do level 1 to 4 plus logical optimizations.
-	6  Do level 1 to 5 plus cmp.x Dn,Dn optimizations.
-	7  Do level 1 to 6 plus integer math optimizations.
-	8  Do level 1 to 7 plus immediate zero move optimizations.
-	9  Do level 1 to 8 plus additional stack optimizations.
-	10 Do level 1 to 8 plus float-math and library base move optimizations.
-	11 Do level 1 to 10 plus absolute long optimizations.
-	12 Do level 1 to 11 plus unsigned long multiplication optimizations.
+   L    Optimize logical operations.
+   F    Optimize floating point operations.
+   m    Optimize math instructions. Mostly address calculations.
+   s    Optimize struct base moves.
+   M    Optimize lmul and lmulu calls. Remove all *1 and use Asl/Lsl where possible.
+   P    Optimize stack pushing and popping.
+   E    Optimize ext.l operations.
+   c    Concatenate immediate or's. Will do nothing when L not included.
+   S    Optimize struct base moves, second pass.
+   r    Optimize memory to register instructions.
+   C    Optimize compare operations.
+   T    Optimize tst operations.
+   I    Inline the _strcpy/len/eq,_chrstring, _leftstr,_abs/l functions.
+        Will do nothing when P not included.
+   A    Optimize absolute moves.
+   X    Optimize external calls. Only of use when linking other modules.
+   B    Optimize library base moves.
+   Z    Optimize zero moves.
+   FULL do all optimizations. (LFmsMPEcSrCTIAXBZ)
+   STD  do the LFmMPCTABZ optimizations.
+   LESS do the LmPCT optimizations.
+   ?    will give a very short description.
 
-So allways use optlevel 12 for maximum optimization.
+The 'optswitches' are case sensitive and multiple occurrences are not
+checked for.
+
+So SuperOptimizer LLLL test.s test_opt.s will only do the logical optimizations
+once. Not four times...
 
 Beware, the asm_infile and asm_outfile have to be different files.
 
-It may occur that a program stops running correctly with maximum optimization, so
-lower the 'optlevel' until it works again.
-This will make it very easy for me to hunt down any existing bugs.
+It may occur that a program stops running correctly with FULL optimization.
+Try STD, LESS or any of the above combinations until the program works again.
 
-You could also use the 'optlevel' to see what is optimized at a different
-optimization level.
 
 @ENDNODE
 @NODE 2results "SuperOptimizer in action"
@@ -298,8 +446,10 @@ working as they should.
 Remember, the SuperOptimizer works best in conjunction with ACE's internal
 peephole optimizer.
 
-The figures are form V1.0 of the SuperOptimizer, V1.41 is producing even
-better results.
+The figures are from V1.0 of the SuperOptimizer.
+
+V2.28 gives slightly lower figures, without inlining, but produces far better
+code!
 
  --------------------------------------------------------------------------
  | Program     |  ACE V2.35 peephole optimizer | SuperOptimizer | Total   |
@@ -426,6 +576,7 @@ better results.
  % ACE's peephole optimizer is turned off because of negation bug when optimized.
    Also, optimization level 12 will produce false code.
  
+
 @ENDNODE
 @NODE 2running "Running SuperOptimized ACE programs"
 Running SuperOptimized ACE programs
@@ -434,10 +585,19 @@ Since the ACE SuperOptimizer reads an assembly source file and writes an
 optimized version of it, all optimized files have to be assembled and linked.
 
  eg.
-  SuperOptimizer 12 Shuttle.s Shuttle_Opt.s: produce the optimized assembly version.
-  ACE:bin/A68K Shuttle_Opt.s               : assemble it.
+
+  SuperOptimizer FULL Shuttle.s Shuttle_Opt.s: produce the optimized assembly version.
+
+  ACE:bin/A68K Shuttle_Opt.s                 : assemble it.
   Then type in the following line to make a ready to run executable.
   ACE:bin/blink Shuttle_Opt.o LIB ACELIB:startup.lib+ACELIB:db.lib+ACELIB:ami.lib
+
+  or when using FreePhxAss and PhxLnk
+ 
+  ACE:bin/FreePhxAss Shuttle_Opt.s           : assemble it.
+  Then type in the following line to make a ready to run executable.
+  ACE:bin/PhxLnk Shuttle_Opt.o ACELIB:startup.lib ACELIB:db.lib ACELIB:ami.lib
+
 
 @ENDNODE
 @NODE 2limitations "SuperOptimizer limitations"
@@ -445,7 +605,7 @@ SuperOptimizer limitations
 --------------------------
 
 It highly depends on the output of the ACE compiler and has been tested
-with V2.35 and V2.37 of ACE.
+with V2.37/2.4 of ACE.
 
 Since the SuperOptimizer has been specially designed to optimize assembly
 source files produced by the ACE BASIC compiler, it will not work with
@@ -454,9 +614,8 @@ Don't even try to SuperOptimize a SuperOptimized assembly source!
 
 Also take note that the SuperOptimizer has been written with ACE's own peephole
 optimizer in mind.
-So, you must enable the ACE peephole optimizer because optlevel 12 will
-definitely produce false code!  Should be rather safe with lower optlevels.
-Try it by increasing the optlevel with 1 at a time.
+So, you MUST enable the ACE peephole optimizer because chosing FULL optimization will
+definitely produce false code!  Should be rather safe with STD and LESS.
 
 Even if the performance of the SuperOptimizer will not deteriorate when assembly
 comments are included, the performance of ACE's peephole optimizer will.
@@ -466,25 +625,104 @@ Don't be surprised...the SuperOptimized assembly source won't contain any
 comments.  They are simply removed to spare memory!
 
 The current version cannot optimize assembly source files that contain more
-than 20.000 lines.
+than 28.000 lines.
 This however is not a real limitation since large programs can be split into
 separate modules that can be linked together.
 
 The SuperOptimizer will no longer work on KS1.3 machines because I'm
 using FPuts for writing the optimized source. 
+
+
+@ENDNODE
+
+@NODE 2hintstips "Hints, tips and chips."
+How to get the most out of ACE and the SuperOptimizer.
+------------------------------------------------------
+
+Ex.: LONGINT A,B,C
+     A=1+B*C
+
+     You can increase the performance by splitting it up.
+
+     A=B*C
+     ++A
+
+     This is because the ++VAR operations are optimized to just 1 instruction!
+     Also counts for --VAR.
+
+Ex.: SUB XXX
+       LONGINT    A,B,C
+       SHARED     SHARE
+       SHORTINT   X
+       SHARED     TEST
+       SHORTINT   Y
+       
+       .......    Rest of SUB
+     END SUB
+
+     You'll get faster code if you put all STRUCT DEFS and integer variable
+     declarations into 1 block.
+     The SuperOptimizer will set register D3 to zero (0) and initialize all
+     structures and variables with it.
+     This will not only speed things up, but also improve the reading of
+     the basic source.
+
+Ex.: DIM STRING MyStringArray(100) SIZE 110
+
+     You can speed things up dramatically by just increasing the string size
+     to a power of 2.
+     In this case, set it to 128.
+
+     ACE will use the lmulu subroutine when accessing elements of an array.
+     This routine, besides some other instructions, will do 3 multiplications
+     to get the result.
+
+     The SuperOptimizer is able to convert this to just 1 shift instruction!
+     One (1) and all powers of two, upto 16384 are converted to shift instructions.
+     Lsl.l is used for unsigned long multiplications and Asl.l is used for
+     signed ones.
+
+     Besides the powers of two, the SuperOptimizer tries to go even further...
+     Let's say your array contains strings with size 160.
+     The next power of two would be 256, which could be inacceptable for
+     you, considering the amount of memory being wasted.
+     Now comes the good thing...it will be optimized! How ???
+     Well, by using two shift operations...
+
+     You'll get something like this:
+
+        move.l  d7,d0    ; Make a copy of the original value
+        lsl.l   #7,d0    ; Multiply copy by 128
+        lsl.l   #5,d7    ; Multiply original value by 32
+        add.l   d7,d0    ; Add them together.
+
+Ex.: You're having great fun using this program...
+
+     Share it with me!  A postcard, a letter or a disk filled with your
+     own ACE creations would be nice.
+
+
 @ENDNODE
 
 @NODE 4future "Future versions"
 Future versions
 ---------------
 
-The SuperOptimizer will be completely redesigned!
+The following are some idea's to be implemented in the following versions
+of the SuperOptimizer.
 
-This will take some time, so be patient...
+- Reduce the memory usage. Needed more than 3 MEG to optimize itself!!!
+  Hmm, ACE also needs about the same amount to compile the SuperOptimizer, so I
+  consider this a low priority task...
 
-However, if you find bugs in this version you should contact me, so I
-can update the SuperOptimizer.
- 
+- Optimize more LMUL routine calls by replacing them with 68020+
+  mulu/muls 32*32 bit instructions. Will be available in the next version!
+
+- Replace mulu/s #imm,Dn with shifts when possible.
+
+- Optimize ACE_LDIV routine calls with 68020+ divu/divs 32/32 bit instructions.
+
+
 @ENDNODE
 @NODE 4pd "A note to PD libraries and reviewers"
 A note to PD libraries and reviewers
@@ -503,14 +741,16 @@ Please note however that I don't wish people to profit financially from the
 distribution of it. You may charge a fee which covers the cost of the disk
 and the copying thereof, but no more.
 
+
 @ENDNODE
 @NODE 4disclaim "Disclaimer"
 Disclaimer
 ----------
 
-Although every care has been taken in the development and testing of the 
+Allthough every care has been taken in the development and testing of the 
 SuperOptimizer, the author will not be held liable for damages caused either
 directly or indirectly as a result of the use of the SuperOptimizer.
+
 
 @ENDNODE
 @NODE 4author "Contacting the author"
@@ -537,6 +777,8 @@ Final word
 ----------
 
 Let me offer my thanks to David Benn, he deserves an ACE!
+Daniel Seifert and Herbert Breuer for rewriting Aide.
+
 I would also like to thank Michael Sinz for his truly wonderfull Enforcer.
 It helped a lot to get rid of all(?) bugs.
   
@@ -547,6 +789,6 @@ or suggestions, I want to hear from you.
 Happy Optimizing!
 
 Regards, Manuel ANDRE
-17 May 1996
+14 August 1997
 
 @ENDNODE
