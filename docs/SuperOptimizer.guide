@@ -315,12 +315,12 @@ The following files constitute a complete ACE SuperOptimizer package:
                              Very fast preprocessed source line 'shaver'.
 
 The ACE SuperOptimizer is written entirely in ACE and has been tested with
-Enforcer V37.62, © Michael Sinz.
+Enforcer V37.62,   Michael Sinz.
 
 The ACE SuperOptimizer V2.00, FreePhxAss and PhxLnk were used to produce
 the final executable.
 
-FreePhxAss and PhxLnk are © Frank Wille.
+FreePhxAss and PhxLnk are   Frank Wille.
 
 The complete ACE SuperOptimizer package may be freely distributed.
  
@@ -757,19 +757,11 @@ directly or indirectly as a result of the use of the SuperOptimizer.
 Contacting the author
 ---------------------
 
-I am contactable via snail-mail and telephone only:
+Contact:
  
    Manuel ANDRE
-   Arbeidersstraat Nr. 9
-   2600   BERCHEM
-   Belgium
-
-   Tel.: 32-3-230-66-10
-         \/
-         |
-         -->Belgium.
-
-   Direct modem to modem access possible, but only on special request.
+   Beerse/Belgium
+   andre.manuel.j.s@gmail.com
 	
 @ENDNODE
 @NODE 4final "Final word"
@@ -778,6 +770,8 @@ Final word
 
 Let me offer my thanks to David Benn, he deserves an ACE!
 Daniel Seifert and Herbert Breuer for rewriting Aide.
+And last but not least Manfred Bergmann who took 
+ACE Basic Compiler Enhanced to a whole new level!
 
 I would also like to thank Michael Sinz for his truly wonderfull Enforcer.
 It helped a lot to get rid of all(?) bugs.

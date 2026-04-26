@@ -4,5 +4,6 @@ uaem
 .svn
 aos3
 src/ace/obj/
+src/lib/obj/
 *.log
 *.marker
