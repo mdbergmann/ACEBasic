@@ -4,7 +4,7 @@
 @NODE MAIN "Main Menu"
 
 			       +------------+
-			       | ACE v3.0.0 |
+			       | ACE v3.0.1 |
 			       +------------+
 
                       @{" Printing this document                 " link printing-this-document}
@@ -25,6 +25,7 @@
                       @{" Random Files                           " link random-files}
                       @{" Command line and Workbench arguments   " link command-line-and-workbench-arguments}
                       @{" Subprograms                            " link subprograms}
+                      @{" Variable-Sized Arrays                  " link variable-sized-arrays}
                       @{" Tail-Call Optimisation                 " link tail-call-optimisation}
                       @{" Function Pointers and Closures         " link function-pointers-and-closures}
                       @{" Callback SUBs for Amiga Hooks          " link callback-subs-for-amiga-hooks}
@@ -104,7 +105,7 @@ The following files constitute a complete ACE package:
 	bas		- A shell script which automates
 		  	  the production of ACE executables
 			  (1.3 and 2.x/3.x versions).
-	acpp	- A simple preprocessor.
+	yap	- The YAP preprocessor.
 	ace		- The BASIC compiler.
 	vasmm68k_mot	- Charlie Gibbs' 68000 assembler.
 	vlink		- The Software Distillery's linker.
@@ -530,54 +531,55 @@ On a related note, statement blocks are also supported via BLOCK..END BLOCK.
 @NODE the-preprocessor-and-include-files "The preprocessor and #include files"
 The preprocessor and #include files
 -----------------------------------
-The ACE preprocessor: APP, is modest when compared to the C preprocessor,
-but is not the only choice available to the ACE programmer (see the note 
-at the end of this section).
+The ACE preprocessor is YAP (Yet Another Preprocessor), written in ACE
+BASIC itself. YAP is invoked automatically by the bas script before
+compilation.
  
-Its main function thus far is for the inclusion of files with the #include 
-directive. As in C, #include "filename" looks for the file as specified, 
-while #include <filename> looks for the file in a local include directory 
-(see "Installation"). A file will only ever be included once.
+YAP supports the following features:
  
-The #include directive can also be used in included files, but since file 
-inclusion is recursive, watch your stack size (40000 bytes is plenty).
+  Comments:
+    - Single-line comments: ' (apostrophe) and REM
+    - C-style comments: /* ... */ and { ... }
+    - Nested block comments are supported
  
-APP also handles single-line comments (text following a "'") and block
-comments (starting with "{" and ending with "}"). This is partly to allow
-#include commands to be commented out and also to make less work for the 
-compiler. However, the compiler does still handle comments in case the pre-
-processor isn't invoked. APP does not handle REM since this is a BASIC 
-statement.
+  File inclusion:
+    - #include "filename" looks for the file as specified
+    - #include <filename> looks for the file in the include directory
+      (ACEinclude:, or a path specified with -I)
+    - A file will only ever be included once (automatic include guard)
+    - Nested includes are supported up to 7 levels deep
  
-The syntax for APP is: 
+  Conditional compilation:
+    - #define NAME [value]
+    - #ifdef NAME / #ifndef NAME
+    - #else
+    - #endif
+    - Nesting of conditionals is supported
  
-	app <source> <dest> 
+  String replacement:
+    - #define NAME value performs textual replacement in subsequent lines
+    - Replacement only occurs outside of quoted strings
  
-The bas script uses APP by first preprocessing an ACE source file to the
+  Command-line defines:
+    - yap -d NAME=value allows defines to be passed from the command line
+ 
+The syntax for YAP is:
+ 
+	yap [-I includepath] [-d NAME[=value]] <source> <dest>
+ 
+The bas script uses YAP by first preprocessing an ACE source file to the
 RAM:T directory.
  
-Use of #include has the effect of adding lines to the preprocessed ACE 
+Use of #include has the effect of adding lines to the preprocessed ACE
 source, which has an impact upon the physical location of lines from the
 main ACE file when transferred to the destination file.
  
 ACE include files have two purposes. As in C they can be used to include
 constants and structure definitions. Second, as with files like WBarg.h,
-ACE include files may contain subprogram definitions and although this is 
-quite possible in C, it seems to be less often done under the guise of .h 
-files. I have arbitrarily chosen to append all include files with .h but 
-there is no reason why this need be so. Purists will probably be aghast.
- 
-APP will be improved as time goes by.
- 
-Note that if you wish to use the new ACE include files (created by Nils
-Sjoholm), you will need to use an actual C preprocessor instead of APP,
-and one has been provided (acpp).
- 
- 
-NOTE: For compiling programs which use the new include files in 
-      ACEinclude: you should use a better preprocessor, eg. ACPP or NAP.
-      Be aware however that ACPP assumes that ACEinclude: = ACE:include.
-      Since v2.5 APP has been removed.
+ACE include files may contain subprogram definitions and although this is
+quite possible in C, it seems to be less often done under the guise of .h
+files. Include files are typically given a .h extension but there is no
+requirement for this.
   
  
 Data types, expressions and constants
@@ -1404,9 +1406,38 @@ which would print first 2 and then 14.
  
 The same mechanism can be used to pass a string variable by reference (see
 the STRING command's ADDRESS option).
- 
- 
- 
+
+
+@ENDNODE
+@NODE variable-sized-arrays "Variable-Sized Arrays"
+Variable-Sized Arrays
+---------------------
+In addition to constant dimensions, DIM supports variable expressions as
+array sizes. When any dimension is a variable or expression, the array is
+automatically heap-allocated at runtime (via ALLOC) instead of using static
+BSS storage. The memory is freed at program exit like all ALLOC'd memory.
+
+	n% = 100
+	DIM SHORTINT data(n%)
+
+	rows% = 10
+	cols% = 20
+	DIM grid(rows%, cols%)
+
+	DIM names$(count%) SIZE 40
+
+Variable-sized arrays can also be used inside SUBs:
+
+	SUB ProcessItems(SHORTINT cnt%)
+	  DIM LONGINT items&(cnt%)
+	  ...
+	END SUB
+
+Note: Variable-sized arrays are not supported at module level (OPTION m+).
+The SIZE option for string element length must still be a constant.
+
+
+
 These variable parameter mechanisms are most useful when used to pass data 
 *between* subprograms, otherwise it is simpler to use SHARED variables.
    

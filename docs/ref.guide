@@ -60,7 +60,7 @@
 @ENDNODE
 @NODE "Introduction" "Introduction"
 +------------+
-		  		 | ACE v3.0.0 |
+		  		 | ACE v3.0.1 |
 				 +------------+
 
 		       +--------------------------------+
@@ -791,8 +791,15 @@ DIM		- syntax:
 		- Up to 255 dimensions can be specified with up to
 		  32767 elements per dimension. On a 3 Mb machine, around
 		  11 dimensions is the practical limit.
-		- Each dimension must be specified as a short integer constant 
-		  (literal or defined). 
+		- Each dimension may be a short integer constant (literal or
+		  defined) or a variable/expression. When any dimension is a
+		  variable or expression, the array is heap-allocated at
+		  runtime via ALLOC (and freed automatically at program exit).
+		  Variable-sized arrays are not supported at module level.
+		  Examples:
+			DIM arr(n%)
+			DIM grid(rows%, cols%)
+			DIM names$(count%) SIZE 40
 		- The SIZE option is for the specification of string element
 		  length other than the default MAXSTRINGLEN value.
 		- The ADDRESS option allows you to specify some arbitrarily 
