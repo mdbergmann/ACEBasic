@@ -2,7 +2,7 @@
 
 ACE is a complete BASIC compiler for the Amiga computer platform. It compiles BASIC source code into native Amiga executables by generating Motorola 68000/68020 assembly code, bridging BASIC's ease of use with compiled performance.
 
-Originally released under the GNU General Public License (GPL v2) in 1998. Current version: **3.0**
+Originally released under the GNU General Public License (GPL v2) in 1998. Current version: **3.0.1**
 
 ## Quick Example
 
@@ -508,5 +508,6 @@ The v3 fork adds significant new features and modernizes the toolchain. The move
 - **v2.8** - YAP preprocessor, INVOKABLE keyword, REM #using directive, installer, major compiler refactoring
 - **v2.9** - Struct enhancements (typed arrays, nested access, typed pointers, self-referential structs), 12 new string functions, P96/RTG screens (mode 13), tail-call optimization, buffered file I/O, HTTP/HTTPS client submodule, DP-float submodule, SagaSound submodule, turtle graphics submodule, codegen abstraction
 - **v3.0** - VBCC toolchain migration (replacing GCC/ADE), IEEE 754 single-precision floats (replacing Motorola FFP), object system (CLASS/METHOD/GENERIC with dynamic dispatch and inheritance), ATOM primitive type, EXIT WHILE/EXIT REPEAT, FREE statement, SUB tracing (-t flag, TRON/TROFF), CyberGfx screen support (mode 13), IFF picture submodule, FAD (Files And Directories) submodule, hashmap submodule, runtime library optimizations
+- **v3.0.1** - Variable-sized arrays (`DIM arr(n)` with runtime dimensions), 68000 compiler target (ACE now runs on any Amiga), dual 68020/68000 runtime libraries with auto-selection via `OPTION 2-`, YAP macro limit raised to 2048, SuperOptimizer v2.28, math libraries always opened at startup (fixes crashes when modules use float/trig)
 
 See `CHANGELOG.txt` for full details. For the original 1998 release notes, see `docs/HISTORY-1998-Release.txt`.
