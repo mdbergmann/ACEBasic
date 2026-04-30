@@ -1,6 +1,51 @@
                                   CHANGELOG
                                   =========
 
+v3.0.1 (2026-04-30)
+-------------------
+
+New Features:
+
+  - Variable-Sized Arrays (#119): DIM arr(n) now accepts variables and
+    expressions for array dimensions, not just compile-time constants.
+    Variable-dimension arrays are heap-allocated at runtime via ALLOC
+    with a header storing dimension sizes for multi-dimensional indexing.
+    Constant-sized arrays remain BSS-allocated as before.
+
+Changes:
+
+  - 68000 Compiler Target: ACE compiler is now built for 68000, allowing
+    it to run on any Amiga (previously required 68020).
+
+  - Dual Runtime Libraries: Runtime libs ship as both 68020 (default,
+    in lib/) and 68000 (in lib/68000/, requires vc.lib). The bas script
+    auto-detects OPTION 2- in source and links the matching variant.
+
+  - 68000 Builds of Tools: yap and parseusing now compiled with
+    OPTION 2- for 68000 compatibility. Added 68000 version of vlink.
+
+  - YAP Macro Limit Increased: Raised maximum macro count to 2048.
+
+  - SuperOptimizer v2.28: Updated SuperOptimizer with new documentation
+    (SuperOptimizer guide).
+
+Bug Fixes:
+
+  - Math Libraries Always Opened at Startup: Fixed crash when an
+    EXTERNAL module used float or trig operations that the main program
+    did not reference. The compiler previously only opened
+    mathieeesingbas / mathtrans when the main program XREF'd those
+    library bases, but module XREFs are resolved at link time. Both
+    libraries are now opened unconditionally during startup.
+
+Documentation:
+
+  - Variable-sized arrays documented in ref.txt, ace.txt, and
+    quickref.txt.
+  - New SuperOptimizer guide.
+
+------------------------------------------------------------------------------
+
 v3.0.0 (2026-03-02)
 -------------------
 
