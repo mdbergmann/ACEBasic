@@ -273,7 +273,7 @@ Use descriptive names without spaces: `float_add.b`, not `float add.b`
 ## Technologies
 
 - **Languages**: C (K&R style) and Motorola 68000/68020 assembly
-- **Target Platform**: AmigaOS 2.x, 3.x (68020+)
+- **Target Platform**: AmigaOS 2.x, 3.x (68000+)
 - **Build System**: GNU Make 3.80+ with VBCC toolchain
 - **C Compiler**: VBCC (vc)
 - **Assembler**: vasm (vasmm68k_mot)
